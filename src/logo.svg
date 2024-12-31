@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50">
+  <defs>
+    <g id="diamond-table">
+      <path stroke="#f9f9f9" stroke-width="1" fill="#cfd8dc" d="M 0,6 l 12,21 30,-6 -12,-21 z" />
+      <path fill="#7986cb" d="M 0,6 l 4,7 30,-6 -4,-7 z" />
+      <path fill="#cfd8dc" d="M 4,13 l 4,7 30,-6 -4,-7 z" />
+      <path fill="#eceff1" d="M 8,20 l 4,7 30,-6 -4,-7 z" />
+      <path stroke="#f9f9f9" stroke-width="0.5" d="M 10,4 l 12,21 M 20,2 l 12,21" />
+    </g>
+  </defs>
+  <use href="#diamond-table" transform="translate(1,22)"/>
+  <use href="#diamond-table" transform="translate(4,11)"/>
+  <use href="#diamond-table" transform="translate(7,0)"/>
+</svg>
