@@ -57,10 +57,6 @@ export const reduceSelectAction = (currentStatus: SelectState, action: SelectAct
     }
 
     if (action.type === "relation") {
-        if (currentStatus.relationId === action.relationId) {
-            return EMPTY_SELECT_STATE;
-        }
-
         return {
             tableIds: EMPTY_TABLE_IDS,
             relationId: action.relationId

@@ -104,8 +104,9 @@ const ErdCanvas = () => {
         }
 
         // line が選択中の場合
-        if (selectState.relationId && (selectState.edgeId != null)) {
+        if (selectState.relationId) {
             // TODO
+            return;
         }
 
         // テーブルが選択中ではない場合は、ドラッグ開始位置がテーブル上ではないことを確認する
@@ -152,7 +153,17 @@ const ErdCanvas = () => {
         }
 
         if (selectState.relationId && (selectState.edgeId != null)) {
-            // TODO
+            if ((!selectState.edgeType) || (selectState.edgeId == null)) {
+                return;
+            }
+
+            const updating = {
+                edgeType: selectState.edgeType,
+                edgeId: selectState.edgeId,
+                point: mousePosition
+            };
+
+            documentsHolder.updateRelationEdge(selectState.relationId, updating);
             return;
         }
 
@@ -250,11 +261,9 @@ const ErdCanvas = () => {
                 <ActiveDraggingArea editMode={editMode} dragState={dragState} selectState={selectState} />
             </div>
 
-            <ErdRelationPathView
-                relationViews={erdDocument.getRelationViewModels()}
-                rectangleMap={rectangleMap}
-                onEditAction={setEditAction}
-                ref={relationRef} />
+            <ErdRelationPathView ref={relationRef}
+                relationViews={erdDocument.getRelationViewModels()} rectangleMap={rectangleMap}
+                onEditAction={setEditAction} onDragAction={dispatchDragAction} />
 
             {(editAction.editType === "table") && (
                 <TableEditView isOpen={editAction.editType === "table"}

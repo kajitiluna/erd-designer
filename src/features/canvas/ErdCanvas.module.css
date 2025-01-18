@@ -2,6 +2,22 @@
     filter: drop-shadow(0 0 5px rgba(73, 76, 218, 1)) drop-shadow(0 0 5px rgba(73, 76, 218, 1)) drop-shadow(0 0 5px rgba(73, 76, 218, 1));
 }
 
+.selectableSvg {
+    &:hover {
+        filter: drop-shadow(0 0 5px rgba(73, 76, 218, 1)) drop-shadow(0 0 5px rgba(73, 76, 218, 1)) drop-shadow(0 0 5px rgba(73, 76, 218, 1));
+    }
+}
+
+.deactiveSvg {
+    &:hover {
+        filter: drop-shadow(0 0 5px rgba(218, 76, 73, 1)) drop-shadow(0 0 5px rgba(218, 76, 73, 1))
+    }
+}
+
+.inactiveDraggedSvg {
+    filter: drop-shadow(0 0 5px rgba(218, 76, 73, 1)) drop-shadow(0 0 5px rgba(218, 76, 73, 1))
+}
+
 .selectedBox {
     filter: drop-shadow(0 0 7px rgba(73, 76, 218, 1));
 }

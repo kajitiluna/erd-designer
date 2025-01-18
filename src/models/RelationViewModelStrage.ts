@@ -74,13 +74,18 @@ export default class RelationViewModelStrage {
     }
 
     public updateLineViewModel(relationId: string, nextLineViewModel: LineViewModel): RelationViewModelStrage {
-        const currentViewModel = this.relationIdMap.get(relationId);
-        if (currentViewModel == null) {
+        const current = this.relationIdMap.get(relationId);
+        if (current == null) {
+            return this;
+        }
+
+        if (current.lineViewModel.isEquals(nextLineViewModel)) {
             return this;
         }
 
         const nextViewModel = new RelationViewModel({
-            relationModel: currentViewModel.relationModel, lineViewModel: nextLineViewModel
+            relationModel: current.relationModel,
+            lineViewModel: nextLineViewModel
         });
 
         return this.update(nextViewModel);
