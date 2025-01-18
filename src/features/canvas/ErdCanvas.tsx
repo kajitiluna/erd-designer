@@ -1,4 +1,4 @@
-import React, { MouseEvent, useEffect, useLayoutEffect, useState } from "react";
+import React, { JSX, MouseEvent, useEffect, useLayoutEffect, useState } from "react";
 import { Box } from "@mui/material";
 
 import DisplayScaleContext from "~/context/DisplayScaleContext";
@@ -7,9 +7,12 @@ import EditModeContext from "~/context/EditModeContext";
 import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { RELEASE_ACTION, SelectEntityContext, SelectState } from "~/context/SelectEntityContext";
 import EditAction from "~/features/canvas/EditAction";
-import ErdRelationPath from "~/features/canvas/ErdRelationPath";
+import ErdRelationPathView, { ErdRelationTooltipRef } from "~/features/canvas/ErdRelationPathView";
 import ErdTableView, { ERD_TABLE_VIEW_CLASS_NAME } from "~/features/canvas/ErdTableView";
-import { CARDINALITY_MARKER, withMultiSelectKey } from "~/features/canvas/support";
+import {
+    CANVAS_AREA, CARDINALITY_MARKER, DRAWABLE_AREA,
+    getLogicalMousePosition, withMultiSelectKey
+} from "~/features/canvas/support";
 import RelationEditView from "~/features/editor/RelationEditView";
 import TableEditView from "~/features/editor/TableEditView";
 import TableModel from "~/models/database/TableModel";
@@ -17,11 +20,6 @@ import EditMode, { EditModeType } from "~/models/EditMode";
 import ErdSettingModel from "~/models/ErdSettingModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import TableViewModel from "~/models/TableViewModel";
-
-const CANVAS_AREA = { width: 5000, height: 5000 } as const;
-// 描画領域は CANVAS_AREA を下に、最大拡大率を表示しうるサイズにする
-// eslint-disable-next-line react-refresh/only-export-components
-export const DRAWABLE_AREA = { width: CANVAS_AREA.width * 2, height: CANVAS_AREA.height * 2 } as const;
 
 const ErdCanvas = () => {
     const erdCanvasRef = React.useRef<HTMLDivElement>(null);
@@ -32,10 +30,12 @@ const ErdCanvas = () => {
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const displayScale = React.useContext(DisplayScaleContext);
 
-    // 画面に表示しているテーブルの位置情報を保持する
-    const tableViewsRef = React.useRef<ErdTableRectangleInfo>({ updateCount: 0, rectangleMap: new Map() });
+    // Canvas に描画されている短形の情報を保持する
+    const [rectangleMap, setRectangleMap] = useState<Map<string, RectangleViewModel>>(new Map());
+    // 画面に表示している Relation に関する svg 要素への参照を保持する
+    const relationRef = React.useRef<ErdRelationTooltipRef>(null);
     // リレーション等の線情報を保持する
-    const [lineViews, setLineViews] = useState<JSX.Element[]>([]);
+    const [svgPaths, setSvgPaths] = useState<JSX.Element[]>([]);
     // 編集中の対象
     const [editAction, setEditAction] = useState<EditAction>(NO_EDIT_ACTION);
     // リレーション作成にて親テーブルが指定されているときに、論理的なマウス位置を保持する
@@ -43,13 +43,13 @@ const ErdCanvas = () => {
 
     const erdDocument = documentsHolder.current();
 
-    // リレーション作成にて、親テーブル指定後、子テーブルを指定する際に動的に表示するライン
-    const activeLine = initCreatingRelationLine({ editMode, relationEdge, selectState: selectState, tableViewsRef });
-
     const tableViews = erdDocument.getTableViewModels().map((tableView) => (
         <ErdTableView key={`erd-table-view_${tableView.tableId}`}
             tableViewModel={tableView} onEditAction={setEditAction} />
     ));
+
+    // リレーション作成にて、親テーブル指定後、子テーブルを指定する際に動的に表示するライン
+    const activeLine = initCreatingRelationLine({ editMode, relationEdge, selectState: selectState, rectangleMap });
 
     // キャンバスがクリックされた時の制御を定義
     const handleClickOnCanvas = (event: MouseEvent) => {
@@ -87,7 +87,7 @@ const ErdCanvas = () => {
         // 既にテーブルが選択されている場合は、該当テーブルにてドラッグ開始されたか確認する
         if (selectState.tableIds.size > 0) {
             for (const tableId of selectState.tableIds) {
-                const rectangle = tableViewsRef.current.rectangleMap.get(tableId);
+                const rectangle = rectangleMap.get(tableId);
                 if (rectangle == null) {
                     continue;
                 }
@@ -109,7 +109,7 @@ const ErdCanvas = () => {
         }
 
         // テーブルが選択中ではない場合は、ドラッグ開始位置がテーブル上ではないことを確認する
-        for (const rectangle of tableViewsRef.current.rectangleMap.values()) {
+        for (const rectangle of rectangleMap.values()) {
             if (rectangle.contains(mousePosition)) {
                 return;
             }
@@ -158,7 +158,7 @@ const ErdCanvas = () => {
 
         // 短形選択モードの場合
         const draggedArea = RectangleViewModel.createFromPoints(dragState.start, mousePosition);
-        const selectedTableIds = Array.from(tableViewsRef.current.rectangleMap.entries())
+        const selectedTableIds = Array.from(rectangleMap.entries())
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             .filter(([_tableId, rectangle]) => draggedArea.contains(rectangle))
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -170,7 +170,7 @@ const ErdCanvas = () => {
 
     const handleCloseEditDialog = () => setEditAction(NO_EDIT_ACTION);
 
-    // Canvas 描画領域の初期化、および View 更新を監視して描画領域に反映する
+    // Canvas に描画されている短形の情報を取得
     useLayoutEffect(() => {
         const erdCanvas = erdCanvasRef.current;
         if (!erdCanvas) {
@@ -179,27 +179,18 @@ const ErdCanvas = () => {
 
         // Canvas 描画領域の初期化
         const rectangleMap = initTableRectangleMap(erdCanvas, displayScale);
-        tableViewsRef.current = { updateCount: 0, rectangleMap: rectangleMap };
-
-        // Canvas 描画領域の変更を監視
-        const callback = initCallbackMutationErdTableView(tableViewsRef, displayScale);
-        const observer = new MutationObserver(callback);
-        observer.observe(erdCanvas, { childList: true, attributes: true, subtree: true });
-
-        return () => observer.disconnect();
+        setRectangleMap(rectangleMap);
     }, [displayScale, dragState.status, erdDocument.erdSettingModel.displayStyle]);
 
-    // リレーションの線情報を更新
+    // // リレーションの線情報を更新
     useLayoutEffect(() => {
-        const relationLines = erdDocument.getRelationViewModels().map(relationView => (
-            <ErdRelationPath key={`line_${relationView.relationId}`}
-                relationView={relationView}
-                rectangleMap={tableViewsRef.current.rectangleMap}
-                onEditAction={setEditAction} />
-        ));
+        if (relationRef.current == null) {
+            return;
+        }
 
-        setLineViews(relationLines);
-    }, [tableViewsRef.current.updateCount, erdDocument]);
+        const svgElements = relationRef.current.svgElements();
+        setSvgPaths(svgElements);
+    }, [selectState, dragState, rectangleMap, erdDocument]);
 
     // マウスカーソルのアイコン設定
     useLayoutEffect(() => {
@@ -250,7 +241,7 @@ const ErdCanvas = () => {
                     width: `${DRAWABLE_AREA.width}px`, height: `${DRAWABLE_AREA.height}px`
                 }}>
                     {initRelationCardinalityDefinitions()}
-                    {lineViews}
+                    {svgPaths}
                     {activeLine}
                 </svg>
 
@@ -258,6 +249,13 @@ const ErdCanvas = () => {
 
                 <ActiveDraggingArea editMode={editMode} dragState={dragState} selectState={selectState} />
             </div>
+
+            <ErdRelationPathView
+                relationViews={erdDocument.getRelationViewModels()}
+                rectangleMap={rectangleMap}
+                onEditAction={setEditAction}
+                ref={relationRef} />
+
             {(editAction.editType === "table") && (
                 <TableEditView isOpen={editAction.editType === "table"}
                     tableViewModel={editAction.tableViewModel}
@@ -274,18 +272,14 @@ const ErdCanvas = () => {
     );
 };
 
-type ErdTableRectangleInfo = {
-    updateCount: number, rectangleMap: Map<string, RectangleViewModel>
-};
-
 type CreateRelationLineArgs = {
     editMode: EditMode,
     relationEdge: Point | null,
     selectState: SelectState,
-    tableViewsRef: { current: ErdTableRectangleInfo }
+    rectangleMap: Map<string, RectangleViewModel>
 };
 
-const initCreatingRelationLine = ({ editMode, relationEdge, selectState, tableViewsRef }: CreateRelationLineArgs) => {
+const initCreatingRelationLine = ({ editMode, relationEdge, selectState, rectangleMap }: CreateRelationLineArgs) => {
     if (editMode !== EditModeType.CREATE_RELATION) {
         return (<></>);
     }
@@ -295,7 +289,7 @@ const initCreatingRelationLine = ({ editMode, relationEdge, selectState, tableVi
     }
 
     const parentTableId = selectState.tableIds.values().next().value as string;
-    const parentTable = tableViewsRef.current.rectangleMap.get(parentTableId);
+    const parentTable = rectangleMap.get(parentTableId);
     if (parentTable == null) {
         return (<></>);
     }
@@ -379,29 +373,6 @@ const initRelationCardinalityDefinitions = () => {
     );
 };
 
-/**
- * displayScale の表示拡大率を無視した、論理的な点座標を取得する。
- * なお、論理的な点座標とは、キャンバス中央を (0, 0) とした座標を指す。
- * 
- * @param event マウスイベント
- * @param displayScale 表示拡大率
- * @returns 
- */
-const getLogicalMousePosition = (event: MouseEvent, displayScale: number): Point => {
-    const logicalPosition = {
-        x: (event.clientX + window.scrollX - DRAWABLE_AREA.width / 2) / displayScale,
-        y: (event.clientY + window.scrollY - DRAWABLE_AREA.height / 2) / displayScale
-    };
-
-    const validatedX = Math.min(Math.max(CANVAS_AREA.width * (-1) / 2, logicalPosition.x), CANVAS_AREA.width / 2);
-    const validatedY = Math.min(Math.max(CANVAS_AREA.height * (-1) / 2, logicalPosition.y), CANVAS_AREA.height / 2);
-
-    return {
-        x: Math.floor(validatedX * 100) / 100,
-        y: Math.floor(validatedY * 100) / 100
-    };
-};
-
 const createNewTable = (erdSetting: ErdSettingModel, position: Point) => {
     return new TableViewModel({
         tableModel: new TableModel({}),
@@ -445,77 +416,6 @@ const initRectangleWithoutScale = (rectangle: DOMRect, displayScale: number) => 
         width: rectangle.width / displayScale,
         height: rectangle.height / displayScale
     });
-};
-
-const initCallbackMutationErdTableView = (
-    tableViewsRef: { current: ErdTableRectangleInfo }, displayScale: number
-) => {
-    return (mutations: MutationRecord[]) => {
-        const rectangleMap = tableViewsRef.current.rectangleMap;
-        const nextMap = initNextRectangleMap(mutations, rectangleMap, displayScale);
-        if (nextMap == null) {
-            return;
-        }
-
-        tableViewsRef.current = { updateCount: tableViewsRef.current.updateCount + 1, rectangleMap: nextMap };
-    }
-};
-
-const initNextRectangleMap = (
-    mutations: MutationRecord[], rectangleMap: Map<string, RectangleViewModel>, displayScale: number
-) => {
-    let isChanged = false;
-    const nextMap = new Map(rectangleMap);
-
-    mutations.forEach((mutation) => {
-        if (mutation.type === "characterData") {
-            return;
-        }
-
-        mutation.removedNodes.forEach(node => {
-            const baseElement = node as Element;
-            const tableViewElements = baseElement.getElementsByClassName(ERD_TABLE_VIEW_CLASS_NAME);
-
-            if ((tableViewElements == null) || (tableViewElements.length === 0)) {
-                return;
-            }
-
-            for (const element of tableViewElements) {
-                if (nextMap.has(element.id) === false) {
-                    continue;
-                }
-
-                nextMap.delete(element.id);
-                isChanged = true;
-            }
-        });
-
-        const element = mutation.target as Element;
-        if (element.className === ERD_TABLE_VIEW_CLASS_NAME) {
-            const rectangle = element.getBoundingClientRect();
-            nextMap.set(element.id, initRectangleWithoutScale(rectangle, displayScale));
-
-            isChanged = true;
-        }
-
-        mutation.addedNodes.forEach(node => {
-            const baseElement = node as Element;
-            const tableViewElements = baseElement.getElementsByClassName(ERD_TABLE_VIEW_CLASS_NAME);
-
-            if ((tableViewElements == null) || (tableViewElements.length === 0)) {
-                return;
-            }
-
-            for (const element of tableViewElements) {
-                const rectangle = element.getBoundingClientRect()
-                nextMap.set(element.id, initRectangleWithoutScale(rectangle, displayScale));
-
-                isChanged = true;
-            }
-        });
-    });
-
-    return isChanged ? nextMap : null;
 };
 
 const initEffectOfMouseCorsorOnCanvas = (editMode: EditMode, erdCanvas: HTMLDivElement) => {
