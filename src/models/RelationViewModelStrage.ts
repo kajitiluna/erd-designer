@@ -63,7 +63,7 @@ export default class RelationViewModelStrage {
         return this.update(nextViewModel);
     }
 
-    public deleteRelationViewModel(relationId: string): RelationViewModelStrage {
+    public deleteRelation(relationId: string): RelationViewModelStrage {
         const nextRelationIdMap = new Map(this.relationIdMap);
         const deleted = nextRelationIdMap.delete(relationId);
         if (deleted === false) {

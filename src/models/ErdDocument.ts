@@ -298,7 +298,7 @@ export default class ErdDocument {
                     tableViewModels: updating.tableViewModels,
                     columnModels: updating.columnModels,
                     relationRepository: updating.relationRepository
-                        .deleteRelationViewModel(previousViewModel.relationId)
+                        .deleteRelation(previousViewModel.relationId)
                 };
             }
 
@@ -463,8 +463,12 @@ export default class ErdDocument {
         );
     }
 
-    // TODO 確認
-    public deleteRelationViewModel(relationId: string): ErdDocument {
+    public deleteRelation(relationId: string): ErdDocument {
+        const next = this.relationViewModelStrage.deleteRelation(relationId);
+        if (next === this.relationViewModelStrage) {
+            return this;
+        }
+
         return new ErdDocument(
             this.documentName,
             this.erdSettingModel,
@@ -472,7 +476,7 @@ export default class ErdDocument {
             this.tableViewModelMap,
             this.columnModelMap,
             this.columnShareModelStrage,
-            this.relationViewModelStrage.deleteRelationViewModel(relationId),
+            next,
             this.memoViewModelStrage,
             this.databaseSettingModel
         );

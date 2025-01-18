@@ -9,7 +9,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import TableViewModel from "~/models/TableViewModel";
 import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
-import { handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
+import { DRAWABLE_AREA, handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
 import ColorSelector from "~/components/ColorSelector";
 import ColorValue from "~/models/ColorValue";
 import ErdDocument from "~/models/ErdDocument";
@@ -24,7 +24,6 @@ import EditAction from "~/features/canvas/EditAction";
 import RelationModel from "~/models/database/RelationModel";
 import RelationViewModel from "~/models/RelationViewModel";
 import LineViewModel from "~/models/LineViewModel";
-import { DRAWABLE_AREA } from "~/features/canvas/ErdCanvas";
 
 import styleClasses from "./ErdCanvas.module.css";
 import { DragActionContext } from "~/context/DragActionContext";

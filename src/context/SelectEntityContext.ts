@@ -74,7 +74,9 @@ export const reduceSelectAction = (currentStatus: SelectState, action: SelectAct
 
         return {
             tableIds: EMPTY_TABLE_IDS,
-            relationId: action.relationId
+            relationId: action.relationId,
+            edgeType: action.lineType,
+            edgeId: action.edgeId
         };
     }
 

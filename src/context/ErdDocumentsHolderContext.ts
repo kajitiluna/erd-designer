@@ -85,7 +85,7 @@ export class ErdDocumentsHolder {
      * 
      * @param tableId 削除対象の tableId
      */
-    public deleteTable(tableId: string): void {
+    public deleteTable(tableId: string) {
         const previous: ErdDocument = this.current();
         const next: ErdDocument = previous.deleteTable(tableId);
         if (previous === next) {
@@ -129,9 +129,29 @@ export class ErdDocumentsHolder {
         this.doUpdate(next);
     }
 
+    /**
+     * 指定されたリレーションを更新する。
+     * 
+     * @param updatingModel 更新対象のリレーション
+     */
     public updateRelationModel(updatingModel: RelationModel) {
         const previous: ErdDocument = this.current();
         const next = previous.updateRelationModel(updatingModel);
+        if (previous === next) {
+            return;
+        }
+
+        this.doUpdate(next);
+    }
+
+    /**
+     * 指定されたリレーションを削除する。
+     * 
+     * @param relationId 削除対象のリレーションID
+     */
+    public deleteRelation(relationId: string) {
+        const previous: ErdDocument = this.current();
+        const next = previous.deleteRelation(relationId);
         if (previous === next) {
             return;
         }
