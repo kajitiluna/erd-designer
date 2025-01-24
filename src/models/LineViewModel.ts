@@ -4,10 +4,9 @@ import { PropertyNotExistsError } from "~/models/exceptions";
 type Point = { x: number, y: number };
 
 type MarkerDraggingType = {
-    index: number,
-    markerType: "real" | "virtual",
-    point: Point,
-    inDragging: boolean
+    edgeType: "real" | "virtual",
+    edgeId: number,
+    point: Point
 };
 
 type LineViewModelOptions = {
@@ -22,23 +21,23 @@ export default class LineViewModel {
 
     constructor({ strokeWidth = 1, edges = [] }: LineViewModelOptions) {
         this.strokeWidth = (strokeWidth > 0) ? strokeWidth : 1;
-        this.edges = [...edges];
+        this.edges = [...edges] as const;
     }
 
     public updateEdge(marker: MarkerDraggingType): LineViewModel {
-        if (marker.markerType === "virtual") {
+        if (marker.edgeType === "virtual") {
             const nextEdges = [...this.edges];
-            nextEdges.splice(marker.index, 0, marker.point);
+            nextEdges.splice(marker.edgeId, 0, marker.point);
 
             return new LineViewModel({ strokeWidth: this.strokeWidth, edges: nextEdges });
         }
 
-        if ((marker.index < 0) || (marker.index >= this.edges.length)) {
+        if ((marker.edgeId < 0) || (marker.edgeId >= this.edges.length)) {
             return this;
         }
 
         const nextEdges = [...this.edges];
-        nextEdges[marker.index] = marker.point;
+        nextEdges[marker.edgeId] = marker.point;
 
         return new LineViewModel({ strokeWidth: this.strokeWidth, edges: nextEdges });
     }
@@ -54,31 +53,23 @@ export default class LineViewModel {
         return new LineViewModel({ strokeWidth: this.strokeWidth, edges: nextEdges });
     }
 
-    public svgPath(startEdge: Point, endEdge: Point, markerDragging: MarkerDraggingType | null): string {
-        if ((markerDragging == null) || (markerDragging.inDragging === false)) {
-            const path = this.edges.map(edge => ` L ${edge.x},${edge.y}`).join("");
-            return `M ${startEdge.x},${startEdge.y}${path} L ${endEdge.x},${endEdge.y}`
+    public isEquals(other: LineViewModel): boolean {
+        if (this === other) {
+            return true;
         }
 
-        const subPathes = [];
-        for (let index = 0; index < this.edges.length; index++) {
-            const currentEdge = this.edges[index];
-            if (index !== markerDragging.index) {
-                subPathes.push(` L ${currentEdge.x},${currentEdge.y}`);
-                continue;
-            }
-
-            subPathes.push(` L ${markerDragging.point.x},${markerDragging.point.y}`);
-            if (markerDragging.markerType === "virtual") {
-                subPathes.push(` L ${currentEdge.x},${currentEdge.y}`);
-            }
+        if (this.strokeWidth !== other.strokeWidth) {
+            return false;
         }
 
-        if ((markerDragging.index === this.edges.length) && (markerDragging.markerType === "virtual")) {
-            subPathes.push(` L ${markerDragging.point.x},${markerDragging.point.y}`);
+        if (this.edges.length !== other.edges.length) {
+            return false;
         }
 
-        return `M ${startEdge.x},${startEdge.y}${subPathes.join("")} L ${endEdge.x},${endEdge.y}`;
+        return this.edges.every((edge, index) => {
+            const otherEdge = other.edges[index];
+            return (edge.x === otherEdge.x) && (edge.y === otherEdge.y);
+        });
     }
 
     public toJSON(): Record<string, unknown> {

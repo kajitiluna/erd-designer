@@ -12,14 +12,14 @@ import LineViewModel from "~/models/LineViewModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
 import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
-import styleClasses from "./ErdCanvas.module.css";
 import EditModeContext from "~/context/EditModeContext";
 import { EditModeType } from "~/models/EditMode";
-import { DragActionContext } from "~/context/DragActionContext";
+import { DragAction, DragActionContext } from "~/context/DragActionContext";
 import EditAction from "~/features/canvas/EditAction";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import DisplayScaleContext from "~/context/DisplayScaleContext";
 import ErdDocument from "~/models/ErdDocument";
+import styleClasses from "./ErdCanvas.module.css";
 
 export type ErdRelationTooltipRef = {
     svgElements: () => JSX.Element[]
@@ -29,10 +29,11 @@ type ErdRelationPathViewProps = {
     relationViews: RelationViewModel[],
     rectangleMap: Map<string, RectangleViewModel>
     onEditAction: (editAction: EditAction) => void,
+    onDragAction: (dragAction: DragAction) => void,
     ref: React.Ref<ErdRelationTooltipRef>
 };
 
-const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, ref }: ErdRelationPathViewProps) => {
+const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDragAction, ref }: ErdRelationPathViewProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
@@ -41,19 +42,7 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, ref }:
 
     const [clickedPosition, setClickedPosition] = React.useState<{ x: number, y: number }>({ x: 0, y: 0 });
     const [deletingRelation, setDeletingRelation] = React.useState<RelationViewModel | null>(null);
-
-    const handleClickLine = (event: MouseEvent, relationView: RelationViewModel) => {
-        if (editMode !== EditModeType.SELECT) {
-            return
-        }
-
-        event.stopPropagation();
-
-        const mousePosition = getLogicalMousePosition(event, displayScale);
-
-        dispatchSelectAction({ type: "relation", relationId: relationView.relationId });
-        setClickedPosition(mousePosition);
-    };
+    const [lineDragging, setLineDragging] = React.useState<LineDragging>({ on_dragging: false });
 
     const handleOpenEditDialog = (event: MouseEvent, relationView: RelationViewModel) => {
         if (editMode !== EditModeType.SELECT) {
@@ -87,36 +76,21 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, ref }:
         dispatchSelectAction(RELEASE_ACTION);
     };
 
-    const handleDeleteRelation = (event: MouseEvent, relationView: RelationViewModel) => {
-        event.stopPropagation();
+    const initLineSegumentInfo = (relationView: RelationViewModel) => {
 
-        documentsHolder.deleteRelation(relationView.relationId);
-        setDeletingRelation(null);
-    };
+        const findTableRectangle = (tableId: string) => {
+            const rectangle = rectangleMap.get(tableId);
+            if (rectangle == null) {
+                return null;
+            }
 
-    const handleCloseDeleteDialog = (event: MouseEvent) => {
-        event.stopPropagation();
-        setDeletingRelation(null);
-    };
+            if ((dragState.status !== "on_dragging") || !selectState.tableIds.has(tableId)) {
+                return rectangle;
+            }
 
-    const findTableRectangle = (tableId: string) => {
-        const rectangle = rectangleMap.get(tableId);
-        if (rectangle == null) {
-            return null;
-        }
+            return rectangle.move(dragState.delta());
+        };
 
-        if (dragState.status !== "on_dragging") {
-            return rectangle;
-        }
-
-        if (!selectState.tableIds.has(tableId)) {
-            return rectangle;
-        }
-
-        return rectangle.move(dragState.delta());
-    };
-
-    const elements = relationViews.map(relationView => {
         const relationModel: RelationModel = relationView.relationModel;
 
         const parentTable = findTableRectangle(relationModel.parentTableModelId);
@@ -127,22 +101,268 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, ref }:
 
         const lineModel: LineViewModel = relationView.lineViewModel;
         const edges = lineModel.edges;
-        // TODO 未決定 edge をドラッグ中の場合のパターン制御
-        const dualPoints = (edges.length === 0)
-            ? { parentDual: childTable.center, childDual: parentTable.center }
-            : { parentDual: edges[0], childDual: edges[edges.length - 1] };
+
+        const initDualPoints = () => {
+            const baseDualPoints = (edges.length === 0)
+                ? { parentDual: childTable.center, childDual: parentTable.center }
+                : { parentDual: edges[0], childDual: edges[edges.length - 1] };
+
+            // 親テーブルもしくは子テーブルに最も近い Edge をドラッグ操作中ではない場合
+            if ((selectState.relationId !== relationView.relationId)
+                || (dragState.status !== "on_dragging") || (selectState.edgeId !== 0)
+                || ((selectState.edgeType === "real") && (selectState.edgeId !== edges.length - 1))
+                || ((selectState.edgeType === "virtual") && (selectState.edgeId !== edges.length))) {
+
+                return baseDualPoints;
+            }
+
+            const parentDual = (selectState.edgeId === 0) ? dragState.current : baseDualPoints.parentDual;
+            const childDual = ((selectState.edgeType === "real") && (selectState.edgeId === edges.length - 1))
+                || ((selectState.edgeType === "virtual") && (selectState.edgeId === edges.length))
+                ? dragState.current : baseDualPoints.childDual;
+
+            return { parentDual, childDual };
+        };
+
+        const dualPoints = initDualPoints();
 
         const parentEdge = calculateRectangleEdge(parentTable, dualPoints.parentDual);
         const childEdge = calculateRectangleEdge(childTable, dualPoints.childDual);
 
+        const relationEdges = [parentEdge, ...edges, childEdge];
+        const relationLinePairs = relationEdges.slice(0, -1).map((value, index) => [value, relationEdges[index + 1]]);
+
+        const relationLineSeguments = relationLinePairs.map((pair, index) => {
+            const baseSvgPath: JSX.Element = initBaseSvgPath(relationView, index, pair);
+            const drawingLine: string = initDrawingLine(relationView, index, pair);
+
+            return { baseSvgPath, drawingLine };
+        });
+
+        const svgBasePaths = relationLineSeguments.map(lineSegument => lineSegument.baseSvgPath);
+        const svgEdges = initSvgEdges(relationView);
+        const svgRemoveEdgePath = initSvgRemoveEdgePath(relationView, relationLinePairs);
+
+        const drawingPath = `M ${parentEdge.x + DRAWABLE_AREA.width / 2},${parentEdge.y + DRAWABLE_AREA.height / 2}`
+            + relationLineSeguments.map(lineSegument => lineSegument.drawingLine).join(" ");
+
+        return { svgPaths: [...svgBasePaths, ...svgEdges, svgRemoveEdgePath], drawingPath };
+    };
+
+    // 操作対象の元となる線分を作成する
+    const initBaseSvgPath = (relationView: RelationViewModel, index: number, pair: Point[]) => {
+        if (editMode !== EditModeType.SELECT) {
+            return (<></>);
+        }
+
+        const handleClickLine = (event: MouseEvent) => {
+            if (editMode !== EditModeType.SELECT) {
+                return
+            }
+
+            event.stopPropagation();
+
+            const mousePosition = getLogicalMousePosition(event, displayScale);
+
+            dispatchSelectAction({ type: "relation", relationId: relationView.relationId });
+            setClickedPosition(mousePosition);
+        };
+
+        const handleDragStart = (event: MouseEvent) => {
+            event.stopPropagation();
+
+            if (selectState.relationId !== relationView.relationId) {
+                return;
+            }
+
+            const mousePosition = getLogicalMousePosition(event, displayScale);
+
+            dispatchSelectAction({
+                type: "edge",
+                relationId: relationView.relationId,
+                lineType: "virtual",
+                edgeId: index
+            });
+            onDragAction({ type: "start_dragging", start: mousePosition });
+        };
+
+        const initActiveDragModification = (majorChanging: boolean) => {
+            return (event: MouseEvent) => {
+                if (dragState.status === "none") {
+                    return;
+                }
+
+                event.stopPropagation();
+
+                if ((selectState.relationId !== relationView.relationId)
+                    || (selectState.edgeType === "real") || (selectState.edgeId !== index)) {
+                    return;
+                }
+
+                setLineDragging({ on_dragging: true, majorChanging });
+            };
+        };
+
+        const handleDragEnd = (event: MouseEvent) => {
+            event.stopPropagation();
+
+            setLineDragging({ on_dragging: false });
+            onDragAction({ type: "clear" });
+        };
+
+        const line = `M ${pair[0].x + DRAWABLE_AREA.width / 2},${pair[0].y + DRAWABLE_AREA.height / 2}`
+            + ` L ${pair[1].x + DRAWABLE_AREA.width / 2},${pair[1].y + DRAWABLE_AREA.height / 2}`;
+
+        return (
+            <path key={`relation-line_${relationView.relationId}_path-${index}`}
+                d={line} stroke="transparent" strokeWidth={15} fill="none" style={{ cursor: 'pointer' }}
+                onMouseDown={handleDragStart} onMouseUp={handleDragEnd}
+                onMouseEnter={initActiveDragModification(false)} onMouseLeave={initActiveDragModification(true)}
+                onClick={handleClickLine} onDoubleClick={event => handleOpenEditDialog(event, relationView)} />
+        );
+    };
+
+    // ドラッグ中の状態を考慮したうえで、線分を描画する
+    const initDrawingLine = (relationView: RelationViewModel, index: number, pair: Point[]) => {
+        if ((selectState.relationId !== relationView.relationId)
+            || (selectState.edgeId !== index) || (dragState.status !== "on_dragging")) {
+
+            return `L ${pair[1].x + DRAWABLE_AREA.width / 2},${pair[1].y + DRAWABLE_AREA.height / 2}`;
+        }
+
+        if (selectState.edgeType === "real") {
+            return `L ${dragState.current.x + DRAWABLE_AREA.width / 2},${dragState.current.y + DRAWABLE_AREA.height / 2}`;
+        }
+
+        // Edge 変更が有効な場所に移っていない場合は、元の線分を描画する
+        if (!lineDragging.on_dragging || !lineDragging.majorChanging) {
+            return `L ${pair[1].x + DRAWABLE_AREA.width / 2},${pair[1].y + DRAWABLE_AREA.height / 2}`;
+        }
+
+        return `L ${dragState.current.x + DRAWABLE_AREA.width / 2},${dragState.current.y + DRAWABLE_AREA.height / 2}`
+            + ` L ${pair[1].x + DRAWABLE_AREA.width / 2},${pair[1].y + DRAWABLE_AREA.height / 2}`;
+    };
+
+    // ドラッグ可能な Edge を描画する
+    const initSvgEdges = (relationView: RelationViewModel) => {
+        const edges = relationView.lineViewModel.edges;
+
+        if ((selectState.relationId !== relationView.relationId) || (edges.length === 0)) {
+            return [];
+        }
+
+        const initHandleDragStart = (index: number) => {
+            return (event: MouseEvent) => {
+                event.stopPropagation();
+
+                if (selectState.relationId !== relationView.relationId) {
+                    return;
+                }
+
+                const mousePosition = getLogicalMousePosition(event, displayScale);
+
+                dispatchSelectAction({
+                    type: "edge",
+                    relationId: relationView.relationId,
+                    lineType: "real",
+                    edgeId: index
+                });
+                onDragAction({ type: "start_dragging", start: mousePosition });
+            };
+        };
+
+        return edges.map((edge, index) => {
+            const onDragging = (dragState.status === "on_dragging")
+                && (selectState.edgeType === "real") && (selectState.edgeId === index);
+            const currentEdge = onDragging ? dragState.current : edge;
+
+            return (
+                <rect key={`relation-line_${relationView.relationId}_edge-${index}`}
+                    x={currentEdge.x - 5 + DRAWABLE_AREA.width / 2} y={currentEdge.y - 5 + DRAWABLE_AREA.height / 2}
+                    width="10" height="10" fill={onDragging ? "black" : "white"} stroke="black"
+                    className={initPathCss(relationView, onDragging) + " " + styleClasses.selectableSvg}
+                    style={{ cursor: 'pointer' }}
+                    onMouseDown={initHandleDragStart(index)} />
+            )
+        });
+    };
+
+    // Edge を削除する制御
+    const initSvgRemoveEdgePath = (relationView: RelationViewModel, relationLinePairs: Point[][]) => {
+        if ((dragState.status !== "on_dragging")
+            || (selectState.relationId !== relationView.relationId) || (relationLinePairs.length <= 1)
+            || (selectState.edgeType !== "real") || (selectState.edgeId == null)) {
+            return (<></>);
+        }
+
+        const parentEdge = relationLinePairs[selectState.edgeId][0];
+        const childEdge = relationLinePairs[selectState.edgeId + 1][1];
+
+        const deactiveLine = `M ${parentEdge.x + DRAWABLE_AREA.width / 2},${parentEdge.y + DRAWABLE_AREA.height / 2}`
+            + ` L ${childEdge.x + DRAWABLE_AREA.width / 2},${childEdge.y + DRAWABLE_AREA.height / 2}`;
+
+        const initActiveDragModification = (majorChanging: boolean) => {
+            return (event: MouseEvent) => {
+                event.stopPropagation();
+
+                if (selectState.edgeId == null) {
+                    return;
+                }
+
+                setLineDragging({ on_dragging: true, majorChanging });
+            };
+        };
+
+        const handleDragEnd = (event: MouseEvent) => {
+            event.stopPropagation();
+
+            if ((lineDragging.on_dragging == false) || (lineDragging.majorChanging == true)
+                || (selectState.edgeId == null) || (selectState.edgeType !== "real")) {
+                return;
+            }
+
+            documentsHolder.deleteRelationEdge(relationView.relationId, selectState.edgeId);
+
+            setLineDragging({ on_dragging: false });
+            onDragAction({ type: "clear" });
+        };
+
+        return (
+            <path key={`relation-line_${relationView.relationId}_deactive-line`}
+                d={deactiveLine} stroke="transparent" strokeWidth={15} fill="none"
+                className={styleClasses.inactiveDraggedSvg}
+                onMouseEnter={initActiveDragModification(false)} onMouseLeave={initActiveDragModification(true)}
+                onMouseUp={handleDragEnd} />
+        );
+    };
+
+    const initPathCss = (relationView: RelationViewModel, selected: boolean) => {
+        if (!selected) {
+            return "";
+        }
+
+        if (lineDragging.on_dragging && (selectState.relationId === relationView.relationId)
+            && !lineDragging.majorChanging) {
+            return styleClasses.inactiveDraggedSvg;
+        }
+
+        return styleClasses.selectedSvg;
+    };
+
+    const elements = relationViews.map(relationView => {
+        const lineSegument = initLineSegumentInfo(relationView);
+        if (lineSegument == null) {
+            return null;
+        }
+
+        const relationModel: RelationModel = relationView.relationModel;
         const parentMarker = toMarkerId(relationModel.parentCardinality);
         const childMarker = toMarkerId(relationModel.childCardinality);
-
-        const svgPath = calcSvgPath(parentEdge, edges, childEdge);
-
         const selected = (selectState.relationId === relationView.relationId);
 
-        const tooltip = (!selected || (editMode !== EditModeType.SELECT)) ? null : (
+        const tooltip = (
+            !selected || (editMode !== EditModeType.SELECT) || (selectState.edgeId != null)
+        ) ? null : (
             <ButtonGroup variant="contained" size="small" sx={{
                 position: "absolute",
                 left: clickedPosition.x + 15 + DRAWABLE_AREA.width / 2,
@@ -165,38 +385,16 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, ref }:
         return {
             svgElement: (
                 <g key={`relation-line_${relationView.relationId}`}>
-                    {(editMode === EditModeType.SELECT) && (
-                        <path d={svgPath} stroke="transparent"
-                            strokeWidth={15} fill="none" style={{ cursor: 'pointer' }}
-                            onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}
-                            onClick={event => handleClickLine(event, relationView)}
-                            onDoubleClick={event => handleOpenEditDialog(event, relationView)} />
-                    )}
-                    <path d={svgPath} stroke="black" strokeWidth={lineModel.strokeWidth} fill="none"
+                    <path d={lineSegument.drawingPath} stroke="black" fill="none"
+                        strokeWidth={relationView.lineViewModel.strokeWidth}
                         markerStart={parentMarker} markerEnd={childMarker}
-                        className={selected ? styleClasses.selectedSvg : ""} />
+                        className={initPathCss(relationView, selected)} />
+                    {lineSegument.svgPaths}
                 </g>
             ),
             tooltip: tooltip
         };
     }).filter(element => element != null);
-
-    const tooltip = elements.find(element => element.tooltip != null)?.tooltip;
-    const deletingDialog = (deletingRelation == null) ? null : (
-        <Dialog open={deletingRelation != null} onClose={handleCloseDeleteDialog}>
-            <DialogTitle>Delete relation?</DialogTitle>
-            <DialogContent>
-                <DialogContentText>
-                    Are you sure to delete the relation {"'"}{deletingRelation.relationModel.relationName}{"'"} ?
-                </DialogContentText>
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={handleCloseDeleteDialog}>Cancel</Button>
-                <Button variant="contained" color="error"
-                    onClick={event => handleDeleteRelation(event, deletingRelation)}>Delete</Button>
-            </DialogActions>
-        </Dialog>
-    );
 
     useImperativeHandle(ref, () => {
         return {
@@ -204,13 +402,44 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, ref }:
         };
     }, [elements]);
 
+    const handleDeleteRelation = (event: MouseEvent, relationView: RelationViewModel) => {
+        event.stopPropagation();
+
+        documentsHolder.deleteRelation(relationView.relationId);
+        setDeletingRelation(null);
+    };
+
+    const handleCloseDeleteDialog = (event: MouseEvent) => {
+        event.stopPropagation();
+        setDeletingRelation(null);
+    };
+
     return (
         <>
-            {tooltip}
-            {deletingDialog}
+            {elements.find(element => element.tooltip != null)?.tooltip}
+            {(deletingRelation == null) ? null : (
+                <Dialog open={deletingRelation != null} onClose={handleCloseDeleteDialog}>
+                    <DialogTitle>Delete relation?</DialogTitle>
+                    <DialogContent>
+                        <DialogContentText>
+                            Are you sure to delete the relation {"'"}{deletingRelation.relationModel.relationName}{"'"} ?
+                        </DialogContentText>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={handleCloseDeleteDialog}>Cancel</Button>
+                        <Button variant="contained" color="error"
+                            onClick={event => handleDeleteRelation(event, deletingRelation)}>Delete</Button>
+                    </DialogActions>
+                </Dialog>
+            )}
         </>
     );
 };
+
+type LineDragging = {
+    on_dragging: true,
+    majorChanging: boolean
+} | { on_dragging: false };
 
 type Point = { x: number, y: number };
 
@@ -247,17 +476,6 @@ const calculateRectangleEdge = (rectangle: RectangleViewModel, dualPoint: Point)
 
     const candidateY = ((dualPoint.x - center.x) * slopeOfEdges > 0) ? rectangle.bottom : rectangle.top;
     return { x: calculateXPoint(candidateY), y: candidateY };
-};
-
-const calcSvgPath = (parentEdge: Point, edges: Point[], childEdge: Point) => {
-    const gapX = DRAWABLE_AREA.width / 2;
-    const gapY = DRAWABLE_AREA.height / 2;
-
-    const startPath = `M ${parentEdge.x + gapX},${parentEdge.y + gapY}`;
-    const path = edges.map(edge => ` L ${edge.x + gapX},${edge.y + gapY}`).join("");
-    const endPath = ` L ${childEdge.x + gapX},${childEdge.y + gapY}`;
-
-    return `${startPath}${path}${endPath}`
 };
 
 export default ErdRelationPathView;

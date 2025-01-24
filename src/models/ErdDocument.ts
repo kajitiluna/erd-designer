@@ -389,7 +389,6 @@ export default class ErdDocument {
         );
     }
 
-    // TODO 確認
     public updateRelationModel(updatingModel: RelationModel): ErdDocument {
         const tempChildTableViewModel = this.tableViewModelMap.get(updatingModel.childTableModelId);
         if (tempChildTableViewModel == null) {
@@ -482,8 +481,12 @@ export default class ErdDocument {
         );
     }
 
-    // TODO 確認
     public updateRelationLineModel(relationId: string, updatingModel: LineViewModel): ErdDocument {
+        const nextRelationStrage = this.relationViewModelStrage.updateLineViewModel(relationId, updatingModel);
+        if (this.relationViewModelStrage === nextRelationStrage) {
+            return this;
+        }
+
         return new ErdDocument(
             this.documentName,
             this.erdSettingModel,
@@ -491,7 +494,7 @@ export default class ErdDocument {
             this.tableViewModelMap,
             this.columnModelMap,
             this.columnShareModelStrage,
-            this.relationViewModelStrage.updateLineViewModel(relationId, updatingModel),
+            nextRelationStrage,
             this.memoViewModelStrage,
             this.databaseSettingModel
         );
