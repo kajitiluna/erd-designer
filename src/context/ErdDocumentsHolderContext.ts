@@ -5,6 +5,7 @@ import ColumnModel from "~/models/database/ColumnModel";
 import RelationModel from "~/models/database/RelationModel";
 import ErdDocument from "~/models/ErdDocument";
 import ErdSettingModel from "~/models/ErdSettingModel";
+import LineViewModel from "~/models/LineViewModel";
 import TableViewModel from "~/models/TableViewModel";
 
 export class ErdDocumentsHolder {
@@ -160,6 +161,47 @@ export class ErdDocumentsHolder {
     }
 
     /**
+     * リレーションの線分情報を更新する。
+     * 
+     * @param relationId リレーションID
+     * @param updating 更新内容
+     */
+    public updateRelationEdge(relationId: string, updating: UpdateRelationEdgeArgs) {
+        this.doUpdateRelationEdge(relationId, (previous) => previous.updateEdge(updating))
+    }
+
+    /**
+     * リレーションの Edge を削除する。
+     * 
+     * @param relationId リレーションID
+     * @param edgeId 削除対象の Edge
+     */
+    public deleteRelationEdge(relationId: string, edgeId: number) {
+        this.doUpdateRelationEdge(relationId, (previous) => previous.deleteEdge(edgeId));
+    }
+
+    private doUpdateRelationEdge(relationId: string, updateFunction: (previous: LineViewModel) => LineViewModel) {
+        const previous: ErdDocument = this.current();
+        const previousRelation = previous.findRelataionViewModel(relationId);
+        if (previousRelation == null) {
+            return;
+        }
+
+        const previousLineView = previousRelation.lineViewModel;
+        const nextLineView = updateFunction(previousLineView);
+        if (previousLineView === nextLineView) {
+            return;
+        }
+
+        const next = previous.updateRelationLineModel(relationId, nextLineView);
+        if (previous === next) {
+            return;
+        }
+
+        this.doUpdate(next);
+    }
+
+    /**
      * ErdSetting を更新する。
      * 
      * @param updating 更新後の内容
@@ -174,5 +216,11 @@ export class ErdDocumentsHolder {
         this.doUpdate(next);
     }
 }
+
+type UpdateRelationEdgeArgs = {
+    edgeType: "real" | "virtual",
+    edgeId: number,
+    point: { x: number, y: number }
+};
 
 export const ErdDocumentsHolderContext = React.createContext<ErdDocumentsHolder>({} as ErdDocumentsHolder);

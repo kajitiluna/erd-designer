@@ -35,7 +35,6 @@ export const reduceDragAction = (currentStatus: DragState, action: DragAction): 
         }
 
         return new OnDraggingState(action.start, action.start);
-        //{ status: "on_dragging", start: action.start, current: action.start };
     }
 
     if (action.type === "on_dragging") {
@@ -44,7 +43,6 @@ export const reduceDragAction = (currentStatus: DragState, action: DragAction): 
         }
 
         return new OnDraggingState(currentStatus.start, action.current);
-        // { status: "on_dragging", start: currentStatus.start, current: action.current };
     }
 
     if (action.type === "clear") {
