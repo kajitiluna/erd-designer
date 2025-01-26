@@ -1,4 +1,4 @@
-import React, { MouseEvent, useState } from "react";
+import React, { MouseEvent, useEffect, useState } from "react";
 import {
     Box, Button, ButtonGroup, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
     FormControl, IconButton, MenuItem, Select, SelectChangeEvent, Stack, ToggleButton, Tooltip
@@ -16,33 +16,42 @@ import FormatAlignRightIcon from "@mui/icons-material/FormatAlignRight";
 
 import EditModeContext from "~/context/EditModeContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
-import { DRAWABLE_AREA, handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
+import {
+    DRAWABLE_AREA, getLogicalMousePosition,
+    handlePreventMouseEvent, withMultiSelectKey
+} from "~/features/canvas/support";
 import MemoViewModel, { AlignType } from "~/models/MemoViewModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import { EditModeType } from "~/models/EditMode";
 import { SelectEntityContext } from "~/context/SelectEntityContext";
-import { DragActionContext } from "~/context/DragActionContext";
-
-import styleClasses from "./ErdCanvas.module.css";
+import { DragAction, DragActionContext } from "~/context/DragActionContext";
 import ColorValue from "~/models/ColorValue";
 import ColorSelector from "~/components/ColorSelector";
+import DisplayScaleContext from "~/context/DisplayScaleContext";
+
+import styleClasses from "./ErdCanvas.module.css";
 
 export const ERD_MEMO_VIEW_CLASS_NAME = "erdMemoView";
 
 type StickyNoteViewProps = {
-    memoViewModel: MemoViewModel
+    memoViewModel: MemoViewModel,
+    onDragAction: (dragAction: DragAction) => void,
 };
 
-const StickyMemoView = ({ memoViewModel }: StickyNoteViewProps) => {
+const StickyMemoView = ({ memoViewModel, onDragAction }: StickyNoteViewProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
+    const displayScale = React.useContext(DisplayScaleContext);
 
-    const [memo, setMemo] = useState(memoViewModel.memo);
-    const [isTextEdit, setTextEdit] = useState(false);
+    const textAreaRef = React.useRef<HTMLTextAreaElement>(null);
+    const [memo, setMemo] = useState<string>(memoViewModel.memo);
+    const [isTextEdit, setTextEdit] = useState<boolean>(false);
+    const [mouseCursorStyle, setMouseCursorStyle] = useState<string>("pointer");
+    const [resizingDirection, setResizingDirection] = useState<ResizingDirection>(ResizingDirection.NO_RESIZING);
 
-    const rectangle: RectangleViewModel = memoViewModel.rectangleViewModel;
+    const selected = selectState.memoIds.has(memoViewModel.memoId);
 
     const handleClick = (event: MouseEvent) => {
         if (editMode !== EditModeType.SELECT) {
@@ -63,8 +72,60 @@ const StickyMemoView = ({ memoViewModel }: StickyNoteViewProps) => {
         setTextEdit(true);
     };
 
+    const handleDragStart = (event: MouseEvent) => {
+        if ((editMode !== EditModeType.SELECT) || !selected) {
+            return;
+        }
+
+        if (selectState.tableIds.size > 0) {
+            setMouseCursorStyle("pointer");
+            return;
+        }
+
+        const mousePosition = getLogicalMousePosition(event, displayScale);
+        const direction = getResizingDirection(memoViewModel.rectangleViewModel, mousePosition);
+
+        setResizingDirection(direction);
+    };
+
+    const handleMouseMove = (event: MouseEvent) => {
+        if ((editMode !== EditModeType.SELECT) || (dragState.status === "on_dragging")) {
+            return;
+        }
+
+        const selected = selectState.memoIds.has(memoViewModel.memoId);
+        if (!selected) {
+            return;
+        }
+
+        const mousePosition = getLogicalMousePosition(event, displayScale);
+        const direction = getResizingDirection(memoViewModel.rectangleViewModel, mousePosition);
+        const nextStyle = initMouseCursorStyle(direction);
+        setMouseCursorStyle(nextStyle);
+    };
+
+    const handleDragEnd = (event: MouseEvent) => {
+        if ((dragState.status !== "on_dragging") || !selected || !resizingDirection.isResizing()) {
+            return;
+        }
+
+        event.stopPropagation();
+
+        const rectangle = initCurrentRectangle(memoViewModel.rectangleViewModel, dragState.delta(), resizingDirection);
+        const nextMemo = memoViewModel.updateRectangle(rectangle)
+        documentsHolder.updateMemo(nextMemo);
+
+        setTextEdit(false);
+        setResizingDirection(ResizingDirection.NO_RESIZING);
+        setMouseCursorStyle("pointer");
+
+        onDragAction({ type: "clear" });
+    };
+
     const handleFocusOut = () => {
         setTextEdit(false);
+        setResizingDirection(ResizingDirection.NO_RESIZING);
+        setMouseCursorStyle("pointer");
 
         const nextMemo = memoViewModel.updateMemo(memo);
         if (memoViewModel === nextMemo) {
@@ -74,39 +135,77 @@ const StickyMemoView = ({ memoViewModel }: StickyNoteViewProps) => {
         documentsHolder.updateMemo(nextMemo);
     };
 
-    const selected = selectState.memoIds.has(memoViewModel.memoId);
-    const moving = (selected && (dragState.status === "on_dragging")) ? dragState.delta() : { x: 0, y: 0 }
+    const moving = (selected && (dragState.status === "on_dragging") && !resizingDirection.isResizing())
+        ? dragState.delta() : { x: 0, y: 0 }
 
-    const textAreaElement = isTextEdit ? (
-        <textarea style={{
-            width: "100%", height: "100%",
-            color: memoViewModel.foregroundColor.toHex(),
-            fontSize: `${memoViewModel.fontSize / 10}em`, lineHeight: "1.0",
-            border: "none", background: "transparent", resize: "none", fontFamily: "inherit",
-            overflow: "hidden", outline: "none", WebkitAppearance: "none"
-        }} value={memo}
-            onChange={(event) => setMemo(event.target.value)} />
-    ) : (
-        <Box sx={{
+    const rectangle = (((dragState.status !== "on_dragging") || !selected || !resizingDirection.isResizing()))
+        ? memoViewModel.rectangleViewModel
+        : initCurrentRectangle(memoViewModel.rectangleViewModel, dragState.delta(), resizingDirection);
+
+    const initTextAreaElement = () => {
+        if (isTextEdit) {
+            const textAreaStyle: React.CSSProperties = {
+                width: `${rectangle.width - STICKY_PADDING * 2}px`,
+                height: `${rectangle.height - STICKY_PADDING * 2}px`,
+                color: memoViewModel.foregroundColor.toHex(),
+                fontSize: `${memoViewModel.fontSize / 10}em`, lineHeight: "1.0",
+                border: "none", background: "transparent", resize: "none", fontFamily: "inherit",
+                textAlign: memoViewModel.horizontalAlign,
+                // verticalAlign: (memoViewModel.verticalAlign === "start") ? "top" :
+                //     ((memoViewModel.verticalAlign === "end") ? "bottom" : "center"),
+                overflow: "hidden", outline: "none", WebkitAppearance: "none",
+                margin: `${STICKY_PADDING}px`
+            };
+
+            return (
+                <textarea ref={textAreaRef}
+                    style={textAreaStyle} value={memo}
+                    onChange={(event) => setMemo(event.target.value)} />
+            );
+        }
+
+        const memoLines = memo.split("\n");
+        const baseStyle = {
             width: "100%", height: "100%",
             color: memoViewModel.foregroundColor.toHex(),
             fontSize: `${memoViewModel.fontSize / 10}em`, lineHeight: "1.0",
             border: "none", background: "transparent", resize: "none", fontFamily: "inherit",
             display: "flex", flexDirection: "column",
             justifyContent: memoViewModel.verticalAlign,
-            overflow: "hidden",
+            overflow: "hidden", cursor: mouseCursorStyle,
             userSelect: "none"
-        }} onClick={handleClick} onDoubleClick={handleDoubleClickPanel}>
-            {memo.split("\n").map((line, index) => (
-                <span key={`memo-text_${memoViewModel.memoId}-${index}`}
-                    style={{
-                        textAlign: memoViewModel.horizontalAlign,
-                    }}>
-                    {line}<br />
-                </span>
-            ))}
-        </Box>
-    );
+        };
+
+        const initTextStyle = (index: number) => {
+            return {
+                textAlign: memoViewModel.horizontalAlign,
+                marginLeft: `${STICKY_PADDING}px`,
+                marginRight: `${STICKY_PADDING}px`,
+                marginTop: (index === 0) ? `${STICKY_PADDING}px` : "0px",
+                marginBottom: (index === memoLines.length - 1) ? `${STICKY_PADDING}px` : "0px"
+            };
+        };
+
+        return (
+            <Box sx={baseStyle}
+                onClick={handleClick} onDoubleClick={handleDoubleClickPanel}
+                onMouseDown={handleDragStart} onMouseMove={handleMouseMove} onMouseUp={handleDragEnd} >
+                {memoLines.map((line, index) => (
+                    <span key={`memo-text_${memoViewModel.memoId}-${index}`}
+                        style={initTextStyle(index)}>
+                        {line}<br />
+                    </span>
+                ))}
+            </Box>
+        );
+    };
+
+    // メモを編集可能にした際に、必ず textarea にフォーカスを当てる
+    useEffect(() => {
+        if (isTextEdit) {
+            textAreaRef.current?.focus();
+        }
+    }, [isTextEdit]);
 
     return (
         <Box style={{
@@ -119,15 +218,14 @@ const StickyMemoView = ({ memoViewModel }: StickyNoteViewProps) => {
             msOverflowStyle: "none", scrollbarWidth: "none"
         }} className={selected ? styleClasses.selectedBox : ""}>
             <Box id={memoViewModel.memoId} sx={{
-                width: `${rectangle.width - STICKY_PADDING * 2}px`,
-                height: `${rectangle.height - STICKY_PADDING * 2}px`,
+                width: `${rectangle.width}px`,
+                height: `${rectangle.height}px`,
                 backgroundColor: memoViewModel.backgroundColor.toHex(),
                 boxShadow: "0px 0px 7px 0px #bebebe",
                 // "&::-webkit-scrollbar": { display: "none" },
                 msOverflowStyle: "none", scrollbarWidth: "none"
-            }} style={{ padding: `${STICKY_PADDING}px` }}
-                className={ERD_MEMO_VIEW_CLASS_NAME} onBlur={handleFocusOut}>
-                {textAreaElement}
+            }} className={ERD_MEMO_VIEW_CLASS_NAME} onBlur={handleFocusOut}>
+                {initTextAreaElement()}
             </Box>
             {selected && (!isTextEdit) && (dragState.status !== "on_dragging")
                 && <StickyControlPane memoViewModel={memoViewModel} />}
@@ -136,6 +234,100 @@ const StickyMemoView = ({ memoViewModel }: StickyNoteViewProps) => {
 };
 
 const STICKY_PADDING = 10;
+
+class ResizingDirection {
+
+    static readonly NO_RESIZING: ResizingDirection = new ResizingDirection("none", "none");
+
+    private static readonly MAPPING = ResizingDirection.initMapping();
+
+    private constructor(
+        public readonly horizontal: "none" | "left" | "right",
+        public readonly vertical: "none" | "top" | "bottom"
+    ) {
+        // do nothing
+    }
+
+    private static initMapping(): Map<string, ResizingDirection> {
+        return new Map([
+            ["none:none", ResizingDirection.NO_RESIZING],
+            ["none:top", new ResizingDirection("none", "top")],
+            ["none:bottom", new ResizingDirection("none", "bottom")],
+            ["left:none", new ResizingDirection("left", "none")],
+            ["left:top", new ResizingDirection("left", "top")],
+            ["left:bottom", new ResizingDirection("left", "bottom")],
+            ["right:none", new ResizingDirection("right", "none")],
+            ["right:top", new ResizingDirection("right", "top")],
+            ["right:bottom", new ResizingDirection("right", "bottom")]
+        ]);
+    }
+
+    static getInstance(
+        horizontal: "none" | "left" | "right",
+        vertical: "none" | "top" | "bottom"
+    ): ResizingDirection {
+        return ResizingDirection.MAPPING.get(`${horizontal}:${vertical}`)
+            || ResizingDirection.NO_RESIZING;
+    }
+
+    isResizing(): boolean {
+        return (this.horizontal !== "none") || (this.vertical !== "none");
+    }
+}
+
+const getResizingDirection = (rectangle: RectangleViewModel, mousePosition: { x: number, y: number }): ResizingDirection => {
+    let horizontal: "none" | "left" | "right" = "none";
+    if ((rectangle.left <= mousePosition.x) && (mousePosition.x <= rectangle.left + 10)) {
+        horizontal = "left";
+    } else if ((rectangle.right - 10 <= mousePosition.x) && (mousePosition.x <= rectangle.right)) {
+        horizontal = "right";
+    }
+
+    let vertical: "none" | "top" | "bottom" = "none";
+    if ((rectangle.top <= mousePosition.y) && (mousePosition.y <= rectangle.top + 10)) {
+        vertical = "top";
+    } else if ((rectangle.bottom - 10 <= mousePosition.y) && (mousePosition.y <= rectangle.bottom)) {
+        vertical = "bottom";
+    }
+
+    return ResizingDirection.getInstance(horizontal, vertical);
+};
+
+const initMouseCursorStyle = (direction: ResizingDirection) => {
+    if (direction === ResizingDirection.NO_RESIZING) {
+        return "pointer";
+    }
+
+    const horizontalPrefix = (direction.horizontal === "left") ? "w" : ((direction.horizontal === "right") ? "e" : "");
+    const verticalPrefix = (direction.vertical === "top") ? "n" : ((direction.vertical === "bottom") ? "s" : "");
+
+    return `${verticalPrefix}${horizontalPrefix}-resize`;
+};
+
+const initCurrentRectangle = (
+    base: RectangleViewModel, delta: { x: number, y: number }, direction: ResizingDirection
+) => {
+    let left = base.left;
+    let right = base.right;
+    let top = base.top;
+    let bottom = base.bottom;
+
+    // 横幅および縦幅が 100 未満になる場合は、幅を 100 にする
+    if (direction.horizontal === "left") {
+        left = (base.width - delta.x < 100) ? base.right - 100 : base.left + delta.x;
+    }
+    if (direction.horizontal === "right") {
+        right = (base.width + delta.x < 100) ? base.left + 100 : base.right + delta.x;
+    }
+    if (direction.vertical === "top") {
+        top = (base.height - delta.y < 100) ? base.bottom - 100 : base.top + delta.y;
+    }
+    if (direction.vertical === "bottom") {
+        bottom = (base.height + delta.y < 100) ? base.top + 100 : base.bottom + delta.y;
+    }
+
+    return RectangleViewModel.createFromEdges({ left, top, right, bottom });
+};
 
 type StickyControlPaneProps = {
     memoViewModel: MemoViewModel
@@ -249,7 +441,7 @@ const StickyControlPane = ({ memoViewModel }: StickyControlPaneProps) => {
 
     return (
         <>
-            <Stack direction="column" justifyContent="flex-start"
+            <Stack direction="column" justifyContent="flex-start" sx={{ marginTop: "10px" }}
                 onClick={handlePreventMouseEvent} onMouseDown={handlePreventMouseEvent}>
                 <Stack direction="row" justifyContent="flex-end">
                     <ColorSelector key={`memo-color-selector_${memoViewModel.memoId}`}

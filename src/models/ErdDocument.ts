@@ -111,12 +111,10 @@ export default class ErdDocument {
         return this.columnShareModelStrage.find(columnShareModelId);
     }
 
-    // TODO 確認
     public getColumnShareModelStrage(): ColumnShareModelStrage {
         return this.columnShareModelStrage.copy();
     }
 
-    // TODO 確認
     public findRelataionViewModel(relationId: string): RelationViewModel | null {
         return this.relationViewModelStrage.findByRelationId(relationId);
     }
@@ -605,7 +603,12 @@ export default class ErdDocument {
         return this.doUpdateMemoViewModel(() => this.memoViewModelStrage.addMemo(addingMemo));
     }
 
-    // TODO 確認
+    /**
+     * メモを更新する。
+     * 
+     * @param updatingMemo 更新対象のメモ
+     * @returns 操作後のモデル
+     */
     public updateMemo(updatingMemo: MemoViewModel): ErdDocument {
         return this.doUpdateMemoViewModel(() => this.memoViewModelStrage.updateMemo(updatingMemo));
     }

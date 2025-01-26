@@ -57,7 +57,8 @@ const ErdCanvas = () => {
 
     const { frontMemos, backMemos } = erdDocument.getMemoViewModels();
     const toMemoView = (memo: MemoViewModel) => (
-        <StickyMemoView key={`sticky-note_${memo.memoId}`} memoViewModel={memo} />
+        <StickyMemoView key={`sticky-note_${memo.memoId}`}
+            memoViewModel={memo} onDragAction={dispatchDragAction} />
     );
     const frontMemoViews = frontMemos.map(toMemoView);
     const backMemoViews = backMemos.map(toMemoView);

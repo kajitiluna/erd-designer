@@ -64,7 +64,7 @@ export default class MemoViewModel {
         return new MemoViewModel({ ...this, memo: nextMemo });
     }
 
-    public updateRectangleView(nextRectangle: RectangleViewModel): MemoViewModel {
+    public updateRectangle(nextRectangle: RectangleViewModel): MemoViewModel {
         if (nextRectangle.isEqual(this.rectangleViewModel)) {
             return this;
         }
