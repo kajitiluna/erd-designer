@@ -24,9 +24,9 @@ import EditAction from "~/features/canvas/EditAction";
 import RelationModel from "~/models/database/RelationModel";
 import RelationViewModel from "~/models/RelationViewModel";
 import LineViewModel from "~/models/LineViewModel";
+import { DragActionContext } from "~/context/DragActionContext";
 
 import styleClasses from "./ErdCanvas.module.css";
-import { DragActionContext } from "~/context/DragActionContext";
 
 export const ERD_TABLE_VIEW_CLASS_NAME = "erdTableView";
 
@@ -47,7 +47,7 @@ const ErdTableView = ({ tableViewModel, onEditAction }: ErdTableViewProps) => {
 
     const tableModel = tableViewModel.tableModel;
 
-    const handleClickAction = (event: MouseEvent) => {
+    const handleClick = (event: MouseEvent) => {
         if (editMode === EditModeType.SELECT) {
             event.stopPropagation();
 
@@ -164,7 +164,7 @@ const ErdTableView = ({ tableViewModel, onEditAction }: ErdTableViewProps) => {
     return (
         <Box sx={tableStyle}>
             <Box id={tableViewModel.tableId} tabIndex={0} sx={boundStyle} style={{ cursor: 'pointer' }}
-                onClick={handleClickAction} onDoubleClick={handleOpenEditDialog}
+                onClick={handleClick} onDoubleClick={handleOpenEditDialog}
                 className={selected ? `${ERD_TABLE_VIEW_CLASS_NAME} ${styleClasses.selectedBox}` : ERD_TABLE_VIEW_CLASS_NAME}>
                 <DescriptionTooltip title={tableModel.description} placement="top-end">
                     <Box sx={headerStyle}>{tableModel.displayName(erdDocument.getDisplayStyle())}</Box>

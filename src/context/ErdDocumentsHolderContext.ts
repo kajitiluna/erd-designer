@@ -6,6 +6,7 @@ import RelationModel from "~/models/database/RelationModel";
 import ErdDocument from "~/models/ErdDocument";
 import ErdSettingModel from "~/models/ErdSettingModel";
 import LineViewModel from "~/models/LineViewModel";
+import MemoViewModel from "~/models/MemoViewModel";
 import TableViewModel from "~/models/TableViewModel";
 
 export class ErdDocumentsHolder {
@@ -97,23 +98,6 @@ export class ErdDocumentsHolder {
     }
 
     /**
-     * 指定されたテーブルの位置を移動させたモデルを作成する。
-     * 
-     * @param tableIds 移動対象のテーブルのID一覧
-     * @param moving 移動距離
-     * @returns 操作後のモデル
-     */
-    public moveTableView(tableIds: string[], moving: { x: number, y: number }) {
-        const previous: ErdDocument = this.current();
-        const next: ErdDocument = previous.moveTableView(tableIds, moving);
-        if (previous === next) {
-            return;
-        }
-
-        this.doUpdate(next);
-    }
-
-    /**
      * 指定されたテーブルの配色を変更する。
      * 
      * @param tableIds 変更対象のテーブルID一覧
@@ -194,6 +178,86 @@ export class ErdDocumentsHolder {
         }
 
         const next = previous.updateRelationLineModel(relationId, nextLineView);
+        if (previous === next) {
+            return;
+        }
+
+        this.doUpdate(next);
+    }
+
+    /**
+     * メモを追加する。
+     * 
+     * @param adding 追加するメモ
+     */
+    public addMemo(adding: MemoViewModel) {
+        const previous: ErdDocument = this.current();
+        const next = previous.addMemo(adding);
+        if (previous === next) {
+            return;
+        }
+
+        this.doUpdate(next);
+    }
+
+    /**
+     * メモを更新する。
+     * 
+     * @param updating 更新内容
+     */
+    public updateMemo(updating: MemoViewModel) {
+        const previous: ErdDocument = this.current();
+        const next = previous.updateMemo(updating);
+        if (previous === next) {
+            return;
+        }
+
+        this.doUpdate(next);
+    }
+
+    /**
+     * メモを削除する。
+     * 
+     * @param memoId 削除対象のメモID
+     */
+    public deleteMemo(memoId: string) {
+        const previous: ErdDocument = this.current();
+        const next: ErdDocument = previous.deleteMemo(memoId);
+        if (previous === next) {
+            return;
+        }
+
+        this.doUpdate(next);
+    }
+
+    /**
+     * 指定されたテーブルの位置を移動させたモデルを作成する。
+     * 
+     * @param tableIds 移動対象のテーブルのID一覧
+     * @param moving 移動距離
+     * @returns 操作後のモデル
+     */
+    public moveRectangle(tableIds: Set<string>, memoIds: Set<string>, moving: { x: number, y: number }) {
+        const previous: ErdDocument = this.current();
+        const next: ErdDocument = previous.moveTableView([...tableIds], moving)
+            .moveMemoView([...memoIds], moving);
+
+        if (previous === next) {
+            return;
+        }
+
+        this.doUpdate(next);
+    }
+
+    /**
+     * メモの配置場所を変更する。
+     * 
+     * @param memoId メモID
+     * @param direction 変更方向
+     */
+    public arrangeMemo(memoId: string, direction: "front" | "back") {
+        const previous: ErdDocument = this.current();
+        const next: ErdDocument = previous.arrangeMemo(memoId, direction);
         if (previous === next) {
             return;
         }

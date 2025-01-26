@@ -141,12 +141,6 @@ export default class RectangleViewModel {
         if (!("height" in obj)) {
             throw new PropertyNotExistsError("height", obj);
         }
-        if (!("foregroundColor" in obj)) {
-            throw new PropertyNotExistsError("foregroundColor", obj);
-        }
-        if (!("backgroundColor" in obj)) {
-            throw new PropertyNotExistsError("backgroundColor", obj);
-        }
 
         return new RectangleViewModel({
             positionX: obj.positionX as number,
