@@ -131,7 +131,7 @@ const ErdTableView = ({ tableViewModel, onEditAction }: ErdTableViewProps) => {
     const moving = (selected && (dragState.status === "on_dragging")) ? dragState.delta() : { x: 0, y: 0 }
 
     const tableStyle = {
-        position: "absolute",
+        position: "absolute", zIndex: selected ? 100 : "auto",
         left: tableViewModel.corner.left + moving.x + DRAWABLE_AREA.width / 2,
         top: tableViewModel.corner.top + moving.y + DRAWABLE_AREA.height / 2,
         display: "flex", flexDirection: "column", justifyContent: "flex-start",
@@ -183,19 +183,21 @@ const ErdTableView = ({ tableViewModel, onEditAction }: ErdTableViewProps) => {
             {selected && (editMode === EditModeType.SELECT) && (dragState.status !== "on_dragging") && (
                 <Stack direction="row" justifyContent="flex-end" onClick={handlePreventMouseEvent}
                     onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
-                    <ColorSelector key={`table-color-selector_${tableViewModel.tableId}`}
-                        color={tableViewModel.headerColor.background}
-                        callback={handleSetColor} />
-                    <Tooltip title="Edit" placement="top-end">
-                        <IconButton onClick={handleOpenEditDialog}>
-                            <EditIcon />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete" placement="top-end">
-                        <IconButton onClick={() => setOpenDeleteDialog(true)}>
-                            <DeleteIcon />
-                        </IconButton>
-                    </Tooltip>
+                    <div style={{ backgroundColor: "rgba(255, 255, 255, 0.9)", borderRadius: "10px" }}>
+                        <ColorSelector key={`table-color-selector_${tableViewModel.tableId}`}
+                            color={tableViewModel.headerColor.background}
+                            callback={handleSetColor} />
+                        <Tooltip title="Edit" placement="top-end">
+                            <IconButton onClick={handleOpenEditDialog}>
+                                <EditIcon />
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete" placement="top-end">
+                            <IconButton onClick={() => setOpenDeleteDialog(true)}>
+                                <DeleteIcon />
+                            </IconButton>
+                        </Tooltip>
+                    </div>
                 </Stack>
             )}
             <Dialog open={openDeletingDialog} onClose={handleCloseDeletingDialog}>

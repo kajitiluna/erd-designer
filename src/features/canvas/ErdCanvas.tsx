@@ -253,27 +253,30 @@ const ErdCanvas = () => {
         return initEffectOfKeyUpOnCanvas(dispatchEditMode);
     }, [dispatchEditMode]);
 
+    const canvasStyle: React.CSSProperties = {
+        position: "absolute", top: 0, left: 0, // right: 0, bottom: 0,
+        width: DRAWABLE_AREA.width, height: DRAWABLE_AREA.height,
+        overflow: "auto", display: "flex", flexDirection: "column", alignItems: "center",
+        // overscrollBehavior: "none", scrollbarWidth: "none", msOverflowStyle: "none",
+        backgroundColor: "white", backgroundImage: linerGradient([0, 90]),
+        backgroundSize: `${25 * displayScale}px ${25 * displayScale}px`,
+        backgroundPosition: `0 0, ${25 * displayScale}px ${25 * displayScale}px`,
+        backgroundAttachment: "local",
+        transform: `scale(${displayScale})`, transformOrigin: "center center"
+    };
+    const svgStyle: React.CSSProperties = {
+        position: "absolute", top: 0, left: 0,
+        width: `${DRAWABLE_AREA.width}px`,
+        height: `${DRAWABLE_AREA.height}px`
+    };
+
     return (
         <DragActionContext.Provider value={dragState}>
-            <div id="erd-canvas" ref={erdCanvasRef}
+            <div id="erd-canvas" ref={erdCanvasRef} style={canvasStyle}
                 onClick={handleClickOnCanvas} onMouseMove={handleMoveMouseOnCanvas}
-                onMouseDown={handleDragStart} onMouseUp={handleDragEnd}
-                style={{
-                    position: "absolute", top: 0, left: 0, // right: 0, bottom: 0,
-                    width: DRAWABLE_AREA.width, height: DRAWABLE_AREA.height,
-                    overflow: "auto", display: "flex", flexDirection: "column", alignItems: "center",
-                    // overscrollBehavior: "none", scrollbarWidth: "none", msOverflowStyle: "none",
-                    backgroundColor: "white", backgroundImage: linerGradient([0, 90]),
-                    backgroundSize: `${25 * displayScale}px ${25 * displayScale}px`,
-                    backgroundPosition: `0 0, ${25 * displayScale}px ${25 * displayScale}px`,
-                    backgroundAttachment: "local",
-                    transform: `scale(${displayScale})`, transformOrigin: "center center"
-                }}>
+                onMouseDown={handleDragStart} onMouseUp={handleDragEnd}>
 
-                <svg style={{
-                    position: "absolute", top: 0, left: 0,
-                    width: `${DRAWABLE_AREA.width}px`, height: `${DRAWABLE_AREA.height}px`
-                }}>
+                <svg style={svgStyle}>
                     {initRelationCardinalityDefinitions()}
                     {svgPaths}
                     {activeLine}
