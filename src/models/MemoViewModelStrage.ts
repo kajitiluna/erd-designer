@@ -68,8 +68,8 @@ export default class MemoViewModelStrage {
         const frontIndex = this.foregroundIds.indexOf(memoId);
         const backIndex = (frontIndex < 0) ? this.backgroundIds.indexOf(memoId) : -1;
 
-        const nextFronts = (frontIndex >= 0) ? this.foregroundIds.slice(frontIndex, 1) : this.foregroundIds;
-        const nextBacks = (backIndex >= 0) ? this.backgroundIds.slice(backIndex, 1) : this.backgroundIds;
+        const nextFronts = (frontIndex >= 0) ? removeElement(this.foregroundIds, frontIndex) : this.foregroundIds;
+        const nextBacks = (backIndex >= 0) ? removeElement(this.backgroundIds, backIndex) : this.backgroundIds;
 
         return new MemoViewModelStrage(nextMemoIdMap, nextFronts, nextBacks);
     }
@@ -118,14 +118,12 @@ export default class MemoViewModelStrage {
 
 const removeElement = <TYPE>(array: TYPE[] | readonly TYPE[], index: number) => {
     if (array.length === 0) {
-        return [];
+        return array;
     }
 
     if ((index < 0) || (index >= array.length)) {
         return array;
     }
 
-    const nextArray = [...array];
-    nextArray.splice(index, 1);
-    return nextArray;
+    return array.slice(0, index).concat(array.slice(index + 1));
 }
