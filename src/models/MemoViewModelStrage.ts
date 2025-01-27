@@ -1,6 +1,6 @@
 import MemoViewModel from "~/models/MemoViewModel";
 
-type MemoPosition = "front" | "back";
+type MemoDirection = "front" | "back";
 
 export default class MemoViewModelStrage {
 
@@ -31,17 +31,17 @@ export default class MemoViewModelStrage {
     }
 
     public getMemos() {
-        const fronts = this.foregroundIds
+        const frontMemos = this.foregroundIds
             .map(memoId => this.memoIdMap.get(memoId))
             .filter((memo): memo is MemoViewModel => memo != null);
-        const backs = this.backgroundIds
+        const backMemos = this.backgroundIds
             .map(memoId => this.memoIdMap.get(memoId))
             .filter((memo): memo is MemoViewModel => memo != null);
 
-        return { frontMemoViewModels: fronts, backMemoViewModels: backs };
+        return { frontMemos, backMemos };
     }
 
-    public addMemo(addingMemo: MemoViewModel, position: MemoPosition = "front"): MemoViewModelStrage {
+    public addMemo(addingMemo: MemoViewModel, position: MemoDirection = "front"): MemoViewModelStrage {
         const nextMemoIdMap = new Map(this.memoIdMap);
         nextMemoIdMap.set(addingMemo.memoId, addingMemo);
 
@@ -68,25 +68,40 @@ export default class MemoViewModelStrage {
         const frontIndex = this.foregroundIds.indexOf(memoId);
         const backIndex = (frontIndex < 0) ? this.backgroundIds.indexOf(memoId) : -1;
 
-        const nextFronts = (frontIndex >= 0) ? this.foregroundIds.slice(frontIndex, 1) : this.foregroundIds;
-        const nextBacks = (backIndex >= 0) ? this.backgroundIds.slice(backIndex, 1) : this.backgroundIds;
+        const nextFronts = (frontIndex >= 0) ? removeElement(this.foregroundIds, frontIndex) : this.foregroundIds;
+        const nextBacks = (backIndex >= 0) ? removeElement(this.backgroundIds, backIndex) : this.backgroundIds;
 
         return new MemoViewModelStrage(nextMemoIdMap, nextFronts, nextBacks);
     }
 
-    public moveMemo(memoId: string, position: MemoPosition): MemoViewModelStrage {
+    public moveMemo(memoIds: string[], moving: { x: number, y: number }): MemoViewModelStrage {
+        const nextMemoIdMap = new Map(this.memoIdMap);
+        memoIds.forEach(memoId => {
+            const current = nextMemoIdMap.get(memoId);
+            if (current == null) {
+                return;
+            }
+
+            nextMemoIdMap.set(memoId, current.move(moving));
+        });
+
+        return new MemoViewModelStrage(nextMemoIdMap, this.foregroundIds, this.backgroundIds);
+    }
+
+    public arrangeMemo(memoId: string, direction: MemoDirection): MemoViewModelStrage {
         const targetMemo = this.memoIdMap.get(memoId);
         if (targetMemo == null) {
             return this;
         }
 
         const frontIndex = this.foregroundIds.indexOf(memoId);
-        if ((position === "front") && (frontIndex === this.foregroundIds.length - 1)) {
+        if ((direction === "front") && (this.foregroundIds.length > 0)
+            && (frontIndex === this.foregroundIds.length - 1)) {
             return this;
         }
 
         const backIndex = (frontIndex < 0) ? this.backgroundIds.indexOf(memoId) : -1;
-        if ((position === "back") && (backIndex === 0)) {
+        if ((direction === "back") && (this.backgroundIds.length > 0) && (backIndex === 0)) {
             return this;
         }
 
@@ -95,22 +110,20 @@ export default class MemoViewModelStrage {
 
         return new MemoViewModelStrage(
             this.memoIdMap,
-            ((position === "front") ? [...nextFronts, memoId] : nextFronts),
-            ((position === "back") ? [memoId, ...nextBacks] : nextBacks)
+            ((direction === "front") ? [...nextFronts, memoId] : nextFronts),
+            ((direction === "back") ? [memoId, ...nextBacks] : nextBacks)
         );
     }
 }
 
 const removeElement = <TYPE>(array: TYPE[] | readonly TYPE[], index: number) => {
     if (array.length === 0) {
-        return [];
+        return array;
     }
 
     if ((index < 0) || (index >= array.length)) {
         return array;
     }
 
-    const nextArray = [...array];
-    nextArray.splice(index, 1);
-    return nextArray;
+    return array.slice(0, index).concat(array.slice(index + 1));
 }

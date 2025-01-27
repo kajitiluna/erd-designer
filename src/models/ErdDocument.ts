@@ -111,12 +111,10 @@ export default class ErdDocument {
         return this.columnShareModelStrage.find(columnShareModelId);
     }
 
-    // TODO 確認
     public getColumnShareModelStrage(): ColumnShareModelStrage {
         return this.columnShareModelStrage.copy();
     }
 
-    // TODO 確認
     public findRelataionViewModel(relationId: string): RelationViewModel | null {
         return this.relationViewModelStrage.findByRelationId(relationId);
     }
@@ -125,7 +123,6 @@ export default class ErdDocument {
         return this.relationViewModelStrage.getModels();
     }
 
-    // TODO 確認
     public inChildRelation(columnModelId: string): boolean {
         return this.relationViewModelStrage.inChildRelation(columnModelId);
     }
@@ -135,7 +132,6 @@ export default class ErdDocument {
         return this.memoViewModelStrage.find(memoId);
     }
 
-    // TODO 確認
     public getMemoViewModels() {
         return this.memoViewModelStrage.getMemos();
     }
@@ -537,15 +533,10 @@ export default class ErdDocument {
                 headerColor: { background, foreground }
             });
 
-        // const doUpdateTableViewColor = (current: RectangleViewModel) => new RectangleViewModel({
-        //     ...current,
-        //     backgroundColor: background,
-        //     foregroundColor: foreground
-        // });
         const doUpdateErSetting = (erdSetting: ErdSettingModel) =>
             erdSetting.update({ backgroundColor: background, foregroundColor: foreground });
 
-        return this.doUpdateRectangleViews(tableIds, doUpdateTableViewColor, doUpdateErSetting);
+        return this.doUpdateTableRectangle(tableIds, doUpdateTableViewColor, doUpdateErSetting);
     }
 
     /**
@@ -556,6 +547,10 @@ export default class ErdDocument {
      * @returns 操作後のモデル
      */
     public moveTableView(tableIds: string[], moving: { x: number, y: number }): ErdDocument {
+        if (tableIds.length === 0) {
+            return this;
+        }
+
         const doMoveTableView = (current: TableViewModel) => new TableViewModel({
             ...current,
             corner: {
@@ -564,10 +559,10 @@ export default class ErdDocument {
             }
         });
 
-        return this.doUpdateRectangleViews(tableIds, doMoveTableView);
+        return this.doUpdateTableRectangle(tableIds, doMoveTableView);
     }
 
-    private doUpdateRectangleViews(
+    private doUpdateTableRectangle(
         tableIds: string[], updateTableView: (tableViewModel: TableViewModel) => TableViewModel,
         updateErdSetting: ((erdSetting: ErdSettingModel) => ErdSettingModel) = (erdSetting: ErdSettingModel) => erdSetting
     ) {
@@ -598,28 +593,79 @@ export default class ErdDocument {
         );
     }
 
-    // TODO 確認
-    public addMemoViewModel(addingMemo: MemoViewModel): ErdDocument {
+    /**
+     * メモを追加する。
+     * 
+     * @param addingMemo 追加対象のメモ
+     * @returns 操作後のモデル
+     */
+    public addMemo(addingMemo: MemoViewModel): ErdDocument {
         return this.doUpdateMemoViewModel(() => this.memoViewModelStrage.addMemo(addingMemo));
     }
 
-    // TODO 確認
-    public updateMemoViewModel(updatingMemo: MemoViewModel): ErdDocument {
+    /**
+     * メモを更新する。
+     * 
+     * @param updatingMemo 更新対象のメモ
+     * @returns 操作後のモデル
+     */
+    public updateMemo(updatingMemo: MemoViewModel): ErdDocument {
         return this.doUpdateMemoViewModel(() => this.memoViewModelStrage.updateMemo(updatingMemo));
     }
 
-    // TODO 確認
-    public deleteMemoViewModel(deletingMemo: MemoViewModel): ErdDocument {
-        return this.doUpdateMemoViewModel(() => this.memoViewModelStrage.deleteMemo(deletingMemo.memoId));
+    /**
+     * メモを削除する。
+     * 
+     * @param memoId 削除対象のメモID
+     * @returns 操作後のモデル
+     */
+    public deleteMemo(memoId: string): ErdDocument {
+        return this.doUpdateMemoViewModel(() => this.memoViewModelStrage.deleteMemo(memoId));
     }
 
-    // TODO 確認
-    public moveMemo(memo: MemoViewModel, position: "front" | "back") {
-        return this.doUpdateMemoViewModel(() => this.memoViewModelStrage.moveMemo(memo.memoId, position));
+    /**
+     * メモの配置場所を変更する。
+     * 
+     * @param memoId メモID
+     * @param direction 変更方向
+     * @returns 操作後のモデル
+     */
+    public arrangeMemo(memoId: string, direction: "front" | "back"): ErdDocument {
+        return this.doUpdateMemoViewModel(() => this.memoViewModelStrage.arrangeMemo(memoId, direction));
     }
 
     private doUpdateMemoViewModel(updateFunction: () => MemoViewModelStrage): ErdDocument {
         const nextMemoViewStrage = updateFunction();
+        if (nextMemoViewStrage === this.memoViewModelStrage) {
+            return this;
+        }
+
+        return new ErdDocument(
+            this.documentName,
+            this.erdSettingModel,
+            this.tableViewModelIds,
+            this.tableViewModelMap,
+            this.columnModelMap,
+            this.columnShareModelStrage,
+            this.relationViewModelStrage,
+            nextMemoViewStrage,
+            this.databaseSettingModel
+        );
+    }
+
+    /**
+     * 指定されたメモの位置を移動させたモデルを作成する。
+     * 
+     * @param memoIds 移動対象のメモのID一覧
+     * @param moving 移動距離
+     * @returns 操作後のモデル
+     */
+    public moveMemoView(memoIds: string[], moving: { x: number, y: number }): ErdDocument {
+        if (memoIds.length === 0) {
+            return this;
+        }
+
+        const nextMemoViewStrage = this.memoViewModelStrage.moveMemo(memoIds, moving);
         if (nextMemoViewStrage === this.memoViewModelStrage) {
             return this;
         }
@@ -643,17 +689,17 @@ export default class ErdDocument {
             .filter((viewModel): viewModel is TableViewModel => viewModel != null)
             .map(viewModel => viewModel.toJSON());
 
-        const { frontMemoViewModels, backMemoViewModels } = this.memoViewModelStrage.getMemos();
+        const { frontMemos, backMemos } = this.memoViewModelStrage.getMemos();
 
         return {
             documentName: this.documentName,
             lastUpdatedAt: this.lastUpdatedAt,
             tableViewModels: tableViewModels,
-            columnModels: Array.from(this.columnModelMap.values()).map((model) => model.toJSON()),
-            columnShareModels: this.columnShareModelStrage.getModels().map((model) => model.toJSON()),
-            relationViewModels: this.relationViewModelStrage.getModels().map((model) => model.toJSON()),
-            foregroundMemos: frontMemoViewModels.map(memo => memo.toJSON()),
-            backgroundMemos: backMemoViewModels.map(memo => memo.toJSON()),
+            columnModels: Array.from(this.columnModelMap.values()).map(model => model.toJSON()),
+            columnShareModels: this.columnShareModelStrage.getModels().map(model => model.toJSON()),
+            relationViewModels: this.relationViewModelStrage.getModels().map(model => model.toJSON()),
+            foregroundMemos: frontMemos.map(memo => memo.toJSON()),
+            backgroundMemos: backMemos.map(memo => memo.toJSON()),
             erdSettingModel: this.erdSettingModel.toJSON(),
             databaseSetting: this.databaseSettingModel.toJSON(),
         };

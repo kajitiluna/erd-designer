@@ -54,7 +54,7 @@ const RelationEditView = ({ isOpen, relationViewModel, parentTableModel, childTa
     const [deleteActionType, setDeleteActionType] = useState<TableReferenceActionType>(relationModel.onDeleteAction);
 
     if (parentPrimaryColumns.length === 0) {
-        // TODO 親テーブルに primary key が存在しないので中断
+        // 親テーブルに primary key が存在しないので中断
         onClose();
         return (<></>);
     }

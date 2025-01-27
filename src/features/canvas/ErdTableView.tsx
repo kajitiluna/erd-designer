@@ -24,9 +24,9 @@ import EditAction from "~/features/canvas/EditAction";
 import RelationModel from "~/models/database/RelationModel";
 import RelationViewModel from "~/models/RelationViewModel";
 import LineViewModel from "~/models/LineViewModel";
+import { DragActionContext } from "~/context/DragActionContext";
 
 import styleClasses from "./ErdCanvas.module.css";
-import { DragActionContext } from "~/context/DragActionContext";
 
 export const ERD_TABLE_VIEW_CLASS_NAME = "erdTableView";
 
@@ -47,7 +47,7 @@ const ErdTableView = ({ tableViewModel, onEditAction }: ErdTableViewProps) => {
 
     const tableModel = tableViewModel.tableModel;
 
-    const handleClickAction = (event: MouseEvent) => {
+    const handleClick = (event: MouseEvent) => {
         if (editMode === EditModeType.SELECT) {
             event.stopPropagation();
 
@@ -131,7 +131,7 @@ const ErdTableView = ({ tableViewModel, onEditAction }: ErdTableViewProps) => {
     const moving = (selected && (dragState.status === "on_dragging")) ? dragState.delta() : { x: 0, y: 0 }
 
     const tableStyle = {
-        position: "absolute",
+        position: "absolute", zIndex: selected ? 100 : "auto",
         left: tableViewModel.corner.left + moving.x + DRAWABLE_AREA.width / 2,
         top: tableViewModel.corner.top + moving.y + DRAWABLE_AREA.height / 2,
         display: "flex", flexDirection: "column", justifyContent: "flex-start",
@@ -164,7 +164,7 @@ const ErdTableView = ({ tableViewModel, onEditAction }: ErdTableViewProps) => {
     return (
         <Box sx={tableStyle}>
             <Box id={tableViewModel.tableId} tabIndex={0} sx={boundStyle} style={{ cursor: 'pointer' }}
-                onClick={handleClickAction} onDoubleClick={handleOpenEditDialog}
+                onClick={handleClick} onDoubleClick={handleOpenEditDialog}
                 className={selected ? `${ERD_TABLE_VIEW_CLASS_NAME} ${styleClasses.selectedBox}` : ERD_TABLE_VIEW_CLASS_NAME}>
                 <DescriptionTooltip title={tableModel.description} placement="top-end">
                     <Box sx={headerStyle}>{tableModel.displayName(erdDocument.getDisplayStyle())}</Box>
@@ -183,19 +183,21 @@ const ErdTableView = ({ tableViewModel, onEditAction }: ErdTableViewProps) => {
             {selected && (editMode === EditModeType.SELECT) && (dragState.status !== "on_dragging") && (
                 <Stack direction="row" justifyContent="flex-end" onClick={handlePreventMouseEvent}
                     onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
-                    <ColorSelector key={`table-color-selector_${tableViewModel.tableId}`}
-                        color={tableViewModel.headerColor.background}
-                        callback={handleSetColor} />
-                    <Tooltip title="Edit" placement="top-end">
-                        <IconButton onClick={handleOpenEditDialog}>
-                            <EditIcon />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete" placement="top-end">
-                        <IconButton onClick={() => setOpenDeleteDialog(true)}>
-                            <DeleteIcon />
-                        </IconButton>
-                    </Tooltip>
+                    <div style={{ backgroundColor: "rgba(255, 255, 255, 0.9)", borderRadius: "10px" }}>
+                        <ColorSelector key={`table-color-selector_${tableViewModel.tableId}`}
+                            color={tableViewModel.headerColor.background}
+                            callback={handleSetColor} />
+                        <Tooltip title="Edit" placement="top-end">
+                            <IconButton onClick={handleOpenEditDialog}>
+                                <EditIcon />
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete" placement="top-end">
+                            <IconButton onClick={() => setOpenDeleteDialog(true)}>
+                                <DeleteIcon />
+                            </IconButton>
+                        </Tooltip>
+                    </div>
                 </Stack>
             )}
             <Dialog open={openDeletingDialog} onClose={handleCloseDeletingDialog}>

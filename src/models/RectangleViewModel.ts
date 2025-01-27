@@ -32,6 +32,15 @@ export default class RectangleViewModel {
         return new RectangleViewModel({ positionX, positionY, width, height });
     }
 
+    public static createFromEdges(rectangle: { left: number, top: number, right: number, bottom: number }): RectangleViewModel {
+        const positionX = rectangle.left;
+        const positionY = rectangle.top;
+        const width = rectangle.right - rectangle.left;
+        const height = rectangle.bottom - rectangle.top;
+
+        return new RectangleViewModel({ positionX, positionY, width, height });
+    }
+
     public move(moving: { x: number, y: number }): RectangleViewModel {
         return new RectangleViewModel({
             positionX: this.positionX + moving.x,
@@ -140,12 +149,6 @@ export default class RectangleViewModel {
         }
         if (!("height" in obj)) {
             throw new PropertyNotExistsError("height", obj);
-        }
-        if (!("foregroundColor" in obj)) {
-            throw new PropertyNotExistsError("foregroundColor", obj);
-        }
-        if (!("backgroundColor" in obj)) {
-            throw new PropertyNotExistsError("backgroundColor", obj);
         }
 
         return new RectangleViewModel({

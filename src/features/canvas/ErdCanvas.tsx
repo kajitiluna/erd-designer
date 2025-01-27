@@ -20,6 +20,13 @@ import EditMode, { EditModeType } from "~/models/EditMode";
 import ErdSettingModel from "~/models/ErdSettingModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import TableViewModel from "~/models/TableViewModel";
+import MemoViewModel from "~/models/MemoViewModel";
+import StickyMemoView, { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
+
+type RectangleArea = {
+    tableRectangles: Map<string, RectangleViewModel>,
+    memoRectangles: Map<string, RectangleViewModel>
+};
 
 const ErdCanvas = () => {
     const erdCanvasRef = React.useRef<HTMLDivElement>(null);
@@ -31,7 +38,7 @@ const ErdCanvas = () => {
     const displayScale = React.useContext(DisplayScaleContext);
 
     // Canvas に描画されている短形の情報を保持する
-    const [rectangleMap, setRectangleMap] = useState<Map<string, RectangleViewModel>>(new Map());
+    const [rectangleArea, setRectangleArea] = useState<RectangleArea>({ tableRectangles: new Map(), memoRectangles: new Map() });
     // 画面に表示している Relation に関する svg 要素への参照を保持する
     const relationRef = React.useRef<ErdRelationTooltipRef>(null);
     // リレーション等の線情報を保持する
@@ -48,8 +55,18 @@ const ErdCanvas = () => {
             tableViewModel={tableView} onEditAction={setEditAction} />
     ));
 
+    const { frontMemos, backMemos } = erdDocument.getMemoViewModels();
+    const toMemoView = (memo: MemoViewModel) => (
+        <StickyMemoView key={`sticky-note_${memo.memoId}`}
+            memoViewModel={memo} onDragAction={dispatchDragAction} />
+    );
+    const frontMemoViews = frontMemos.map(toMemoView);
+    const backMemoViews = backMemos.map(toMemoView);
+
     // リレーション作成にて、親テーブル指定後、子テーブルを指定する際に動的に表示するライン
-    const activeLine = initCreatingRelationLine({ editMode, relationEdge, selectState: selectState, rectangleMap });
+    const activeLine = initCreatingRelationLine({
+        editMode, relationEdge, selectState: selectState, tableRectangles: rectangleArea.tableRectangles
+    });
 
     // キャンバスがクリックされた時の制御を定義
     const handleClickOnCanvas = (event: MouseEvent) => {
@@ -68,7 +85,11 @@ const ErdCanvas = () => {
         }
 
         if (editMode === EditModeType.CREATE_MEMO) {
-            // TODO
+            const memoViewModel = createNewMemo(erdDocument.erdSettingModel, mousePosition);
+            documentsHolder.addMemo(memoViewModel);
+
+            dispatchSelectAction(RELEASE_ACTION);
+            dispatchEditMode(EditModeType.SELECT);
             return;
         }
 
@@ -83,23 +104,24 @@ const ErdCanvas = () => {
         }
 
         const mousePosition = getLogicalMousePosition(event, displayScale);
+        const rectangleMap = new Map([...rectangleArea.tableRectangles, ...rectangleArea.memoRectangles]);
 
-        // 既にテーブルが選択されている場合は、該当テーブルにてドラッグ開始されたか確認する
-        if (selectState.tableIds.size > 0) {
-            for (const tableId of selectState.tableIds) {
-                const rectangle = rectangleMap.get(tableId);
+        // 既に短形が選択されている場合は、該当テーブルにてドラッグ開始されたか確認する
+        if (selectState.tableIds.size + selectState.memoIds.size > 0) {
+            for (const rectangleId of [...selectState.tableIds, ...selectState.memoIds]) {
+                const rectangle = rectangleMap.get(rectangleId);
                 if (rectangle == null) {
                     continue;
                 }
 
                 if (rectangle.contains(mousePosition)) {
-                    // テーブルが選択されている場合は、ドラッグ開始
+                    // 短形が選択されている場合は、ドラッグ開始
                     dispatchDragAction({ type: "start_dragging", start: mousePosition });
                     return;
                 }
             }
 
-            // 選択中のテーブルの上でドラッグ開始していない場合は何もしない
+            // 選択中の短形上でドラッグ開始していない場合は何もしない
             return;
         }
 
@@ -109,7 +131,7 @@ const ErdCanvas = () => {
             return;
         }
 
-        // テーブルが選択中ではない場合は、ドラッグ開始位置がテーブル上ではないことを確認する
+        // 短形が選択中ではない場合は、ドラッグ開始位置がテーブル上ではないことを確認する
         for (const rectangle of rectangleMap.values()) {
             if (rectangle.contains(mousePosition)) {
                 return;
@@ -142,13 +164,17 @@ const ErdCanvas = () => {
         const mousePosition = getLogicalMousePosition(event, displayScale);
         dispatchDragAction({ type: "clear" });
 
-        if (selectState.tableIds.size > 0) {
+        if (selectState.tableIds.size + selectState.memoIds.size > 0) {
             const offset = {
                 x: mousePosition.x - dragState.start.x,
                 y: mousePosition.y - dragState.start.y
             };
 
-            documentsHolder.moveTableView(Array.from(selectState.tableIds), offset);
+            if ((offset.x === 0) && (offset.y === 0)) {
+                return;
+            }
+
+            documentsHolder.moveRectangle(selectState.tableIds, selectState.memoIds, offset);
             return;
         }
 
@@ -169,14 +195,11 @@ const ErdCanvas = () => {
 
         // 短形選択モードの場合
         const draggedArea = RectangleViewModel.createFromPoints(dragState.start, mousePosition);
-        const selectedTableIds = Array.from(rectangleMap.entries())
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            .filter(([_tableId, rectangle]) => draggedArea.contains(rectangle))
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            .map(([tableId, _rectangle]) => tableId);
+        const selectedTableIds = doFindRectangleSelected(draggedArea, rectangleArea.tableRectangles);
+        const selectedMemoIds = doFindRectangleSelected(draggedArea, rectangleArea.memoRectangles);
 
         const withMultiSelection = withMultiSelectKey(event);
-        dispatchSelectAction({ type: "bulk_table", tableIds: selectedTableIds, withMultiSelection });
+        dispatchSelectAction({ type: "bulk", tableIds: selectedTableIds, memoIds: selectedMemoIds, withMultiSelection });
     };
 
     const handleCloseEditDialog = () => setEditAction(NO_EDIT_ACTION);
@@ -189,8 +212,8 @@ const ErdCanvas = () => {
         }
 
         // Canvas 描画領域の初期化
-        const rectangleMap = initTableRectangleMap(erdCanvas, displayScale);
-        setRectangleMap(rectangleMap);
+        const rectangleArea = initRectangleArea(erdCanvas, displayScale);
+        setRectangleArea(rectangleArea);
     }, [displayScale, dragState.status, erdDocument.erdSettingModel.displayStyle]);
 
     // // リレーションの線情報を更新
@@ -201,7 +224,7 @@ const ErdCanvas = () => {
 
         const svgElements = relationRef.current.svgElements();
         setSvgPaths(svgElements);
-    }, [selectState, dragState, rectangleMap, erdDocument]);
+    }, [selectState, dragState, rectangleArea, erdDocument]);
 
     // マウスカーソルのアイコン設定
     useLayoutEffect(() => {
@@ -230,39 +253,45 @@ const ErdCanvas = () => {
         return initEffectOfKeyUpOnCanvas(dispatchEditMode);
     }, [dispatchEditMode]);
 
+    const canvasStyle: React.CSSProperties = {
+        position: "absolute", top: 0, left: 0, // right: 0, bottom: 0,
+        width: DRAWABLE_AREA.width, height: DRAWABLE_AREA.height,
+        overflow: "auto", display: "flex", flexDirection: "column", alignItems: "center",
+        // overscrollBehavior: "none", scrollbarWidth: "none", msOverflowStyle: "none",
+        backgroundColor: "white", backgroundImage: linerGradient([0, 90]),
+        backgroundSize: `${25 * displayScale}px ${25 * displayScale}px`,
+        backgroundPosition: `0 0, ${25 * displayScale}px ${25 * displayScale}px`,
+        backgroundAttachment: "local",
+        transform: `scale(${displayScale})`, transformOrigin: "center center"
+    };
+    const svgStyle: React.CSSProperties = {
+        position: "absolute", top: 0, left: 0,
+        width: `${DRAWABLE_AREA.width}px`,
+        height: `${DRAWABLE_AREA.height}px`
+    };
+
     return (
         <DragActionContext.Provider value={dragState}>
-            <div id="erd-canvas" ref={erdCanvasRef}
+            <div id="erd-canvas" ref={erdCanvasRef} style={canvasStyle}
                 onClick={handleClickOnCanvas} onMouseMove={handleMoveMouseOnCanvas}
-                onMouseDown={handleDragStart} onMouseUp={handleDragEnd}
-                style={{
-                    position: "absolute", top: 0, left: 0, // right: 0, bottom: 0,
-                    width: DRAWABLE_AREA.width, height: DRAWABLE_AREA.height,
-                    overflow: "auto", display: "flex", flexDirection: "column", alignItems: "center",
-                    // overscrollBehavior: "none", scrollbarWidth: "none", msOverflowStyle: "none",
-                    backgroundColor: "white", backgroundImage: linerGradient([0, 90]),
-                    backgroundSize: `${25 * displayScale}px ${25 * displayScale}px`,
-                    backgroundPosition: `0 0, ${25 * displayScale}px ${25 * displayScale}px`,
-                    backgroundAttachment: "local",
-                    transform: `scale(${displayScale})`, transformOrigin: "center center"
-                }}>
+                onMouseDown={handleDragStart} onMouseUp={handleDragEnd}>
 
-                <svg style={{
-                    position: "absolute", top: 0, left: 0,
-                    width: `${DRAWABLE_AREA.width}px`, height: `${DRAWABLE_AREA.height}px`
-                }}>
+                <svg style={svgStyle}>
                     {initRelationCardinalityDefinitions()}
                     {svgPaths}
                     {activeLine}
                 </svg>
 
+                {backMemoViews}
                 {tableViews}
+                {frontMemoViews}
 
                 <ActiveDraggingArea editMode={editMode} dragState={dragState} selectState={selectState} />
             </div>
 
             <ErdRelationPathView ref={relationRef}
-                relationViews={erdDocument.getRelationViewModels()} rectangleMap={rectangleMap}
+                relationViews={erdDocument.getRelationViewModels()}
+                rectangleMap={rectangleArea.tableRectangles}
                 onEditAction={setEditAction} onDragAction={dispatchDragAction} />
 
             {(editAction.editType === "table") && (
@@ -285,10 +314,10 @@ type CreateRelationLineArgs = {
     editMode: EditMode,
     relationEdge: Point | null,
     selectState: SelectState,
-    rectangleMap: Map<string, RectangleViewModel>
+    tableRectangles: Map<string, RectangleViewModel>
 };
 
-const initCreatingRelationLine = ({ editMode, relationEdge, selectState, rectangleMap }: CreateRelationLineArgs) => {
+const initCreatingRelationLine = ({ editMode, relationEdge, selectState, tableRectangles }: CreateRelationLineArgs) => {
     if (editMode !== EditModeType.CREATE_RELATION) {
         return (<></>);
     }
@@ -298,7 +327,7 @@ const initCreatingRelationLine = ({ editMode, relationEdge, selectState, rectang
     }
 
     const parentTableId = selectState.tableIds.values().next().value as string;
-    const parentTable = rectangleMap.get(parentTableId);
+    const parentTable = tableRectangles.get(parentTableId);
     if (parentTable == null) {
         return (<></>);
     }
@@ -321,7 +350,8 @@ type ActiveDraggingAreaProps = {
 
 const ActiveDraggingArea = ({ editMode, dragState, selectState }: ActiveDraggingAreaProps) => {
     if ((editMode !== EditModeType.SELECT) || (dragState.status !== "on_dragging")
-        || (selectState.tableIds.size !== 0) || (selectState.relationId != null)) {
+        || (selectState.tableIds.size + selectState.memoIds.size !== 0)
+        || (selectState.relationId != null)) {
 
         return (<></>);
     }
@@ -339,6 +369,13 @@ const ActiveDraggingArea = ({ editMode, dragState, selectState }: ActiveDragging
         }} />
     );
 };
+
+const doFindRectangleSelected = (selectedArea: RectangleViewModel, rectangles: Map<string, RectangleViewModel>) =>
+    Array.from(rectangles.entries())
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        .filter(([_tableId, rectangle]) => selectedArea.contains(rectangle))
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        .map(([tableId, _rectangle]) => tableId);
 
 const NO_EDIT_ACTION: EditAction = { editType: "none" } as const
 
@@ -396,29 +433,41 @@ const createNewTable = (erdSetting: ErdSettingModel, position: Point) => {
     });
 };
 
-const initTableRectangleMap = (erdCanvas: HTMLDivElement, displayScale: number) => {
-    const rectangleMap = new Map<string, RectangleViewModel>();
+const createNewMemo = (erdSetting: ErdSettingModel, position: Point) => {
+    // TODO メモの短形サイズは直近に設定した大きさにしたい
+    const rectangle = new RectangleViewModel({
+        positionX: position.x, positionY: position.y, width: 100, height: 100
+    });
+
+    return MemoViewModel.create(rectangle, erdSetting.backgroundColor, erdSetting.foregroundColor);
+};
+
+const initRectangleArea = (erdCanvas: HTMLDivElement, displayScale: number) => {
+    const tableRectangles = new Map<string, RectangleViewModel>();
+    const memoRectangles = new Map<string, RectangleViewModel>();
 
     Array.from(erdCanvas.children).forEach(element => {
         if (element.tagName === "svg") {
             return;
         }
 
-        const tableViewElements = element.getElementsByClassName(ERD_TABLE_VIEW_CLASS_NAME);
-        if ((tableViewElements == null) || (tableViewElements.length === 0)) {
-            return;
+        const tableElements = element.getElementsByClassName(ERD_TABLE_VIEW_CLASS_NAME);
+        if ((tableElements != null) && (tableElements.length > 0)) {
+            tableRectangles.set(tableElements[0].id, initRectangleWithoutScale(tableElements[0], displayScale));
         }
 
-        const tableId = tableViewElements[0].id;
-        const rectangle = tableViewElements[0].getBoundingClientRect()
-
-        rectangleMap.set(tableId, initRectangleWithoutScale(rectangle, displayScale));
+        const memoElements = element.getElementsByClassName(ERD_MEMO_VIEW_CLASS_NAME);
+        if ((memoElements != null) && (memoElements.length > 0)) {
+            memoRectangles.set(memoElements[0].id, initRectangleWithoutScale(memoElements[0], displayScale));
+        }
     });
 
-    return rectangleMap;
+    return { tableRectangles, memoRectangles };
 };
 
-const initRectangleWithoutScale = (rectangle: DOMRect, displayScale: number) => {
+const initRectangleWithoutScale = (element: Element, displayScale: number) => {
+    const rectangle = element.getBoundingClientRect();
+
     return new RectangleViewModel({
         positionX: (rectangle.left + window.scrollX - DRAWABLE_AREA.width / 2) / displayScale,
         positionY: (rectangle.top + window.scrollY - DRAWABLE_AREA.height / 2) / displayScale,

@@ -1,4 +1,5 @@
 import { v4 as uuidV4 } from 'uuid';
+import ColorValue from '~/models/ColorValue';
 import { PropertyNotExistsError } from '~/models/exceptions';
 import RectangleViewModel from '~/models/RectangleViewModel';
 
@@ -6,6 +7,8 @@ type MemoViewModelOptions = {
     memoId: string;
     memo: string;
     rectangleViewModel: RectangleViewModel;
+    backgroundColor: ColorValue;
+    foregroundColor: ColorValue;
     verticalAlign?: AlignType;
     horizontalAlign?: AlignType;
     fontSize?: number;
@@ -23,35 +26,37 @@ export default class MemoViewModel {
     public readonly memoId: string;
     public readonly memo: string;
     public readonly rectangleViewModel: RectangleViewModel;
+    public readonly backgroundColor: ColorValue;
+    public readonly foregroundColor: ColorValue;
     public readonly verticalAlign: AlignType;
     public readonly horizontalAlign: AlignType;
     public readonly fontSize: number;
     public readonly createdAt: Date;
 
     private constructor({
-        memoId, memo, rectangleViewModel,
+        memoId, memo, rectangleViewModel, backgroundColor, foregroundColor,
         verticalAlign = DEFAULT_VERTICAL_ALIGN, horizontalAlign = DEFAULT_HORIZONTAL_ALIGN,
         fontSize = DEFAULT_FONT_SIZE, createdAt = null
     }: MemoViewModelOptions) {
         this.memoId = memoId;
         this.memo = memo;
         this.rectangleViewModel = rectangleViewModel;
+        this.backgroundColor = backgroundColor;
+        this.foregroundColor = foregroundColor;
         this.verticalAlign = verticalAlign;
         this.horizontalAlign = horizontalAlign;
         this.fontSize = (fontSize >= 1) ? fontSize : 1;
         this.createdAt = createdAt ? createdAt : new Date();
     }
 
-    public static create({ rectangleViewModel }: { rectangleViewModel: RectangleViewModel }): MemoViewModel {
-        return new MemoViewModel({
-            memoId: uuidV4(),
-            memo: "",
-            rectangleViewModel: rectangleViewModel
-        });
+    // TODO
+    public static create(
+        rectangleViewModel: RectangleViewModel, backgroundColor: ColorValue, foregroundColor: ColorValue
+    ): MemoViewModel {
+        return new MemoViewModel({ memoId: uuidV4(), memo: "", rectangleViewModel, backgroundColor, foregroundColor });
     }
 
-    public updateMemo(memo: string): MemoViewModel {
-        const nextMemo = memo.trim();
+    public updateMemo(nextMemo: string): MemoViewModel {
         if (this.memo === nextMemo) {
             return this;
         }
@@ -59,12 +64,28 @@ export default class MemoViewModel {
         return new MemoViewModel({ ...this, memo: nextMemo });
     }
 
-    public updateRectangleView(nextRectangle: RectangleViewModel): MemoViewModel {
+    public updateRectangle(nextRectangle: RectangleViewModel): MemoViewModel {
         if (nextRectangle.isEqual(this.rectangleViewModel)) {
             return this;
         }
 
         return new MemoViewModel({ ...this, rectangleViewModel: nextRectangle });
+    }
+
+    public updateColor(background: ColorValue | null = null, foreground: ColorValue | null = null) {
+        const nextBackgroundColor = background ? background : this.backgroundColor;
+        const nextForegroundColor = foreground ? foreground : this.foregroundColor;
+
+        if ((this.backgroundColor.isEqual(nextBackgroundColor))
+            && (this.foregroundColor.isEqual(nextForegroundColor))) {
+            return this;
+        }
+
+        return new MemoViewModel({
+            ...this,
+            backgroundColor: nextBackgroundColor,
+            foregroundColor: nextForegroundColor
+        });
     }
 
     public updateVerticalAlign(nextVerticalAlign: AlignType): MemoViewModel {
@@ -91,11 +112,19 @@ export default class MemoViewModel {
         return new MemoViewModel({ ...this, fontSize: nextFontSize });
     }
 
+    public move(moving: { x: number, y: number }) {
+        const nextRectangle = this.rectangleViewModel.move(moving);
+
+        return new MemoViewModel({ ...this, rectangleViewModel: nextRectangle });
+    }
+
     public toJSON(): Record<string, unknown> {
         return {
             memoId: this.memoId,
             memo: this.memo,
             rectangleViewModel: this.rectangleViewModel.toJSON(),
+            backgroundColor: this.backgroundColor.toJSON(),
+            foregroundColor: this.foregroundColor.toJSON(),
             verticalAlign: this.verticalAlign,
             horizontalAlign: this.horizontalAlign,
             fontSize: this.fontSize,
@@ -114,6 +143,11 @@ export default class MemoViewModel {
             throw new PropertyNotExistsError("rectangleViewModel", obj);
         }
 
+        const backgroundColor = ("backgroundColor" in obj)
+            ? ColorValue.toObject(obj.backgroundColor as object) : ColorValue.WHITE;
+        const foregroundColor = ("foregroundColor" in obj)
+            ? ColorValue.toObject(obj.foregroundColor as object) : ColorValue.BLACK;
+
         const verticalAlign = ("verticalAlign" in obj) ? (obj.verticalAlign as AlignType) : DEFAULT_VERTICAL_ALIGN;
         const horizontalAlign = ("horizontalAlign" in obj) ? (obj.horizontalAlign as AlignType) : DEFAULT_HORIZONTAL_ALIGN;
         const fontSize = ("fontSize" in obj) ? (obj.fontSize as number) : DEFAULT_FONT_SIZE;
@@ -123,6 +157,8 @@ export default class MemoViewModel {
             memoId: obj.memoId as string,
             memo: obj.memo as string,
             rectangleViewModel: RectangleViewModel.toObject(obj.rectangleViewModel as object),
+            backgroundColor: backgroundColor,
+            foregroundColor: foregroundColor,
             verticalAlign: verticalAlign,
             horizontalAlign: horizontalAlign,
             fontSize: fontSize,
