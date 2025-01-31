@@ -97,4 +97,50 @@ export default class RelationViewModelStrage {
 
         return new RelationViewModelStrage(Array.from(nextRelationMap.values()));
     }
+
+    public moveRelation(tableIds: Set<string>, moving: { x: number, y: number }): RelationViewModelStrage {
+        if (this.relationIdMap.size === 0) {
+            return this;
+        }
+
+        if (tableIds.size <= 1) {
+            return this;
+        }
+        if ((moving.x === 0) && (moving.y === 0)) {
+            return this;
+        }
+
+        let hasChanged = false;
+        const nextRelations = [...this.relationIdMap.values()].map(relationView => {
+            const relation = relationView.relationModel;
+            if ((tableIds.has(relation.parentTableModelId) == false)
+                || (tableIds.has(relation.childTableModelId) == false)) {
+                return relationView;
+            }
+
+            if (relationView.lineViewModel.edges.length === 0) {
+                return relationView;
+            }
+
+            hasChanged = true;
+
+            const nextEdges = relationView.lineViewModel.edges
+                .map(edge => ({ x: edge.x + moving.x, y: edge.y + moving.y }));
+            const nextLineView = new LineViewModel({
+                ...relationView.lineViewModel,
+                edges: nextEdges
+            });
+
+            return new RelationViewModel({
+                ...relationView,
+                lineViewModel: nextLineView
+            });
+        })
+
+        if (hasChanged === false) {
+            return this;
+        }
+
+        return new RelationViewModelStrage(nextRelations);
+    }
 }

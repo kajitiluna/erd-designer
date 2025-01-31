@@ -536,7 +536,10 @@ export default class ErdDocument {
         const doUpdateErSetting = (erdSetting: ErdSettingModel) =>
             erdSetting.update({ backgroundColor: background, foregroundColor: foreground });
 
-        return this.doUpdateTableRectangle(tableIds, doUpdateTableViewColor, doUpdateErSetting);
+        return this.doUpdateTableRectangle({
+            tableIds, updateTableView: doUpdateTableViewColor,
+            updateErdSetting: doUpdateErSetting
+        });
     }
 
     /**
@@ -546,8 +549,8 @@ export default class ErdDocument {
      * @param moving 移動距離
      * @returns 操作後のモデル
      */
-    public moveTableView(tableIds: string[], moving: { x: number, y: number }): ErdDocument {
-        if (tableIds.length === 0) {
+    public moveTableView(tableIds: Set<string>, moving: { x: number, y: number }): ErdDocument {
+        if (tableIds.size === 0) {
             return this;
         }
 
@@ -559,13 +562,20 @@ export default class ErdDocument {
             }
         });
 
-        return this.doUpdateTableRectangle(tableIds, doMoveTableView);
+        const nextRelatinViewStrage = this.relationViewModelStrage.moveRelation(tableIds, moving);
+
+        return this.doUpdateTableRectangle({
+            tableIds: [...tableIds],
+            updateTableView: doMoveTableView,
+            nextRelatinViewStrage
+        });
     }
 
-    private doUpdateTableRectangle(
-        tableIds: string[], updateTableView: (tableViewModel: TableViewModel) => TableViewModel,
-        updateErdSetting: ((erdSetting: ErdSettingModel) => ErdSettingModel) = (erdSetting: ErdSettingModel) => erdSetting
-    ) {
+    private doUpdateTableRectangle({
+        tableIds, updateTableView,
+        updateErdSetting = (erdSetting: ErdSettingModel) => erdSetting,
+        nextRelatinViewStrage = null
+    }: UpdateTableRectangleArgs) {
         if (tableIds.length === 0) {
             return this;
         }
@@ -587,7 +597,7 @@ export default class ErdDocument {
             nextTableViewModelMap,
             this.columnModelMap,
             this.columnShareModelStrage,
-            this.relationViewModelStrage,
+            (nextRelatinViewStrage != null) ? nextRelatinViewStrage : this.relationViewModelStrage,
             this.memoViewModelStrage,
             this.databaseSettingModel
         );
@@ -760,3 +770,10 @@ export default class ErdDocument {
         });
     }
 }
+
+type UpdateTableRectangleArgs = {
+    tableIds: string[],
+    updateTableView: (tableViewModel: TableViewModel) => TableViewModel,
+    updateErdSetting?: ((erdSetting: ErdSettingModel) => ErdSettingModel),
+    nextRelatinViewStrage?: RelationViewModelStrage | null
+};

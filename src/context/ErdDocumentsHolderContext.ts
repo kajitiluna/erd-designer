@@ -239,7 +239,7 @@ export class ErdDocumentsHolder {
      */
     public moveRectangle(tableIds: Set<string>, memoIds: Set<string>, moving: { x: number, y: number }) {
         const previous: ErdDocument = this.current();
-        const next: ErdDocument = previous.moveTableView([...tableIds], moving)
+        const next: ErdDocument = previous.moveTableView(tableIds, moving)
             .moveMemoView([...memoIds], moving);
 
         if (previous === next) {

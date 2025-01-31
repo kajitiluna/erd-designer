@@ -107,21 +107,42 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
                 ? { parentDual: childTable.center, childDual: parentTable.center }
                 : { parentDual: edges[0], childDual: edges[edges.length - 1] };
 
-            // 親テーブルもしくは子テーブルに最も近い Edge をドラッグ操作中ではない場合
-            if ((selectState.relationId !== relationView.relationId)
-                || (dragState.status !== "on_dragging") || (selectState.edgeId !== 0)
-                || ((selectState.edgeType === "real") && (selectState.edgeId !== edges.length - 1))
-                || ((selectState.edgeType === "virtual") && (selectState.edgeId !== edges.length))) {
+            const onDraggingParentDual = (selectState.edgeId === 0);
+            const onDraggingChildDual = ((selectState.edgeType === "real") && (selectState.edgeId === edges.length - 1))
+                || ((selectState.edgeType === "virtual") && (selectState.edgeId === edges.length));
 
+            // 親テーブルもしくは子テーブルに最も近い Edge をドラッグ操作中である場合
+            if (
+                (selectState.relationId === relationView.relationId)
+                && (dragState.status === "on_dragging")
+                && (onDraggingParentDual || onDraggingChildDual)
+            ) {
+                const parentDual = onDraggingParentDual ? dragState.current : baseDualPoints.parentDual;
+                const childDual = onDraggingChildDual ? dragState.current : baseDualPoints.childDual;
+
+                return { parentDual, childDual };
+            }
+
+            if ((edges.length === 0)
+                || (selectState.tableIds.has(relationView.relationModel.parentTableModelId) == false)
+                || (selectState.tableIds.has(relationView.relationModel.childTableModelId) == false)
+                || (dragState.status !== "on_dragging")
+            ) {
                 return baseDualPoints;
             }
 
-            const parentDual = (selectState.edgeId === 0) ? dragState.current : baseDualPoints.parentDual;
-            const childDual = ((selectState.edgeType === "real") && (selectState.edgeId === edges.length - 1))
-                || ((selectState.edgeType === "virtual") && (selectState.edgeId === edges.length))
-                ? dragState.current : baseDualPoints.childDual;
-
-            return { parentDual, childDual };
+            // 親テーブルと子テーブルを同時にドラッグ移動している場合は、Edge もそれに合わせて移動させる
+            const delta = dragState.delta();
+            return {
+                parentDual: {
+                    x: baseDualPoints.parentDual.x + delta.x,
+                    y: baseDualPoints.parentDual.y + delta.y
+                },
+                childDual: {
+                    x: baseDualPoints.childDual.x + delta.x,
+                    y: baseDualPoints.childDual.y + delta.y
+                }
+            };
         };
 
         const dualPoints = initDualPoints();
@@ -130,7 +151,8 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         const childEdge = calculateRectangleEdge(childTable, dualPoints.childDual);
 
         const relationEdges = [parentEdge, ...edges, childEdge];
-        const relationLinePairs = relationEdges.slice(0, -1).map((value, index) => [value, relationEdges[index + 1]]);
+        const relationLinePairs = relationEdges.slice(0, -1)
+            .map((value, index) => [value, relationEdges[index + 1]]);
 
         const relationLineSeguments = relationLinePairs.map((pair, index) => {
             const baseSvgPath: JSX.Element = initBaseSvgPath(relationView, index, pair);
@@ -227,7 +249,16 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         if ((selectState.relationId !== relationView.relationId)
             || (selectState.edgeId !== index) || (dragState.status !== "on_dragging")) {
 
-            return `L ${pair[1].x + DRAWABLE_AREA.width / 2},${pair[1].y + DRAWABLE_AREA.height / 2}`;
+            // TODO
+            // 親テーブルと子テーブルを同時にドラッグ移動している場合は、Edge もそれに合わせて移動させる
+            const delta = (
+                (selectState.tableIds.has(relationView.relationModel.parentTableModelId))
+                && (selectState.tableIds.has(relationView.relationModel.childTableModelId))
+                && (dragState.status === "on_dragging") && (index < relationView.lineViewModel.edges.length)
+            ) ? dragState.delta() : { x: 0, y: 0 };
+
+            return `L ${pair[1].x + delta.x + DRAWABLE_AREA.width / 2},${pair[1].y + delta.y + DRAWABLE_AREA.height / 2}`;
+            //return `L ${pair[1].x + DRAWABLE_AREA.width / 2},${pair[1].y + DRAWABLE_AREA.height / 2}`;
         }
 
         if (selectState.edgeType === "real") {
