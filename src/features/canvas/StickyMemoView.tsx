@@ -220,7 +220,6 @@ const StickyMemoView = ({ memoViewModel, onDragAction }: StickyNoteViewProps) =>
         width: `${rectangle.width}px`,
         height: `${rectangle.height}px`,
         backgroundColor: memoViewModel.backgroundColor.toHex(),
-        boxShadow: "0px 0px 7px 0px #bebebe",
         // "&::-webkit-scrollbar": { display: "none" },
         msOverflowStyle: "none", scrollbarWidth: "none"
     };
