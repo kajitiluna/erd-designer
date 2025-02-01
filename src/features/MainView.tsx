@@ -14,6 +14,7 @@ import ErdCanvas from "~/features/canvas/ErdCanvas";
 import EditMode, { EditModeType } from "~/models/EditMode";
 import ErdDocument from "~/models/ErdDocument";
 import { DEFAULT_LOVAL_SETTING, LocalSettingContext, reduceLocalSetting } from "~/context/LocalSettingContext";
+import TitlePanel from "~/features/canvas/TitlePanel";
 
 type MainViewProps = {
     erdDocument: ErdDocument,
@@ -45,6 +46,11 @@ const MainView = ({ erdDocument, onSave }: MainViewProps) => {
 
     const documentsHolder = new ErdDocumentsHolder(holderProps.erdDocuments, holderProps.cursor, handleOnSave);
 
+    const titlePanelStyle = {
+        position: "fixed",
+        top: "30px",
+        left: "30px",
+    };
     const controlPanelStyle = {
         position: "fixed",
         top: "50%",
@@ -65,6 +71,9 @@ const MainView = ({ erdDocument, onSave }: MainViewProps) => {
                         <DisplayScaleContext.Provider value={scale} >
                             <Box sx={{ position: "relative", width: "100%", height: "100vh" }}>
                                 <ErdCanvas />
+                            </Box>
+                            <Box sx={titlePanelStyle}>
+                                <TitlePanel />
                             </Box>
                             <Box sx={controlPanelStyle}>
                                 <ControlPanel />

@@ -266,6 +266,21 @@ export class ErdDocumentsHolder {
     }
 
     /**
+     * ドキュメント名を更新する。
+     * 
+     * @param updating 更新後のドキュメント名
+     */
+    public updateDocumentName(updating: string) {
+        const previous: ErdDocument = this.current();
+        const next: ErdDocument = previous.updateDocumentName(updating);
+        if (previous === next) {
+            return;
+        }
+
+        this.doUpdate(next);
+    }
+
+    /**
      * ErdSetting を更新する。
      * 
      * @param updating 更新後の内容
