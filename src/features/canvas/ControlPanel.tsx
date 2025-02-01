@@ -25,6 +25,7 @@ import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocu
 import { ERD_TABLE_VIEW_CLASS_NAME } from "~/features/canvas/ErdTableView";
 import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
 import { LocalSettingContext } from "~/context/LocalSettingContext";
+import { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
 
 const ControlPanel = () => {
     const panelStyle = {
@@ -219,27 +220,7 @@ const downloadImage = (erdDocument: ErdDocument) => {
     const orgScale = erdCanvas.style.transform;
     erdCanvas.style.transform = "scale(1)";
 
-    let leftEdge = Number.MAX_SAFE_INTEGER;
-    let topEdge = Number.MAX_SAFE_INTEGER;
-    let rightEdge = 0;
-    let bottomEdge = 0;
-
-    Array.from(erdCanvas.children).forEach(element => {
-        if (element.tagName === "svg") {
-            return;
-        }
-
-        const tableViewElements = element.getElementsByClassName(ERD_TABLE_VIEW_CLASS_NAME);
-        if ((tableViewElements == null) || (tableViewElements.length === 0)) {
-            return;
-        }
-
-        const rectangle = tableViewElements[0].getBoundingClientRect()
-        leftEdge = Math.min(leftEdge, rectangle.left + window.scrollX);
-        topEdge = Math.min(topEdge, rectangle.top + window.scrollY);
-        rightEdge = Math.max(rightEdge, rectangle.left + rectangle.width + window.scrollX);
-        bottomEdge = Math.max(bottomEdge, rectangle.top + rectangle.height + window.scrollY);
-    });
+    const { leftEdge, topEdge, rightEdge, bottomEdge } = doCalculateImageArea(erdCanvas);
 
     const options = {
         windowWidth: erdCanvas.scrollWidth,
@@ -258,6 +239,39 @@ const downloadImage = (erdDocument: ErdDocument) => {
 
         download(fileName, contents);
     });
+};
+
+const doCalculateImageArea = (erdCanvas: HTMLElement) => {
+    let leftEdge = Number.MAX_SAFE_INTEGER;
+    let topEdge = Number.MAX_SAFE_INTEGER;
+    let rightEdge = 0;
+    let bottomEdge = 0;
+
+    Array.from(erdCanvas.children).forEach(element => {
+        if (element.tagName === "svg") {
+            return;
+        }
+
+        const tableViewElements = element.getElementsByClassName(ERD_TABLE_VIEW_CLASS_NAME);
+        if ((tableViewElements != null) && (tableViewElements.length > 0)) {
+            const rectangle = tableViewElements[0].getBoundingClientRect()
+            leftEdge = Math.min(leftEdge, rectangle.left + window.scrollX);
+            topEdge = Math.min(topEdge, rectangle.top + window.scrollY);
+            rightEdge = Math.max(rightEdge, rectangle.left + rectangle.width + window.scrollX);
+            bottomEdge = Math.max(bottomEdge, rectangle.top + rectangle.height + window.scrollY);
+        }
+
+        const memoElements = element.getElementsByClassName(ERD_MEMO_VIEW_CLASS_NAME);
+        if ((memoElements != null) && (memoElements.length > 0)) {
+            const rectangle = memoElements[0].getBoundingClientRect()
+            leftEdge = Math.min(leftEdge, rectangle.left + window.scrollX);
+            topEdge = Math.min(topEdge, rectangle.top + window.scrollY);
+            rightEdge = Math.max(rightEdge, rectangle.left + rectangle.width + window.scrollX);
+            bottomEdge = Math.max(bottomEdge, rectangle.top + rectangle.height + window.scrollY);
+        }
+    });
+
+    return { leftEdge, topEdge, rightEdge, bottomEdge };
 };
 
 const downloadJson = (erdDocument: ErdDocument) => {
