@@ -13,6 +13,7 @@ import DisplayScalePanel from "~/features/canvas/DisplayScalePanel";
 import ErdCanvas from "~/features/canvas/ErdCanvas";
 import EditMode, { EditModeType } from "~/models/EditMode";
 import ErdDocument from "~/models/ErdDocument";
+import { DEFAULT_LOVAL_SETTING, LocalSettingContext, reduceLocalSetting } from "~/context/LocalSettingContext";
 
 type MainViewProps = {
     erdDocument: ErdDocument,
@@ -29,6 +30,7 @@ const MainView = ({ erdDocument, onSave }: MainViewProps) => {
     const [holderProps, setHolderProps] = useState<ErdDocumentsHolderOptions>({ erdDocuments: [erdDocument], cursor: 0 });
     const [selectState, dispatchSelectAction] = useReducer(reduceSelectAction, EMPTY_SELECT_STATE);
     const [editMode, dispatchEditMode] = useReducer(initReduceEditMode(dispatchSelectAction), EditModeType.SELECT);
+    const [localSetting, dispatchLocalSetting] = useReducer(reduceLocalSetting, DEFAULT_LOVAL_SETTING);
     const [scale, setScale] = useState<number>(1);
 
     const handleOnSave = (documents: ErdDocument[], cursor: number) => {
@@ -59,17 +61,19 @@ const MainView = ({ erdDocument, onSave }: MainViewProps) => {
         <ErdDocumentsHolderContext.Provider value={documentsHolder}>
             <EditModeContext.Provider value={{ editMode, dispatchEditMode }}>
                 <SelectEntityContext.Provider value={{ selectState, dispatchSelectAction }}>
-                    <DisplayScaleContext.Provider value={scale} >
-                        <Box sx={{ position: "relative", width: "100%", height: "100vh" }}>
-                            <ErdCanvas />
-                        </Box>
-                        <Box sx={controlPanelStyle}>
-                            <ControlPanel />
-                        </Box>
-                        <Box sx={scalePanelStyle}>
-                            <DisplayScalePanel scale={scale} onChangeScale={setScale} />
-                        </Box>
-                    </DisplayScaleContext.Provider>
+                    <LocalSettingContext.Provider value={{ localSetting, dispatchLocalSetting }}>
+                        <DisplayScaleContext.Provider value={scale} >
+                            <Box sx={{ position: "relative", width: "100%", height: "100vh" }}>
+                                <ErdCanvas />
+                            </Box>
+                            <Box sx={controlPanelStyle}>
+                                <ControlPanel />
+                            </Box>
+                            <Box sx={scalePanelStyle}>
+                                <DisplayScalePanel scale={scale} onChangeScale={setScale} />
+                            </Box>
+                        </DisplayScaleContext.Provider>
+                    </LocalSettingContext.Provider>
                 </SelectEntityContext.Provider>
             </EditModeContext.Provider>
         </ErdDocumentsHolderContext.Provider>

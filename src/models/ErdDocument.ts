@@ -533,13 +533,7 @@ export default class ErdDocument {
                 headerColor: { background, foreground }
             });
 
-        const doUpdateErSetting = (erdSetting: ErdSettingModel) =>
-            erdSetting.update({ backgroundColor: background, foregroundColor: foreground });
-
-        return this.doUpdateTableRectangle({
-            tableIds, updateTableView: doUpdateTableViewColor,
-            updateErdSetting: doUpdateErSetting
-        });
+        return this.doUpdateTableRectangle(tableIds, doUpdateTableViewColor);
     }
 
     /**
@@ -564,18 +558,14 @@ export default class ErdDocument {
 
         const nextRelatinViewStrage = this.relationViewModelStrage.moveRelation(tableIds, moving);
 
-        return this.doUpdateTableRectangle({
-            tableIds: [...tableIds],
-            updateTableView: doMoveTableView,
-            nextRelatinViewStrage
-        });
+        return this.doUpdateTableRectangle([...tableIds], doMoveTableView, nextRelatinViewStrage);
     }
 
-    private doUpdateTableRectangle({
-        tableIds, updateTableView,
-        updateErdSetting = (erdSetting: ErdSettingModel) => erdSetting,
-        nextRelatinViewStrage = null
-    }: UpdateTableRectangleArgs) {
+    private doUpdateTableRectangle(
+        tableIds: string[],
+        updateTableView: (tableViewModel: TableViewModel) => TableViewModel,
+        nextRelatinViewStrage: RelationViewModelStrage | null = null
+    ) {
         if (tableIds.length === 0) {
             return this;
         }
@@ -592,7 +582,7 @@ export default class ErdDocument {
 
         return new ErdDocument(
             this.documentName,
-            updateErdSetting(this.erdSettingModel),
+            this.erdSettingModel,
             this.tableViewModelIds,
             nextTableViewModelMap,
             this.columnModelMap,
@@ -770,10 +760,3 @@ export default class ErdDocument {
         });
     }
 }
-
-type UpdateTableRectangleArgs = {
-    tableIds: string[],
-    updateTableView: (tableViewModel: TableViewModel) => TableViewModel,
-    updateErdSetting?: ((erdSetting: ErdSettingModel) => ErdSettingModel),
-    nextRelatinViewStrage?: RelationViewModelStrage | null
-};

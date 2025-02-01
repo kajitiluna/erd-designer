@@ -30,6 +30,7 @@ import ColorSelector from "~/components/ColorSelector";
 import DisplayScaleContext from "~/context/DisplayScaleContext";
 
 import styleClasses from "./ErdCanvas.module.css";
+import { LocalSettingContext } from "~/context/LocalSettingContext";
 
 export const ERD_MEMO_VIEW_CLASS_NAME = "erdMemoView";
 
@@ -43,6 +44,7 @@ const StickyMemoView = ({ memoViewModel, onDragAction }: StickyNoteViewProps) =>
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
+    const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
     const displayScale = React.useContext(DisplayScaleContext);
 
     const textAreaRef = React.useRef<HTMLTextAreaElement>(null);
@@ -111,8 +113,14 @@ const StickyMemoView = ({ memoViewModel, onDragAction }: StickyNoteViewProps) =>
 
         event.stopPropagation();
 
-        const rectangle = initCurrentRectangle(memoViewModel.rectangleViewModel, dragState.delta(), resizingDirection);
-        const nextMemo = memoViewModel.updateRectangle(rectangle)
+        const nextRectangle = initCurrentRectangle(
+            memoViewModel.rectangleViewModel, dragState.delta(), resizingDirection);
+
+        dispatchLocalSetting({
+            type: "stickySize",
+            size: { width: nextRectangle.width, height: nextRectangle.height }
+        });
+        const nextMemo = memoViewModel.updateRectangle(nextRectangle)
         documentsHolder.updateMemo(nextMemo);
 
         setTextEdit(false);
@@ -138,8 +146,9 @@ const StickyMemoView = ({ memoViewModel, onDragAction }: StickyNoteViewProps) =>
     const moving = (selected && (dragState.status === "on_dragging") && !resizingDirection.isResizing())
         ? dragState.delta() : { x: 0, y: 0 }
 
-    const rectangle = (((dragState.status !== "on_dragging") || !selected || !resizingDirection.isResizing()))
-        ? memoViewModel.rectangleViewModel
+    const rectangle = (
+        (dragState.status !== "on_dragging") || !selected || !resizingDirection.isResizing()
+    ) ? memoViewModel.rectangleViewModel
         : initCurrentRectangle(memoViewModel.rectangleViewModel, dragState.delta(), resizingDirection);
 
     const initTextAreaElement = () => {
@@ -343,11 +352,14 @@ type StickyControlPaneProps = {
 
 const StickyControlPane = ({ memoViewModel }: StickyControlPaneProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
 
     const [showAlignPanel, setShowAlignPanel] = useState<boolean>(false);
     const [isOpenDeleteDialog, setOpenDeleteDialog] = useState<boolean>(false);
 
     const handleSetColor = (background: ColorValue, foreground: ColorValue) => {
+        dispatchLocalSetting({ type: "defaultColor", color: { background, foreground } });
+
         const nextMemoViewModel = memoViewModel.updateColor(background, foreground);
         if (nextMemoViewModel === memoViewModel) {
             return;
@@ -358,6 +370,8 @@ const StickyControlPane = ({ memoViewModel }: StickyControlPaneProps) => {
 
     const handleChangeFontSize = (event: SelectChangeEvent<number>) => {
         const nextFontSize = Number(event.target.value);
+        dispatchLocalSetting({ type: "stickyFontSize", fontSize: nextFontSize });
+
         const nextMemoViewModel = memoViewModel.updateFontSize(nextFontSize);
         if (nextMemoViewModel === memoViewModel) {
             return;
