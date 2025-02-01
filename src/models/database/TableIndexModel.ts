@@ -35,7 +35,7 @@ export default class TableIndexModel {
     }: TableIndexModelOptions) {
         this.tableIndexModelId = tableIndexModelId;
         this.physicalName = physicalName;
-        this.indexColumnModels = [...indexColumnModels];
+        this.indexColumnModels = [...indexColumnModels] as const;
         this.indexOptioin = indexOptioin;
         this.indexType = indexType;
         this.description = description;
