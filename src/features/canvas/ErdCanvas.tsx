@@ -4,7 +4,7 @@ import { Box } from "@mui/material";
 import DisplayScaleContext from "~/context/DisplayScaleContext";
 import { DragActionContext, DragState, NO_DRAGGING, reduceDragAction } from "~/context/DragActionContext";
 import EditModeContext from "~/context/EditModeContext";
-import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
+import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { RELEASE_ACTION, SelectEntityContext, SelectState } from "~/context/SelectEntityContext";
 import EditAction from "~/features/canvas/EditAction";
 import ErdRelationPathView, { ErdRelationTooltipRef } from "~/features/canvas/ErdRelationPathView";
@@ -251,8 +251,8 @@ const ErdCanvas = () => {
 
     // keyUp 時のイベントを widnow.document に登録
     useEffect(() => {
-        return initEffectOfKeyUpOnCanvas(dispatchEditMode);
-    }, [dispatchEditMode]);
+        return initEffectOfKeyUpOnCanvas(documentsHolder, dispatchEditMode);
+    }, [dispatchEditMode, documentsHolder]);
 
     const canvasStyle: React.CSSProperties = {
         position: "absolute", top: 0, left: 0, // right: 0, bottom: 0,
@@ -542,12 +542,29 @@ const initEffectOfScrollOnCanvas = (displayScale: number) => {
     return () => window.removeEventListener("scroll", moveEdge);
 };
 
-const initEffectOfKeyUpOnCanvas = (dispatchEditMode: (action: EditMode) => void) => {
+const initEffectOfKeyUpOnCanvas = (
+    documentsHolder: ErdDocumentsHolder, dispatchEditMode: (action: EditMode) => void
+) => {
     const handleKeyUpOnCanvas = (event: KeyboardEvent) => {
 
         // ESC キーを押下した場合は SELECT モードに移行し、選択した要素を選択解除する
         if (event.key === "Escape") {
             dispatchEditMode(EditModeType.SELECT);
+            return;
+        }
+
+        if ((event.metaKey || event.ctrlKey) && (event.key === "z")) {
+            event.stopPropagation();
+
+            documentsHolder.undo();
+            return;
+        }
+
+        if ((event.metaKey || event.ctrlKey) && ((event.key === "y") || (event.key === "Z"))) {
+            event.stopPropagation();
+
+            documentsHolder.redo();
+            return;
         }
 
         // TODO

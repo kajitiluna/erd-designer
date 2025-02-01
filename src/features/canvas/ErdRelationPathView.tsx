@@ -249,7 +249,6 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         if ((selectState.relationId !== relationView.relationId)
             || (selectState.edgeId !== index) || (dragState.status !== "on_dragging")) {
 
-            // TODO
             // 親テーブルと子テーブルを同時にドラッグ移動している場合は、Edge もそれに合わせて移動させる
             const delta = (
                 (selectState.tableIds.has(relationView.relationModel.parentTableModelId))

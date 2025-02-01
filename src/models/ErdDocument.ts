@@ -127,11 +127,6 @@ export default class ErdDocument {
         return this.relationViewModelStrage.inChildRelation(columnModelId);
     }
 
-    // TODO 確認
-    public findMemoViewModel(memoId: string): MemoViewModel | null {
-        return this.memoViewModelStrage.find(memoId);
-    }
-
     public getMemoViewModels() {
         return this.memoViewModelStrage.getMemos();
     }
@@ -496,24 +491,6 @@ export default class ErdDocument {
         );
     }
 
-    public updateErdSetting(updatingSetting: ErdSettingModel): ErdDocument {
-        if (this.erdSettingModel === updatingSetting) {
-            return this;
-        }
-
-        return new ErdDocument(
-            this.documentName,
-            updatingSetting,
-            this.tableViewModelIds,
-            this.tableViewModelMap,
-            this.columnModelMap,
-            this.columnShareModelStrage,
-            this.relationViewModelStrage,
-            this.memoViewModelStrage,
-            this.databaseSettingModel
-        );
-    }
-
     /**
      * 指定されたテーブルの配色を変更する。
      * 
@@ -679,6 +656,54 @@ export default class ErdDocument {
             this.columnShareModelStrage,
             this.relationViewModelStrage,
             nextMemoViewStrage,
+            this.databaseSettingModel
+        );
+    }
+
+    /**
+     * ドキュメント名を更新する。
+     * 
+     * @param updating 更新後のドキュメント名
+     * @returns 操作後のモデル
+     */
+    public updateDocumentName(updating: string): ErdDocument {
+        if (this.documentName === updating) {
+            return this;
+        }
+
+        return new ErdDocument(
+            updating,
+            this.erdSettingModel,
+            this.tableViewModelIds,
+            this.tableViewModelMap,
+            this.columnModelMap,
+            this.columnShareModelStrage,
+            this.relationViewModelStrage,
+            this.memoViewModelStrage,
+            this.databaseSettingModel
+        );
+    }
+
+    /**
+     * 設定を更新する。
+     * 
+     * @param updatingSetting 更新対象の設定
+     * @returns 操作後のモデル
+     */
+    public updateErdSetting(updatingSetting: ErdSettingModel): ErdDocument {
+        if (this.erdSettingModel === updatingSetting) {
+            return this;
+        }
+
+        return new ErdDocument(
+            this.documentName,
+            updatingSetting,
+            this.tableViewModelIds,
+            this.tableViewModelMap,
+            this.columnModelMap,
+            this.columnShareModelStrage,
+            this.relationViewModelStrage,
+            this.memoViewModelStrage,
             this.databaseSettingModel
         );
     }

@@ -68,13 +68,16 @@ const StartUp = ({ documentStrage, onOpenDocument }: StartUpProp) => {
             <CssBaseline />
             <Box sx={boxStyle}>
                 <img src={Logo} alt="" width="200px" height="200px" />
-                <Typography variant="h2" align="center" style={{ marginBottom: "30px" }}>Entity Relationship Diagram Designer</Typography>
+                <Typography variant="h2" align="center" style={{ marginBottom: "30px" }}>
+                    Entity Relationship Diagram Designer
+                </Typography>
                 <Stack direction={{ sm: 'column', md: 'row' }} spacing={2}>
                     <Button variant="contained" size="large" onClick={() => setOpenDialogName("new_file")}>
                         Create New ER Diagram
                     </Button>
-                    <Button variant="contained" size="large" color="secondary" onClick={() => setOpenDialogName("load_file")}>
-                        Import from json file
+                    <Button variant="contained" size="large" color="secondary"
+                        onClick={() => setOpenDialogName("load_file")}>
+                        Import from erd file
                     </Button>
                 </Stack>
             </Box>
@@ -161,18 +164,18 @@ type LoadFileDialogProp = {
     onClose: () => void
 };
 
+// ファイル選択画面を表示するための input タグの id
+const ELEMENT_FILE_ID = "input_erd_file";
+
 const LoadFileDialog = ({ isOpen, onLoadDocument, onClose }: LoadFileDialogProp) => {
 
     const [fileName, setFileName] = useState("");
     const [erdDocument, setErdDocument] = useState<ErdDocument | null>(null);
     const [failureMessage, setFailureMessage] = useState("");
 
-    // ファイル選択画面を表示するための input タグの id
-    const elementForInputJsonFile = "input_json_file";
-
     // ファイル選択画面を表示する
     const handleSelectFileDialog = () => {
-        const element = document.getElementById(elementForInputJsonFile);
+        const element = document.getElementById(ELEMENT_FILE_ID);
         if (element == null) {
             return;
         }
@@ -233,15 +236,15 @@ const LoadFileDialog = ({ isOpen, onLoadDocument, onClose }: LoadFileDialogProp)
                 </DialogActions>
             </Dialog>
             <div style={{ display: "none" }}>
-                <input id={elementForInputJsonFile} type="file" accept=".json" onChange={handleLoadFile} />
+                <input id={ELEMENT_FILE_ID} type="file" accept=".erd" onChange={handleLoadFile} />
             </div>
         </>
     );
 };
 
 const initFileReader = (
-    setErdDocument: React.Dispatch<React.SetStateAction<ErdDocument | null>>,
-    setFailureMessage: React.Dispatch<React.SetStateAction<string>>
+    setErdDocument: (erdDocument: ErdDocument | null) => void,
+    setFailureMessage: (message: string) => void
 ) => {
     const fileReader = new FileReader();
     fileReader.addEventListener("load", () => {
