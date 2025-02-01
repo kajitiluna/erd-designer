@@ -27,6 +27,7 @@ import LineViewModel from "~/models/LineViewModel";
 import { DragActionContext } from "~/context/DragActionContext";
 
 import styleClasses from "./ErdCanvas.module.css";
+import { LocalSettingContext } from "~/context/LocalSettingContext";
 
 export const ERD_TABLE_VIEW_CLASS_NAME = "erdTableView";
 
@@ -40,6 +41,7 @@ const ErdTableView = ({ tableViewModel, onEditAction }: ErdTableViewProps) => {
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
+    const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
 
     const [openDeletingDialog, setOpenDeleteDialog] = useState(false);
 
@@ -114,6 +116,8 @@ const ErdTableView = ({ tableViewModel, onEditAction }: ErdTableViewProps) => {
     };
 
     const handleSetColor = (background: ColorValue, foreground: ColorValue) => {
+        dispatchLocalSetting({ type: "defaultColor", color: { background, foreground } });
+
         documentsHolder.updateTableViewColor([tableViewModel.tableId], background, foreground);
     };
 

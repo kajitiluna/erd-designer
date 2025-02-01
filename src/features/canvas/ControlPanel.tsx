@@ -24,6 +24,7 @@ import download from "~/components/file-downloader";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { ERD_TABLE_VIEW_CLASS_NAME } from "~/features/canvas/ErdTableView";
 import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
+import { LocalSettingContext } from "~/context/LocalSettingContext";
 
 const ControlPanel = () => {
     const panelStyle = {
@@ -94,20 +95,16 @@ const EditModePanel = () => {
 
 const ActionPanel = () => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const { localSetting, dispatchLocalSetting } = React.useContext(LocalSettingContext);
+
     const erdDocument: ErdDocument = documentsHolder.current();
     const erdSetting: ErdSettingModel = erdDocument.erdSettingModel;
 
     const handleSetDefaultColor = (background: ColorValue, foreground: ColorValue) => {
-        if ((erdSetting.backgroundColor.isEqual(background))
-            && (erdSetting.foregroundColor.isEqual(foreground))) {
-            return;
-        }
-
-        const nextErdSetting = erdSetting.update({
-            backgroundColor: background, foregroundColor: foreground
+        dispatchLocalSetting({
+            type: "defaultColor",
+            color: { background, foreground }
         });
-
-        documentsHolder.updateErdSetting(nextErdSetting);
     };
 
     const handleChangeDisplayStyle = (event: SelectChangeEvent<string>) => {
@@ -130,7 +127,7 @@ const ActionPanel = () => {
 
     return (
         <ButtonGroup orientation="vertical" aria-label="vertical button group" sx={buttonStyle}>
-            <ColorSelector key='color-selector-default' color={erdSetting.backgroundColor}
+            <ColorSelector key='color-selector-default' color={localSetting.defaultColor.background}
                 shape="rectangle" callback={handleSetDefaultColor} />
             <FormControl size="small">
                 <InputLabel id="label-display-style">Display Style</InputLabel>

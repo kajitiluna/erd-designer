@@ -49,11 +49,17 @@ export default class MemoViewModel {
         this.createdAt = createdAt ? createdAt : new Date();
     }
 
-    // TODO
     public static create(
-        rectangleViewModel: RectangleViewModel, backgroundColor: ColorValue, foregroundColor: ColorValue
+        rectangleViewModel: RectangleViewModel,
+        color: { background: ColorValue, foreground: ColorValue },
+        fontSize: number = DEFAULT_FONT_SIZE
     ): MemoViewModel {
-        return new MemoViewModel({ memoId: uuidV4(), memo: "", rectangleViewModel, backgroundColor, foregroundColor });
+        return new MemoViewModel({
+            memoId: uuidV4(), memo: "", rectangleViewModel,
+            backgroundColor: color.background,
+            foregroundColor: color.foreground,
+            fontSize
+        });
     }
 
     public updateMemo(nextMemo: string): MemoViewModel {

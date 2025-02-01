@@ -17,11 +17,11 @@ import RelationEditView from "~/features/editor/RelationEditView";
 import TableEditView from "~/features/editor/TableEditView";
 import TableModel from "~/models/database/TableModel";
 import EditMode, { EditModeType } from "~/models/EditMode";
-import ErdSettingModel from "~/models/ErdSettingModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import TableViewModel from "~/models/TableViewModel";
 import MemoViewModel from "~/models/MemoViewModel";
 import StickyMemoView, { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
+import { LocalSetting, LocalSettingContext } from "~/context/LocalSettingContext";
 
 type RectangleArea = {
     tableRectangles: Map<string, RectangleViewModel>,
@@ -35,6 +35,7 @@ const ErdCanvas = () => {
     const documentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode, dispatchEditMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
+    const { localSetting } = React.useContext(LocalSettingContext);
     const displayScale = React.useContext(DisplayScaleContext);
 
     // Canvas に描画されている短形の情報を保持する
@@ -73,7 +74,7 @@ const ErdCanvas = () => {
         const mousePosition = getLogicalMousePosition(event, displayScale);
 
         if (editMode === EditModeType.CREATE_TABLE) {
-            const tableViewModel = createNewTable(erdDocument.erdSettingModel, mousePosition);
+            const tableViewModel = createNewTable(mousePosition, localSetting);
             setEditAction({ editType: "table", tableViewModel });
             return;
         }
@@ -85,7 +86,7 @@ const ErdCanvas = () => {
         }
 
         if (editMode === EditModeType.CREATE_MEMO) {
-            const memoViewModel = createNewMemo(erdDocument.erdSettingModel, mousePosition);
+            const memoViewModel = createNewMemo(mousePosition, localSetting);
             documentsHolder.addMemo(memoViewModel);
 
             dispatchSelectAction(RELEASE_ACTION);
@@ -419,7 +420,9 @@ const initRelationCardinalityDefinitions = () => {
     );
 };
 
-const createNewTable = (erdSetting: ErdSettingModel, position: Point) => {
+const createNewTable = (position: Point, localSetting: LocalSetting) => {
+    const color = localSetting.defaultColor;
+
     return new TableViewModel({
         tableModel: new TableModel({}),
         corner: {
@@ -427,19 +430,20 @@ const createNewTable = (erdSetting: ErdSettingModel, position: Point) => {
             top: position.y
         },
         headerColor: {
-            background: erdSetting.backgroundColor,
-            foreground: erdSetting.foregroundColor
+            background: color.background,
+            foreground: color.foreground
         }
     });
 };
 
-const createNewMemo = (erdSetting: ErdSettingModel, position: Point) => {
-    // TODO メモの短形サイズは直近に設定した大きさにしたい
+const createNewMemo = (position: Point, localSetting: LocalSetting) => {
+    const stickySize = localSetting.stickySize;
     const rectangle = new RectangleViewModel({
-        positionX: position.x, positionY: position.y, width: 100, height: 100
+        positionX: position.x, positionY: position.y,
+        width: stickySize.width, height: stickySize.height
     });
 
-    return MemoViewModel.create(rectangle, erdSetting.backgroundColor, erdSetting.foregroundColor);
+    return MemoViewModel.create(rectangle, localSetting.defaultColor, localSetting.stickyFontSize);
 };
 
 const initRectangleArea = (erdCanvas: HTMLDivElement, displayScale: number) => {
