@@ -197,7 +197,7 @@ const ConfigureButton = () => {
                     MenuListProps={{ 'aria-labelledby': 'basic-button', }}>
                     <MenuItem onClick={() => setSelectedMenu("export_ddl")}>Export DDL</MenuItem>
                     <MenuItem onClick={handleSaveAsImage}>Save as image</MenuItem>
-                    <MenuItem onClick={handleSaveToJson}>Save to JSON file</MenuItem>
+                    <MenuItem onClick={handleSaveToJson}>Save to ERD file</MenuItem>
                 </Menu>
             </Box>
 
@@ -261,7 +261,7 @@ const downloadImage = (erdDocument: ErdDocument) => {
 };
 
 const downloadJson = (erdDocument: ErdDocument) => {
-    const fileName = `${erdDocument.documentName}.json`;
+    const fileName = `${erdDocument.documentName}.erd`;
     const jsonContent = JSON.stringify(erdDocument.toJSON(), null, 4);
     const downloadContent = new Blob([jsonContent], { type: "application/json" });
 
