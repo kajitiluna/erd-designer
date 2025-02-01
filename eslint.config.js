@@ -30,7 +30,9 @@ export default tseslint.config(
     plugins: {
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
-      'react': react
+      'react': react,
+      'jest-dom': jestDom,
+      'testing-library': testingLibrary,
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
@@ -41,6 +43,26 @@ export default tseslint.config(
       'react/jsx-uses-react': 'error',
       'react/jsx-uses-vars': 'error',
     },
+    overrides: [
+      {
+        files: [
+          '**/__tests__/**/?(*.)+(spec|test).+(ts|tsx|js)'
+        ],
+        rules: {
+          'testing-library/no-debug': 'warn',
+          'testing-library/no-manual-cleanup': 'warn',
+          'testing-library/no-wait-for-snapshot': 'warn',
+          'testing-library/prefer-find-by': 'warn',
+          'testing-library/prefer-presence-queries': 'warn',
+          'testing-library/prefer-screen-queries': 'warn',
+          'testing-library/prefer-user-event': 'warn',
+        },
+        extends: [
+          'plugin:jest-dom/recommended',
+          'plugin:testing-library/react',
+        ],
+      },
+    ],
   },
   react.configs.flat.recommended,
   react.configs.flat['jsx-runtime'],
