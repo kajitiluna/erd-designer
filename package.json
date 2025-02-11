@@ -1,5 +1,6 @@
 {
   "name": "erd-designer",
+  "homepage": "https://kajitiluna.github.io/erd-designer",
   "private": true,
   "version": "0.0.1",
   "type": "module",
