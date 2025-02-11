@@ -1,21 +1,16 @@
 import { useState } from "react";
 import {
-    Alert, AlertTitle,
-    Box, Button, Container, CssBaseline,
-    Dialog, DialogActions, DialogContent, DialogTitle,
-    Divider, FormControl, InputLabel, MenuItem, Select, Stack, TextField, Typography
+    Alert, AlertTitle, Box, Button, Container, CssBaseline,
+    Dialog, DialogActions, DialogContent, DialogTitle, Divider, Stack, Typography
 } from "@mui/material";
 import Grid from '@mui/material/Grid2';
 import { v4 as uuidV4 } from 'uuid';
 
 import ErdDocument from "~/models/ErdDocument";
-import { databases, DatabaseType } from "~/models/database";
-import DatabaseSettingModel from "~/models/DatabaseSettingModel";
-import ErdSettingModel from "~/models/ErdSettingModel";
 import ErdDocumentListPanel from "~/features/start_up/ErdDocumentListPanel";
-import Logo from "~/logo.svg";
 import ErdDocumentStrage from "~/features/strage/ErdDocumentStrage";
-
+import InitializeDatabaseDialog from "~/features/start_up/InitializeDatabaseDialog";
+import Logo from "~/logo.svg";
 
 type StartUpProp = {
     documentStrage: ErdDocumentStrage,
@@ -29,22 +24,13 @@ const StartUp = ({ documentStrage, onOpenDocument }: StartUpProp) => {
 
     const handleCloseDialog = () => setOpenDialogName("");
 
-    const handleCreateDocument = (documentName: string, databaseType: DatabaseType) => {
-        const databaseSetting = DatabaseSettingModel.create(databaseType)
-        const setting = ErdSettingModel.create(documentName);
-
-        const document = ErdDocument.create({
-            documentName: documentName,
-            erdSettingModel: setting,
-            databaseSettingModel: databaseSetting
-        });
-
+    const handleCreateDocument = (erdDocument: ErdDocument) => {
         const documentKey = uuidV4();
-        documentStrage.save(documentKey, document);
+        documentStrage.save(documentKey, erdDocument);
 
         const handleOnSave = (updating: ErdDocument) => documentStrage.save(documentKey, updating);
 
-        onOpenDocument(document, handleOnSave);
+        onOpenDocument(erdDocument, handleOnSave);
     };
 
     const handleLoadDocument = (document: ErdDocument) => {
@@ -84,7 +70,7 @@ const StartUp = ({ documentStrage, onOpenDocument }: StartUpProp) => {
             <ErdDocumentListPanel documentStrage={documentStrage} onOpenDocument={onOpenDocument} />
 
             {(openDialogName === "new_file") && (
-                <InitializeDialog
+                <InitializeDatabaseDialog
                     isOpen={openDialogName === "new_file"}
                     onCreate={handleCreateDocument}
                     onClose={handleCloseDialog} />
@@ -96,65 +82,6 @@ const StartUp = ({ documentStrage, onOpenDocument }: StartUpProp) => {
                     onClose={handleCloseDialog} />
             )}
         </Container>
-    );
-};
-
-type InitializeDialogProp = {
-    isOpen: boolean,
-    onCreate: (documentName: string, databaseType: DatabaseType) => void,
-    onClose: () => void
-};
-
-const InitializeDialog = ({ isOpen, onCreate, onClose }: InitializeDialogProp) => {
-    const [documentName, setDocumentName] = useState<string>("");
-    const [databaseType, setDatabaseType] = useState<DatabaseType | "">("");
-
-    const handleSubmit = () => {
-        if ((documentName === "") || (databaseType === "")) {
-            return;
-        }
-
-        onCreate(documentName, databaseType);
-        onClose();
-    };
-
-    return (
-        <Dialog fullWidth maxWidth="lg" open={isOpen} onClose={onClose}>
-            <DialogTitle>Input ER Diagram settings.</DialogTitle>
-            <DialogContent>
-                <Stack spacing={4}>
-                    <Divider />
-
-                    <Stack spacing={1}>
-                        <Typography variant="body1">Input ER Diagram name.</Typography>
-                        <TextField variant="standard" required sx={{ marginBottom: "30px" }}
-                            label="Diagram name" value={documentName}
-                            onChange={event => setDocumentName(event.target.value)} />
-                    </Stack>
-
-                    <Stack spacing={1}>
-                        <Typography variant="body1">Select database type.</Typography>
-                        <FormControl fullWidth>
-                            <InputLabel id="label-select-database">Database</InputLabel>
-                            <Select
-                                labelId="label-select-database" label="Database" value={databaseType}
-                                onChange={event => setDatabaseType(event.target.value as DatabaseType)} >
-                                {Object.keys(databases).map((key) =>
-                                    <MenuItem key={key} value={key}>{databases[key as DatabaseType].name}</MenuItem>
-                                )}
-                            </Select>
-                        </FormControl>
-                    </Stack>
-                </Stack>
-            </DialogContent>
-            <DialogActions sx={{ margin: "15px", marginTop: "10px" }}>
-                <Button
-                    variant="contained" fullWidth size="large"
-                    disabled={(documentName === "") || (databaseType === "")} onClick={handleSubmit} >
-                    Start design ER Diagram.
-                </Button>
-            </DialogActions>
-        </Dialog>
     );
 };
 
@@ -250,7 +177,7 @@ const initFileReader = (
     fileReader.addEventListener("load", () => {
         if (typeof fileReader.result !== "string") {
             setErdDocument(null);
-            setFailureMessage("Not json file.");
+            setFailureMessage("Not erd file.");
             return;
         }
 

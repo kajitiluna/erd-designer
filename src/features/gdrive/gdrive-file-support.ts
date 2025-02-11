@@ -1,0 +1,169 @@
+import ErdDocument from "~/models/ErdDocument";
+
+type OpenGdriveFileArgs = {
+    accessToken: string,
+    fileId: string
+};
+
+export const openGdriveFile = async ({ accessToken, fileId }: OpenGdriveFileArgs) => {
+    const fileUri = `https://www.googleapis.com/drive/v3/files/${fileId}`;
+    const headerInfo = { headers: { Authorization: `Bearer ${accessToken}` } };
+
+    const fetchContent = async () => {
+        const resposne = await fetch(`${fileUri}?alt=media`, headerInfo);
+        if (!resposne.ok) {
+            throw new Error(`Failed to open file. ${JSON.stringify(resposne)}`);
+        }
+
+        const jsonContent = await resposne.json();
+        return ErdDocument.toObject(jsonContent);
+    };
+
+    const fetchMetadata = async () => {
+        const resposne = await fetch(`${fileUri}?fields=version`, headerInfo);
+        if (!resposne.ok) {
+            throw new Error(`Failed to get metadata. ${JSON.stringify(resposne)}`);
+        }
+
+        const metaJson = await resposne.json();
+        return {
+            fileId: fileId,
+            version: metaJson.version as string
+        };
+    };
+
+    const [erdDocument, metadata] = await Promise.all([fetchContent(), fetchMetadata()]);
+    return { fileId, erdDocument, version: metadata.version };
+};
+
+export const findGdriveMetadata = async ({ accessToken, fileId }: OpenGdriveFileArgs) => {
+    const fileUri = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,version`;
+    const headerInfo = { headers: { Authorization: `Bearer ${accessToken}` } };
+
+    const response = await fetch(fileUri, headerInfo);
+    if (!response.ok) {
+        throw new Error(`Failed to find metadata. ${JSON.stringify(response)}`);
+    }
+
+    const metadata = await response.json();
+    if (!("name" in metadata)) {
+        throw new Error(`Failed to find name in metadata. ${JSON.stringify(metadata)}`);
+    }
+    if (!("version" in metadata)) {
+        throw new Error(`Failed to find version in metadata. ${JSON.stringify(metadata)}`);
+    }
+
+    return { fileName: metadata.name as string, version: metadata.version as string };
+};
+
+type CreateGdriveFileArgs = {
+    accessToken: string,
+    folderId: string,
+    erdDocument: ErdDocument
+};
+
+export const createGdriveFile = async ({ accessToken, folderId, erdDocument }: CreateGdriveFileArgs) => {
+    const metadata = {
+        name: `${erdDocument.documentName}.erd`,
+        parents: [folderId],
+        mimeType: "application/json"
+    };
+
+    const { fileId, version } = await doMultipartGdriveFile({ accessToken, metadata, erdDocument });
+
+    return { fileId, erdDocument, version };
+};
+
+type UpdateGdriveFileArgs = {
+    accessToken: string,
+    fileId: string,
+    erdDocument: ErdDocument,
+    withName?: boolean
+}
+
+export const updateGdriveFile = async ({ accessToken, fileId, erdDocument, withName = false }: UpdateGdriveFileArgs) => {
+    if (withName) {
+        const metadata = {
+            name: `${erdDocument.documentName}.erd`,
+            mimeType: "application/json"
+        };
+
+        return doMultipartGdriveFile({ accessToken, fileId, metadata, erdDocument });
+    }
+
+    const uploadUri = "https://www.googleapis.com/upload/drive/v3/files?uploadType=media";
+    const headerInfo = {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json; charset=UTF-8"
+    };
+
+    const response = await fetch(uploadUri, {
+        method: "PATCH",
+        headers: headerInfo,
+        body: JSON.stringify(erdDocument.toJSON())
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to update file. ${JSON.stringify(response)}`);
+    }
+
+    const responseMetadata = await response.json();
+    if (!("version" in responseMetadata)) {
+        throw new Error(`Failed to find version in the responsne. ${JSON.stringify(responseMetadata)}`);
+    }
+
+    return { fileId, version: responseMetadata.version as string };
+};
+
+type DoUpdateGdriveFileArgs = {
+    accessToken: string,
+    fileId?: string | null,
+    metadata: {
+        name: string,
+        parents?: string[],
+        mimeType: string
+    },
+    erdDocument: ErdDocument,
+};
+
+const doMultipartGdriveFile = async ({ accessToken, fileId = null, metadata, erdDocument }: DoUpdateGdriveFileArgs) => {
+    const method = (fileId != null) ? "PATCH" : "POST";
+    const uploadUri = "https://www.googleapis.com/upload/drive/v3/files"
+        + ((fileId != null) ? ("/" + fileId) : "") + "?uploadType=multipart";
+
+    const boundary = `-------${new Date().getTime()}`;
+    const delimiter = `\r\n--${boundary}\r\n`;
+    const closeDelimiter = `\r\n--${boundary}--`;
+    const multipartBody = delimiter
+        + `Content-Type: application/json; charset=UTF-8\r\n\r\n`
+        + JSON.stringify(metadata)
+        + delimiter
+        + `Content-Type: application/json; charset=UTF-8\r\n\r\n`
+        + erdDocument.toJSON()
+        + closeDelimiter;
+
+    const headerInfo = {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": `multipart/related; boundary=${boundary}`
+    };
+
+    const response = await fetch(
+        uploadUri, { method: method, headers: headerInfo, body: multipartBody }
+    );
+    if (!response.ok) {
+        throw new Error(`Failed to ${method.toLocaleLowerCase()} file. ${JSON.stringify(response)}`);
+    }
+
+    const responseJson = await response.json();
+    if (!("id" in responseJson)) {
+        throw new Error(`Failed to find id in the responsne. ${JSON.stringify(responseJson)}`);
+    }
+    if (!("version" in responseJson)) {
+        throw new Error(`Failed to find version in the responsne. ${JSON.stringify(responseJson)}`);
+    }
+
+    const responseFileId = responseJson.id as string;
+    const version = responseJson.version as string;
+
+    return { fileId: responseFileId, version };
+};

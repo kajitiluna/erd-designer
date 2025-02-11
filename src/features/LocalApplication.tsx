@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Container, Paper, Typography } from "@mui/material";
 
 import ErdDocument from "~/models/ErdDocument";
-import initializeIndexedDB from "~/features/strage/IndexedDBStrage";
+import initializeErdDocumentDB from "~/features/strage/IndexedErdDocumentStrage";
 import StartUp from "~/features/start_up/StartUp";
 import ErdDocumentStrage from "~/features/strage/ErdDocumentStrage";
 import MainView from "~/features/MainView";
@@ -10,10 +10,10 @@ import MainView from "~/features/MainView";
 const LocalApplicataion = () => {
     const [documentStrage, setDocumentStrage] = useState<ErdDocumentStrage | null>(null);
     const [erdDocument, setErdDocument] = useState<ErdDocument | null>(null);
-    const [strageHandler, setStrageHandler] = useState<{ handle: (updating: ErdDocument) => void }>({ handle: () => { } });
+    const [strageHandler, setStrageHandler] = useState<StrageHandler>({ handle: () => { } });
 
     if (documentStrage == null) {
-        initializeIndexedDB().then(strage => setDocumentStrage(strage));
+        initializeErdDocumentDB().then(strage => setDocumentStrage(strage));
 
         return (
             <Container>
@@ -39,6 +39,10 @@ const LocalApplicataion = () => {
     return (erdDocument == null)
         ? <StartUp documentStrage={documentStrage} onOpenDocument={handleOpenDocument} />
         : <MainView erdDocument={erdDocument} onSave={strageHandler.handle} />
+};
+
+type StrageHandler = {
+    handle: (updating: ErdDocument) => void
 };
 
 export default LocalApplicataion;

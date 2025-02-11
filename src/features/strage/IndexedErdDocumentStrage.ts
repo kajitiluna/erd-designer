@@ -1,10 +1,7 @@
 import ErdDocumentStrage from "~/features/strage/ErdDocumentStrage";
 import ErdDocumentSummary from "~/features/strage/ErdDocumentSummary";
+import { INDEXED_DB_NAME, INDEXED_DB_VERSION, INDEXED_OBJECT_ERD_DOCUMENT } from "~/features/strage/IndexedDBConst";
 import ErdDocument from "~/models/ErdDocument";
-
-const INDEXED_DB_NAME = "erd_designer";
-const INDEXED_DB_VERSION = 1;
-const INDEXED_OBJECT_NAME = "erd_document";
 
 type InternalDocument = {
     key: string;
@@ -13,7 +10,7 @@ type InternalDocument = {
     document: object;
 };
 
-const initializeIndexedDB = () => {
+const initializeErdDocumentDB = () => {
     return new Promise<ErdDocumentStrage>((resolve) => {
         const request = indexedDB.open(INDEXED_DB_NAME, INDEXED_DB_VERSION);
         request.onerror = (event) => {
@@ -28,7 +25,7 @@ const initializeIndexedDB = () => {
 
         request.onupgradeneeded = () => {
             const database = request.result;
-            database.createObjectStore(INDEXED_OBJECT_NAME, { keyPath: "key" });
+            database.createObjectStore(INDEXED_OBJECT_ERD_DOCUMENT, { keyPath: "key" });
             console.info("Upgraded IndexedDB instance.")
 
             resolve(new IndexedDBStrage(database));
@@ -50,8 +47,8 @@ class IndexedDBStrage implements ErdDocumentStrage {
 
     findAll(): Promise<ErdDocumentSummary[]> {
         return new Promise<ErdDocumentSummary[]>((resolve, reject) => {
-            const transaction = this.database.transaction([INDEXED_OBJECT_NAME], "readonly");
-            const objectStore = transaction.objectStore(INDEXED_OBJECT_NAME);
+            const transaction = this.database.transaction([INDEXED_OBJECT_ERD_DOCUMENT], "readonly");
+            const objectStore = transaction.objectStore(INDEXED_OBJECT_ERD_DOCUMENT);
 
             const documents: ErdDocumentSummary[] = [];
             const request = objectStore.openCursor();
@@ -92,8 +89,8 @@ class IndexedDBStrage implements ErdDocumentStrage {
 
     find(key: string): Promise<ErdDocument | null> {
         return new Promise<ErdDocument | null>((resolve, reject) => {
-            const transaction = this.database.transaction([INDEXED_OBJECT_NAME], "readonly");
-            const objectStore = transaction.objectStore(INDEXED_OBJECT_NAME);
+            const transaction = this.database.transaction([INDEXED_OBJECT_ERD_DOCUMENT], "readonly");
+            const objectStore = transaction.objectStore(INDEXED_OBJECT_ERD_DOCUMENT);
             const request = objectStore.get(key);
 
             request.onsuccess = () => {
@@ -124,8 +121,8 @@ class IndexedDBStrage implements ErdDocumentStrage {
                 document: document.toJSON(),
             };
 
-            const transaction = this.database.transaction([INDEXED_OBJECT_NAME], "readwrite");
-            const objectStore = transaction.objectStore(INDEXED_OBJECT_NAME);
+            const transaction = this.database.transaction([INDEXED_OBJECT_ERD_DOCUMENT], "readwrite");
+            const objectStore = transaction.objectStore(INDEXED_OBJECT_ERD_DOCUMENT);
             const updateRequest = objectStore.put(jsonDocument);
 
             updateRequest.onsuccess = () => {
@@ -141,8 +138,8 @@ class IndexedDBStrage implements ErdDocumentStrage {
 
     delete(key: string): Promise<void> {
         return new Promise<void>((resolve, reject) => {
-            const transaction = this.database.transaction([INDEXED_OBJECT_NAME], "readwrite");
-            const objectStore = transaction.objectStore(INDEXED_OBJECT_NAME);
+            const transaction = this.database.transaction([INDEXED_OBJECT_ERD_DOCUMENT], "readwrite");
+            const objectStore = transaction.objectStore(INDEXED_OBJECT_ERD_DOCUMENT);
             const updateRequest = objectStore.delete(key);
 
             updateRequest.onsuccess = () => {
@@ -183,4 +180,4 @@ class NoOperationStrage implements ErdDocumentStrage {
     }
 }
 
-export default initializeIndexedDB;
+export default initializeErdDocumentDB;
