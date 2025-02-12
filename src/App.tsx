@@ -1,8 +1,8 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 
 import './App.css'
-import GoogleDriveApplication from '~/features/GoogleDriveApplication';
 import LocalApplicataion from '~/features/LocalApplication';
+import GoogleOAuthProviderWrapper from '~/features/gdrive/GoogleOAuthProviderWrapper';
 
 function App() {
 
@@ -10,7 +10,7 @@ function App() {
     <BrowserRouter>
       <div className='App'>
         <Routes>
-          <Route path='/gdrive/*' element={<GoogleDriveApplication />} />
+          <Route path='/erd-designer/gdrive/*' element={<GoogleOAuthProviderWrapper />} />
           <Route path='*' element={<LocalApplicataion />} />
         </Routes>
       </div>

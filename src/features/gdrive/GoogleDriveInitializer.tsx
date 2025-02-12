@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Box, Button, CircularProgress, Stack, Typography } from "@mui/material";
 import { useSearchParams } from "react-router-dom";
 
@@ -16,7 +16,6 @@ type GoogleDriveInitializerProp = {
 const GoogleDriveInitializer = ({ implictToken, authorize, onInitialize }: GoogleDriveInitializerProp) => {
     const [gdriveFolderId, setGdriveFolderId] = useState<string | null>(null);
     const [erdDocument, setErdDocument] = useState<ErdDocument | null>(null);
-    const authorizeRef = React.useRef<HTMLButtonElement>(null);
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [urlParams, _setUrlParams] = useSearchParams();
@@ -33,12 +32,12 @@ const GoogleDriveInitializer = ({ implictToken, authorize, onInitialize }: Googl
     useEffect(() => {
         const currentDate = new Date().getTime();
         if (implictToken.expiresAt < currentDate) {
-            authorizeRef.current?.click();
             return;
         }
 
         const gdriveState = JSON.parse(stateValue);
         if (!("action" in gdriveState)) {
+            console.error(`Not found action value in state query. ${stateValue}`);
             return;
         }
 
@@ -91,8 +90,10 @@ const GoogleDriveInitializer = ({ implictToken, authorize, onInitialize }: Googl
 
             {(gdriveFolderId == null) && (
                 <Stack spacing={2} sx={{ justifyContent: "center", alignItems: "center" }}>
-                    <Button ref={authorizeRef} variant="contained" size="large"
-                        onClick={authorize}>
+                    <Typography variant="body1" gutterBottom>
+                        Need to authorize to edit the ERD file on the Google Drive.
+                    </Typography>
+                    <Button variant="contained" size="large" onClick={authorize}>
                         Authorize with Google
                     </Button>
                 </Stack>

@@ -1,8 +1,10 @@
-import { Button, Stack } from "@mui/material";
 import React, { useEffect, useState } from "react";
+import { Box, Button, Stack, Typography } from "@mui/material";
+
 import { findGdriveMetadata, openGdriveFile, updateGdriveFile } from "~/features/gdrive/gdrive-file-support";
 import MainView from "~/features/MainView";
 import ErdDocument from "~/models/ErdDocument";
+import Logo from "~/logo.svg";
 
 type GoogleDriveFileProp = {
     implictToken: { accessToken: string, expiresAt: number },
@@ -11,7 +13,6 @@ type GoogleDriveFileProp = {
 
 const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
     const [sessionDocument, setSessionDocument] = useState<SessionDocument | null>(initSessionDocument);
-    const authorizeRef = React.useRef<HTMLButtonElement>(null);
     const updateQueueRef = React.useRef<Promise<string>>(Promise.resolve(""));
 
     const gdriveFileId = sessionStorage.getItem("gdriveFileId");
@@ -34,15 +35,18 @@ const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
             accessToken: implictToken.accessToken, fileId: gdriveFileId
         });
         if (currentVersion !== latestMetadata.version) {
-            console.warn("The document has been updated by another user.");
+            console.warn("The document has been updated by another user."
+                + ` currentVersion = ${currentVersion}, gdriveVersion = ${latestMetadata.version}`);
             return currentVersion;
         }
 
-        const withUpdateName = (nextDocument.documentName !== latestMetadata.fileName);
+        const withUpdateName = (`${nextDocument.documentName}.erd` !== latestMetadata.fileName);
         const result = await updateGdriveFile({
             accessToken: implictToken.accessToken, fileId: gdriveFileId,
             erdDocument: nextDocument, withName: withUpdateName
         });
+
+        console.info(`Succeed to update gdrive file. ${JSON.stringify(result)}`);
 
         return result.version;
     };
@@ -55,7 +59,6 @@ const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
 
         // 再表示された直後は token がクリアされるので、再度認証を行ったうえで最新のファイルを取得する。
         if (implictToken.expiresAt < new Date().getTime()) {
-            authorizeRef.current?.click();
             return;
         }
 
@@ -77,15 +80,48 @@ const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
         updateQueueRef.current = updateQueueRef.current.then((_version: string) => sessionDocument.version);
     }, [sessionDocument, gdriveFileId]);
 
+    // 初回描画後に、リダイレクト時にドキュメント情報を保持するために保存していたセッション情報を破棄する
+    useEffect(() => {
+        sessionStorage.removeItem("temporaryDocument");
+    }, []);
+
+    const boxStyle = {
+        marginTop: 8,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center'
+    };
+
+    if (gdriveFileId == null) {
+        return (
+            <Box sx={boxStyle}>
+                <img src={Logo} alt="" width="200px" height="200px" />
+                <Stack spacing={2} sx={{ justifyContent: "center", alignItems: "center", margin: "30px" }}>
+                    <Typography variant="body1" gutterBottom>
+                        Invalid access. Please open the file from the Google Drive.
+                    </Typography>
+                </Stack>
+            </Box>
+        );
+    }
+
     return (
         (sessionDocument == null)
             ? (
-                <Stack spacing={2} sx={{ justifyContent: "center", alignItems: "center" }}>
-                    <Button ref={authorizeRef} variant="contained" size="large"
-                        onClick={authorize}>
-                        Authorize with Google
-                    </Button>
-                </Stack>
+                <Box sx={boxStyle}>
+                    <img src={Logo} alt="" width="200px" height="200px" />
+                    <Typography variant="h2" align="center" style={{ marginBottom: "30px" }}>
+                        Entity Relationship Diagram Designer
+                    </Typography>
+                    <Stack spacing={2} sx={{ justifyContent: "center", alignItems: "center" }}>
+                        <Typography variant="body1" gutterBottom>
+                            Need to re-authorize to edit the ERD file on the Google Drive.
+                        </Typography>
+                        <Button variant="contained" size="large" onClick={authorize}>
+                            Authorize with Google
+                        </Button>
+                    </Stack>
+                </Box>
             ) : <MainView erdDocument={sessionDocument.erdDocument} onSave={handleSave} />
     );
 };
@@ -97,7 +133,6 @@ type SessionDocument = {
 
 const initSessionDocument = (): (SessionDocument | null) => {
     const temporaryDocument = sessionStorage.getItem("temporaryDocument");
-    sessionStorage.removeItem("temporaryDocument");
 
     if (temporaryDocument == null) {
         return null;
@@ -108,7 +143,10 @@ const initSessionDocument = (): (SessionDocument | null) => {
         return null;
     }
 
-    return jsonDocument;
+    return {
+        erdDocument: ErdDocument.toObject(jsonDocument.erdDocument),
+        version: jsonDocument.version
+    };
 };
 
 export default GoogleDriveFile;

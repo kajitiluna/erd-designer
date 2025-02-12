@@ -1,8 +1,7 @@
-import { useState } from "react";
-import { redirect, Route, Routes } from "react-router-dom";
-import { GoogleOAuthProvider, hasGrantedAllScopesGoogle, useGoogleLogin } from "@react-oauth/google";
+import { useEffect, useState } from "react";
+import { Route, Routes } from "react-router-dom";
+import { hasGrantedAllScopesGoogle, useGoogleLogin } from "@react-oauth/google";
 
-import oauth2Setting from "~/config/OauthSetting";
 import GoogleDriveInitializer from "~/features/gdrive/GoogleDriveInitializer";
 import ErdDocument from "~/models/ErdDocument";
 import GoogleDriveFile from "~/features/gdrive/GoogleDriveFile";
@@ -14,8 +13,9 @@ const GoogleDriveApplication = () => {
         flow: "implicit",
         scope: GDRIVE_SCOPES.join(" "),
         onSuccess: response => {
-            console.debug(`Succeed to get token. ${JSON.stringify(response)}`);
-            const hasAccess = hasGrantedAllScopesGoogle(response, "https://www.googleapis.com/auth/drive.file");
+            console.debug(`Succeed to authorize.`);
+            const hasAccess = hasGrantedAllScopesGoogle(
+                response, "https://www.googleapis.com/auth/drive.file");
             if (!hasAccess) {
                 console.warn("Not granted the drive.file scope.");
                 return;
@@ -43,29 +43,29 @@ const GoogleDriveApplication = () => {
         sessionStorage.setItem("temporaryDocument", JSON.stringify(temporaryDocument));
         sessionStorage.setItem("temporaryToken", JSON.stringify(implictToken));
 
-        window.history.replaceState(null, "", "/gdrive");
-
-        redirect("/gdrive");
+        window.history.replaceState(null, "", "/erd-designer/gdrive");
+        window.location.href = "/erd-designer/gdrive";
     };
 
-    const oauthSetting = oauth2Setting();
+    // 初回描画後に、セッションに保存したトークン情報を破棄する
+    useEffect(() => {
+        sessionStorage.removeItem("temporaryToken");
+    }, []);
 
     return (
-        <GoogleOAuthProvider clientId={oauthSetting.clientId}>
-            <Routes>
-                <Route path='init' element={
-                    <GoogleDriveInitializer
-                        implictToken={implictToken}
-                        authorize={authorize}
-                        onInitialize={handleInitialize} />
-                } />
-                <Route path='/' element={
-                    <GoogleDriveFile
-                        implictToken={implictToken}
-                        authorize={authorize} />
-                } />
-            </Routes>
-        </GoogleOAuthProvider>
+        <Routes>
+            <Route path='init' element={
+                <GoogleDriveInitializer
+                    implictToken={implictToken}
+                    authorize={authorize}
+                    onInitialize={handleInitialize} />
+            } />
+            <Route path='' element={
+                <GoogleDriveFile
+                    implictToken={implictToken}
+                    authorize={authorize} />
+            } />
+        </Routes>
     );
 };
 
@@ -81,7 +81,6 @@ type ImplicitToken = {
 
 const initImplictToken = (): ImplicitToken => {
     const temporaryToken = sessionStorage.getItem("temporaryToken");
-    sessionStorage.removeItem("temporaryToken");
 
     if (temporaryToken == null) {
         return { accessToken: "", expiresAt: 0 };

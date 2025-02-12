@@ -20,7 +20,7 @@ export const openGdriveFile = async ({ accessToken, fileId }: OpenGdriveFileArgs
     };
 
     const fetchMetadata = async () => {
-        const resposne = await fetch(`${fileUri}?fields=version`, headerInfo);
+        const resposne = await fetch(`${fileUri}?fields=modifiedTime`, headerInfo);
         if (!resposne.ok) {
             throw new Error(`Failed to get metadata. ${JSON.stringify(resposne)}`);
         }
@@ -28,7 +28,7 @@ export const openGdriveFile = async ({ accessToken, fileId }: OpenGdriveFileArgs
         const metaJson = await resposne.json();
         return {
             fileId: fileId,
-            version: metaJson.version as string
+            version: metaJson.modifiedTime as string
         };
     };
 
@@ -37,7 +37,7 @@ export const openGdriveFile = async ({ accessToken, fileId }: OpenGdriveFileArgs
 };
 
 export const findGdriveMetadata = async ({ accessToken, fileId }: OpenGdriveFileArgs) => {
-    const fileUri = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,version`;
+    const fileUri = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,modifiedTime`;
     const headerInfo = { headers: { Authorization: `Bearer ${accessToken}` } };
 
     const response = await fetch(fileUri, headerInfo);
@@ -49,11 +49,11 @@ export const findGdriveMetadata = async ({ accessToken, fileId }: OpenGdriveFile
     if (!("name" in metadata)) {
         throw new Error(`Failed to find name in metadata. ${JSON.stringify(metadata)}`);
     }
-    if (!("version" in metadata)) {
-        throw new Error(`Failed to find version in metadata. ${JSON.stringify(metadata)}`);
+    if (!("modifiedTime" in metadata)) {
+        throw new Error(`Failed to find modifiedTime in metadata. ${JSON.stringify(metadata)}`);
     }
 
-    return { fileName: metadata.name as string, version: metadata.version as string };
+    return { fileName: metadata.name as string, version: metadata.modifiedTime as string };
 };
 
 type CreateGdriveFileArgs = {
@@ -91,7 +91,8 @@ export const updateGdriveFile = async ({ accessToken, fileId, erdDocument, withN
         return doMultipartGdriveFile({ accessToken, fileId, metadata, erdDocument });
     }
 
-    const uploadUri = "https://www.googleapis.com/upload/drive/v3/files?uploadType=media";
+    const uploadUri = `https://www.googleapis.com/upload/drive/v3/files/${fileId}`
+        + "?uploadType=media&fields=id,modifiedTime";
     const headerInfo = {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json; charset=UTF-8"
@@ -108,11 +109,11 @@ export const updateGdriveFile = async ({ accessToken, fileId, erdDocument, withN
     }
 
     const responseMetadata = await response.json();
-    if (!("version" in responseMetadata)) {
-        throw new Error(`Failed to find version in the responsne. ${JSON.stringify(responseMetadata)}`);
+    if (!("modifiedTime" in responseMetadata)) {
+        throw new Error(`Failed to find modifiedTime in the responsne. ${JSON.stringify(responseMetadata)}`);
     }
 
-    return { fileId, version: responseMetadata.version as string };
+    return { fileId, version: responseMetadata.modifiedTime as string };
 };
 
 type DoUpdateGdriveFileArgs = {
@@ -129,7 +130,7 @@ type DoUpdateGdriveFileArgs = {
 const doMultipartGdriveFile = async ({ accessToken, fileId = null, metadata, erdDocument }: DoUpdateGdriveFileArgs) => {
     const method = (fileId != null) ? "PATCH" : "POST";
     const uploadUri = "https://www.googleapis.com/upload/drive/v3/files"
-        + ((fileId != null) ? ("/" + fileId) : "") + "?uploadType=multipart";
+        + ((fileId != null) ? ("/" + fileId) : "") + "?uploadType=multipart&fields=id,modifiedTime";
 
     const boundary = `-------${new Date().getTime()}`;
     const delimiter = `\r\n--${boundary}\r\n`;
@@ -139,7 +140,7 @@ const doMultipartGdriveFile = async ({ accessToken, fileId = null, metadata, erd
         + JSON.stringify(metadata)
         + delimiter
         + `Content-Type: application/json; charset=UTF-8\r\n\r\n`
-        + erdDocument.toJSON()
+        + JSON.stringify(erdDocument.toJSON())
         + closeDelimiter;
 
     const headerInfo = {
@@ -158,12 +159,12 @@ const doMultipartGdriveFile = async ({ accessToken, fileId = null, metadata, erd
     if (!("id" in responseJson)) {
         throw new Error(`Failed to find id in the responsne. ${JSON.stringify(responseJson)}`);
     }
-    if (!("version" in responseJson)) {
-        throw new Error(`Failed to find version in the responsne. ${JSON.stringify(responseJson)}`);
+    if (!("modifiedTime" in responseJson)) {
+        throw new Error(`Failed to find modifiedTime in the responsne. ${JSON.stringify(responseJson)}`);
     }
 
     const responseFileId = responseJson.id as string;
-    const version = responseJson.version as string;
+    const version = responseJson.modifiedTime as string;
 
     return { fileId: responseFileId, version };
 };
