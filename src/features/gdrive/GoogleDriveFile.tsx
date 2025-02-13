@@ -122,7 +122,7 @@ const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
                         </Button>
                     </Stack>
                 </Box>
-            ) : <MainView erdDocument={sessionDocument.erdDocument} onSave={handleSave} />
+            ) : <MainView erdDocument={sessionDocument.erdDocument} onSave={handleSave} erdExortable={false} />
     );
 };
 
