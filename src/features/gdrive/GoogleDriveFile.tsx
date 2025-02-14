@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Box, Button, Stack, Typography } from "@mui/material";
+import { Box, Button, CircularProgress, Stack, Typography } from "@mui/material";
 
 import { findGdriveMetadata, openGdriveFile, updateGdriveFile } from "~/features/gdrive/gdrive-file-support";
 import MainView from "~/features/MainView";
@@ -105,14 +105,16 @@ const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
         );
     }
 
-    return (
-        (sessionDocument == null)
-            ? (
-                <Box sx={boxStyle}>
-                    <img src={Logo} alt="" width="200px" height="200px" />
-                    <Typography variant="h2" align="center" style={{ marginBottom: "30px" }}>
-                        Entity Relationship Diagram Designer
-                    </Typography>
+    if (sessionDocument == null) {
+        const currentDate = new Date().getTime();
+
+        return (
+            <Box sx={boxStyle}>
+                <img src={Logo} alt="" width="200px" height="200px" />
+                <Typography variant="h2" align="center" style={{ marginBottom: "30px" }}>
+                    Entity Relationship Diagram Designer
+                </Typography>
+                {(implictToken.expiresAt < currentDate) ? (
                     <Stack spacing={2} sx={{ justifyContent: "center", alignItems: "center" }}>
                         <Typography variant="body1" gutterBottom>
                             Need to re-authorize to edit the ERD file on the Google Drive.
@@ -121,8 +123,16 @@ const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
                             Authorize with Google
                         </Button>
                     </Stack>
-                </Box>
-            ) : <MainView erdDocument={sessionDocument.erdDocument} onSave={handleSave} erdExortable={false} />
+                ) : (
+                    <CircularProgress />
+                )}
+            </Box>
+        );
+    }
+
+    return (
+        <MainView erdDocument={sessionDocument.erdDocument}
+            onSave={handleSave} erdExortable={false} />
     );
 };
 

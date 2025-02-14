@@ -17,9 +17,7 @@ const GoogleDriveInitializer = ({ implictToken, authorize, onInitialize }: Googl
     const [gdriveFolderId, setGdriveFolderId] = useState<string | null>(null);
     const [erdDocument, setErdDocument] = useState<ErdDocument | null>(null);
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [urlParams, _setUrlParams] = useSearchParams();
-    const stateValue = urlParams.get("state") || "{}";
+    const gdriveState = useGdriveStateParam();
 
     const handleCreateDocument = (erdDocument: ErdDocument) => {
         if ((gdriveFolderId == null) || (implictToken.accessToken === "")) {
@@ -35,17 +33,9 @@ const GoogleDriveInitializer = ({ implictToken, authorize, onInitialize }: Googl
             return;
         }
 
-        const gdriveState = JSON.parse(stateValue);
-        if (!("action" in gdriveState)) {
-            console.error(`Not found action value in state query. ${stateValue}`);
-            return;
-        }
-
-        if ((gdriveState.action === "open") && ("ids" in gdriveState)) {
-            const fileIds = gdriveState.ids as string[];
-
+        if (gdriveState.action === "open") {
             openGdriveFile({
-                accessToken: implictToken.accessToken, fileId: fileIds[0]
+                accessToken: implictToken.accessToken, fileId: gdriveState.fileId
             }).then(gdriveFile => {
                 onInitialize(gdriveFile);
             }).catch(error => {
@@ -53,11 +43,10 @@ const GoogleDriveInitializer = ({ implictToken, authorize, onInitialize }: Googl
             });
         }
 
-        if ((gdriveState.action === "create") && ("folderId" in gdriveState)) {
-            const folderId = gdriveState.folderId as string;
-            setGdriveFolderId(folderId);
+        if (gdriveState.action === "create") {
+            setGdriveFolderId(gdriveState.folderId);
         }
-    }, [implictToken, stateValue, authorize, onInitialize]);
+    }, [implictToken, gdriveState, authorize, onInitialize]);
 
     // GoogleDrive にファイルを新規作成する
     useEffect(() => {
@@ -81,6 +70,10 @@ const GoogleDriveInitializer = ({ implictToken, authorize, onInitialize }: Googl
         alignItems: 'center'
     };
 
+    const currentDate = new Date().getTime();
+    const onProcessing = (erdDocument != null)
+        || ((implictToken.expiresAt >= currentDate) && (gdriveState.action === "open"));
+
     return (
         <Box sx={boxStyle}>
             <img src={Logo} alt="" width="200px" height="200px" />
@@ -88,7 +81,7 @@ const GoogleDriveInitializer = ({ implictToken, authorize, onInitialize }: Googl
                 Entity Relationship Diagram Designer
             </Typography>
 
-            {(gdriveFolderId == null) && (
+            {(implictToken.expiresAt < currentDate) && (
                 <Stack spacing={2} sx={{ justifyContent: "center", alignItems: "center" }}>
                     <Typography variant="body1" gutterBottom>
                         Need to authorize to edit the ERD file on the Google Drive.
@@ -104,7 +97,7 @@ const GoogleDriveInitializer = ({ implictToken, authorize, onInitialize }: Googl
                     onCreate={handleCreateDocument}
                     onClose={() => { }} />
             )}
-            {(erdDocument != null) && (
+            {onProcessing && (
                 <CircularProgress />
             )}
         </Box>
@@ -115,6 +108,40 @@ type GdriveFile = {
     fileId: string,
     erdDocument: ErdDocument,
     version: string
+};
+
+type GdriveState = {
+    action: "open",
+    fileId: string
+} | {
+    action: "create",
+    folderId: string
+} | { action: "none" };
+
+const useGdriveStateParam = (): GdriveState => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [urlParams, _setUrlParams] = useSearchParams();
+    const stateValue = urlParams.get("state") || "{}";
+
+    const gdriveState = JSON.parse(stateValue);
+    if (!("action" in gdriveState)) {
+        console.error(`Not found action value in state query. ${stateValue}`);
+        return { action: "none" };
+    }
+
+    if ((gdriveState.action === "open") && ("ids" in gdriveState)) {
+        const fileIds = gdriveState.ids as string[];
+        return { action: "open", fileId: fileIds[0] };
+    }
+
+    if ((gdriveState.action === "create") && ("folderId" in gdriveState)) {
+        const folderId = gdriveState.folderId as string;
+        return { action: "create", folderId };
+    }
+
+    console.error(`Invalid state. ${stateValue}`);
+
+    return { action: "none" };
 };
 
 export default GoogleDriveInitializer;
