@@ -18,7 +18,8 @@ import TitlePanel from "~/features/canvas/TitlePanel";
 
 type MainViewProps = {
     erdDocument: ErdDocument,
-    onSave: (updating: ErdDocument) => void
+    onSave: (updating: ErdDocument) => void,
+    erdExortable?: boolean
 };
 
 type ErdDocumentsHolderOptions = {
@@ -26,7 +27,7 @@ type ErdDocumentsHolderOptions = {
     cursor: number
 };
 
-const MainView = ({ erdDocument, onSave }: MainViewProps) => {
+const MainView = ({ erdDocument, onSave, erdExortable = true }: MainViewProps) => {
 
     const [holderProps, setHolderProps] = useState<ErdDocumentsHolderOptions>({ erdDocuments: [erdDocument], cursor: 0 });
     const [selectState, dispatchSelectAction] = useReducer(reduceSelectAction, EMPTY_SELECT_STATE);
@@ -76,7 +77,7 @@ const MainView = ({ erdDocument, onSave }: MainViewProps) => {
                                 <TitlePanel />
                             </Box>
                             <Box sx={controlPanelStyle}>
-                                <ControlPanel />
+                                <ControlPanel erdExortable={erdExortable} />
                             </Box>
                             <Box sx={scalePanelStyle}>
                                 <DisplayScalePanel scale={scale} onChangeScale={setScale} />

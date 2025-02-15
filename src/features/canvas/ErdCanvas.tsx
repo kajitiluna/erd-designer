@@ -56,13 +56,18 @@ const ErdCanvas = () => {
             tableViewModel={tableView} onEditAction={setEditAction} />
     ));
 
+    const initToMemoView = (foreground: boolean) => {
+        const toMemoView = (memo: MemoViewModel) => (
+            <StickyMemoView key={`sticky-note_${memo.memoId}`}
+                memoViewModel={memo} onDragAction={dispatchDragAction}
+                foreground={foreground} />
+        );
+
+        return toMemoView;
+    };
     const { frontMemos, backMemos } = erdDocument.getMemoViewModels();
-    const toMemoView = (memo: MemoViewModel) => (
-        <StickyMemoView key={`sticky-note_${memo.memoId}`}
-            memoViewModel={memo} onDragAction={dispatchDragAction} />
-    );
-    const frontMemoViews = frontMemos.map(toMemoView);
-    const backMemoViews = backMemos.map(toMemoView);
+    const frontMemoViews = frontMemos.map(initToMemoView(true));
+    const backMemoViews = backMemos.map(initToMemoView(false));
 
     // リレーション作成にて、親テーブル指定後、子テーブルを指定する際に動的に表示するライン
     const activeLine = initCreatingRelationLine({
@@ -268,7 +273,8 @@ const ErdCanvas = () => {
     const svgStyle: React.CSSProperties = {
         position: "absolute", top: 0, left: 0,
         width: `${DRAWABLE_AREA.width}px`,
-        height: `${DRAWABLE_AREA.height}px`
+        height: `${DRAWABLE_AREA.height}px`,
+        pointerEvents: "none"
     };
 
     return (
@@ -277,13 +283,14 @@ const ErdCanvas = () => {
                 onClick={handleClickOnCanvas} onMouseMove={handleMoveMouseOnCanvas}
                 onMouseDown={handleDragStart} onMouseUp={handleDragEnd}>
 
+                {backMemoViews}
+
                 <svg style={svgStyle}>
                     {initRelationCardinalityDefinitions()}
                     {svgPaths}
                     {activeLine}
                 </svg>
 
-                {backMemoViews}
                 {tableViews}
                 {frontMemoViews}
 

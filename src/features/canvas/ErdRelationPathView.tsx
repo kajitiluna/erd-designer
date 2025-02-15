@@ -237,7 +237,8 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
 
         return (
             <path key={`relation-line_${relationView.relationId}_path-${index}`}
-                d={line} stroke="transparent" strokeWidth={15} fill="none" style={{ cursor: 'pointer' }}
+                d={line} stroke="transparent" strokeWidth={15} fill="none"
+                style={{ cursor: 'pointer', pointerEvents: "auto" }}
                 onMouseDown={handleDragStart} onMouseUp={handleDragEnd}
                 onMouseEnter={initActiveDragModification(false)} onMouseLeave={initActiveDragModification(true)}
                 onClick={handleClickLine} onDoubleClick={event => handleOpenEditDialog(event, relationView)} />
@@ -311,7 +312,7 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
                     x={currentEdge.x - 5 + DRAWABLE_AREA.width / 2} y={currentEdge.y - 5 + DRAWABLE_AREA.height / 2}
                     width="10" height="10" fill={onDragging ? "black" : "white"} stroke="black"
                     className={initPathCss(relationView, onDragging) + " " + styleClasses.selectableSvg}
-                    style={{ cursor: 'pointer' }}
+                    style={{ cursor: 'pointer', pointerEvents: "auto" }}
                     onMouseDown={initHandleDragStart(index)} />
             )
         });
@@ -360,8 +361,9 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         return (
             <path key={`relation-line_${relationView.relationId}_deactive-line`}
                 d={deactiveLine} stroke="transparent" strokeWidth={15} fill="none"
-                className={styleClasses.inactiveDraggedSvg}
-                onMouseEnter={initActiveDragModification(false)} onMouseLeave={initActiveDragModification(true)}
+                className={styleClasses.inactiveDraggedSvg} style={{ pointerEvents: "auto" }}
+                onMouseEnter={initActiveDragModification(false)}
+                onMouseLeave={initActiveDragModification(true)}
                 onMouseUp={handleDragEnd} />
         );
     };

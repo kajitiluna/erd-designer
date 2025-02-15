@@ -37,9 +37,10 @@ export const ERD_MEMO_VIEW_CLASS_NAME = "erdMemoView";
 type StickyNoteViewProps = {
     memoViewModel: MemoViewModel,
     onDragAction: (dragAction: DragAction) => void,
+    foreground?: boolean
 };
 
-const StickyMemoView = ({ memoViewModel, onDragAction }: StickyNoteViewProps) => {
+const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: StickyNoteViewProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
@@ -216,8 +217,16 @@ const StickyMemoView = ({ memoViewModel, onDragAction }: StickyNoteViewProps) =>
         }
     }, [isTextEdit]);
 
+    const zIndex = (selected: boolean) => {
+        if (foreground) {
+            return selected ? 100 : "auto";
+        }
+
+        return selected ? -10 : -100;
+    };
+
     const wrapperStyle: React.CSSProperties = {
-        position: "absolute", overflow: "auto", zIndex: selected ? 100 : "auto",
+        position: "absolute", overflow: "auto", zIndex: zIndex(selected),
         left: `${rectangle.left + moving.x + DRAWABLE_AREA.height / 2}px`,
         top: `${rectangle.top + moving.y + DRAWABLE_AREA.width / 2}px`,
         display: "flex", flexDirection: "column", justifyContent: "flex-start",

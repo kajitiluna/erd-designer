@@ -27,7 +27,11 @@ import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityConte
 import { LocalSettingContext } from "~/context/LocalSettingContext";
 import { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
 
-const ControlPanel = () => {
+type ControlPanelProps = {
+    erdExortable: boolean
+};
+
+const ControlPanel = ({ erdExortable }: ControlPanelProps) => {
     const panelStyle = {
         display: "flex",
         flexDirection: "column",
@@ -45,7 +49,7 @@ const ControlPanel = () => {
         <Box sx={panelStyle}>
             <EditModePanel />
             <ActionPanel />
-            <ConfigureButton />
+            <SubMenuButton erdExortable={erdExortable} />
         </Box>
     );
 };
@@ -153,7 +157,11 @@ const ActionPanel = () => {
     );
 };
 
-const ConfigureButton = () => {
+type SubMenuButtonProps = {
+    erdExortable: boolean
+};
+
+const SubMenuButton = ({ erdExortable }: SubMenuButtonProps) => {
     const { dispatchSelectAction } = React.useContext(SelectEntityContext);
     const [configureElement, setConfigureElement] = useState<HTMLElement | null>();
     const [selectedMenu, setSelectedMenu] = useState<"export_ddl" | "">("");
@@ -187,7 +195,7 @@ const ConfigureButton = () => {
     return (
         <>
             <Box sx={buttonStyle}>
-                <Button key="configure-button" variant="text"
+                <Button key="submenu-button" variant="text"
                     aria-controls={isConfigureOpen ? 'basic-menu' : undefined}
                     aria-expanded={isConfigureOpen ? 'true' : undefined}
                     aria-haspopup="true" endIcon={<KeyboardArrowDownIcon />}
@@ -198,7 +206,7 @@ const ConfigureButton = () => {
                     MenuListProps={{ 'aria-labelledby': 'basic-button', }}>
                     <MenuItem onClick={() => setSelectedMenu("export_ddl")}>Export DDL</MenuItem>
                     <MenuItem onClick={handleSaveAsImage}>Save as image</MenuItem>
-                    <MenuItem onClick={handleSaveToJson}>Save to ERD file</MenuItem>
+                    {erdExortable && <MenuItem onClick={handleSaveToJson}>Save to ERD file</MenuItem>}
                 </Menu>
             </Box>
 
