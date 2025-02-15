@@ -57,7 +57,7 @@ const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
             return;
         }
 
-        // 再表示された直後は token がクリアされるので、再度認証を行ったうえで最新のファイルを取得する。
+        // 再読み込みされた直後は token がクリアされるので、再度認証を行ったうえで最新のファイルを取得する。
         if (implictToken.expiresAt < new Date().getTime()) {
             return;
         }
@@ -69,18 +69,21 @@ const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
         }).catch(error => {
             console.error(`Failed to open file. ${error}`);
         });
-    }, [implictToken, sessionDocument, gdriveFileId, authorize]);
+    }, [implictToken, sessionDocument, gdriveFileId]);
 
+    // ドキュメント読み込み直後に、現在のバージョンを保持する
     useEffect(() => {
         if ((sessionDocument == null) || (gdriveFileId == null)) {
             return;
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        updateQueueRef.current = updateQueueRef.current.then((_version: string) => sessionDocument.version);
+        updateQueueRef.current = updateQueueRef.current.then(
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            (_version: string) => sessionDocument.version
+        );
     }, [sessionDocument, gdriveFileId]);
 
-    // 初回描画後に、リダイレクト時にドキュメント情報を保持するために保存していたセッション情報を破棄する
+    // 初回描画後に、リダイレクト時にドキュメント情報を保持していたセッションを破棄する
     useEffect(() => {
         sessionStorage.removeItem("temporaryDocument");
     }, []);
