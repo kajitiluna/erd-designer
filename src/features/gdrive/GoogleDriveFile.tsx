@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Box, Button, CircularProgress, Stack, Typography } from "@mui/material";
+import React, { MouseEvent, useEffect, useState } from "react";
+import { Alert, Box, Button, CircularProgress, Snackbar, Stack, Typography } from "@mui/material";
 
 import { findGdriveMetadata, openGdriveFile, updateGdriveFile } from "~/features/gdrive/gdrive-file-support";
 import MainView from "~/features/MainView";
@@ -13,6 +13,7 @@ type GoogleDriveFileProp = {
 
 const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
     const [sessionDocument, setSessionDocument] = useState<SessionDocument | null>(initSessionDocument);
+    const [messageToast, setMessageToast] = useState<MessageToast | null>(null);
     const updateQueueRef = React.useRef<Promise<string>>(Promise.resolve(""));
 
     const gdriveFileId = sessionStorage.getItem("gdriveFileId");
@@ -34,9 +35,29 @@ const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
         const latestMetadata = await findGdriveMetadata({
             accessToken: implictToken.accessToken, fileId: gdriveFileId
         });
+
         if (currentVersion !== latestMetadata.version) {
             console.warn("The document has been updated by another user."
                 + ` currentVersion = ${currentVersion}, gdriveVersion = ${latestMetadata.version}`);
+
+            const handleReload = (event: MouseEvent) => {
+                event.stopPropagation();
+
+                setMessageToast(null);
+                setSessionDocument(null);
+            };
+
+            setMessageToast({
+                severity: "error",
+                message: "Another user has made updates that conflict with your changes.\n"
+                    + "Please reload the latest version of the content.",
+                action: (
+                    <Button color="inherit" size="small" onClick={handleReload}>
+                        Reload
+                    </Button>
+                )
+            });
+
             return currentVersion;
         }
 
@@ -70,6 +91,45 @@ const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
             console.error(`Failed to open file. ${error}`);
         });
     }, [implictToken, sessionDocument, gdriveFileId]);
+
+    useEffect(() => {
+        const currentDate = new Date().getTime();
+        const remaindTime = implictToken.expiresAt - currentDate;
+        if (remaindTime <= 0) {
+            setSessionDocument(null);
+            return;
+        }
+
+        const handleRenewToken = (event: MouseEvent) => {
+            event.stopPropagation();
+
+            setMessageToast(null);
+            authorize();
+        };
+
+        const notifyTimerId = setTimeout(() => {
+            setMessageToast({
+                severity: "warning",
+                message: "Your session is about to expire in less than a few minutes.\n"
+                    + "Please reauthorize your Google account\n"
+                    + "to continue using the service without interruption.",
+                action: (
+                    <Button color="inherit" size="small" onClick={handleRenewToken}>
+                        Reauthorize
+                    </Button>
+                )
+            });
+        }, remaindTime - 3 * 60 * 1000);
+
+        const timeoutedTimerId = setTimeout(() => {
+            setSessionDocument(null);
+        }, remaindTime);
+
+        return () => {
+            clearTimeout(timeoutedTimerId);
+            clearTimeout(notifyTimerId)
+        };
+    }, [implictToken, authorize]);
 
     // ドキュメント読み込み直後に、現在のバージョンを保持する
     useEffect(() => {
@@ -133,15 +193,36 @@ const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
         );
     }
 
+    const messageDisplay = (messageToast == null) ? (<></>) : (
+        <Snackbar open={true} anchorOrigin={{ vertical: "top", horizontal: "right" }}>
+            <Alert severity={messageToast.severity} variant="filled"
+                sx={{
+                    whiteSpace: "pre-line",
+                    ".MuiAlert-action": { alignItems: "center" }
+                }} action={messageToast.action}>
+                {messageToast.message}
+            </Alert>
+        </Snackbar>
+    );
+
     return (
-        <MainView erdDocument={sessionDocument.erdDocument}
-            onSave={handleSave} erdExortable={false} />
+        <>
+            <MainView erdDocument={sessionDocument.erdDocument}
+                onSave={handleSave} erdExortable={false} />
+            {messageDisplay}
+        </>
     );
 };
 
 type SessionDocument = {
     erdDocument: ErdDocument,
     version: string
+};
+
+type MessageToast = {
+    severity: "info" | "success" | "warning" | "error",
+    message: string,
+    action: React.ReactNode
 };
 
 const initSessionDocument = (): (SessionDocument | null) => {
