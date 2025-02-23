@@ -26,6 +26,7 @@ import { ERD_TABLE_VIEW_CLASS_NAME } from "~/features/canvas/ErdTableView";
 import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
 import { LocalSettingContext } from "~/context/LocalSettingContext";
 import { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
+import exportExcelFormatSpecification from "~/features/spec/ExcelFormatSpecification";
 
 type ControlPanelProps = {
     erdExortable: boolean
@@ -179,6 +180,11 @@ const SubMenuButton = ({ erdExortable }: SubMenuButtonProps) => {
         handleCloseMenu();
     };
 
+    const handleExportSpecification = () => {
+        downloadSpecification(erdDocument);
+        handleCloseMenu();
+    };
+
     const handleSaveToJson = () => {
         downloadJson(erdDocument);
         handleCloseMenu();
@@ -206,6 +212,7 @@ const SubMenuButton = ({ erdExortable }: SubMenuButtonProps) => {
                     MenuListProps={{ 'aria-labelledby': 'basic-button', }}>
                     <MenuItem onClick={() => setSelectedMenu("export_ddl")}>Export DDL</MenuItem>
                     <MenuItem onClick={handleSaveAsImage}>Save as image</MenuItem>
+                    <MenuItem onClick={handleExportSpecification}>Export specification</MenuItem>
                     {erdExortable && <MenuItem onClick={handleSaveToJson}>Save to ERD file</MenuItem>}
                 </Menu>
             </Box>
@@ -225,6 +232,36 @@ const downloadImage = (erdDocument: ErdDocument) => {
         return;
     }
 
+    exportDiagramImage(erdCanvas, (contents: ImageContent) => {
+        const fileName = `${erdDocument.documentName}.png`;
+
+        download(fileName, contents.base64Value);
+    });
+};
+
+const downloadSpecification = (erdDocument: ErdDocument) => {
+    const erdCanvas = document.getElementById("erd-canvas");
+    if (erdCanvas == null) {
+        return;
+    }
+
+    const doDownloadSpec = (contents: ImageContent) => {
+        exportExcelFormatSpecification(erdDocument, contents).then((specs: Blob) => {
+            const fileName = `${erdDocument.documentName}.xlsx`;
+            download(fileName, specs);
+        });
+    };
+
+    exportDiagramImage(erdCanvas, doDownloadSpec);
+};
+
+type ImageContent = {
+    base64Value: string,
+    width: number,
+    height: number
+};
+
+const exportDiagramImage = (erdCanvas: HTMLElement, exportImage: (contents: ImageContent) => void) => {
     const orgScale = erdCanvas.style.transform;
     erdCanvas.style.transform = "scale(1)";
 
@@ -240,12 +277,13 @@ const downloadImage = (erdDocument: ErdDocument) => {
     };
 
     html2canvas(erdCanvas, options).then(drawCanvas => {
-        erdCanvas.style.transform = orgScale;
+        const width = drawCanvas.width;
+        const height = drawCanvas.height;
 
-        const fileName = `${erdDocument.documentName}.png`;
+        erdCanvas.style.transform = orgScale;
         const contents = drawCanvas.toDataURL("image/png");
 
-        download(fileName, contents);
+        exportImage({ base64Value: contents, width, height });
     });
 };
 

@@ -127,6 +127,10 @@ export default class ErdDocument {
         return this.relationViewModelStrage.inChildRelation(columnModelId);
     }
 
+    public findParentRelation(childColumnModelId: string) {
+        return this.relationViewModelStrage.findParentRelation(childColumnModelId);
+    }
+
     public getMemoViewModels() {
         return this.memoViewModelStrage.getMemos();
     }
