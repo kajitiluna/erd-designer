@@ -11,9 +11,10 @@ const exportExcelFormatSpecification = async (erdDocument: ErdDocument, image: I
 
     const workbook = new ExcelJS.Workbook();
 
+    // 目次シートの追加
+    addContentSheet(workbook, specs.exportTableSpecs);
     // ER図のシート追加
     addDiagramSheet(workbook, image);
-
     // テーブル一覧のシート追加
     addTableListSheet(workbook, specs.exportTables);
     // カラム一覧のシート追加
@@ -43,6 +44,69 @@ const exportExcelFormatSpecification = async (erdDocument: ErdDocument, image: I
     });
 };
 
+const SHEET_NAME = {
+    CONTENT: "Contents",
+    ER_DIAGRAM: "ER Diagram",
+    TABLES: "Tables",
+    ATTRIBUTES: "Attributes",
+} as const;
+
+const addContentSheet = (workbook: ExcelJS.Workbook, exportTableSpecs: () => TableSpecGenerator) => {
+    const initCellValueWithLink = (value: string) => ({ text: value, hyperlink: `#'${value}'!A1` });
+
+    const contentSheet = workbook.addWorksheet(SHEET_NAME.CONTENT);
+
+    contentSheet.columns = [
+        { header: "Type", key: "sheetType", width: 10 },
+        { header: "Sheet Name", key: "sheetName", width: 25 },
+        { header: "Description", key: "description", width: 70, style: { alignment: { wrapText: true } } },
+    ];
+    contentSheet.getRow(1).eachCell(cell => {
+        cell.font = { bold: true };
+        cell.fill = HEADER_FILL;
+    });
+
+    contentSheet.addRows([
+        {
+            sheetType: "Diagram", description: "The diagram of entity relation.",
+            sheetName: initCellValueWithLink(SHEET_NAME.ER_DIAGRAM)
+        },
+        {
+            sheetType: "List", description: "The list of all tables.",
+            sheetName: initCellValueWithLink(SHEET_NAME.TABLES)
+        },
+        {
+            sheetType: "List", description: "The list of all columns.",
+            sheetName: initCellValueWithLink(SHEET_NAME.ATTRIBUTES)
+        },
+    ]);
+    for (const tableSpec of exportTableSpecs()) {
+        contentSheet.addRow({
+            sheetType: "Table", description: tableSpec.description,
+            sheetName: initCellValueWithLink(tableSpec.physicalName)
+        });
+    }
+    // リンクの書式設定
+    contentSheet.getColumn(2).eachCell((cell, rowNumber) => {
+        if (rowNumber === 1) {
+            return;
+        }
+
+        cell.font = { color: { argb: 'FF0000FF' }, underline: true };
+    });
+
+    setTableBorders(contentSheet);
+
+    contentSheet.insertRows(1, [["Contents"], []]);
+
+    // 3行を固定
+    contentSheet.views = [
+        { state: "frozen", xSplit: 1, ySplit: 3, activeCell: "A1" }
+    ];
+
+    setPrintArea(contentSheet);
+};
+
 type ImageContent = {
     base64Value: string,
     width: number,
@@ -50,16 +114,16 @@ type ImageContent = {
 };
 
 const addDiagramSheet = (workbook: ExcelJS.Workbook, image: ImageContent) => {
-    const diagramSheet = workbook.addWorksheet("ER Diagram");
+    const diagramSheet = workbook.addWorksheet(SHEET_NAME.ER_DIAGRAM);
     const imageId = workbook.addImage({ base64: image.base64Value, extension: "png", });
 
     diagramSheet.addImage(imageId, {
         tl: { col: 1, row: 1 },
-        ext: { width: image.width * 4 / 3, height: image.height * 4 / 3 }
+        ext: { width: image.width, height: image.height }
     });
 };
 
-const HEADER_FILL: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFBBDEFB' } };
+const HEADER_FILL: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFBBDEFB' } } as const;
 
 type TableListGenerator = Generator<TableList, void, unknown>
 type TableList = {
@@ -69,12 +133,11 @@ type TableList = {
 };
 
 const addTableListSheet = (workbook: ExcelJS.Workbook, exportTables: () => TableListGenerator) => {
-
-    const tableSheet = workbook.addWorksheet("Tables");
+    const tableSheet = workbook.addWorksheet(SHEET_NAME.TABLES);
     tableSheet.columns = [
-        { header: "TableName (physical)", key: "physicalName", width: 25, style: { alignment: { wrapText: false } } },
-        { header: "TableName (logical)", key: "logicalName", width: 25, style: { alignment: { wrapText: false } } },
-        { header: "Description", key: "description", width: 70 },
+        { header: "TableName (physical)", key: "physicalName", width: 25 },
+        { header: "TableName (logical)", key: "logicalName", width: 25 },
+        { header: "Description", key: "description", width: 70, style: { alignment: { wrapText: true } } },
     ];
     tableSheet.getRow(1).font = { bold: true };
     tableSheet.getRow(1).eachCell(cell => {
@@ -87,22 +150,22 @@ const addTableListSheet = (workbook: ExcelJS.Workbook, exportTables: () => Table
         { state: "frozen", xSplit: 1, ySplit: 1, activeCell: "A2" }
     ];
 
-    let physicalNameLength = 25;
-    let logicalNameLength = 25;
+    let physicalLength = 25;
+    let logicalLength = 25;
 
     for (const tableSpec of exportTables()) {
         tableSheet.addRow(tableSpec);
 
-        physicalNameLength = Math.max(physicalNameLength, tableSpec.physicalName.length + 2);
-        logicalNameLength = Math.max(logicalNameLength, tableSpec.logicalName.length + 2);
+        physicalLength = Math.max(physicalLength, tableSpec.physicalName.length + 2);
+        logicalLength = Math.max(logicalLength, tableSpec.logicalName.length + 2);
     }
 
-    physicalNameLength = Math.min(physicalNameLength, 50);
-    logicalNameLength = Math.min(logicalNameLength, 50);
+    physicalLength = Math.min(physicalLength, 50);
+    logicalLength = Math.min(logicalLength, 50);
 
     // セル幅の設定
-    tableSheet.columns[0].width = physicalNameLength;
-    tableSheet.columns[1].width = logicalNameLength;
+    tableSheet.columns[0].width = physicalLength;
+    tableSheet.columns[1].width = logicalLength;
 
     setTableBorders(tableSheet);
     setPrintArea(tableSheet);
@@ -130,9 +193,10 @@ type ColumnList = {
 const addColumnListSheet = (
     workbook: ExcelJS.Workbook, databaseType: DatabaseType, exportColumns: () => ColumnListGenerator
 ) => {
-    const columnSheet = workbook.addWorksheet("Attributes");
+    const columnSheet = workbook.addWorksheet(SHEET_NAME.ATTRIBUTES);
 
-    columnSheet.columns = initColumnHeader(databaseType);
+    const columnsHeader = initColumnHeader(databaseType);
+    columnSheet.columns = columnsHeader;
     columnSheet.getRow(1).eachCell(cell => {
         cell.font = { bold: true };
         cell.fill = HEADER_FILL;
@@ -173,20 +237,19 @@ const addColumnListSheet = (
 };
 
 const initColumnHeader = (databaseType: DatabaseType, withTableInfo: boolean = true): Partial<ExcelJS.Column>[] => {
-    const unwrapStyle: Partial<ExcelJS.Style> = { alignment: { wrapText: false } };
-    const centerAlignmentStyle: Partial<ExcelJS.Style> = { alignment: { horizontal: 'center', wrapText: false } };
+    const centerAlignmentStyle: Partial<ExcelJS.Style> = { alignment: { horizontal: 'center' } };
 
     const header0: Partial<ExcelJS.Column>[] = withTableInfo ? [
-        { header: "TableName (physical)", key: "physicalTableName", width: 20, style: unwrapStyle },
-        { header: "TableName (logical)", key: "logicalTableName", width: 20, style: unwrapStyle }
+        { header: "TableName (physical)", key: "physicalTableName", width: 20 },
+        { header: "TableName (logical)", key: "logicalTableName", width: 20 }
     ] : []
 
     const header1: Partial<ExcelJS.Column>[] = [
-        { header: "ColumnName (physical)", key: "physicalColumnName", width: 20, style: unwrapStyle },
-        { header: "ColumnName (logical)", key: "logicalColumnName", width: 20, style: unwrapStyle },
+        { header: "ColumnName (physical)", key: "physicalColumnName", width: 20 },
+        { header: "ColumnName (logical)", key: "logicalColumnName", width: 20 },
         { header: "Type", key: "columnType", width: 15, style: { alignment: { wrapText: false } } },
-        { header: "Precision", key: "precision", width: 7, style: unwrapStyle },
-        { header: "Scale", key: "scale", width: 7, style: unwrapStyle }
+        { header: "Precision", key: "precision", width: 7 },
+        { header: "Scale", key: "scale", width: 7 }
     ];
 
     const header2: Partial<ExcelJS.Column>[] = (databaseType === "mysql") ? [
@@ -204,14 +267,15 @@ const initColumnHeader = (databaseType: DatabaseType, withTableInfo: boolean = t
     ] : [];
 
     const header5: Partial<ExcelJS.Column>[] = [
-        { header: "Default", key: "defaultValue", width: 10, style: unwrapStyle },
-        { header: "Foreign Key", key: "foreignRelation", width: 15, style: unwrapStyle },
-        { header: "Description", key: "description", width: 50 },
+        { header: "Default", key: "defaultValue", width: 10 },
+        { header: "Foreign Key", key: "foreignRelation", width: 15 },
+        { header: "Description", key: "description", width: 50, style: { alignment: { wrapText: true } } },
     ];
 
     return [...header0, ...header1, ...header2, ...header3, ...header4, ...header5];
 };
 
+type TableSpecGenerator = Generator<TableSpec, void, unknown>;
 type TableSpec = {
     physicalName: string;
     logicalName: string;
@@ -276,6 +340,8 @@ const addTableSpecs = (
     // Description セルの高さ調整
     const descriptionRow = tableSheet.getRow(3);
     descriptionRow.height = 45;
+    const descritpionCell = descriptionRow.getCell(2);
+    descritpionCell.alignment = { wrapText: true };
 
     const columnsSpecTitle = tableSheet.getCell(5, 1);
     columnsSpecTitle.font = { bold: true };
@@ -311,7 +377,7 @@ const doAddIndexSpecForTable = (
         "Indexed Columns", "ColumnName (physical)", "Sort Order"
     ];
     const indexColumnValues = tableIndex.indexedColumns.map(column => (databaseType === "postgres") ? [
-        "", column.physicalName, column.sortOrder, column.nullsOrder ? `NULLS ${column.nullsOrder}` : ""
+        "", column.physicalName, column.sortOrder, (column.nullsOrder ? `NULLS ${column.nullsOrder}` : "")
     ] : ["", column.physicalName, column.sortOrder]
     )
 
@@ -328,6 +394,8 @@ const doAddIndexSpecForTable = (
     // Description セルの高さ調整
     const descriptionRow = tableSheet.getRow(startRowNumber + 3);
     descriptionRow.height = 45;
+    const descritpionCell = descriptionRow.getCell(2);
+    descritpionCell.alignment = { wrapText: true };
 
     // タイトルセルの書式設定
     const titleHeaderIndexes = [
@@ -427,7 +495,12 @@ const columnAlphabet = (columnNumber: number): string => {
     const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
     const index = columnNumber - 1;
-    return alphabet[index % 26] + (index >= 26 ? alphabet[Math.floor(index / 26) - 1] : "");
+    const lastDigit = alphabet[index % 26];
+    if (index < 26) {
+        return lastDigit;
+    }
+
+    return columnAlphabet(Math.floor(index / 26) - 1) + lastDigit;
 };
 
 export default exportExcelFormatSpecification;
