@@ -168,3 +168,35 @@ const doMultipartGdriveFile = async ({ accessToken, fileId = null, metadata, erd
 
     return { fileId: responseFileId, version };
 };
+
+type CreateSpreadSheetType = {
+    properties: object,
+    sheets: object[]
+};
+
+export const createSpreadSheet = async (accessToken: string, spreadSheet: CreateSpreadSheetType) => {
+    const sheetUri = "https://sheets.googleapis.com/v4/spreadsheets"
+        + "?fields=spreadsheetId,sheets.properties.sheetId,sheets.properties.title";
+    const headerInfo = {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json; charset=UTF-8"
+    };
+
+    const response = await fetch(sheetUri, {
+        method: "POST",
+        headers: headerInfo,
+        body: JSON.stringify(spreadSheet)
+    });
+
+    if (!response.ok) {
+        const message = await response.text();
+        throw new Error(`Failed to create spreadSheet. ${message}`);
+    }
+
+    const responseJson = await response.json();
+    if (!("spreadsheetId" in responseJson)) {
+        throw new Error(`Failed to find spreadsheetId in the responsne. ${JSON.stringify(responseJson)}`);
+    }
+
+    return responseJson.spreadsheetId as string;
+};

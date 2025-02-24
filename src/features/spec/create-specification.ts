@@ -146,7 +146,7 @@ const initExportTableIndexesGenerator = (erdDocument: ErdDocument, tableModel: T
             return {
                 physicalName: columnShareModel.physicalName,
                 sortOrder: model.sortOrderType,
-                nullsOrder: model.nullsOrderType
+                nullsOrder: model.nullsOrderType ? `NULLS ${model.nullsOrderType}` : ""
             }
         }).filter(indexedColumn => (indexedColumn != null));
 

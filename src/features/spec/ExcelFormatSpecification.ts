@@ -1,8 +1,12 @@
 import ExcelJS from "exceljs";
 
+import { ImageContent } from "~/context/ExportSpecificationContext";
 import createSpecification from "~/features/spec/create-specification";
-import { DatabaseType, NullsOrderType, SortOrderType } from "~/models/database";
-import { TableIndexOption, TableIndexType } from "~/models/database/TableIndexSupport";
+import {
+    ColumnListSpecGenerator, TableIndexSpec, TableListSpecGenerator,
+    TableDetailSpec, TableDetailSpecGenerator
+} from "~/features/spec/spec-util";
+import { DatabaseType } from "~/models/database";
 import ErdDocument from "~/models/ErdDocument";
 
 const exportExcelFormatSpecification = async (erdDocument: ErdDocument, image: ImageContent) => {
@@ -51,7 +55,7 @@ const SHEET_NAME = {
     ATTRIBUTES: "Attributes",
 } as const;
 
-const addContentSheet = (workbook: ExcelJS.Workbook, exportTableSpecs: () => TableSpecGenerator) => {
+const addContentSheet = (workbook: ExcelJS.Workbook, exportTableSpecs: () => TableDetailSpecGenerator) => {
     const initCellValueWithLink = (value: string) => ({ text: value, hyperlink: `#'${value}'!A1` });
 
     const contentSheet = workbook.addWorksheet(SHEET_NAME.CONTENT);
@@ -107,12 +111,6 @@ const addContentSheet = (workbook: ExcelJS.Workbook, exportTableSpecs: () => Tab
     setPrintArea(contentSheet);
 };
 
-type ImageContent = {
-    base64Value: string,
-    width: number,
-    height: number
-};
-
 const addDiagramSheet = (workbook: ExcelJS.Workbook, image: ImageContent) => {
     const diagramSheet = workbook.addWorksheet(SHEET_NAME.ER_DIAGRAM);
     const imageId = workbook.addImage({ base64: image.base64Value, extension: "png", });
@@ -125,14 +123,7 @@ const addDiagramSheet = (workbook: ExcelJS.Workbook, image: ImageContent) => {
 
 const HEADER_FILL: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFBBDEFB' } } as const;
 
-type TableListGenerator = Generator<TableList, void, unknown>
-type TableList = {
-    physicalName: string;
-    logicalName: string;
-    description: string;
-};
-
-const addTableListSheet = (workbook: ExcelJS.Workbook, exportTables: () => TableListGenerator) => {
+const addTableListSheet = (workbook: ExcelJS.Workbook, exportTables: () => TableListSpecGenerator) => {
     const tableSheet = workbook.addWorksheet(SHEET_NAME.TABLES);
     tableSheet.columns = [
         { header: "TableName (physical)", key: "physicalName", width: 25 },
@@ -171,27 +162,9 @@ const addTableListSheet = (workbook: ExcelJS.Workbook, exportTables: () => Table
     setPrintArea(tableSheet);
 };
 
-type ColumnListGenerator = Generator<ColumnList, void, unknown>;
-type ColumnList = {
-    physicalTableName: string;
-    logicalTableName: string;
-    physicalColumnName: string;
-    logicalColumnName: string;
-    columnType: string;
-    precision: number | null;
-    scale: number | null;
-    unsigned: string;
-    primaryKey: string;
-    notNull: string;
-    unique: string;
-    autoIncrement: string;
-    defaultValue: string;
-    foreignRelation: string | null;
-    description: string;
-};
 
 const addColumnListSheet = (
-    workbook: ExcelJS.Workbook, databaseType: DatabaseType, exportColumns: () => ColumnListGenerator
+    workbook: ExcelJS.Workbook, databaseType: DatabaseType, exportColumns: () => ColumnListSpecGenerator
 ) => {
     const columnSheet = workbook.addWorksheet(SHEET_NAME.ATTRIBUTES);
 
@@ -247,7 +220,7 @@ const initColumnHeader = (databaseType: DatabaseType, withTableInfo: boolean = t
     const header1: Partial<ExcelJS.Column>[] = [
         { header: "ColumnName (physical)", key: "physicalColumnName", width: 20 },
         { header: "ColumnName (logical)", key: "logicalColumnName", width: 20 },
-        { header: "Type", key: "columnType", width: 15, style: { alignment: { wrapText: false } } },
+        { header: "Type", key: "columnType", width: 15 },
         { header: "Precision", key: "precision", width: 7 },
         { header: "Scale", key: "scale", width: 7 }
     ];
@@ -275,30 +248,8 @@ const initColumnHeader = (databaseType: DatabaseType, withTableInfo: boolean = t
     return [...header0, ...header1, ...header2, ...header3, ...header4, ...header5];
 };
 
-type TableSpecGenerator = Generator<TableSpec, void, unknown>;
-type TableSpec = {
-    physicalName: string;
-    logicalName: string;
-    description: string;
-    exportColumns: () => ColumnListGenerator;
-    exportTableIndexes: () => TableIndexGenerator;
-};
-
-type TableIndexGenerator = Generator<TableIndex, void, unknown>;
-type TableIndex = {
-    indexName: string;
-    indexType: TableIndexType;
-    indexOption: TableIndexOption;
-    description: string;
-    indexedColumns: {
-        physicalName: string;
-        sortOrder: SortOrderType;
-        nullsOrder: NullsOrderType;
-    }[];
-};
-
 const addTableSpecs = (
-    workbook: ExcelJS.Workbook, databaseType: DatabaseType, tableSpec: TableSpec
+    workbook: ExcelJS.Workbook, databaseType: DatabaseType, tableSpec: TableDetailSpec
 ) => {
     const tableSheet = workbook.addWorksheet(tableSpec.physicalName);
 
@@ -369,16 +320,15 @@ const addTableSpecs = (
 
 const doAddIndexSpecForTable = (
     tableSheet: ExcelJS.Worksheet, startRowNumber: number,
-    databaseType: DatabaseType, tableIndex: TableIndex
+    databaseType: DatabaseType, tableIndex: TableIndexSpec
 ) => {
-    const indexColumnHeader = (databaseType === "postgres") ? [
-        "Indexed Columns", "ColumnName (physical)", "Sort Order", "NULLS Order"
-    ] : [
-        "Indexed Columns", "ColumnName (physical)", "Sort Order"
-    ];
-    const indexColumnValues = tableIndex.indexedColumns.map(column => (databaseType === "postgres") ? [
-        "", column.physicalName, column.sortOrder, (column.nullsOrder ? `NULLS ${column.nullsOrder}` : "")
-    ] : ["", column.physicalName, column.sortOrder]
+    const indexColumnHeader = (databaseType === "postgres")
+        ? ["Indexed Columns", "ColumnName (physical)", "Sort Order", "NULLS Order"]
+        : ["Indexed Columns", "ColumnName (physical)", "Sort Order"];
+    const indexColumnValues = tableIndex.indexedColumns.map(
+        column => (databaseType === "postgres")
+            ? ["", column.physicalName, column.sortOrder, column.nullsOrder]
+            : ["", column.physicalName, column.sortOrder]
     )
 
     tableSheet.addRows([

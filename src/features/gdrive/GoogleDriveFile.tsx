@@ -1,10 +1,13 @@
 import React, { MouseEvent, useEffect, useState } from "react";
-import { Alert, Box, Button, CircularProgress, Snackbar, Stack, Typography } from "@mui/material";
+import { Alert, Box, Button, CircularProgress, IconButton, Snackbar, Stack, Typography } from "@mui/material";
+import CloseIcon from '@mui/icons-material/Close';
 
-import { findGdriveMetadata, openGdriveFile, updateGdriveFile } from "~/features/gdrive/gdrive-file-support";
+import { createSpreadSheet, findGdriveMetadata, openGdriveFile, updateGdriveFile } from "~/features/gdrive/gdrive-file-support";
 import MainView from "~/features/MainView";
 import ErdDocument from "~/models/ErdDocument";
 import Logo from "~/logo.svg";
+import ExportSpecificationContext from "~/context/ExportSpecificationContext";
+import exportSpreadSheetFormatSpecification from "~/features/spec/GoogleSpreadSheetFormatSpecification";
 
 type GoogleDriveFileProp = {
     implictToken: { accessToken: string, expiresAt: number },
@@ -72,6 +75,47 @@ const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
         return result.version;
     };
 
+    const closeToastButton = (
+        <IconButton size="small" aria-label="close" color="inherit"
+            onClick={() => setMessageToast(null)}>
+            <CloseIcon fontSize="small" />
+        </IconButton>
+    );
+
+    const exportSpecification = (erdDocument: ErdDocument) => {
+        const spreadSheet = exportSpreadSheetFormatSpecification(erdDocument);
+
+        createSpreadSheet(implictToken.accessToken, spreadSheet).then(spreadSheetId => {
+            const handleOpenSpec = (event: MouseEvent) => {
+                event.stopPropagation();
+
+                setMessageToast(null);
+                window.open(`https://docs.google.com/spreadsheets/d/${spreadSheetId}`);
+            };
+            setMessageToast({
+                severity: "success",
+                message: "A new specification file has been created in your My Drive.",
+                action: (
+                    <>
+                        <Button color="inherit" size="small" variant="outlined"
+                            onClick={handleOpenSpec}>
+                            Open
+                        </Button>
+                        {closeToastButton}
+                    </>
+                )
+            });
+        }).catch(error => {
+            console.error(`Failed to create spread sheet. ${error}`);
+
+            setMessageToast({
+                severity: "error",
+                message: `Failed to create a new spread sheet.\n${error}`,
+                action: (closeToastButton)
+            });
+        });
+    };
+
     // 再読み込みされた場合の制御
     useEffect(() => {
         if ((sessionDocument != null) || (gdriveFileId == null)) {
@@ -92,6 +136,7 @@ const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
         });
     }, [implictToken, sessionDocument, gdriveFileId]);
 
+    // アクセストークンの有効期限が切れる少し前に通知を表示する
     useEffect(() => {
         const currentDate = new Date().getTime();
         const remaindTime = implictToken.expiresAt - currentDate;
@@ -206,11 +251,11 @@ const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
     );
 
     return (
-        <>
+        <ExportSpecificationContext.Provider value={{ exportSpecification }}>
             <MainView erdDocument={sessionDocument.erdDocument}
                 onSave={handleSave} erdExortable={false} />
             {messageDisplay}
-        </>
+        </ExportSpecificationContext.Provider>
     );
 };
 
