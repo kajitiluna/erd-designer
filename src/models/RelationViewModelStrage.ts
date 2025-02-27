@@ -6,10 +6,11 @@ export default class RelationViewModelStrage {
 
     private relationIdMap: Map<string, RelationViewModel>;
     private parentTableModelIdMap: Map<string, RelationViewModel[]>;
-    private childColumnModels: Set<string>;
+    private childColumnModelIdMap: Map<string, ParentRelation>;
 
     constructor(relationViewModels: readonly RelationViewModel[]) {
         this.relationIdMap = new Map(relationViewModels.map((model) => [model.relationId, model]));
+
         this.parentTableModelIdMap = relationViewModels.reduce((pairs, model) => {
             let currentPair = pairs.get(model.relationModel.parentTableModelId);
             if (currentPair == null) {
@@ -19,11 +20,17 @@ export default class RelationViewModelStrage {
             currentPair.push(model);
             return pairs;
         }, new Map<string, RelationViewModel[]>());
-        this.childColumnModels = new Set(
-            relationViewModels.flatMap(
-                model => model.relationModel.relationPairs.map(pair => pair.childColumnModelId)
-            )
-        );
+
+        this.childColumnModelIdMap = new Map(relationViewModels
+            .filter(model => model.relationModel.relationPairs.length > 0)
+            .flatMap(model => model.relationModel.relationPairs
+                .map(pair => [
+                    pair.childColumnModelId, {
+                        tableModelId: model.relationModel.parentTableModelId,
+                        columnModelId: pair.parentColumnModelId
+                    }
+                ])
+            ));
     }
 
     public getModels(): RelationViewModel[] {
@@ -48,7 +55,11 @@ export default class RelationViewModelStrage {
     }
 
     public inChildRelation(columnModelId: string): boolean {
-        return this.childColumnModels.has(columnModelId);
+        return this.childColumnModelIdMap.has(columnModelId);
+    }
+
+    public findParentRelation(childColumnModelId: string): ParentRelation | null {
+        return this.childColumnModelIdMap.get(childColumnModelId) ?? null;
     }
 
     public updateRelationModel(updatingModel: RelationModel): RelationViewModelStrage {
@@ -144,3 +155,8 @@ export default class RelationViewModelStrage {
         return new RelationViewModelStrage(nextRelations);
     }
 }
+
+type ParentRelation = {
+    tableModelId: string,
+    columnModelId: string
+};

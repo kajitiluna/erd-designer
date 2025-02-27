@@ -26,6 +26,7 @@ import { ERD_TABLE_VIEW_CLASS_NAME } from "~/features/canvas/ErdTableView";
 import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
 import { LocalSettingContext } from "~/context/LocalSettingContext";
 import { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
+import ExportSpecificationContext, { ImageContent } from "~/context/ExportSpecificationContext";
 
 type ControlPanelProps = {
     erdExortable: boolean
@@ -165,6 +166,7 @@ const SubMenuButton = ({ erdExortable }: SubMenuButtonProps) => {
     const { dispatchSelectAction } = React.useContext(SelectEntityContext);
     const [configureElement, setConfigureElement] = useState<HTMLElement | null>();
     const [selectedMenu, setSelectedMenu] = useState<"export_ddl" | "">("");
+    const { exportSpecification } = React.useContext(ExportSpecificationContext);
 
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const erdDocument: ErdDocument = documentsHolder.current();
@@ -176,6 +178,11 @@ const SubMenuButton = ({ erdExortable }: SubMenuButtonProps) => {
         dispatchSelectAction(RELEASE_ACTION);
 
         downloadImage(erdDocument);
+        handleCloseMenu();
+    };
+
+    const handleExportSpecification = () => {
+        downloadSpecification(erdDocument, exportSpecification);
         handleCloseMenu();
     };
 
@@ -206,6 +213,7 @@ const SubMenuButton = ({ erdExortable }: SubMenuButtonProps) => {
                     MenuListProps={{ 'aria-labelledby': 'basic-button', }}>
                     <MenuItem onClick={() => setSelectedMenu("export_ddl")}>Export DDL</MenuItem>
                     <MenuItem onClick={handleSaveAsImage}>Save as image</MenuItem>
+                    <MenuItem onClick={handleExportSpecification}>Export specification</MenuItem>
                     {erdExortable && <MenuItem onClick={handleSaveToJson}>Save to ERD file</MenuItem>}
                 </Menu>
             </Box>
@@ -225,6 +233,27 @@ const downloadImage = (erdDocument: ErdDocument) => {
         return;
     }
 
+    exportDiagramImage(erdCanvas, (contents: ImageContent) => {
+        const fileName = `${erdDocument.documentName}.png`;
+
+        download(fileName, contents.base64Value);
+    });
+};
+
+const downloadSpecification = (
+    erdDocument: ErdDocument, exportSpecification: (erdDocument: ErdDocument, contents: ImageContent) => void
+) => {
+    const erdCanvas = document.getElementById("erd-canvas");
+    if (erdCanvas == null) {
+        return;
+    }
+
+    const doDownloadSpec = (contents: ImageContent) => exportSpecification(erdDocument, contents);
+
+    exportDiagramImage(erdCanvas, doDownloadSpec);
+};
+
+const exportDiagramImage = (erdCanvas: HTMLElement, exportImage: (contents: ImageContent) => void) => {
     const orgScale = erdCanvas.style.transform;
     erdCanvas.style.transform = "scale(1)";
 
@@ -240,12 +269,13 @@ const downloadImage = (erdDocument: ErdDocument) => {
     };
 
     html2canvas(erdCanvas, options).then(drawCanvas => {
-        erdCanvas.style.transform = orgScale;
+        const width = drawCanvas.width;
+        const height = drawCanvas.height;
 
-        const fileName = `${erdDocument.documentName}.png`;
+        erdCanvas.style.transform = orgScale;
         const contents = drawCanvas.toDataURL("image/png");
 
-        download(fileName, contents);
+        exportImage({ base64Value: contents, width, height });
     });
 };
 

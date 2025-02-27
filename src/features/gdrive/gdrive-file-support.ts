@@ -168,3 +168,116 @@ const doMultipartGdriveFile = async ({ accessToken, fileId = null, metadata, erd
 
     return { fileId: responseFileId, version };
 };
+
+type CreateSpreadSheetType = {
+    spreadSheet: { properties: object, sheets: object[] },
+    mergeRangeSummaries: { title: string, mergeRanges: MergeRange[] }[]
+};
+type MergeRange = {
+    startRowIndex: number,
+    endRowIndex: number,
+    startColumnIndex: number,
+    endColumnIndex: number
+};
+
+export const createSpreadSheet = async (accessToken: string, { spreadSheet, mergeRangeSummaries }: CreateSpreadSheetType) => {
+    // スプレッドシートの作成
+    const { spreadSheetId, titleToSheetIds } = await doCreateSpreadSheet(accessToken, spreadSheet);
+    // セルのマージはスプレッドシート作成時に発行される sheetId が必要
+    await doMergeCells(accessToken, mergeRangeSummaries, spreadSheetId, titleToSheetIds);
+
+    return spreadSheetId;
+};
+
+const doCreateSpreadSheet = async (accessToken: string, spreadSheet: { properties: object, sheets: object[] }) => {
+    const sheetUri = "https://sheets.googleapis.com/v4/spreadsheets"
+        + "?fields=spreadsheetId,sheets.properties.sheetId,sheets.properties.title";
+    const headerInfo = {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json; charset=UTF-8"
+    };
+
+    const response = await fetch(sheetUri, {
+        method: "POST",
+        headers: headerInfo,
+        body: JSON.stringify(spreadSheet)
+    });
+
+    if (!response.ok) {
+        const message = await response.text();
+        throw new Error(`Failed to create spreadSheet. ${message}`);
+    }
+
+    const responseJson = await response.json();
+    if (!("spreadsheetId" in responseJson)) {
+        throw new Error(`Failed to find spreadsheetId in the responsne. ${JSON.stringify(responseJson)}`);
+    }
+    if (!("sheets" in responseJson)) {
+        throw new Error(`Failed to find sheets in the responsne. ${JSON.stringify(responseJson)}`);
+    }
+
+    const spreadSheetId = responseJson.spreadsheetId as string;
+
+    console.info(`Succeed to create spreadSheet. spreadSheetId: ${spreadSheetId}`);
+
+    const titleToSheetIds = new Map<string, string>(
+        responseJson.sheets.map(
+            (sheet: { properties: { title: string, sheetId: string; } }) =>
+                [sheet.properties.title, sheet.properties.sheetId]
+        )
+    );
+
+    return { spreadSheetId, titleToSheetIds };
+};
+
+const doMergeCells = async (
+    accessToken: string, mergeRangeSummaries: { title: string, mergeRanges: MergeRange[] }[],
+    spreadSheetId: string, titleToSheetIds: Map<string, string>
+) => {
+    const sheetUri = `https://sheets.googleapis.com/v4/spreadsheets/${spreadSheetId}:batchUpdate`;
+    const headerInfo = {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json; charset=UTF-8"
+    };
+
+    const mergeCellRequests = mergeRangeSummaries.flatMap(({ title, mergeRanges }) => {
+        const sheetId = titleToSheetIds.get(title);
+        if (sheetId == null) {
+            throw new Error(`Failed to find sheetId for ${title}`);
+        }
+
+        return mergeRanges.map(mergeRange => {
+            return {
+                mergeCells: {
+                    range: {
+                        sheetId: sheetId,
+                        startRowIndex: mergeRange.startRowIndex,
+                        endRowIndex: mergeRange.endRowIndex,
+                        startColumnIndex: mergeRange.startColumnIndex,
+                        endColumnIndex: mergeRange.endColumnIndex
+                    },
+                    mergeType: "MERGE_ALL"
+                }
+            }
+        });
+    });
+
+    const batchUpdateRequest = {
+        requests: mergeCellRequests,
+        includeSpreadsheetInResponse: false
+    };
+
+    const response = await fetch(sheetUri, {
+        method: "POST",
+        headers: headerInfo,
+        body: JSON.stringify(batchUpdateRequest)
+    });
+
+    if (!response.ok) {
+        const message = await response.text();
+        console.warn(`Failed to merge cells. ${message}`);
+        return;
+    }
+
+    console.info(`Succeed to merge cells. spreadSheetId: ${spreadSheetId}`);
+};
