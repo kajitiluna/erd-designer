@@ -2,7 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 
 import './App.css'
 import LocalApplicataion from '~/features/LocalApplication';
-import GoogleOAuthProviderWrapper from '~/features/gdrive/GoogleOAuthProviderWrapper';
+import GoogleDriveApplication from '~/features/GoogleDriveApplication';
 
 function App() {
 
@@ -10,7 +10,7 @@ function App() {
     <BrowserRouter>
       <div className='App'>
         <Routes>
-          <Route path='/erd-designer/gdrive/*' element={<GoogleOAuthProviderWrapper />} />
+          <Route path='/erd-designer/gdrive/*' element={<GoogleDriveApplication />} />
           <Route path='*' element={<LocalApplicataion />} />
         </Routes>
       </div>
