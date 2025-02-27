@@ -11,16 +11,31 @@ const exportSpreadSheetFormatSpecification = (erdDocument: ErdDocument) => {
     const tableSheet = createTableListSheet(specs.exportTables);
     // カラム一覧のシート
     const columnSheet = createColumnListSheet(databaseType, specs.exportColumns);
-    // 各テーブル定義のシート
-    const tableSpecSheets = Array.from(specs.exportTableSpecs())
-        .map(tableSpec => createTableSpecSheet(databaseType, tableSpec));
 
-    return {
+    // 各テーブル定義のシート
+    const tableSpecSheetsWithMergeRange = Array.from(specs.exportTableSpecs())
+        .map(tableSpec => createTableSpecSheet(databaseType, tableSpec));
+    const tableSpecSheets = tableSpecSheetsWithMergeRange.map(sheet => {
+        return {
+            properties: sheet.properties,
+            data: sheet.data,
+        };
+    });
+    const mergeRangeSummaries = tableSpecSheetsWithMergeRange.flatMap(sheet => {
+        return {
+            title: sheet.properties.title,
+            mergeRanges: sheet.mergeRanges,
+        };
+    });
+
+    const spreadSheet = {
         properties: {
             title: erdDocument.documentName
         },
         sheets: [tableSheet, columnSheet, ...tableSpecSheets]
     };
+
+    return { spreadSheet, mergeRangeSummaries };
 };
 
 const SHEET_NAME = {
@@ -121,18 +136,30 @@ const createTableSpecSheet = (databaseType: DatabaseType, tableSpec: TableDetail
         columnMetadata: columnMetadata
     };
 
+    // テーブル定義サマリのマージ情報
+    const summaryMergeRanges = [
+        { startRowIndex: 0, endRowIndex: 1, startColumnIndex: 1, endColumnIndex: columnsHeader.length },
+        { startRowIndex: 1, endRowIndex: 2, startColumnIndex: 1, endColumnIndex: columnsHeader.length },
+        { startRowIndex: 2, endRowIndex: 3, startColumnIndex: 1, endColumnIndex: columnsHeader.length },
+    ];
+
     // インデックス定義
     const tableIndexGridTtile = {
         startRow: columnSummary.startRow + columnRowData.length + 1,
         startColumn: 0,
         rowData: [{ values: [initBoldCell("Indexes Specification")] }],
     };
+
+    const tableIndexGrids = [];
+    const tableIndexMergeRanges = [];
     let startRow = tableIndexGridTtile.startRow + 1;
-    const tableIndexGrids = Array.from(tableSpec.exportTableIndexes()).map(tableIndex => {
-        const gridData = initTableIndexGridContent(startRow, databaseType, tableIndex);
+    for (const tableIndex of tableSpec.exportTableIndexes()) {
+        const { gridData, mergeRanges } = initTableIndexContent(startRow, databaseType, tableIndex);
+
         startRow += gridData.rowData.length + 1;
-        return gridData;
-    });
+        tableIndexGrids.push(gridData);
+        tableIndexMergeRanges.push(...mergeRanges);
+    }
 
     const sheetProperty = {
         title: tableSpec.physicalName,
@@ -149,10 +176,11 @@ const createTableSpecSheet = (databaseType: DatabaseType, tableSpec: TableDetail
         properties: sheetProperty,
         data: [totalSummary, columnGridTtile, columnSummary]
             .concat((tableIndexGrids.length > 0) ? [tableIndexGridTtile, ...tableIndexGrids] : []),
+        mergeRanges: summaryMergeRanges.concat(tableIndexMergeRanges)
     };
 };
 
-const initTableIndexGridContent = (
+const initTableIndexContent = (
     startRow: number, databaseType: DatabaseType, tableIndex: TableIndexSpec
 ) => {
     const subHeaders = [
@@ -176,11 +204,38 @@ const initTableIndexGridContent = (
 
     const contents = doInitVerticalGridContent(records);
 
-    return {
+    const gridData = {
         startRow: startRow,
         startColumn: 0,
         ...contents
     };
+
+    // セル結合の情報
+    const endColumnIndex = (subHeaders.length) === 2 ? 3 : 5;
+    const mergeRanges = [
+        { startRowIndex: startRow, endRowIndex: startRow + 1, startColumnIndex: 1, endColumnIndex },
+        { startRowIndex: startRow + 1, endRowIndex: startRow + 2, startColumnIndex: 1, endColumnIndex },
+        { startRowIndex: startRow + 2, endRowIndex: startRow + 3, startColumnIndex: 1, endColumnIndex },
+        { startRowIndex: startRow + 3, endRowIndex: startRow + 4, startColumnIndex: 1, endColumnIndex },
+        {
+            startRowIndex: startRow + 4, endRowIndex: startRow + 5 + tableIndex.indexedColumns.length,
+            startColumnIndex: 0, endColumnIndex: 1
+        },
+    ].concat(
+        (databaseType === "mysql") ? [] : [
+            { startRowIndex: startRow + 4, endRowIndex: startRow + 5, startColumnIndex: 3, endColumnIndex },
+            ...tableIndex.indexedColumns.map((_, index) => {
+                return {
+                    startRowIndex: startRow + 5 + index,
+                    endRowIndex: startRow + 6 + index,
+                    startColumnIndex: 3,
+                    endColumnIndex
+                };
+            })
+        ]
+    );
+
+    return { gridData, mergeRanges };
 };
 
 const HEADER_COLOR_STYLE = {

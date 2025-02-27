@@ -83,9 +83,9 @@ const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
     );
 
     const exportSpecification = (erdDocument: ErdDocument) => {
-        const spreadSheet = exportSpreadSheetFormatSpecification(erdDocument);
+        const specInfo = exportSpreadSheetFormatSpecification(erdDocument);
 
-        createSpreadSheet(implictToken.accessToken, spreadSheet).then(spreadSheetId => {
+        createSpreadSheet(implictToken.accessToken, specInfo).then(spreadSheetId => {
             const handleOpenSpec = (event: MouseEvent) => {
                 event.stopPropagation();
 
