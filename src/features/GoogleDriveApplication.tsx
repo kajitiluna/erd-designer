@@ -1,12 +1,23 @@
 import { useEffect, useState } from "react";
 import { Route, Routes } from "react-router-dom";
-import { hasGrantedAllScopesGoogle, useGoogleLogin } from "@react-oauth/google";
+import { GoogleOAuthProvider, hasGrantedAllScopesGoogle, useGoogleLogin } from "@react-oauth/google";
 
 import GoogleDriveInitializer from "~/features/gdrive/GoogleDriveInitializer";
 import ErdDocument from "~/models/ErdDocument";
 import GoogleDriveFile from "~/features/gdrive/GoogleDriveFile";
+import oauth2Setting from "~/config/OauthSetting";
 
 const GoogleDriveApplication = () => {
+    const oauthSetting = oauth2Setting();
+
+    return (
+        <GoogleOAuthProvider clientId={oauthSetting.clientId}>
+            <GoogleDriveInnerApplication />
+        </GoogleOAuthProvider>
+    );
+};
+
+const GoogleDriveInnerApplication = () => {
     const [implictToken, setImplicitToken] = useState<ImplicitToken>(initImplictToken);
 
     const authorize = useGoogleLogin({

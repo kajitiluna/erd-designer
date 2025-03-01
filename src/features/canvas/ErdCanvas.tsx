@@ -133,7 +133,6 @@ const ErdCanvas = () => {
 
         // line が選択中の場合
         if (selectState.relationId) {
-            // TODO
             return;
         }
 
