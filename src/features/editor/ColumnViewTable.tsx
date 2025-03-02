@@ -76,7 +76,7 @@ const ColumnViewTable = ({ columnModels, onUpdateColumnModels, isChildRelation }
                 <TableCell align="center">{inChildRelation && <ForeignKeyIcon />}</TableCell>
                 <TableCell>{columnShareModel ? columnShareModel.physicalName : ""}</TableCell>
                 <TableCell>{columnShareModel ? columnShareModel.logicalName : ""}</TableCell>
-                <TableCell>{columnShareModel ? columnShareModel.specifiedColumnType() : ""}</TableCell>
+                <TableCell>{columnShareModel ? columnShareModel.specifiedColumnType(inChildRelation) : ""}</TableCell>
                 <TableCell align="center">{columnModel.notNull && <CheckIcon fontSize="small" />}</TableCell>
                 <TableCell align="center">{columnModel.unique && <CheckIcon fontSize="small" />}</TableCell>
                 <TableCell>

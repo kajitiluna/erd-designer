@@ -17,7 +17,8 @@ type ColumnShareModelOptions = {
 
 type ColumnShareQueryType = {
     notNull?: boolean
-    autoIncrement?: boolean
+    autoIncrement?: boolean,
+    inChildRelation?: boolean
 };
 
 export default class ColumnShareModel {
@@ -57,7 +58,7 @@ export default class ColumnShareModel {
         this.createdAt = createdAt ? createdAt : new Date();
     }
 
-    public query({ notNull = false, autoIncrement = false }: ColumnShareQueryType): string {
+    public query({ notNull = false, autoIncrement = false, inChildRelation = false }: ColumnShareQueryType): string {
         return `${this.physicalName} ` + this.columnType.query(
             {
                 precision: this.precision,
@@ -65,7 +66,8 @@ export default class ColumnShareModel {
                 onNotNull: notNull,
                 defaultValue: this.defaultValue,
                 onUnsign: this.unsigned,
-                onAutoIncrement: autoIncrement
+                onAutoIncrement: autoIncrement,
+                inChildRelation
             }
         );
     }
@@ -74,12 +76,12 @@ export default class ColumnShareModel {
         return displayStyle.displayName(this.physicalName, this.logicalName);
     }
 
-    public specifiedColumnType(): string {
-        return this.columnType.specifiedType({ precision: this.precision, scale: this.scale });
+    public specifiedColumnType(inChildRelation: boolean = false): string {
+        return this.columnType.specifiedType({ precision: this.precision, scale: this.scale, inChildRelation });
     }
 
     public matchForReferenceType(other: ColumnShareModel): boolean {
-        if (this.columnType.foreignId !== other.columnType.foreignId) {
+        if (this.columnType.foreignColumn !== other.columnType.foreignColumn) {
             return false;
         }
 

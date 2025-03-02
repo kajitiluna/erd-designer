@@ -26,32 +26,33 @@ export const createDdl = (erdDocument: ErdDocument, option: DdlOption) => {
     return [...tableQueries, ...indexQueries, ...foreignKeyQueries, ...commentQueries].join("\n");
 };
 
-type ColumnQuery = (columnModel: ColumnModel, columnShareModel: ColumnShareModel, option: DdlOption) => string;
+type ColumnQuery = (columnModel: ColumnModel, columnShareModel: ColumnShareModel, inChildRelation: boolean, option: DdlOption) => string;
 type TableQuery = (tableModel: TableModel, columnQueries: string[], option: DdlOption) => string;
 
 const initCreateTableDdl = (commentWithQuery: boolean) => {
     const columnQuery: ColumnQuery = commentWithQuery ? columnQueryWithComment : columnQueryWithoutComment;
     const tableQuery: TableQuery = commentWithQuery ? tableQueryWithComment : tableQueryWithoutComment;
 
-    return (erViewModel: ErdDocument, option: DdlOption) => {
+    return (erdDocument: ErdDocument, option: DdlOption) => {
         if (option.withTable === false) {
             return [];
         }
 
-        const tableViewModels = erViewModel.getTableViewModels();
+        const tableViewModels = erdDocument.getTableViewModels();
         const queries = tableViewModels.map(tableViewModel => {
             const tableModel: TableModel = tableViewModel.tableModel;
             const columnQueries = tableModel.columnModelIds.map(columnModelId => {
-                const columnModel = erViewModel.findColumnModel(columnModelId) as ColumnModel;
-                const columnShareModel = erViewModel.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
+                const columnModel = erdDocument.findColumnModel(columnModelId) as ColumnModel;
+                const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
+                const inChildRelation = erdDocument.inChildRelation(columnModel.columnModelId);
 
-                return columnQuery(columnModel, columnShareModel, option);
+                return columnQuery(columnModel, columnShareModel, inChildRelation, option);
             });
 
             const primaryKeys = tableModel.columnModelIds
-                .map(columnModelId => erViewModel.findColumnModel(columnModelId) as ColumnModel)
+                .map(columnModelId => erdDocument.findColumnModel(columnModelId) as ColumnModel)
                 .filter(columnModel => columnModel.primaryKey === true)
-                .map(columnModel => erViewModel.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel)
+                .map(columnModel => erdDocument.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel)
                 .map(columnShareModel => columnShareModel.physicalName);
 
             if (primaryKeys.length > 0) {
@@ -66,11 +67,14 @@ const initCreateTableDdl = (commentWithQuery: boolean) => {
     };
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const columnQueryWithoutComment: ColumnQuery = (columnModel: ColumnModel, columnShareModel: ColumnShareModel, _: DdlOption) => {
+const columnQueryWithoutComment: ColumnQuery = (
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    columnModel: ColumnModel, columnShareModel: ColumnShareModel, inChildRelation: boolean, _: DdlOption
+) => {
     return columnShareModel.query({
         notNull: columnModel.notNull,
-        autoIncrement: columnModel.autoIncrement
+        autoIncrement: columnModel.autoIncrement,
+        inChildRelation
     });
 };
 
@@ -79,8 +83,10 @@ const tableQueryWithoutComment: TableQuery = (tableModel: TableModel, columnQuer
     return `CREATE TABLE ${tableModel.physicalName} (\n    ${columnQueries.join(",\n    ")}\n)`;
 };
 
-const columnQueryWithComment: ColumnQuery = (columnModel: ColumnModel, columnShareModel: ColumnShareModel, option: DdlOption) => {
-    const baseQuery = columnQueryWithoutComment(columnModel, columnShareModel, option);
+const columnQueryWithComment: ColumnQuery = (
+    columnModel: ColumnModel, columnShareModel: ColumnShareModel, inChildRelation: boolean, option: DdlOption
+) => {
+    const baseQuery = columnQueryWithoutComment(columnModel, columnShareModel, inChildRelation, option);
     if ((option.withComment === false) || (columnShareModel.logicalName === columnShareModel.physicalName)) {
         return baseQuery
     }

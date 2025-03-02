@@ -231,11 +231,11 @@ const initTableColumn = (columnId: string, erdDocument: ErdDocument) => {
         return (<></>);
     }
 
-    const inChildRelation: boolean = erdDocument.inChildRelation(columnModel.columnModelId);
+    const inChildRelation = erdDocument.inChildRelation(columnModel.columnModelId);
     const fontColor = initTableColumnFontColor(columnModel, inChildRelation);
 
     const displayColumnName = columnShareModel.displayName(erdDocument.getDisplayStyle());
-    const displayColumnType = columnShareModel.specifiedColumnType().replace("TIME ZONE", "TZ");
+    const displayColumnType = columnShareModel.specifiedColumnType(inChildRelation).replace("TIME ZONE", "TZ");
     const displayOption = initDisplayOption(columnModel);
 
     const stylePrimaryCell = {

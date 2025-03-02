@@ -3,7 +3,7 @@ import { PropertyNotExistsError } from '~/models/exceptions';
 
 type QueryOptions = {
     precision?: string, scale?: string, onNotNull?: boolean, defaultValue?: string,
-    onUnsign?: boolean, onAutoIncrement?: boolean
+    onUnsign?: boolean, onAutoIncrement?: boolean, inChildRelation?: boolean
 }
 
 type ColumnTypeOptions = {
@@ -15,7 +15,7 @@ type ColumnTypeOptions = {
     withScale?: boolean,
     withUnsigned?: boolean,
     withAuthIncrement?: boolean,
-    foreignId?: number | null
+    foreignColumn?: ColumnType | null
 }
 
 export default class ColumnType {
@@ -32,7 +32,7 @@ export default class ColumnType {
     public readonly withScale: boolean;
     public readonly withUnsigned: boolean;
     public readonly withAuthIncrement: boolean;
-    public readonly foreignId: number;
+    public readonly foreignColumn: ColumnType | null;
 
     /**
      * コンストラクタ。
@@ -50,7 +50,7 @@ export default class ColumnType {
         id, name, description, baseQuery,
         withPrecision = false, withScale = false,
         withUnsigned = false, withAuthIncrement = false,
-        foreignId = null
+        foreignColumn = null
     }: ColumnTypeOptions) {
         this.id = id;
         this.name = name;
@@ -60,15 +60,15 @@ export default class ColumnType {
         this.withScale = withScale;
         this.withUnsigned = withUnsigned;
         this.withAuthIncrement = withAuthIncrement;
-        this.foreignId = (foreignId == null) ? id : foreignId;
+        this.foreignColumn = (foreignColumn != null) ? foreignColumn : null;
     }
 
     query({
         precision = "", scale = "", onNotNull = false, defaultValue = "",
-        onUnsign = false, onAutoIncrement = false
+        onUnsign = false, onAutoIncrement = false, inChildRelation = false
     }: QueryOptions): string {
 
-        let query = this.specifiedType({ precision: precision, scale: scale });
+        let query = this.specifiedType({ precision, scale, inChildRelation });
 
         if (onUnsign) {
             query = query + " UNSIGNED";
@@ -86,7 +86,11 @@ export default class ColumnType {
         return query;
     }
 
-    public specifiedType({ precision = "", scale = "" }): string {
+    public specifiedType({ precision = "", scale = "", inChildRelation = false }): string {
+        if (this.foreignColumn && inChildRelation) {
+            return this.foreignColumn.specifiedType({ precision, scale });
+        }
+
         if (this.baseQuery.indexOf("[[PARAM]]") < 0) {
             return this.baseQuery;
         }
@@ -125,6 +129,9 @@ export default class ColumnType {
             throw new PropertyNotExistsError("withAuthIncrement", obj);
         }
 
+        const foreignColumn = (("foreignColumn" in obj) && (obj.foreignColumn != null))
+            ? ColumnType.toObject(obj.foreignColumn as object) : null;
+
         return new ColumnType({
             id: obj.id as number,
             name: obj.name as string,
@@ -134,7 +141,7 @@ export default class ColumnType {
             withScale: obj.withScale as boolean,
             withUnsigned: obj.withUnsigned as boolean,
             withAuthIncrement: obj.withAuthIncrement as boolean,
-            foreignId: (("foreignId" in obj) ? obj.foreignId : obj.id) as number
+            foreignColumn: foreignColumn
         });
     }
 }

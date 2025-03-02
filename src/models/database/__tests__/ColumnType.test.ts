@@ -19,10 +19,16 @@ describe('ColumnType', () => {
             expect(type.withScale).toBe(false);
             expect(type.withUnsigned).toBe(false);
             expect(type.withAuthIncrement).toBe(false);
-            expect(type.foreignId).toBe(1);
+            expect(type.foreignColumn).toBe(null);
         });
 
         test('should create with all options', () => {
+            const foreign = new ColumnType({
+                id: 1,
+                name: "INTEGER",
+                description: "Integer type",
+                baseQuery: "INTEGER"
+            });
             const type = new ColumnType({
                 id: 2,
                 name: "DECIMAL",
@@ -32,14 +38,14 @@ describe('ColumnType', () => {
                 withScale: true,
                 withUnsigned: true,
                 withAuthIncrement: true,
-                foreignId: 1
+                foreignColumn: foreign
             });
 
             expect(type.withPrecision).toBe(true);
             expect(type.withScale).toBe(true);
             expect(type.withUnsigned).toBe(true);
             expect(type.withAuthIncrement).toBe(true);
-            expect(type.foreignId).toBe(1);
+            expect(type.foreignColumn).toBe(foreign);
         });
     });
 
@@ -134,6 +140,36 @@ describe('ColumnType', () => {
             expect(deserialized.baseQuery).toBe(original.baseQuery);
             expect(deserialized.withPrecision).toBe(original.withPrecision);
             expect(deserialized.withScale).toBe(original.withScale);
+        });
+
+        test('should serialize to JSON and deserialize back with foreignColumn', () => {
+            const foreign = new ColumnType({
+                id: 10,
+                name: "INTEGER",
+                description: "Foreign Integer type",
+                baseQuery: "INTEGER"
+            });
+            const original = new ColumnType({
+                id: 2,
+                name: "DECIMAL",
+                description: "Decimal type",
+                baseQuery: "DECIMAL",
+                withPrecision: true,
+                withScale: true,
+                withUnsigned: true,
+                withAuthIncrement: true,
+                foreignColumn: foreign
+            });
+
+            const json = original.toJSON();
+            const deserialized = ColumnType.toObject(json);
+
+            expect(deserialized).toBeInstanceOf(ColumnType);
+            expect(deserialized.foreignColumn).toBeInstanceOf(ColumnType);
+            expect(deserialized.foreignColumn?.id).toBe(foreign.id);
+            expect(deserialized.foreignColumn?.name).toBe(foreign.name);
+            expect(deserialized.foreignColumn?.description).toBe(foreign.description);
+            expect(deserialized.foreignColumn?.baseQuery).toBe(foreign.baseQuery);
         });
 
         test('should throw error when required properties are missing', () => {

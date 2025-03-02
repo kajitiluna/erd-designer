@@ -396,7 +396,8 @@ const IndexColumnTransferPanel = ({ columnModels, indexedColumns, onUpdateIndexe
     const [selectedFromId, setSelectedFromId] = useState<string | null>(null);
     const [selectedIndexedId, setSelectedIndexedId] = useState<string | null>(null);
 
-    const databaseType = documentsHolder.current().getDatabase();
+    const erdDocument = documentsHolder.current();
+    const databaseType = erdDocument.getDatabase();
 
     const columnModelMap: Map<string, ColumnModelDetaial> = new Map(
         columnModels
@@ -419,6 +420,7 @@ const IndexColumnTransferPanel = ({ columnModels, indexedColumns, onUpdateIndexe
         .map((pair) => {
             const columnModelId = pair.columnModel.columnModelId;
             const columnShareModel = pair.columnShareModel;
+            const inChildRelation = erdDocument.inChildRelation(columnModelId);
 
             const handleSelect = (event: MouseEvent) => {
                 event.stopPropagation();
@@ -429,7 +431,7 @@ const IndexColumnTransferPanel = ({ columnModels, indexedColumns, onUpdateIndexe
                 <TableRow key={columnModelId} style={{ cursor: 'pointer' }}
                     selected={columnModelId === selectedFromId} onClick={handleSelect}>
                     <TableCell>{columnShareModel.physicalName}</TableCell>
-                    <TableCell>{columnShareModel.specifiedColumnType()}</TableCell>
+                    <TableCell>{columnShareModel.specifiedColumnType(inChildRelation)}</TableCell>
                 </TableRow>
             )
         });
@@ -496,6 +498,7 @@ const IndexColumnTransferPanel = ({ columnModels, indexedColumns, onUpdateIndexe
             const columnShareModel = pair.columnShareModel;
             const sortOrderType = pair.sortOrderType;
             const nullsOrderType = pair.nullsOrderType;
+            const inChildRelation = erdDocument.inChildRelation(columnModelId);
 
             const handleSelect = (event: MouseEvent) => {
                 event.stopPropagation();
@@ -528,7 +531,7 @@ const IndexColumnTransferPanel = ({ columnModels, indexedColumns, onUpdateIndexe
                     selected={columnModelId === selectedIndexedId} onClick={handleSelect}>
                     <TableCell align="right" sx={{ width: 10 }}>{arrayIndex + 1}</TableCell>
                     <TableCell>{columnShareModel.physicalName}</TableCell>
-                    <TableCell>{columnShareModel.specifiedColumnType()}</TableCell>
+                    <TableCell>{columnShareModel.specifiedColumnType(inChildRelation)}</TableCell>
                     <TableCell>
                         <FormControl fullWidth size="small">
                             <InputLabel id={`sort-order-${columnModelId}`}>Sort Order</InputLabel>
