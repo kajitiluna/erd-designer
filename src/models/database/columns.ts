@@ -1,6 +1,10 @@
 import ColumnType from '~/models/database/ColumnType';
 import { DatabaseType } from './DatabaseType';
 
+const POSTGRES_SMALL_INT = new ColumnType({ id: 11, name: 'smallint', description: '2バイト符号付き整数', baseQuery: 'SMALLINT', withPrecision: false, withScale: false });
+const POSTGRES_INTEGER = new ColumnType({ id: 15, name: 'integer', description: '4バイト符号付き整数', baseQuery: 'INTEGER', withPrecision: false, withScale: false });
+const POSTGRES_BIGINT = new ColumnType({ id: 17, name: 'bigint', description: '8バイト符号付き整数', baseQuery: 'BIGINT', withPrecision: false, withScale: false });
+
 const databaseColumns: ReadonlyMap<DatabaseType, readonly ColumnType[]> = new Map<DatabaseType, readonly ColumnType[]>([
     ["postgres", [
         new ColumnType({ id: 1, name: 'bit', description: '固定長ビット列', baseQuery: 'BIT', withPrecision: false, withScale: false }),
@@ -9,12 +13,12 @@ const databaseColumns: ReadonlyMap<DatabaseType, readonly ColumnType[]> = new Ma
         new ColumnType({ id: 5, name: 'bit varying (n)', description: '可変長ビット列', baseQuery: 'BIT VARYING[[PARAM]]', withPrecision: true, withScale: false }),
         new ColumnType({ id: 6, name: 'boolean', description: '論理値 (真/偽)', baseQuery: 'BOOLEAN', withPrecision: false, withScale: false }),
         new ColumnType({ id: 367, name: 'bytea', description: 'バイナリデータ (「バイトの配列 (byte array)」)', baseQuery: 'BYTEA', withPrecision: false, withScale: false }),
-        new ColumnType({ id: 11, name: 'smallint', description: '2バイト符号付き整数', baseQuery: 'SMALLINT', withPrecision: false, withScale: false }),
-        new ColumnType({ id: 51, name: 'smallserial', description: '自動増分2バイト整数', baseQuery: 'SMALLSERIAL', withPrecision: false, withScale: false, foreignId: 11 }),
-        new ColumnType({ id: 15, name: 'integer', description: '4バイト符号付き整数', baseQuery: 'INTEGER', withPrecision: false, withScale: false }),
-        new ColumnType({ id: 55, name: 'serial', description: '自動増分4バイト整数', baseQuery: 'SERIAL', withPrecision: false, withScale: false, foreignId: 15 }),
-        new ColumnType({ id: 17, name: 'bigint', description: '8バイト符号付き整数', baseQuery: 'BIGINT', withPrecision: false, withScale: false }),
-        new ColumnType({ id: 57, name: 'bigserial', description: '自動増分8バイト整数', baseQuery: 'BIGSERIAL', withPrecision: false, withScale: false, foreignId: 17 }),
+        POSTGRES_SMALL_INT,
+        new ColumnType({ id: 51, name: 'smallserial', description: '自動増分2バイト整数', baseQuery: 'SMALLSERIAL', withPrecision: false, withScale: false, foreignColumn: POSTGRES_SMALL_INT }),
+        POSTGRES_INTEGER,
+        new ColumnType({ id: 55, name: 'serial', description: '自動増分4バイト整数', baseQuery: 'SERIAL', withPrecision: false, withScale: false, foreignColumn: POSTGRES_INTEGER }),
+        POSTGRES_BIGINT,
+        new ColumnType({ id: 57, name: 'bigserial', description: '自動増分8バイト整数', baseQuery: 'BIGSERIAL', withPrecision: false, withScale: false, foreignColumn: POSTGRES_BIGINT }),
         new ColumnType({ id: 31, name: 'real', description: '単精度浮動小数点 (4バイト)', baseQuery: 'REAL', withPrecision: false, withScale: false }),
         new ColumnType({ id: 33, name: 'double precision', description: '倍精度浮動小数点 (8バイト)', baseQuery: 'DOUBLE PRECISION', withPrecision: false, withScale: false }),
         new ColumnType({ id: 35, name: 'numeric', description: '精度の選択可能な高精度数値', baseQuery: 'NUMERIC', withPrecision: false, withScale: false }),
