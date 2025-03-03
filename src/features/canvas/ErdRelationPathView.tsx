@@ -165,10 +165,13 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         const svgEdges = initSvgEdges(relationView);
         const svgRemoveEdgePath = initSvgRemoveEdgePath(relationView, relationLinePairs);
 
+        const svgPaths = (svgRemoveEdgePath != null)
+            ? [...svgBasePaths, ...svgEdges, svgRemoveEdgePath] : [...svgBasePaths, ...svgEdges];
+
         const drawingPath = `M ${parentEdge.x + DRAWABLE_AREA.width / 2},${parentEdge.y + DRAWABLE_AREA.height / 2}`
             + relationLineSeguments.map(lineSegument => lineSegument.drawingLine).join(" ");
 
-        return { svgPaths: [...svgBasePaths, ...svgEdges, svgRemoveEdgePath], drawingPath };
+        return { svgPaths, drawingPath };
     };
 
     // 操作対象の元となる線分を作成する
@@ -323,7 +326,7 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         if ((dragState.status !== "on_dragging")
             || (selectState.relationId !== relationView.relationId) || (relationLinePairs.length <= 1)
             || (selectState.edgeType !== "real") || (selectState.edgeId == null)) {
-            return (<></>);
+            return null;
         }
 
         const parentEdge = relationLinePairs[selectState.edgeId][0];
@@ -395,12 +398,14 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         const tooltip = (
             !selected || (editMode !== EditModeType.SELECT) || (selectState.edgeId != null)
         ) ? null : (
-            <ButtonGroup variant="contained" size="small" sx={{
-                position: "absolute",
-                left: clickedPosition.x + 15 + DRAWABLE_AREA.width / 2,
-                top: clickedPosition.y - 45 + DRAWABLE_AREA.height / 2,
-                backgroundColor: "#FFFFFF"
-            }} onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
+            <ButtonGroup variant="contained" size="small"
+                onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}
+                sx={{
+                    position: "absolute",
+                    left: clickedPosition.x + 15 + DRAWABLE_AREA.width / 2,
+                    top: clickedPosition.y - 45 + DRAWABLE_AREA.height / 2,
+                    backgroundColor: "#FFFFFF"
+                }}>
                 <Tooltip title="Edit relation" placement="top-end">
                     <IconButton onClick={event => handleOpenEditDialog(event, relationView)}>
                         <EditIcon />
@@ -449,7 +454,7 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
     return (
         <>
             {elements.find(element => element.tooltip != null)?.tooltip}
-            {(deletingRelation == null) ? null : (
+            {(deletingRelation != null) && (
                 <Dialog open={deletingRelation != null} onClose={handleCloseDeleteDialog}>
                     <DialogTitle>Delete relation?</DialogTitle>
                     <DialogContent>
