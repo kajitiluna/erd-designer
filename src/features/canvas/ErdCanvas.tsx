@@ -51,9 +51,11 @@ const ErdCanvas = () => {
 
     const erdDocument = documentsHolder.current();
 
-    const tableViews = erdDocument.getTableViewModels().map((tableView) => (
+    const tableViews = erdDocument.getTableViewModels().map(tableView => (
         <ErdTableView key={`erd-table-view_${tableView.tableId}`}
-            tableViewModel={tableView} onEditAction={setEditAction} />
+            tableViewModel={tableView}
+            onEditAction={setEditAction}
+            onDragAction={dispatchDragAction} />
     ));
 
     const initToMemoView = (foreground: boolean) => {
@@ -110,37 +112,15 @@ const ErdCanvas = () => {
         }
 
         const mousePosition = getLogicalMousePosition(event, displayScale);
-        const rectangleMap = new Map([...rectangleArea.tableRectangles, ...rectangleArea.memoRectangles]);
 
-        // 既に短形が選択されている場合は、該当テーブルにてドラッグ開始されたか確認する
+        // 短形選択中に canvas が押下された場合は、選択を解除する
         if (selectState.tableIds.size + selectState.memoIds.size > 0) {
-            for (const rectangleId of [...selectState.tableIds, ...selectState.memoIds]) {
-                const rectangle = rectangleMap.get(rectangleId);
-                if (rectangle == null) {
-                    continue;
-                }
-
-                if (rectangle.contains(mousePosition)) {
-                    // 短形が選択されている場合は、ドラッグ開始
-                    dispatchDragAction({ type: "start_dragging", start: mousePosition });
-                    return;
-                }
-            }
-
-            // 選択中の短形上でドラッグ開始していない場合は何もしない
-            return;
+            dispatchSelectAction(RELEASE_ACTION);
         }
 
         // line が選択中の場合
         if (selectState.relationId) {
             return;
-        }
-
-        // 短形が選択中ではない場合は、ドラッグ開始位置がテーブル上ではないことを確認する
-        for (const rectangle of rectangleMap.values()) {
-            if (rectangle.contains(mousePosition)) {
-                return;
-            }
         }
 
         dispatchDragAction({ type: "start_dragging", start: mousePosition });

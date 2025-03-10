@@ -194,6 +194,10 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         };
 
         const handleDragStart = (event: MouseEvent) => {
+            if (editMode !== EditModeType.SELECT) {
+                return
+            }
+
             event.stopPropagation();
 
             if (selectState.relationId !== relationView.relationId) {
