@@ -124,8 +124,8 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
             }
 
             if ((edges.length === 0)
-                || (selectState.tableIds.has(relationView.relationModel.parentTableModelId) == false)
-                || (selectState.tableIds.has(relationView.relationModel.childTableModelId) == false)
+                || (selectState.tableIds.has(relationModel.parentTableModelId) == false)
+                || (selectState.tableIds.has(relationModel.childTableModelId) == false)
                 || (dragState.status !== "on_dragging")
             ) {
                 return baseDualPoints;
@@ -180,29 +180,12 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
             return (<></>);
         }
 
-        const handleClickLine = (event: MouseEvent) => {
-            if (editMode !== EditModeType.SELECT) {
-                return
-            }
-
-            event.stopPropagation();
-
-            const mousePosition = getLogicalMousePosition(event, displayScale);
-
-            dispatchSelectAction({ type: "relation", relationId: relationView.relationId });
-            setClickedPosition(mousePosition);
-        };
-
         const handleDragStart = (event: MouseEvent) => {
             if (editMode !== EditModeType.SELECT) {
                 return
             }
 
             event.stopPropagation();
-
-            if (selectState.relationId !== relationView.relationId) {
-                return;
-            }
 
             const mousePosition = getLogicalMousePosition(event, displayScale);
 
@@ -235,6 +218,9 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         const handleDragEnd = (event: MouseEvent) => {
             event.stopPropagation();
 
+            const mousePosition = getLogicalMousePosition(event, displayScale);
+            setClickedPosition(mousePosition);
+
             setLineDragging({ on_dragging: false });
             onDragAction({ type: "clear" });
         };
@@ -247,8 +233,10 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
                 d={line} stroke="transparent" strokeWidth={15} fill="none"
                 style={{ cursor: 'pointer', pointerEvents: "auto" }}
                 onMouseDown={handleDragStart} onMouseUp={handleDragEnd}
-                onMouseEnter={initActiveDragModification(false)} onMouseLeave={initActiveDragModification(true)}
-                onClick={handleClickLine} onDoubleClick={event => handleOpenEditDialog(event, relationView)} />
+                onMouseEnter={initActiveDragModification(false)}
+                onMouseLeave={initActiveDragModification(true)}
+                onClick={event => event.stopPropagation()}
+                onDoubleClick={event => handleOpenEditDialog(event, relationView)} />
         );
     };
 
@@ -265,7 +253,6 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
             ) ? dragState.delta() : { x: 0, y: 0 };
 
             return `L ${pair[1].x + delta.x + DRAWABLE_AREA.width / 2},${pair[1].y + delta.y + DRAWABLE_AREA.height / 2}`;
-            //return `L ${pair[1].x + DRAWABLE_AREA.width / 2},${pair[1].y + DRAWABLE_AREA.height / 2}`;
         }
 
         if (selectState.edgeType === "real") {
@@ -400,7 +387,7 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         const selected = (selectState.relationId === relationView.relationId);
 
         const tooltip = (
-            !selected || (editMode !== EditModeType.SELECT) || (selectState.edgeId != null)
+            !selected || (editMode !== EditModeType.SELECT) || (dragState.status === "on_dragging")
         ) ? null : (
             <ButtonGroup variant="contained" size="small"
                 onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}
@@ -503,7 +490,6 @@ const calculateRectangleEdge = (rectangle: RectangleViewModel, dualPoint: Point)
     // 短形の中心と対抗点を結んだ直線の傾き
     const slopeOfEdges = (center.y - dualPoint.y) / (center.x - dualPoint.x);
     // 短形の対角線の傾き
-    // const slopeOfDiagonal = rectangle.getSlopeOfDiagonal(slopeOfEdges > 0);
     const slopeOfDiagonal = Math.sign(slopeOfEdges) * rectangle.height / rectangle.width;
 
     // 短形の中心と対抗点を結んだ線分が、短形と交わる点を算出するための計算式

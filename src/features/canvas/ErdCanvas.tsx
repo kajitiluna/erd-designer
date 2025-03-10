@@ -164,7 +164,7 @@ const ErdCanvas = () => {
         }
 
         if (selectState.relationId && (selectState.edgeId != null)) {
-            if ((!selectState.edgeType) || (selectState.edgeId == null)) {
+            if (!selectState.edgeType) {
                 return;
             }
 
