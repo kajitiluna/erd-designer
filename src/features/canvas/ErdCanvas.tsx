@@ -235,7 +235,7 @@ const ErdCanvas = () => {
 
     // keyUp 時のイベントを widnow.document に登録
     useEffect(() => {
-        return initEffectOfKeyUpOnCanvas(documentsHolder, dispatchEditMode);
+        return initEffectOfKeyDownOnCanvas(documentsHolder, dispatchEditMode);
     }, [dispatchEditMode, documentsHolder]);
 
     const canvasStyle: React.CSSProperties = {
@@ -528,7 +528,7 @@ const initEffectOfScrollOnCanvas = (displayScale: number) => {
     return () => window.removeEventListener("scroll", moveEdge);
 };
 
-const initEffectOfKeyUpOnCanvas = (
+const initEffectOfKeyDownOnCanvas = (
     documentsHolder: ErdDocumentsHolder, dispatchEditMode: (action: EditMode) => void
 ) => {
     const handleKeyUpOnCanvas = (event: KeyboardEvent) => {
@@ -539,27 +539,33 @@ const initEffectOfKeyUpOnCanvas = (
             return;
         }
 
-        if ((event.metaKey || event.ctrlKey) && (event.key === "z")) {
-            event.stopPropagation();
+        // `Ctrl/Command + Y` または `Ctrl/Command + Shift + Z` で Redo
+        if ((event.metaKey || event.ctrlKey)
+            && ((event.key === "y") || (event.key === "z") && event.shiftKey)) {
 
-            documentsHolder.undo();
-            return;
-        }
-
-        if ((event.metaKey || event.ctrlKey) && ((event.key === "y") || (event.key === "Z"))) {
+            event.preventDefault();
             event.stopPropagation();
 
             documentsHolder.redo();
             return;
         }
 
+        // `Ctrl + Z` または `Command + Z` で Undo
+        if ((event.metaKey || event.ctrlKey) && (event.key === "z")) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            documentsHolder.undo();
+            return;
+        }
+
         // TODO
     };
 
-    window.document.addEventListener("keyup", handleKeyUpOnCanvas);
+    window.document.addEventListener("keydown", handleKeyUpOnCanvas, true);
 
     return () => {
-        window.document.removeEventListener("keyup", handleKeyUpOnCanvas);
+        window.document.removeEventListener("keydown", handleKeyUpOnCanvas, true);
     };
 };
 
