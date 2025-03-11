@@ -1,6 +1,7 @@
 import React from "react";
 
 export type SelectState = {
+    status: "none" | "on_selecting" | "selected",
     tableIds: Set<string>,
     memoIds: Set<string>,
     relationId?: string,
@@ -12,8 +13,8 @@ export type SelectAction = { type: "none" }
     | SelectTableAction
     | SelectMemoAction
     | SelectBulkAction
-    | { type: "relation", relationId: string }
-    | SelectEdgeAction;
+    | SelectEdgeAction
+    | { type: "completed" };
 
 type SelectTableAction = { type: "table", tableId: string, withMultiSelection?: boolean };
 type SelectMemoAction = { type: "memo", memoId: string, withMultiSelection?: boolean };
@@ -22,6 +23,7 @@ type SelectEdgeAction = { type: "edge", lineType: "real" | "virtual", relationId
 
 const EMPTY_IDS = new Set<string>();
 export const EMPTY_SELECT_STATE: SelectState = {
+    status: "none",
     tableIds: EMPTY_IDS,
     memoIds: EMPTY_IDS
 } as const;
@@ -29,10 +31,18 @@ export const EMPTY_SELECT_STATE: SelectState = {
 export const RELEASE_ACTION: SelectAction = { type: "none" };
 
 export const reduceSelectAction = (currentStatus: SelectState, action: SelectAction): SelectState => {
-    console.debug(`SELECTED : ${JSON.stringify(action)}`);
+    console.debug(`SELECTED : ${JSON.stringify(action)}, CURRENT_STATUS : ${JSON.stringify({
+        ...currentStatus,
+        tableIds: [...currentStatus.tableIds],
+        memoIds: [...currentStatus.memoIds]
+    })}`);
 
     if (action.type === "none") {
         return EMPTY_SELECT_STATE;
+    }
+
+    if (action.type === "completed") {
+        return { ...currentStatus, status: "selected" };
     }
 
     if (action.type === "table") {
@@ -47,22 +57,18 @@ export const reduceSelectAction = (currentStatus: SelectState, action: SelectAct
         return handleSelectBulk(currentStatus, action);
     }
 
-    if (action.type === "relation") {
-        return { tableIds: EMPTY_IDS, memoIds: EMPTY_IDS, relationId: action.relationId };
-    }
-
     if (action.type === "edge") {
-        return handleSelectEdge(currentStatus, action);
+        return handleSelectEdge(action);
     }
 
     return currentStatus;
 };
 
-const handleSelectTable = (currentStatus: SelectState, action: SelectTableAction) => {
+const handleSelectTable = (currentStatus: SelectState, action: SelectTableAction): SelectState => {
     if (!action.withMultiSelection) {
         return currentStatus.tableIds.has(action.tableId)
             ? EMPTY_SELECT_STATE
-            : { tableIds: new Set([action.tableId]), memoIds: EMPTY_IDS };
+            : { status: "on_selecting", tableIds: new Set([action.tableId]), memoIds: EMPTY_IDS };
     }
 
     const nextTableIds = new Set(currentStatus.tableIds);
@@ -71,14 +77,14 @@ const handleSelectTable = (currentStatus: SelectState, action: SelectTableAction
         nextTableIds.add(action.tableId);
     }
 
-    return { tableIds: nextTableIds, memoIds: currentStatus.memoIds };
+    return { status: "on_selecting", tableIds: nextTableIds, memoIds: currentStatus.memoIds };
 }
 
-const handleSelectMemo = (currentStatus: SelectState, action: SelectMemoAction) => {
+const handleSelectMemo = (currentStatus: SelectState, action: SelectMemoAction): SelectState => {
     if (!action.withMultiSelection) {
         return currentStatus.memoIds.has(action.memoId)
             ? EMPTY_SELECT_STATE
-            : { tableIds: EMPTY_IDS, memoIds: new Set([action.memoId]) };
+            : { status: "on_selecting", tableIds: EMPTY_IDS, memoIds: new Set([action.memoId]) };
     }
 
     const nextMemoIds = new Set(currentStatus.memoIds);
@@ -87,10 +93,10 @@ const handleSelectMemo = (currentStatus: SelectState, action: SelectMemoAction) 
         nextMemoIds.add(action.memoId);
     }
 
-    return { tableIds: currentStatus.tableIds, memoIds: nextMemoIds };
+    return { status: "on_selecting", tableIds: currentStatus.tableIds, memoIds: nextMemoIds };
 };
 
-const handleSelectBulk = (currentStatus: SelectState, action: SelectBulkAction) => {
+const handleSelectBulk = (currentStatus: SelectState, action: SelectBulkAction): SelectState => {
     if (!action.withMultiSelection) {
         if (action.tableIds.length + action.memoIds.length === 0) {
             return EMPTY_SELECT_STATE;
@@ -99,7 +105,7 @@ const handleSelectBulk = (currentStatus: SelectState, action: SelectBulkAction) 
         const nextTableIds = (action.tableIds.length > 0) ? new Set(action.tableIds) : EMPTY_IDS;
         const nextMemoIds = (action.memoIds.length > 0) ? new Set(action.memoIds) : EMPTY_IDS;
 
-        return { tableIds: nextTableIds, memoIds: nextMemoIds };
+        return { status: "selected", tableIds: nextTableIds, memoIds: nextMemoIds };
     }
 
     if (action.tableIds.length + action.memoIds.length === 0) {
@@ -111,15 +117,12 @@ const handleSelectBulk = (currentStatus: SelectState, action: SelectBulkAction) 
     const nextMemoIds = (action.memoIds.length === 0) ? currentStatus.memoIds
         : new Set([...currentStatus.memoIds].concat(action.memoIds));
 
-    return { tableIds: nextTableIds, memoIds: nextMemoIds };
+    return { status: "selected", tableIds: nextTableIds, memoIds: nextMemoIds };
 };
 
-const handleSelectEdge = (currentStatus: SelectState, action: SelectEdgeAction) => {
-    if (currentStatus.relationId !== action.relationId) {
-        return EMPTY_SELECT_STATE;
-    }
-
+const handleSelectEdge = (action: SelectEdgeAction): SelectState => {
     return {
+        status: "on_selecting",
         tableIds: EMPTY_IDS,
         memoIds: EMPTY_IDS,
         relationId: action.relationId,

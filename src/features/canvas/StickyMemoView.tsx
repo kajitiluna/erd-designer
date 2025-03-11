@@ -14,8 +14,13 @@ import FormatAlignLeftIcon from "@mui/icons-material/FormatAlignLeft";
 import FormatAlignCenterIcon from "@mui/icons-material/FormatAlignCenter";
 import FormatAlignRightIcon from "@mui/icons-material/FormatAlignRight";
 
+import ColorSelector from "~/components/ColorSelector";
+import DisplayScaleContext from "~/context/DisplayScaleContext";
+import { DragAction, DragActionContext } from "~/context/DragActionContext";
 import EditModeContext from "~/context/EditModeContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
+import { LocalSettingContext } from "~/context/LocalSettingContext";
+import { SelectEntityContext, SelectState } from "~/context/SelectEntityContext";
 import {
     DRAWABLE_AREA, getLogicalMousePosition,
     handlePreventMouseEvent, withMultiSelectKey
@@ -23,14 +28,9 @@ import {
 import MemoViewModel, { AlignType } from "~/models/MemoViewModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import { EditModeType } from "~/models/EditMode";
-import { SelectEntityContext } from "~/context/SelectEntityContext";
-import { DragAction, DragActionContext } from "~/context/DragActionContext";
 import ColorValue from "~/models/ColorValue";
-import ColorSelector from "~/components/ColorSelector";
-import DisplayScaleContext from "~/context/DisplayScaleContext";
 
 import styleClasses from "./ErdCanvas.module.css";
-import { LocalSettingContext } from "~/context/LocalSettingContext";
 
 export const ERD_MEMO_VIEW_CLASS_NAME = "erdMemoView";
 
@@ -56,28 +56,32 @@ const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: Stic
 
     const selected = selectState.memoIds.has(memoViewModel.memoId);
 
-    const handleClick = (event: MouseEvent) => {
-        if (editMode !== EditModeType.SELECT) {
-            return;
-        }
-
-        event.stopPropagation();
-
-        const withMultiSelection = withMultiSelectKey(event);
-        dispatchSelectAction({
-            type: "memo", memoId: memoViewModel.memoId, withMultiSelection
-        });
-    };
-
     const handleDoubleClickPanel = (event: MouseEvent) => {
         event.stopPropagation();
 
         setTextEdit(true);
     };
 
+    const currentRectangle = (
+        (dragState.status !== "on_dragging") || !selected || !resizingDirection.isResizing()
+    ) ? memoViewModel.rectangleViewModel
+        : initCurrentRectangle(memoViewModel.rectangleViewModel, dragState.delta(), resizingDirection);
+
     const handleDragStart = (event: MouseEvent) => {
-        if ((editMode !== EditModeType.SELECT) || !selected) {
+        if (editMode !== EditModeType.SELECT) {
             return;
+        }
+
+        event.stopPropagation();
+
+        const mousePosition = getLogicalMousePosition(event, displayScale);
+        onDragAction({ type: "start_dragging", start: mousePosition });
+
+        if (!selected) {
+            const withMultiSelection = withMultiSelectKey(event);
+            dispatchSelectAction({
+                type: "memo", memoId: memoViewModel.memoId, withMultiSelection
+            });
         }
 
         if (selectState.tableIds.size > 0) {
@@ -85,8 +89,7 @@ const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: Stic
             return;
         }
 
-        const mousePosition = getLogicalMousePosition(event, displayScale);
-        const direction = getResizingDirection(memoViewModel.rectangleViewModel, mousePosition);
+        const direction = getResizingDirection(currentRectangle, mousePosition, selectState);
 
         setResizingDirection(direction);
     };
@@ -96,19 +99,29 @@ const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: Stic
             return;
         }
 
-        const selected = selectState.memoIds.has(memoViewModel.memoId);
-        if (!selected) {
-            return;
-        }
-
         const mousePosition = getLogicalMousePosition(event, displayScale);
-        const direction = getResizingDirection(memoViewModel.rectangleViewModel, mousePosition);
+        const direction = getResizingDirection(currentRectangle, mousePosition, selectState);
         const nextStyle = initMouseCursorStyle(direction);
         setMouseCursorStyle(nextStyle);
     };
 
     const handleDragEnd = (event: MouseEvent) => {
-        if ((dragState.status !== "on_dragging") || !selected || !resizingDirection.isResizing()) {
+        if ((dragState.status !== "on_dragging") || !selected) {
+            return;
+        }
+
+        if (!resizingDirection.isResizing()) {
+            if ((selectState.status === "on_selecting")
+                && (selectState.memoIds.has(memoViewModel.memoId))) {
+                dispatchSelectAction({ type: "completed" });
+                return;
+            }
+
+            const withMultiSelection = withMultiSelectKey(event);
+            dispatchSelectAction({
+                type: "memo", memoId: memoViewModel.memoId, withMultiSelection
+            });
+
             return;
         }
 
@@ -144,19 +157,15 @@ const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: Stic
         documentsHolder.updateMemo(nextMemo);
     };
 
-    const moving = (selected && (dragState.status === "on_dragging") && !resizingDirection.isResizing())
-        ? dragState.delta() : { x: 0, y: 0 }
-
-    const rectangle = (
-        (dragState.status !== "on_dragging") || !selected || !resizingDirection.isResizing()
-    ) ? memoViewModel.rectangleViewModel
-        : initCurrentRectangle(memoViewModel.rectangleViewModel, dragState.delta(), resizingDirection);
+    const moving = (
+        selected && (dragState.status === "on_dragging") && !resizingDirection.isResizing()
+    ) ? dragState.delta() : { x: 0, y: 0 };
 
     const initTextAreaElement = () => {
         if (isTextEdit) {
             const textAreaStyle: React.CSSProperties = {
-                width: `${rectangle.width - STICKY_PADDING * 2}px`,
-                height: `${rectangle.height - STICKY_PADDING * 2}px`,
+                width: `${currentRectangle.width - STICKY_PADDING * 2}px`,
+                height: `${currentRectangle.height - STICKY_PADDING * 2}px`,
                 color: memoViewModel.foregroundColor.toHex(),
                 fontSize: `${memoViewModel.fontSize / 10}em`, lineHeight: "1.0",
                 border: "none", background: "transparent", resize: "none", fontFamily: "inherit",
@@ -198,8 +207,8 @@ const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: Stic
 
         return (
             <Box sx={baseStyle}
-                onClick={handleClick} onDoubleClick={handleDoubleClickPanel}
-                onMouseDown={handleDragStart} onMouseMove={handleMouseMove} onMouseUp={handleDragEnd}>
+                onMouseDown={handleDragStart} onMouseMove={handleMouseMove} onMouseUp={handleDragEnd}
+                onClick={event => event.stopPropagation()} onDoubleClick={handleDoubleClickPanel}>
                 {memoLines.map((line, index) => (
                     <span key={`memo-text_${memoViewModel.memoId}-${index}`}
                         style={initTextStyle(index)}>
@@ -226,24 +235,24 @@ const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: Stic
     };
 
     const wrapperStyle: React.CSSProperties = {
-        position: "absolute", overflow: "auto", zIndex: zIndex(selected),
-        left: `${rectangle.left + moving.x + DRAWABLE_AREA.height / 2}px`,
-        top: `${rectangle.top + moving.y + DRAWABLE_AREA.width / 2}px`,
+        position: "absolute", overflow: "visible", zIndex: zIndex(selected),
+        left: `${currentRectangle.left + moving.x + DRAWABLE_AREA.height / 2}px`,
+        top: `${currentRectangle.top + moving.y + DRAWABLE_AREA.width / 2}px`,
         display: "flex", flexDirection: "column", justifyContent: "flex-start",
         boxShadow: selected ? "" : "0px 0px 7px 0px #bebebe",
         // "&::-webkit-scrollbar": { display: "none" },
         msOverflowStyle: "none", scrollbarWidth: "none"
     };
     const stickyStyle: React.CSSProperties = {
-        width: `${rectangle.width}px`,
-        height: `${rectangle.height}px`,
+        width: `${currentRectangle.width}px`,
+        height: `${currentRectangle.height}px`,
         backgroundColor: memoViewModel.backgroundColor.toHex(),
         // "&::-webkit-scrollbar": { display: "none" },
         msOverflowStyle: "none", scrollbarWidth: "none"
     };
     const stickyClassName = selected
         ? `${styleClasses.selectedBox} ${ERD_MEMO_VIEW_CLASS_NAME}`
-        : ERD_MEMO_VIEW_CLASS_NAME
+        : ERD_MEMO_VIEW_CLASS_NAME;
 
     return (
         <Box style={wrapperStyle}>
@@ -252,12 +261,16 @@ const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: Stic
                 {initTextAreaElement()}
             </Box>
             {selected && (!isTextEdit) && (dragState.status !== "on_dragging")
+                && (selectState.tableIds.size + selectState.memoIds.size === 1)
                 && <StickyControlPane memoViewModel={memoViewModel} />}
         </Box>
     );
 };
 
 const STICKY_PADDING = 10;
+
+type Horizontal = "none" | "left" | "right";
+type Vertical = "none" | "top" | "bottom";
 
 class ResizingDirection {
 
@@ -266,8 +279,7 @@ class ResizingDirection {
     private static readonly MAPPING = ResizingDirection.initMapping();
 
     private constructor(
-        public readonly horizontal: "none" | "left" | "right",
-        public readonly vertical: "none" | "top" | "bottom"
+        public readonly horizontal: Horizontal, public readonly vertical: Vertical
     ) {
         // do nothing
     }
@@ -286,10 +298,7 @@ class ResizingDirection {
         ]);
     }
 
-    static getInstance(
-        horizontal: "none" | "left" | "right",
-        vertical: "none" | "top" | "bottom"
-    ): ResizingDirection {
+    static getInstance(horizontal: Horizontal, vertical: Vertical): ResizingDirection {
         return ResizingDirection.MAPPING.get(`${horizontal}:${vertical}`)
             || ResizingDirection.NO_RESIZING;
     }
@@ -299,15 +308,24 @@ class ResizingDirection {
     }
 }
 
-const getResizingDirection = (rectangle: RectangleViewModel, mousePosition: { x: number, y: number }): ResizingDirection => {
-    let horizontal: "none" | "left" | "right" = "none";
+const getResizingDirection = (
+    rectangle: RectangleViewModel,
+    mousePosition: { x: number, y: number },
+    selectState: SelectState
+): ResizingDirection => {
+
+    if (selectState.tableIds.size + selectState.memoIds.size > 1) {
+        return ResizingDirection.NO_RESIZING;
+    }
+
+    let horizontal: Horizontal = "none";
     if ((rectangle.left <= mousePosition.x) && (mousePosition.x <= rectangle.left + 10)) {
         horizontal = "left";
     } else if ((rectangle.right - 10 <= mousePosition.x) && (mousePosition.x <= rectangle.right)) {
         horizontal = "right";
     }
 
-    let vertical: "none" | "top" | "bottom" = "none";
+    let vertical: Vertical = "none";
     if ((rectangle.top <= mousePosition.y) && (mousePosition.y <= rectangle.top + 10)) {
         vertical = "top";
     } else if ((rectangle.bottom - 10 <= mousePosition.y) && (mousePosition.y <= rectangle.bottom)) {

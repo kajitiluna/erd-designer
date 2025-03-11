@@ -6,11 +6,13 @@ import {
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 
-import TableViewModel from "~/models/TableViewModel";
-import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
+import { LocalSettingContext } from "~/context/LocalSettingContext";
+import DisplayScaleContext from "~/context/DisplayScaleContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
-import { DRAWABLE_AREA, handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
+import { DRAWABLE_AREA, getLogicalMousePosition, handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
 import ColorSelector from "~/components/ColorSelector";
+import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
+import TableViewModel from "~/models/TableViewModel";
 import ColorValue from "~/models/ColorValue";
 import ErdDocument from "~/models/ErdDocument";
 import ColumnModel from "~/models/database/ColumnModel";
@@ -24,23 +26,24 @@ import EditAction from "~/features/canvas/EditAction";
 import RelationModel from "~/models/database/RelationModel";
 import RelationViewModel from "~/models/RelationViewModel";
 import LineViewModel from "~/models/LineViewModel";
-import { DragActionContext } from "~/context/DragActionContext";
+import { DragAction, DragActionContext } from "~/context/DragActionContext";
 
 import styleClasses from "./ErdCanvas.module.css";
-import { LocalSettingContext } from "~/context/LocalSettingContext";
 
 export const ERD_TABLE_VIEW_CLASS_NAME = "erdTableView";
 
 type ErdTableViewProps = {
     tableViewModel: TableViewModel,
-    onEditAction: (editAction: EditAction) => void
+    onEditAction: (editAction: EditAction) => void,
+    onDragAction: (dragAction: DragAction) => void
 };
 
-const ErdTableView = ({ tableViewModel, onEditAction }: ErdTableViewProps) => {
+const ErdTableView = ({ tableViewModel, onEditAction, onDragAction }: ErdTableViewProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
+    const displayScale = React.useContext(DisplayScaleContext);
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
 
     const [openDeletingDialog, setOpenDeleteDialog] = useState(false);
@@ -49,9 +52,16 @@ const ErdTableView = ({ tableViewModel, onEditAction }: ErdTableViewProps) => {
 
     const tableModel = tableViewModel.tableModel;
 
-    const handleClick = (event: MouseEvent) => {
+    const handleMouseDown = (event: MouseEvent) => {
+        const mousePosition = getLogicalMousePosition(event, displayScale);
         if (editMode === EditModeType.SELECT) {
             event.stopPropagation();
+
+            onDragAction({ type: "start_dragging", start: mousePosition });
+
+            if (selectState.tableIds.has(tableViewModel.tableId)) {
+                return;
+            }
 
             const withMultiSelection = withMultiSelectKey(event);
             dispatchSelectAction({
@@ -61,17 +71,37 @@ const ErdTableView = ({ tableViewModel, onEditAction }: ErdTableViewProps) => {
             return;
         }
 
-        // テーブル作成モードで該当テーブルがクリックされた場合は、何もしない
-        if (editMode === EditModeType.CREATE_TABLE) {
+        if (editMode === EditModeType.CREATE_RELATION) {
             event.stopPropagation();
+
+            onDragAction({ type: "start_dragging", start: mousePosition });
+
+            if (selectState.tableIds.size !== 1) {
+                dispatchSelectAction({ type: "table", tableId: tableViewModel.tableId });
+            }
+
+            return;
+        }
+    };
+
+    const handleMouseUp = (event: MouseEvent) => {
+        if (editMode === EditModeType.SELECT) {
+            if ((selectState.status === "on_selecting")
+                && (selectState.tableIds.has(tableViewModel.tableId))) {
+                dispatchSelectAction({ type: "completed" });
+                return;
+            }
+
+            const withMultiSelection = withMultiSelectKey(event);
+            dispatchSelectAction({
+                type: "table", tableId: tableViewModel.tableId, withMultiSelection
+            });
+
             return;
         }
 
         if (editMode === EditModeType.CREATE_RELATION) {
-            event.stopPropagation();
-
             if (selectState.tableIds.size !== 1) {
-                dispatchSelectAction({ type: "table", tableId: tableViewModel.tableId });
                 return;
             }
 
@@ -132,7 +162,8 @@ const ErdTableView = ({ tableViewModel, onEditAction }: ErdTableViewProps) => {
     };
 
     const selected = selectState.tableIds.has(tableViewModel.tableId);
-    const moving = (selected && (dragState.status === "on_dragging")) ? dragState.delta() : { x: 0, y: 0 }
+    const moving = (selected && (dragState.status === "on_dragging"))
+        ? dragState.delta() : { x: 0, y: 0 }
 
     const tableStyle = {
         position: "absolute", zIndex: selected ? 100 : "auto",
@@ -161,15 +192,20 @@ const ErdTableView = ({ tableViewModel, onEditAction }: ErdTableViewProps) => {
 
     const bodyStyle = {
         flex: "1 1 auto",
-        display: "flex", ßflexDirection: "column", alignItems: "stretch",
+        display: "flex", flexDirection: "column", alignItems: "stretch",
         backgroundColor: "#FDFDFD"
     };
 
+    const tableClassName = selected ?
+        `${ERD_TABLE_VIEW_CLASS_NAME} ${styleClasses.selectedBox}`
+        : ERD_TABLE_VIEW_CLASS_NAME;
+
     return (
         <Box sx={tableStyle}>
-            <Box id={tableViewModel.tableId} tabIndex={0} sx={boundStyle} style={{ cursor: 'pointer' }}
-                onClick={handleClick} onDoubleClick={handleOpenEditDialog}
-                className={selected ? `${ERD_TABLE_VIEW_CLASS_NAME} ${styleClasses.selectedBox}` : ERD_TABLE_VIEW_CLASS_NAME}>
+            <Box id={tableViewModel.tableId} tabIndex={0} sx={boundStyle}
+                style={{ cursor: 'pointer' }} className={tableClassName}
+                onMouseDown={handleMouseDown} onMouseUp={handleMouseUp}
+                onClick={event => event.stopPropagation()} onDoubleClick={handleOpenEditDialog}>
                 <DescriptionTooltip title={tableModel.description} placement="top-end">
                     <Box sx={headerStyle}>{tableModel.displayName(erdDocument.getDisplayStyle())}</Box>
                 </DescriptionTooltip>
@@ -184,26 +220,27 @@ const ErdTableView = ({ tableViewModel, onEditAction }: ErdTableViewProps) => {
                     </TableContainer>
                 </Box>
             </Box>
-            {selected && (editMode === EditModeType.SELECT) && (dragState.status !== "on_dragging") && (
-                <Stack direction="row" justifyContent="flex-end" onClick={handlePreventMouseEvent}
-                    onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
-                    <div style={{ backgroundColor: "rgba(255, 255, 255, 0.9)", borderRadius: "10px" }}>
-                        <ColorSelector key={`table-color-selector_${tableViewModel.tableId}`}
-                            color={tableViewModel.headerColor.background}
-                            callback={handleSetColor} />
-                        <Tooltip title="Edit" placement="top-end">
-                            <IconButton onClick={handleOpenEditDialog}>
-                                <EditIcon />
-                            </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete" placement="top-end">
-                            <IconButton onClick={() => setOpenDeleteDialog(true)}>
-                                <DeleteIcon />
-                            </IconButton>
-                        </Tooltip>
-                    </div>
-                </Stack>
-            )}
+            {selected && (editMode === EditModeType.SELECT) && (dragState.status !== "on_dragging")
+                && (selectState.tableIds.size + selectState.memoIds.size === 1) && (
+                    <Stack direction="row" justifyContent="flex-end" onClick={handlePreventMouseEvent}
+                        onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
+                        <div style={{ backgroundColor: "rgba(255, 255, 255, 0.9)", borderRadius: "10px" }}>
+                            <ColorSelector key={`table-color-selector_${tableViewModel.tableId}`}
+                                color={tableViewModel.headerColor.background}
+                                callback={handleSetColor} />
+                            <Tooltip title="Edit" placement="top-end">
+                                <IconButton onClick={handleOpenEditDialog}>
+                                    <EditIcon />
+                                </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Delete" placement="top-end">
+                                <IconButton onClick={() => setOpenDeleteDialog(true)}>
+                                    <DeleteIcon />
+                                </IconButton>
+                            </Tooltip>
+                        </div>
+                    </Stack>
+                )}
             <Dialog open={openDeletingDialog} onClose={handleCloseDeletingDialog}>
                 <DialogTitle>Delete table?</DialogTitle>
                 <DialogContent>
