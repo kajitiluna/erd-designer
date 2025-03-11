@@ -216,7 +216,6 @@ const IndexViewTable = ({ columnModels, tableIndexModels, onUpdateTableIndexMode
                         <TableBody>
                             {columnModels.map((columnModel, index) => initColumnTitleRow(columnModel, index))}
                         </TableBody>
-
                     </Table>
                 </TableContainer>
                 <Box sx={{ p: "5px" }}>

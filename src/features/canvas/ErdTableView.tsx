@@ -1,6 +1,6 @@
 import React, { MouseEvent, useState } from "react";
 import {
-    Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, IconButton,
+    Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Grid2, IconButton,
     Stack, Table, TableBody, TableCell, TableContainer, TableRow, Tooltip
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
@@ -29,6 +29,7 @@ import LineViewModel from "~/models/LineViewModel";
 import { DragAction, DragActionContext } from "~/context/DragActionContext";
 
 import styleClasses from "./ErdCanvas.module.css";
+import TableModel from "~/models/database/TableModel";
 
 export const ERD_TABLE_VIEW_CLASS_NAME = "erdTableView";
 
@@ -213,8 +214,8 @@ const ErdTableView = ({ tableViewModel, onEditAction, onDragAction }: ErdTableVi
                     <TableContainer>
                         <Table size="small">
                             <TableBody sx={{ fontSize: "0.875em" }}>
-                                {tableModel.columnModelIds.map((columnModelId: string) =>
-                                    initTableColumn(columnModelId, erdDocument))}
+                                {tableModel.columnModelIds.map(columnModelId =>
+                                    initTableColumn(columnModelId, tableModel, erdDocument))}
                             </TableBody>
                         </Table>
                     </TableContainer>
@@ -255,7 +256,7 @@ const ErdTableView = ({ tableViewModel, onEditAction, onDragAction }: ErdTableVi
     );
 };
 
-const initTableColumn = (columnId: string, erdDocument: ErdDocument) => {
+const initTableColumn = (columnId: string, tableModel: TableModel, erdDocument: ErdDocument) => {
     const columnModel: ColumnModel | null = erdDocument.findColumnModel(columnId);
     if (columnModel == null) {
         console.warn(`columnModel is not existed. columnModelId = ${columnId}`)
@@ -267,6 +268,8 @@ const initTableColumn = (columnId: string, erdDocument: ErdDocument) => {
         console.warn(`columnShareModel is not existed. columnShareModelId = ${columnModel.columnShareModelId}`)
         return (<></>);
     }
+
+    const tableIndexModels = tableModel.tableIndexModels;
 
     const inChildRelation = erdDocument.inChildRelation(columnModel.columnModelId);
     const fontColor = initTableColumnFontColor(columnModel, inChildRelation);
@@ -291,9 +294,16 @@ const initTableColumn = (columnId: string, erdDocument: ErdDocument) => {
     const styleAttributeCell = {
         whiteSpace: "nowrap", color: fontColor, fontSize: "0.914em"
     };
+    const styleIndexCell = {
+        paddingLeft: "0px", paddingRight: "10px"
+    };
+    const styleIndexGrid = {
+        whiteSpace: "nowrap", paddingLeft: "6px", paddingRight: "6px"
+    };
 
     return (
-        <DescriptionTooltip key={`erd-table-column_${columnId}`} title={columnShareModel.description} placement="top-end">
+        <DescriptionTooltip key={`erd-table-column_${columnId}`}
+            title={columnShareModel.description} placement="top-end">
             <TableRow>
                 <TableCell align="center" sx={stylePrimaryCell} >
                     {columnModel.primaryKey && <PrimaryKeyIcon />}
@@ -303,7 +313,19 @@ const initTableColumn = (columnId: string, erdDocument: ErdDocument) => {
                 </TableCell>
                 <TableCell sx={styleTextCell}>{displayColumnName}</TableCell>
                 <TableCell sx={styleAttributeCell}>{displayColumnType}</TableCell>
-                <TableCell align="center" sx={styleAttributeCell} >{displayOption}</TableCell>
+                <TableCell align="center" sx={styleAttributeCell}>{displayOption}</TableCell>
+                {(tableIndexModels.length > 0) &&
+                    <TableCell sx={styleIndexCell}>
+                        <Grid2 container columns={tableIndexModels.length} spacing="1">
+                            {tableIndexModels.map(tableIndex => (
+                                <Grid2 key={`table-index_${tableIndex.tableIndexModelId}`} sx={styleIndexGrid}>
+                                    {tableIndex.indexColumnModels.some(indexColumn =>
+                                        indexColumn.columnModelId === columnModel.columnModelId)
+                                        && "*"}
+                                </Grid2>
+                            ))}
+                        </Grid2>
+                    </TableCell>}
             </TableRow>
         </DescriptionTooltip>
     );
