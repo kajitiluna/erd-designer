@@ -20,7 +20,7 @@ const DescriptionTooltip = (props: TooltipProps) => {
 
     // TODO WrapperTooltip を指定すると何故か親の onDoubleClick が動作しなくなるので、いったん通常の Tooltip を指定
     return (
-        <Tooltip placement="top-end" title={title}>
+        <Tooltip placement={props.placement} title={title}>
             {props.children}
         </Tooltip>
     );

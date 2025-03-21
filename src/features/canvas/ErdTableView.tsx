@@ -302,32 +302,37 @@ const initTableColumn = (columnId: string, tableModel: TableModel, erdDocument: 
     };
 
     return (
-        <DescriptionTooltip key={`erd-table-column_${columnId}`}
-            title={columnShareModel.description} placement="top-end">
-            <TableRow>
-                <TableCell align="center" sx={stylePrimaryCell} >
-                    {columnModel.primaryKey && <PrimaryKeyIcon />}
-                </TableCell>
-                <TableCell align="center" sx={styleForeignCell} >
-                    {inChildRelation && <ForeignKeyIcon />}
-                </TableCell>
+        <TableRow key={`erd-table-column_${columnId}`}>
+            <TableCell align="center" sx={stylePrimaryCell} >
+                {columnModel.primaryKey && <PrimaryKeyIcon />}
+            </TableCell>
+            <TableCell align="center" sx={styleForeignCell} >
+                {inChildRelation && <ForeignKeyIcon />}
+            </TableCell>
+
+            <DescriptionTooltip title={columnShareModel.description} placement="top">
                 <TableCell sx={styleTextCell}>{displayColumnName}</TableCell>
-                <TableCell sx={styleAttributeCell}>{displayColumnType}</TableCell>
-                <TableCell align="center" sx={styleAttributeCell}>{displayOption}</TableCell>
-                {(tableIndexModels.length > 0) &&
-                    <TableCell sx={styleIndexCell}>
-                        <Grid2 container columns={tableIndexModels.length} spacing="1">
-                            {tableIndexModels.map(tableIndex => (
-                                <Grid2 key={`table-index_${tableIndex.tableIndexModelId}`} sx={styleIndexGrid}>
+            </DescriptionTooltip>
+
+            <TableCell sx={styleAttributeCell}>{displayColumnType}</TableCell>
+            <TableCell align="center" sx={styleAttributeCell}>{displayOption}</TableCell>
+            {(tableIndexModels.length > 0) &&
+                <TableCell sx={styleIndexCell}>
+                    <Grid2 container columns={tableIndexModels.length} spacing="1">
+                        {tableIndexModels.map(tableIndex => (
+                            <Tooltip key={`table-index_${tableIndex.tableIndexModelId}`}
+                                title={tableIndex.physicalName} placement="top">
+                                <Grid2 sx={styleIndexGrid}>
                                     {tableIndex.indexColumnModels.some(indexColumn =>
                                         indexColumn.columnModelId === columnModel.columnModelId)
                                         && "*"}
                                 </Grid2>
-                            ))}
-                        </Grid2>
-                    </TableCell>}
-            </TableRow>
-        </DescriptionTooltip>
+                            </Tooltip>
+                        ))}
+                    </Grid2>
+                </TableCell>
+            }
+        </TableRow >
     );
 };
 
