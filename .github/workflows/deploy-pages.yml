@@ -13,6 +13,7 @@ jobs:
       name: github-pages
     env:
       VITE_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      VITE_GOOGLE_SITE_VERTIFICATION: ${{ secrets.GOOGLE_SITE_VERTIFICATION }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
