@@ -1,3 +1,5 @@
+<img src="src/logo.svg" alt="logo" width="200" style="display: block; margin: 20 auto;">
+
 # Entity Relationship Diagram Designer
 
 Entity Relationship Diagram Designer (ERD Designer) is a web-based tool for designing entity relationship diagrams.
