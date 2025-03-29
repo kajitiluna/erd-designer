@@ -77,7 +77,7 @@ const GoogleDriveInitializer = ({ implictToken, authorize, onInitialize }: Googl
     return (
         <Box sx={boxStyle}>
             <img src={Logo} alt="" width="200px" height="200px" />
-            <Typography variant="h2" align="center" style={{ marginBottom: "30px" }}>
+            <Typography variant="h2" align="center" style={{ marginTop: "30px", marginBottom: "30px" }}>
                 Entity Relationship Diagram Designer
             </Typography>
 
