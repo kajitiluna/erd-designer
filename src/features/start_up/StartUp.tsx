@@ -11,7 +11,7 @@ import ErdDocumentListPanel from "~/features/start_up/ErdDocumentListPanel";
 import ErdDocumentStrage from "~/features/strage/ErdDocumentStrage";
 import InitializeDatabaseDialog from "~/features/start_up/InitializeDatabaseDialog";
 import Logo from "~/logo.svg";
-import RegalFotter from "~/features/regal/RegalFooter";
+import RegalFooter from "~/features/regal/RegalFooter";
 
 type StartUpProp = {
     documentStrage: ErdDocumentStrage,
@@ -85,7 +85,7 @@ const StartUp = ({ documentStrage, onOpenDocument }: StartUpProp) => {
                 )}
             </Container>
 
-            <RegalFotter />
+            <RegalFooter />
         </div>
     );
 };

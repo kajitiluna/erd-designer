@@ -6,7 +6,7 @@ import ErdDocument from "~/models/ErdDocument";
 import InitializeDatabaseDialog from "~/features/start_up/InitializeDatabaseDialog";
 import { createGdriveFile, openGdriveFile } from "~/features/gdrive/gdrive-file-support";
 import Logo from "~/logo.svg";
-import RegalFotter from "~/features/regal/RegalFooter";
+import RegalFooter from "~/features/regal/RegalFooter";
 
 type GoogleDriveInitializerProp = {
     implictToken: { accessToken: string, expiresAt: number },
@@ -105,7 +105,7 @@ const GoogleDriveInitializer = ({ implictToken, authorize, onInitialize }: Googl
                 )}
             </Box>
 
-            <RegalFotter />
+            <RegalFooter />
         </div>
     );
 };

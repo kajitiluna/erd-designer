@@ -1,6 +1,6 @@
 import { Link, Stack, Typography } from "@mui/material";
 
-const RegalFotter = () => {
+const RegalFooter = () => {
     return (
         <Stack direction="row" spacing={4} sx={{ p: 4 }} justifyContent="center">
             <Link href="/erd-designer/terms_of_service" target="_blank" rel="noopener noreferrer">
@@ -17,4 +17,4 @@ const RegalFotter = () => {
     );
 };
 
-export default RegalFotter;
+export default RegalFooter;
