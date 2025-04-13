@@ -1,7 +1,7 @@
 import RegalTextPanel from "~/features/regal/RegalTextPanel";
 
 const termsOfService = `
-# 利用規約
+# ERD Designer | 利用規約
 
 **※ 本書は日本語および英語で記載されていますが、解釈に関しては日本語版を優先します。**
 
@@ -77,7 +77,7 @@ const termsOfService = `
 ---
 
 
-# Terms of Service (English)
+# ERD Designer | Terms of Service (English)
 
 **※ This document is presented in both Japanese and English. In the event of any inconsistency or ambiguity in interpretation, the Japanese version shall prevail.**
 
@@ -151,9 +151,9 @@ const termsOfService = `
 `;
 
 const TermsOfServicePanel = () => {
-    return (
-        <RegalTextPanel markdown={termsOfService} />
-    );
+  return (
+    <RegalTextPanel markdown={termsOfService} />
+  );
 }
 
 export default TermsOfServicePanel;
