@@ -1,3 +1,6 @@
+import RegalTextPanel from "~/features/regal/RegalTextPanel";
+
+const privacyPolicy = `
 # プライバシーポリシー
 
 **※ 本書は日本語および英語で記載されていますが、解釈に関しては日本語版を優先します。**
@@ -47,3 +50,12 @@ This Privacy Policy describes how the Service handles user data and files.
 ## Contact
 
 If you have any questions or feedback regarding this Privacy Policy, please contact the Developer.
+`;
+
+const PrivacyPolicyPanel = () => {
+    return (
+        <RegalTextPanel markdown={privacyPolicy} />
+    );
+}
+
+export default PrivacyPolicyPanel;

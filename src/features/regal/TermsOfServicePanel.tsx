@@ -1,3 +1,6 @@
+import RegalTextPanel from "~/features/regal/RegalTextPanel";
+
+const termsOfService = `
 # 利用規約
 
 **※ 本書は日本語および英語で記載されていますが、解釈に関しては日本語版を優先します。**
@@ -17,7 +20,7 @@
 ## 規約の変更
 
 - 本サービスは、利用者の承諾を得ることなく、いつでも、本規約の内容を改定することができるものとし、利用者はこれを異議なく承諾するものとします。
-- 本サービスの利用規約を変更するときは、本アプリケーションの開発リポジトリで管理している `README.md` に変更があった旨を記載することで、利用者に通知したものとします。
+- 本サービスの利用規約を変更するときは、本アプリケーションの開発リポジトリで管理している \`README.md\` に変更があった旨を記載することで、利用者に通知したものとします。
 - 前本規約の改定の効力は、本サービスが前項により通知を行った時点から生じるものとします。
 - 利用者は、本規約変更後、本サービスを利用した時点で、変更後の本利用規約に異議なく同意したものとみなされます。
 
@@ -70,7 +73,9 @@
 
 2025 年 03 月 29 日 施工
 
+
 ---
+
 
 # Terms of Service (English)
 
@@ -91,7 +96,7 @@
 ## Changes to the Terms
 
 - The Service may modify these Terms at any time without the User’s consent, and the User agrees to such modifications.
-- Changes to these Terms will be communicated by posting a notice in the `README.md` file of the Application’s development repository.
+- Changes to these Terms will be communicated by posting a notice in the \`README.md\` file of the Application’s development repository.
 - The revised Terms become effective once the Service has issued a notice as described above.
 - Continued use of the Service after changes are made shall constitute acceptance of the revised Terms.
 
@@ -143,3 +148,12 @@
 - Any dispute arising between the Developer and the User shall be subject to the exclusive jurisdiction of the Tokyo Summary Court or the Tokyo District Court, in accordance with the claim amount.
 
 2025-03-29 Issued
+`;
+
+const TermsOfServicePanel = () => {
+    return (
+        <RegalTextPanel markdown={termsOfService} />
+    );
+}
+
+export default TermsOfServicePanel;

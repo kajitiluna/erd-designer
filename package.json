@@ -26,6 +26,7 @@
     "html2canvas": "^1.4.1",
     "react": "^19",
     "react-dom": "^19",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.1.5",
     "uuid": "^11.0.3"
   },

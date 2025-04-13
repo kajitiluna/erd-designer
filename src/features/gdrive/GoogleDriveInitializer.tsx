@@ -6,6 +6,7 @@ import ErdDocument from "~/models/ErdDocument";
 import InitializeDatabaseDialog from "~/features/start_up/InitializeDatabaseDialog";
 import { createGdriveFile, openGdriveFile } from "~/features/gdrive/gdrive-file-support";
 import Logo from "~/logo.svg";
+import RegalFooter from "~/features/regal/RegalFooter";
 
 type GoogleDriveInitializerProp = {
     implictToken: { accessToken: string, expiresAt: number },
@@ -75,32 +76,37 @@ const GoogleDriveInitializer = ({ implictToken, authorize, onInitialize }: Googl
         || ((implictToken.expiresAt >= currentDate) && (gdriveState.action === "open"));
 
     return (
-        <Box sx={boxStyle}>
-            <img src={Logo} alt="" width="200px" height="200px" />
-            <Typography variant="h2" align="center" style={{ marginTop: "30px", marginBottom: "30px" }}>
-                Entity Relationship Diagram Designer
-            </Typography>
+        <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+            <Box sx={boxStyle} style={{ flex: 1 }}>
+                <img src={Logo} alt="" width="200px" height="200px" />
+                <Typography variant="h2" align="center" style={{ marginTop: "30px", marginBottom: "30px" }}>
+                    Entity Relationship Diagram Designer
+                </Typography>
 
-            {(implictToken.expiresAt < currentDate) && (
-                <Stack spacing={2} sx={{ justifyContent: "center", alignItems: "center" }}>
-                    <Typography variant="body1" gutterBottom>
-                        Need to authorize to edit the ERD file on the Google Drive.
-                    </Typography>
-                    <Button variant="contained" size="large" onClick={authorize}>
-                        Authorize with Google
-                    </Button>
-                </Stack>
-            )}
-            {(gdriveFolderId != null) && (erdDocument == null) && (
-                <InitializeDatabaseDialog
-                    isOpen={(gdriveFolderId != null) && (erdDocument == null)}
-                    onCreate={handleCreateDocument}
-                    onClose={() => { }} />
-            )}
-            {onProcessing && (
-                <CircularProgress />
-            )}
-        </Box>
+                {(implictToken.expiresAt < currentDate) && (
+                    <Stack spacing={2} sx={{ justifyContent: "center", alignItems: "center" }}>
+                        <Typography variant="body1" gutterBottom>
+                            Need to authorize to edit the ERD file on the Google Drive.
+                        </Typography>
+                        <Button variant="contained" size="large" onClick={authorize}>
+                            Authorize with Google
+                        </Button>
+                    </Stack>
+                )}
+
+                {(gdriveFolderId != null) && (erdDocument == null) && (
+                    <InitializeDatabaseDialog
+                        isOpen={(gdriveFolderId != null) && (erdDocument == null)}
+                        onCreate={handleCreateDocument}
+                        onClose={() => { }} />
+                )}
+                {onProcessing && (
+                    <CircularProgress />
+                )}
+            </Box>
+
+            <RegalFooter />
+        </div>
     );
 };
 
