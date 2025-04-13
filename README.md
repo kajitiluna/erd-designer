@@ -8,8 +8,8 @@ This tool is inspired by [ERMaster](https://ermaster.sourceforge.net/index.html)
 ## Features
 
 - ERD Designer allows you to design database tables and relationships via a graphical interface.
-- ERD Designer supports to export png image, DDL files.
-- ERD Designer supports to reuse and share column models in designing tables.
+- ERD Designer supports exporting PNG images and generating DDL files.
+- ERD Designer supports reusing and sharing column models for table design.
 
 ## Online tool
 
