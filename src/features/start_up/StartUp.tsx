@@ -11,6 +11,7 @@ import ErdDocumentListPanel from "~/features/start_up/ErdDocumentListPanel";
 import ErdDocumentStrage from "~/features/strage/ErdDocumentStrage";
 import InitializeDatabaseDialog from "~/features/start_up/InitializeDatabaseDialog";
 import Logo from "~/logo.svg";
+import RegalFotter from "~/features/regal/RegalFooter";
 
 type StartUpProp = {
     documentStrage: ErdDocumentStrage,
@@ -50,38 +51,42 @@ const StartUp = ({ documentStrage, onOpenDocument }: StartUpProp) => {
     };
 
     return (
-        <Container component="main" maxWidth="lg">
-            <CssBaseline />
-            <Box sx={boxStyle}>
-                <img src={Logo} alt="" width="200px" height="200px" />
-                <Typography variant="h2" align="center" style={{ marginTop: "30px", marginBottom: "30px" }}>
-                    Entity Relationship Diagram Designer
-                </Typography>
-                <Stack direction={{ sm: 'column', md: 'row' }} spacing={2}>
-                    <Button variant="contained" size="large" onClick={() => setOpenDialogName("new_file")}>
-                        Create New ER Diagram
-                    </Button>
-                    <Button variant="contained" size="large" color="secondary"
-                        onClick={() => setOpenDialogName("load_file")}>
-                        Import from erd file
-                    </Button>
-                </Stack>
-            </Box>
-            <ErdDocumentListPanel documentStrage={documentStrage} onOpenDocument={onOpenDocument} />
+        <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+            <Container component="main" maxWidth="lg" style={{ flex: 1 }}>
+                <CssBaseline />
+                <Box sx={boxStyle}>
+                    <img src={Logo} alt="" width="200px" height="200px" />
+                    <Typography variant="h2" align="center" style={{ marginTop: "30px", marginBottom: "30px" }}>
+                        Entity Relationship Diagram Designer
+                    </Typography>
+                    <Stack direction={{ sm: 'column', md: 'row' }} spacing={2}>
+                        <Button variant="contained" size="large" onClick={() => setOpenDialogName("new_file")}>
+                            Create New ER Diagram
+                        </Button>
+                        <Button variant="contained" size="large" color="secondary"
+                            onClick={() => setOpenDialogName("load_file")}>
+                            Import from erd file
+                        </Button>
+                    </Stack>
+                </Box>
+                <ErdDocumentListPanel documentStrage={documentStrage} onOpenDocument={onOpenDocument} />
 
-            {(openDialogName === "new_file") && (
-                <InitializeDatabaseDialog
-                    isOpen={openDialogName === "new_file"}
-                    onCreate={handleCreateDocument}
-                    onClose={handleCloseDialog} />
-            )}
-            {(openDialogName === "load_file") && (
-                <LoadFileDialog
-                    isOpen={openDialogName === "load_file"}
-                    onLoadDocument={handleLoadDocument}
-                    onClose={handleCloseDialog} />
-            )}
-        </Container>
+                {(openDialogName === "new_file") && (
+                    <InitializeDatabaseDialog
+                        isOpen={openDialogName === "new_file"}
+                        onCreate={handleCreateDocument}
+                        onClose={handleCloseDialog} />
+                )}
+                {(openDialogName === "load_file") && (
+                    <LoadFileDialog
+                        isOpen={openDialogName === "load_file"}
+                        onLoadDocument={handleLoadDocument}
+                        onClose={handleCloseDialog} />
+                )}
+            </Container>
+
+            <RegalFotter />
+        </div>
     );
 };
 
