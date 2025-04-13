@@ -1,7 +1,7 @@
 import RegalTextPanel from "~/features/regal/RegalTextPanel";
 
 const privacyPolicy = `
-# プライバシーポリシー
+# ERD Designer | プライバシーポリシー
 
 **※ 本書は日本語および英語で記載されていますが、解釈に関しては日本語版を優先します。**
 
@@ -27,7 +27,7 @@ const privacyPolicy = `
 
 ---
 
-# Privacy Policy (English)
+# ERD Designer | Privacy Policy (English)
 
 **※ This document is provided in both Japanese and English. In case of any inconsistency or ambiguity in interpretation, the Japanese version shall prevail.**
 

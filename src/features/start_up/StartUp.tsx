@@ -12,6 +12,7 @@ import ErdDocumentStrage from "~/features/strage/ErdDocumentStrage";
 import InitializeDatabaseDialog from "~/features/start_up/InitializeDatabaseDialog";
 import Logo from "~/logo.svg";
 import RegalFooter from "~/features/regal/RegalFooter";
+import ExplanationPanel from "~/features/regal/ExplanationPanel";
 
 type StartUpProp = {
     documentStrage: ErdDocumentStrage,
@@ -59,6 +60,7 @@ const StartUp = ({ documentStrage, onOpenDocument }: StartUpProp) => {
                     <Typography variant="h2" align="center" style={{ marginTop: "30px", marginBottom: "30px" }}>
                         Entity Relationship Diagram Designer
                     </Typography>
+                    <ExplanationPanel />
                     <Stack direction={{ sm: 'column', md: 'row' }} spacing={2}>
                         <Button variant="contained" size="large" onClick={() => setOpenDialogName("new_file")}>
                             Create New ER Diagram
