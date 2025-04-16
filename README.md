@@ -15,7 +15,17 @@ This tool is inspired by [ERMaster](https://ermaster.sourceforge.net/index.html)
 
 ERD Designer is available as an online tool at: [kajitiluna.github.io/erd-designer](https://kajitiluna.github.io/erd-designer)
 
-This online tool saves your data locally on your machine rather than online.
+This online tool stores your data locally on your machine instead of online.
+
+## Google Drive App
+
+ERD Designer is also available as a Google Drive App.  
+By installing the ERD Designer app from the [Google Workspace Marketplace](https://workspace.google.com/marketplace/app/erd_designer/952307856491) into your Google Workspace, you can save and edit your work on Google Drive using ERD Designer.
+
+### Important Notes for the Google Drive App
+
+- If a file on Google Drive is shared, it can be viewed simultaneously in ERD Designer; however, simultaneous editing is not supported. Due to optimistic concurrency control, the content saved first will be preserved.
+- While the online tool allowed the Specification Document to be downloaded as an Excel file, the Google Drive App now exports it as a spreadsheet.
 
 ## Manual
 
