@@ -25,3 +25,20 @@ function isArray(obj: any): obj is any[] {
 function isObject(obj: any[]): obj is object[] {
     return obj.every((item) => (typeof item === "object") && (item !== null));
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function toDateTime(org: any, defaultDate: Date | null = null): Date {
+    if (org == null) {
+        return defaultDate ?? new Date();
+    }
+
+    if (org instanceof Date) {
+        return org;
+    }
+
+    if (typeof org === "string") {
+        return new Date(org);
+    }
+
+    return new Date();
+}

@@ -1,6 +1,7 @@
 import RelationModel from "~/models/database/RelationModel";
 import { PropertyNotExistsError } from "~/models/exceptions";
 import LineViewModel from "~/models/LineViewModel";
+import { toDateTime } from "~/models/util";
 
 type RelationViewModelOptions = {
     relationModel: RelationModel,
@@ -55,7 +56,7 @@ export default class RelationViewModel {
         if (!("lineViewModel" in obj)) {
             throw new PropertyNotExistsError("lineViewModel", obj);
         }
-        const createdAt = ("createdAt" in obj) ? obj.createdAt as Date : new Date();
+        const createdAt = ("createdAt" in obj) ? toDateTime(obj.createdAt) : new Date();
 
         return new RelationViewModel({
             relationModel: RelationModel.toObject(obj.relationModel as object),

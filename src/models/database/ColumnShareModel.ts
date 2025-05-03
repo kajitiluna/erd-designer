@@ -1,6 +1,7 @@
 import ColumnType from "~/models/database/ColumnType";
 import DisplayStyle from "~/models/database/DisplayStyle";
 import { PropertyNotExistsError } from "~/models/exceptions";
+import { toDateTime } from "~/models/util";
 
 type ColumnShareModelOptions = {
     columnShareModelId: string,
@@ -152,7 +153,7 @@ export default class ColumnShareModel {
             unsigned: obj.unsigned as boolean,
             defaultValue: obj.defaultValue as string,
             description: obj.description as string,
-            createdAt: ("createdAt" in obj) ? obj.createdAt as Date : new Date()
+            createdAt: ("createdAt" in obj) ? toDateTime(obj.createdAt) : new Date()
         });
     }
 }

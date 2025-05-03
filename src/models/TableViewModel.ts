@@ -1,6 +1,7 @@
 import ColorValue from "~/models/ColorValue";
 import TableModel from "~/models/database/TableModel";
 import { PropertyNotExistsError } from "~/models/exceptions";
+import { toDateTime } from "~/models/util";
 
 type TableViewModelOptions = {
     tableModel: TableModel,
@@ -62,7 +63,7 @@ export default class TableViewModel {
                 background: ColorValue.toObject(obj.headerBackgroundColor as object),
                 foreground: ColorValue.toObject(obj.headerForegroundColor as object)
             },
-            createdAt: ("createdAt" in obj) ? obj.createdAt as Date : new Date()
+            createdAt: ("createdAt" in obj) ? toDateTime(obj.createdAt) : new Date()
         });
     }
 }
