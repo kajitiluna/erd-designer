@@ -18,7 +18,7 @@ const RegalFooter = () => {
             </Stack>
             <Box sx={{position: "absolute", right: 16,bottom: 30}}>
                 <Typography variant="caption" color="text.secondary">
-                    version : {appVersionSetting().appVersion}
+                    Version: {appVersionSetting().appVersion}
                 </Typography>
             </Box>
         </Box>
