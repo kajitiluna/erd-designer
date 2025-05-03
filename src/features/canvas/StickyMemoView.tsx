@@ -482,16 +482,18 @@ const StickyControlPane = ({ memoViewModel }: StickyControlPaneProps) => {
     };
 
     const deleteDialog = (
-        <Dialog open={isOpenDeleteDialog} onClose={handleCloseComfirmationDialog}>
-            <DialogTitle>Delete table?</DialogTitle>
-            <DialogContent>
-                <DialogContentText>Are you sure to delete the memo ?</DialogContentText>
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={handleCloseComfirmationDialog}>Cancel</Button>
-                <Button variant="contained" color="error" onClick={handleDeleteMemo}>Delete</Button>
-            </DialogActions>
-        </Dialog>
+        <div onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
+            <Dialog open={isOpenDeleteDialog} onClose={handleCloseComfirmationDialog}>
+                <DialogTitle>Delete table?</DialogTitle>
+                <DialogContent>
+                    <DialogContentText>Are you sure to delete the memo ?</DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseComfirmationDialog}>Cancel</Button>
+                    <Button variant="contained" color="error" onClick={handleDeleteMemo}>Delete</Button>
+                </DialogActions>
+            </Dialog>
+        </div>
     );
 
     return (
