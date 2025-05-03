@@ -17,7 +17,7 @@ import MemoViewModelStrage from '~/models/MemoViewModelStrage';
 import RelationViewModel from '~/models/RelationViewModel';
 import RelationViewModelStrage from '~/models/RelationViewModelStrage';
 import TableViewModel from '~/models/TableViewModel';
-import { toObjects } from '~/models/util';
+import { toDateTime, toObjects } from '~/models/util';
 
 type ErdDocumentOptions = {
     documentName: string,
@@ -773,7 +773,7 @@ export default class ErdDocument {
             ? (toObjects(obj.foregroundMemos, "foregroundMemos", value => MemoViewModel.toObject(value))) : [];
         const backgroundMemos = ("backgroundMemos" in obj)
             ? (toObjects(obj.backgroundMemos, "backgroundMemos", value => MemoViewModel.toObject(value))) : [];
-        const lastUpdatedAt = ("lastUpdatedAt" in obj) ? obj.lastUpdatedAt as Date : new Date();
+        const lastUpdatedAt = ("lastUpdatedAt" in obj) ? toDateTime(obj.lastUpdatedAt) : new Date();
 
         return ErdDocument.create({
             documentName: obj.documentName as string,

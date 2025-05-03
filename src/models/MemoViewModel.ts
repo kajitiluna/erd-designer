@@ -2,6 +2,7 @@ import { v4 as uuidV4 } from 'uuid';
 import ColorValue from '~/models/ColorValue';
 import { PropertyNotExistsError } from '~/models/exceptions';
 import RectangleViewModel from '~/models/RectangleViewModel';
+import { toDateTime } from '~/models/util';
 
 type MemoViewModelOptions = {
     memoId: string;
@@ -157,7 +158,7 @@ export default class MemoViewModel {
         const verticalAlign = ("verticalAlign" in obj) ? (obj.verticalAlign as AlignType) : DEFAULT_VERTICAL_ALIGN;
         const horizontalAlign = ("horizontalAlign" in obj) ? (obj.horizontalAlign as AlignType) : DEFAULT_HORIZONTAL_ALIGN;
         const fontSize = ("fontSize" in obj) ? (obj.fontSize as number) : DEFAULT_FONT_SIZE;
-        const createdAt = ("createdAt" in obj) ? (obj.createdAt as Date) : new Date();
+        const createdAt = ("createdAt" in obj) ? toDateTime(obj.createdAt) : new Date();
 
         return new MemoViewModel({
             memoId: obj.memoId as string,
