@@ -112,13 +112,13 @@ class IndexedDBStrage implements ErdDocumentStrage {
         });
     }
 
-    save(key: string, document: ErdDocument): Promise<void> {
+    save(key: string, erdDocument: ErdDocument): Promise<void> {
         return new Promise<void>((resolve, reject) => {
             const jsonDocument: InternalDocument = {
                 key: key,
-                documentName: document.documentName,
-                lastUpdatedAt: document.lastUpdatedAt,
-                document: document.toJSON(),
+                documentName: erdDocument.documentName,
+                lastUpdatedAt: erdDocument.lastUpdatedAt,
+                document: erdDocument.toJSON(),
             };
 
             const transaction = this.database.transaction([INDEXED_OBJECT_ERD_DOCUMENT], "readwrite");
@@ -170,7 +170,7 @@ class NoOperationStrage implements ErdDocumentStrage {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    save(_key: string, _document: ErdDocument): Promise<void> {
+    save(_key: string, _erdDocument: ErdDocument): Promise<void> {
         return Promise.resolve();
     }
 

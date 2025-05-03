@@ -35,13 +35,13 @@ const StartUp = ({ documentStrage, onOpenDocument }: StartUpProp) => {
         onOpenDocument(erdDocument, handleOnSave);
     };
 
-    const handleLoadDocument = (document: ErdDocument) => {
+    const handleLoadDocument = (erdDocument: ErdDocument) => {
         const documentKey = uuidV4();
-        documentStrage.save(documentKey, document);
+        documentStrage.save(documentKey, erdDocument);
 
         const handleOnSave = (updating: ErdDocument) => documentStrage.save(documentKey, updating);
 
-        onOpenDocument(document, handleOnSave);
+        onOpenDocument(erdDocument, handleOnSave);
     };
 
     const boxStyle = {
@@ -190,10 +190,10 @@ const initFileReader = (
 
         try {
             const jsonContext = JSON.parse(fileReader.result);
-            const document = ErdDocument.toObject(jsonContext);
+            const erdDocument = ErdDocument.toObject(jsonContext);
 
             setFailureMessage("");
-            setErdDocument(document);
+            setErdDocument(erdDocument);
         } catch (error) {
             console.warn(`Failed to load json file. detail : ${error}`);
 

@@ -9,7 +9,7 @@ export default interface ErdDocumentStrage {
 
     find(key: string): Promise<ErdDocument | null>
 
-    save(key: string, document: ErdDocument): Promise<void>
+    save(key: string, erdDocument: ErdDocument): Promise<void>
 
     delete(key: string): Promise<void>
 };
