@@ -150,7 +150,7 @@ export default class ErdDocument {
 
         const previousTableViewModel = this.tableViewModelMap.get(updatingTableViewModel.tableId);
         if (previousTableViewModel == null) {
-            return this.doAddTablewViewModel(
+            return this.doAddTableViewModel(
                 updatingTableViewModel, updatingColumnModels, updatingColumnShareModelStrage);
         }
 
@@ -205,7 +205,7 @@ export default class ErdDocument {
         );
     }
 
-    private doAddTablewViewModel(
+    private doAddTableViewModel(
         addingTableViewModel: TableViewModel, addingColumnModels: ColumnModel[],
         columnShareModelStrage: ColumnShareModelStrage
     ): ErdDocument {
