@@ -138,19 +138,20 @@ export default class ErdDocument {
     /**
      * 指定されたテーブルおよびカラム共有モデルを反映する。
      * 
-     * @param updatingTableViewModel テーブルモデル
+     * @param updatingTableViewModel 更新後のテーブルモデル
      * @param updatingColumnModels 更新後のカラムモデル
-     * @param columnShareModelStrage カラム共有モデル
+     * @param updatingColumnShareModelStrage 更新後のカラム共有モデル
      * @returns 操作後のモデル
      */
     public updateTableViewModel(
         updatingTableViewModel: TableViewModel, updatingColumnModels: ColumnModel[],
-        columnShareModelStrage: ColumnShareModelStrage
+        updatingColumnShareModelStrage: ColumnShareModelStrage
     ): ErdDocument {
 
         const previousTableViewModel = this.tableViewModelMap.get(updatingTableViewModel.tableId);
         if (previousTableViewModel == null) {
-            return this.doAddTablewViewModel(updatingTableViewModel, updatingColumnModels, columnShareModelStrage);
+            return this.doAddTablewViewModel(
+                updatingTableViewModel, updatingColumnModels, updatingColumnShareModelStrage);
         }
 
         // 更新対象のテーブルに relation が親として定義されている場合、子テーブルに PK の変更を反映する
@@ -168,10 +169,10 @@ export default class ErdDocument {
         });
 
         const nextColumnModelMap = new Map(this.columnModelMap);
-        (previousTableViewModel as TableViewModel).tableModel.columnModelIds.forEach(
-            (columnModelId) => nextColumnModelMap.delete(columnModelId)
+        previousTableViewModel.tableModel.columnModelIds.forEach(
+            columnModelId => nextColumnModelMap.delete(columnModelId)
         );
-        nextColumnModels.forEach((columnModel) =>
+        nextColumnModels.forEach(columnModel =>
             nextColumnModelMap.set(columnModel.columnModelId, columnModel)
         );
 
@@ -186,7 +187,7 @@ export default class ErdDocument {
             .filter(columnModel => nextExistsColumnShareModelIds.has(columnModel.columnShareModelId) === false)
             .map(columnModel => columnModel.columnShareModelId);
 
-        const nextColumnShareModelStrage = columnShareModelStrage.copy();
+        const nextColumnShareModelStrage = updatingColumnShareModelStrage.copy();
         if (deletingColumnShareModelIds.length > 0) {
             nextColumnShareModelStrage.deleteModels(deletingColumnShareModelIds);
         }

@@ -68,6 +68,26 @@ const ColumnViewTable = ({ columnModels, onUpdateColumnModels, isChildRelation }
             onUpdateColumnModels(previous => previous.filter((_, index) => targetIndex !== index))
         }
 
+        const buttonPanel = (
+            <Stack justifyContent="flex-end" direction="row" spacing={2}>
+                <EdgedIconButton tooltip="Edit column" onClick={handleEditColumn}>
+                    <EditIcon fontSize="small" />
+                </EdgedIconButton>
+                <EdgedIconButton tooltip="Move up" disabled={targetIndex === 0}
+                    onClick={initHandleShiftColumn(-1)}>
+                    <ArrowUpwardIcon fontSize="small" />
+                </EdgedIconButton>
+                <EdgedIconButton tooltip="Move down" disabled={targetIndex === columnModels.length - 1}
+                    onClick={initHandleShiftColumn(1)}>
+                    <ArrowDownwardIcon fontSize="small" />
+                </EdgedIconButton>
+                <EdgedIconButton tooltip="Remove column" disabled={inChildRelation}
+                    onClick={handleRemoveColumn}>
+                    <DeleteIcon fontSize="small" />
+                </EdgedIconButton>
+            </Stack>
+        );
+
         return (
             <TableRow key={`column-view-${targetIndex}`} selected={selectedIndex === targetIndex}
                 onClick={handleRowClicked} onDoubleClick={handleEditColumn}
@@ -79,25 +99,25 @@ const ColumnViewTable = ({ columnModels, onUpdateColumnModels, isChildRelation }
                 <TableCell>{columnShareModel ? columnShareModel.specifiedColumnType(inChildRelation) : ""}</TableCell>
                 <TableCell align="center">{columnModel.notNull && <CheckIcon fontSize="small" />}</TableCell>
                 <TableCell align="center">{columnModel.unique && <CheckIcon fontSize="small" />}</TableCell>
-                <TableCell>
-                    <Stack justifyContent="flex-end" direction="row" spacing={2}>
-                        <EdgedIconButton tooltip="Edit column" onClick={handleEditColumn}>
-                            <EditIcon fontSize="small" />
-                        </EdgedIconButton>
-                        <EdgedIconButton tooltip="Move up" disabled={targetIndex === 0} onClick={initHandleShiftColumn(-1)}>
-                            <ArrowUpwardIcon fontSize="small" />
-                        </EdgedIconButton>
-                        <EdgedIconButton tooltip="Move down" disabled={targetIndex === columnModels.length - 1} onClick={initHandleShiftColumn(1)}>
-                            <ArrowDownwardIcon fontSize="small" />
-                        </EdgedIconButton>
-                        <EdgedIconButton tooltip="Remove column" disabled={inChildRelation} onClick={handleRemoveColumn}>
-                            <DeleteIcon fontSize="small" />
-                        </EdgedIconButton>
-                    </Stack>
-                </TableCell>
+                <TableCell>{buttonPanel}</TableCell>
             </TableRow>
         );
     };
+
+    const tableHeader = (
+        <TableHead>
+            <TableRow>
+                <TableCell sx={{ width: "10px" }} align="center">PK</TableCell>
+                <TableCell sx={{ width: "10px" }} align="center">FK</TableCell>
+                <TableCell>Physical Name</TableCell>
+                <TableCell>Logical Name</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell sx={{ width: "50px" }} align="center">NotNull</TableCell>
+                <TableCell sx={{ width: "50px" }} align="center">Unique</TableCell>
+                <TableCell></TableCell>
+            </TableRow>
+        </TableHead>
+    );
 
     const handleAddColumn = (event: MouseEvent) => {
         event.stopPropagation();
@@ -109,18 +129,7 @@ const ColumnViewTable = ({ columnModels, onUpdateColumnModels, isChildRelation }
     return (
         <TableContainer>
             <Table stickyHeader size="small" aria-label="column view table" style={{ tableLayout: "fixed" }}>
-                <TableHead>
-                    <TableRow>
-                        <TableCell sx={{ width: "10px" }} align="center">PK</TableCell>
-                        <TableCell sx={{ width: "10px" }} align="center">FK</TableCell>
-                        <TableCell>Physical Name</TableCell>
-                        <TableCell>Logical Name</TableCell>
-                        <TableCell>Type</TableCell>
-                        <TableCell sx={{ width: "50px" }} align="center">NotNull</TableCell>
-                        <TableCell sx={{ width: "50px" }} align="center">Unique</TableCell>
-                        <TableCell></TableCell>
-                    </TableRow>
-                </TableHead>
+                {tableHeader}
                 <TableBody>
                     {columnModels.map((columnModel: ColumnModel, index: number) => initColumnModelRow(columnModel, index))}
                 </TableBody>

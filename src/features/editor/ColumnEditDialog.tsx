@@ -136,45 +136,51 @@ const ColumnEditDialog = ({ isOpen, columnModel, onUpdateColumnModels, onClose }
         onClose();
     };
 
+    const constraintPanel = (
+        <Stack direction="row" spacing={2}>
+            <FormControlLabel label="Primary Key" control={
+                <Checkbox checked={checkedPrimaryKey} onChange={handleChangePrimary} />} />
+            <FormControlLabel label="Not Null" control={
+                <Checkbox checked={checkedNotNull} disabled={checkedPrimaryKey}
+                    onChange={(event) => setNotNull(event.target.checked)} />} />
+            <FormControlLabel label="Unique" control={
+                <Checkbox checked={checkedUnique} onChange={(event) => setUnique(event.target.checked)} />} />
+            {editableAutoIncrement &&
+                <FormControlLabel label="Auto Increment" control={
+                    <Checkbox checked={checkAutoIncrement}
+                        onChange={(event) => setAutoIncrement(event.target.checked)} />} />
+            }
+        </Stack>
+    );
+
+    const attributePanel = (
+        <Paper elevation={4} sx={{ p: 2 }}>
+            <Stack spacing={3}>
+                <ColumnModelPanel
+                    columnShareModelId={columnShareModelId}
+                    associateColumnModel={associateColumnModel}
+                    unrelateColumnModel={() => setColumnShareModelId("")} />
+                <TextField required variant="outlined" id="physicalName" label="Physical Name"
+                    value={physicalName} onChange={handleChangePhysicalName} />
+                <TextField required variant="outlined" id="logicalName" label="Logical Name"
+                    value={logicalName} onChange={(event) => setLogicalName(event.target.value)} />
+                <ColumnTypeEditPanel
+                    columnTypeAttribute={columnTypeAttribute}
+                    updateColumnType={updateColumnType} />
+                <TextField variant="outlined" id="description" label="Description"
+                    multiline rows={3} slotProps={{ input: { style: { resize: 'vertical' } } }}
+                    value={description} onChange={(event) => setDescription(event.target.value)} />
+            </Stack>
+        </Paper>
+    );
+
     return (
         <Dialog fullWidth maxWidth="md" sx={{ userSelect: "none" }} open={isOpen} onClose={onClose}>
             <DialogTitle>Edit table column</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>
-                    <Stack direction="row" spacing={2}>
-                        <FormControlLabel label="Primary Key" control={
-                            <Checkbox checked={checkedPrimaryKey} onChange={handleChangePrimary} />} />
-                        <FormControlLabel label="Not Null" control={
-                            <Checkbox checked={checkedNotNull} disabled={checkedPrimaryKey}
-                                onChange={(event) => setNotNull(event.target.checked)} />} />
-                        <FormControlLabel label="Unique" control={
-                            <Checkbox checked={checkedUnique} onChange={(event) => setUnique(event.target.checked)} />} />
-                        {editableAutoIncrement &&
-                            <FormControlLabel label="Auto Increment" control={
-                                <Checkbox checked={checkAutoIncrement}
-                                    onChange={(event) => setAutoIncrement(event.target.checked)} />}
-                            />
-                        }
-                    </Stack>
-
-                    <Paper elevation={4} sx={{ p: 2 }}>
-                        <Stack spacing={3}>
-                            <ColumnModelPanel
-                                columnShareModelId={columnShareModelId}
-                                associateColumnModel={associateColumnModel}
-                                unrelateColumnModel={() => setColumnShareModelId("")} />
-                            <TextField required variant="outlined" id="physicalName" label="Physical Name"
-                                value={physicalName} onChange={handleChangePhysicalName} />
-                            <TextField required variant="outlined" id="logicalName" label="Logical Name"
-                                value={logicalName} onChange={(event) => setLogicalName(event.target.value)} />
-                            <ColumnTypeEditPanel
-                                columnTypeAttribute={columnTypeAttribute}
-                                updateColumnType={updateColumnType} />
-                            <TextField variant="outlined" id="description" label="Description"
-                                multiline rows={3} slotProps={{ input: { style: { resize: 'vertical' } } }}
-                                value={description} onChange={(event) => setDescription(event.target.value)} />
-                        </Stack>
-                    </Paper>
+                    {constraintPanel}
+                    {attributePanel}
                 </Stack>
             </DialogContent>
             <DialogActions>
