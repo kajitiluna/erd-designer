@@ -175,13 +175,29 @@ export default class ErdDocument {
             nextColumnModelMap.set(columnModel.columnModelId, columnModel)
         );
 
+        // 更新時に削除したカラムに紐づく columnShareModel が他で利用されていない場合は columnShareModel も削除する
+        const nextExistsColumnShareModelIds = new Set(
+            Array.from(nextColumnModelMap.values())
+                .map(columnModel => columnModel.columnShareModelId)
+        );
+        const deletingColumnShareModelIds = previousTableViewModel.tableModel.columnModelIds
+            .filter(columnModelId => nextColumnModelMap.has(columnModelId) === false)
+            .map(columnModelId => this.findColumnModel(columnModelId) as ColumnModel)
+            .filter(columnModel => nextExistsColumnShareModelIds.has(columnModel.columnShareModelId) === false)
+            .map(columnModel => columnModel.columnShareModelId);
+
+        const nextColumnShareModelStrage = columnShareModelStrage.copy();
+        if (deletingColumnShareModelIds.length > 0) {
+            nextColumnShareModelStrage.deleteModels(deletingColumnShareModelIds);
+        }
+
         return new ErdDocument(
             this.documentName,
             this.erdSettingModel,
             this.tableViewModelIds,
             nextTableViewModelMap,
             nextColumnModelMap,
-            columnShareModelStrage.copy(),
+            nextColumnShareModelStrage,
             nextRelationViewModelRepository,
             this.memoViewModelStrage,
             this.databaseSettingModel

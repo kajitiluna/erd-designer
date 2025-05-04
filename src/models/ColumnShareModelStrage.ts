@@ -56,6 +56,12 @@ export default class ColumnShareModelStrage {
         this.columnShareModelMap.set(columnShareModel.columnShareModelId, columnShareModel);
     }
 
+    deleteModels(columnShareModelIds: string[]) {
+        columnShareModelIds.forEach(
+            columnShareModelId => this.columnShareModelMap.delete(columnShareModelId)
+        );
+    }
+
     copy(): ColumnShareModelStrage {
         return new ColumnShareModelStrage(new Map(this.columnShareModelMap));
     }
