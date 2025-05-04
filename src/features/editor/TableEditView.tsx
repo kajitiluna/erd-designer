@@ -45,7 +45,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
         logicalName: logicalTableName, setLogicalName: setLogicalTableName
     });
 
-
+    // 物理名に重複がないことをチェックする
     const validateColumnModels = (columnModels: ColumnModel[]) => {
         if (columnModels.length === 0) {
             return false;
@@ -98,6 +98,25 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
         onClose();
     };
 
+    const tabPanel = (<>
+        <Tabs value={tabIndex} onChange={(_, newValue) => setTabIndex(newValue)}>
+            <Tab label="Column" />
+            <Tab label={`Index (${tableIndexModels.length})`} disabled={columnModels.length === 0} />
+        </Tabs>
+        <div hidden={tabIndex !== 0}>
+            <ColumnViewTable
+                columnModels={columnModels}
+                onUpdateColumnModels={setColumnModels}
+                isChildRelation={(columnModelId: string) => erdDocument.inChildRelation(columnModelId)} />
+        </div>
+        <div hidden={tabIndex !== 1}>
+            <IndexViewTable
+                columnModels={columnModels}
+                tableIndexModels={tableIndexModels}
+                onUpdateTableIndexModels={setTableIndexModels} />
+        </div>
+    </>);
+
     return (
         <ColumnShareModelStrageContext.Provider value={{
             columnShareModelStrage: columnShareModelStrage,
@@ -114,24 +133,10 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
                             <TableNamePanel label="LogicallName" value={logicalTableName}
                                 setValue={(event) => setLogicalTableName(event.target.value)} />
                         </Stack>
-                        <Tabs value={tabIndex} onChange={(_, newValue) => setTabIndex(newValue)}>
-                            <Tab label="Column" />
-                            <Tab label={`Index (${tableIndexModels.length})`} disabled={columnModels.length === 0} />
-                        </Tabs>
-                        <div hidden={tabIndex !== 0}>
-                            <ColumnViewTable
-                                columnModels={columnModels}
-                                onUpdateColumnModels={setColumnModels}
-                                isChildRelation={(columnModelId: string) => erdDocument.inChildRelation(columnModelId)} />
-                        </div>
-                        <div hidden={tabIndex !== 1}>
-                            <IndexViewTable
-                                columnModels={columnModels}
-                                tableIndexModels={tableIndexModels}
-                                onUpdateTableIndexModels={setTableIndexModels} />
-                        </div>
-                        <TextField variant="outlined" id="description" label="Description"
-                            multiline rows={3} InputProps={{ style: { resize: 'vertical' }, }}
+                        {tabPanel}
+                        <TextField variant="outlined"
+                            id="description" label="Description" multiline rows={3}
+                            sx={{ '& .MuiInputBase-root': { resize: 'vertical', overflow: 'auto' } }}
                             value={description} onChange={(event) => setDescription(event.target.value)} />
                     </Stack>
                 </DialogContent>
