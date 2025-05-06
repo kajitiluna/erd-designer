@@ -80,7 +80,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
                     physicalName: tableIndexModel.physicalName,
                     indexColumnModels: tableIndexModel.indexColumnModels
                         .filter((model) => columnModelIds.has(model.columnModelId)),
-                    indexOptioin: tableIndexModel.indexOptioin,
+                    indexOption: tableIndexModel.indexOption,
                     indexType: tableIndexModel.indexType,
                     description: tableIndexModel.description
                 }))

@@ -138,7 +138,7 @@ const createIndexDdl = (erViewModel: ErdDocument, option: DdlOption, database: D
             const indexName = database.escape(indexModel.physicalName);
             const tableName = database.escape(tableModel.physicalName);
 
-            return `CREATE ${indexModel.indexOptioin} INDEX ${indexName}${indexTypeQuery}`
+            return `CREATE ${indexModel.indexOption} INDEX ${indexName}${indexTypeQuery}`
                 + ` ON ${tableName} (${columnQueries.join(", ")});`;
         });
     });

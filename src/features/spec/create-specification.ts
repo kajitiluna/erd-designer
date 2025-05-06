@@ -153,7 +153,7 @@ const initExportTableIndexesGenerator = (erdDocument: ErdDocument, tableModel: T
         yield {
             indexName: tableIndex.physicalName,
             indexType: tableIndex.indexType,
-            indexOption: tableIndex.indexOptioin,
+            indexOption: tableIndex.indexOption,
             description: tableIndex.description,
             indexedColumns: indexedColumns
         };
