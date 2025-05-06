@@ -1,3 +1,4 @@
+import { Database } from "~/models/database";
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
 import RelationModel from "~/models/database/RelationModel";
@@ -13,27 +14,33 @@ type DdlOption = {
 };
 
 export const createDdl = (erdDocument: ErdDocument, option: DdlOption) => {
-    const databaseType = erdDocument.databaseSettingModel.databaseType;
-    const commentWithQuery = (databaseType === "mysql");
+    const database: Database = erdDocument.getDatabase();
+    const commentWithQuery = (database.databaseType === "mysql");
 
     const createTableDdl = initCreateTableDdl(commentWithQuery);
 
-    const tableQueries = createTableDdl(erdDocument, option);
-    const indexQueries = createIndexDdl(erdDocument, option);
-    const foreignKeyQueries = createForeignKeyDdl(erdDocument, option);
-    const commentQueries = commentWithQuery ? [] : createCommentDdl(erdDocument, option);
+    const tableQueries = createTableDdl(erdDocument, option, database);
+    const indexQueries = createIndexDdl(erdDocument, option, database);
+    const foreignKeyQueries = createForeignKeyDdl(erdDocument, option, database);
+    const commentQueries = commentWithQuery ? [] : createCommentDdl(erdDocument, option, database);
 
     return [...tableQueries, ...indexQueries, ...foreignKeyQueries, ...commentQueries].join("\n");
 };
 
-type ColumnQuery = (columnModel: ColumnModel, columnShareModel: ColumnShareModel, inChildRelation: boolean, option: DdlOption) => string;
-type TableQuery = (tableModel: TableModel, columnQueries: string[], option: DdlOption) => string;
+type ColumnQuery = (
+    columnModel: ColumnModel, columnShareModel: ColumnShareModel,
+    inChildRelation: boolean, option: DdlOption, database: Database
+) => string;
+type TableQuery = (
+    tableModel: TableModel, columnQueries: string[],
+    option: DdlOption, database: Database
+) => string;
 
 const initCreateTableDdl = (commentWithQuery: boolean) => {
     const columnQuery: ColumnQuery = commentWithQuery ? columnQueryWithComment : columnQueryWithoutComment;
     const tableQuery: TableQuery = commentWithQuery ? tableQueryWithComment : tableQueryWithoutComment;
 
-    return (erdDocument: ErdDocument, option: DdlOption) => {
+    return (erdDocument: ErdDocument, option: DdlOption, database: Database) => {
         if (option.withTable === false) {
             return [];
         }
@@ -46,21 +53,21 @@ const initCreateTableDdl = (commentWithQuery: boolean) => {
                 const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
                 const inChildRelation = erdDocument.inChildRelation(columnModel.columnModelId);
 
-                return columnQuery(columnModel, columnShareModel, inChildRelation, option);
+                return columnQuery(columnModel, columnShareModel, inChildRelation, option, database);
             });
 
             const primaryKeys = tableModel.columnModelIds
                 .map(columnModelId => erdDocument.findColumnModel(columnModelId) as ColumnModel)
                 .filter(columnModel => columnModel.primaryKey === true)
                 .map(columnModel => erdDocument.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel)
-                .map(columnShareModel => columnShareModel.physicalName);
+                .map(columnShareModel => database.escape(columnShareModel.physicalName));
 
             if (primaryKeys.length > 0) {
                 const primaryKeyQuery = `PRIMARY KEY (${primaryKeys.join(", ")})`
                 columnQueries.push(primaryKeyQuery);
             }
 
-            return `${tableQuery(tableModel, columnQueries, option)};\n`;
+            return `${tableQuery(tableModel, columnQueries, option, database)};\n`;
         });
 
         return ["/* create tables. */", ...queries, ""];
@@ -68,25 +75,29 @@ const initCreateTableDdl = (commentWithQuery: boolean) => {
 };
 
 const columnQueryWithoutComment: ColumnQuery = (
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    columnModel: ColumnModel, columnShareModel: ColumnShareModel, inChildRelation: boolean, _: DdlOption
+    columnModel: ColumnModel, columnShareModel: ColumnShareModel,
+    inChildRelation: boolean, _: DdlOption, database: Database
 ) => {
     return columnShareModel.query({
+        database: database,
         notNull: columnModel.notNull,
         autoIncrement: columnModel.autoIncrement,
         inChildRelation
     });
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const tableQueryWithoutComment: TableQuery = (tableModel: TableModel, columnQueries: string[], _: DdlOption) => {
-    return `CREATE TABLE ${tableModel.physicalName} (\n    ${columnQueries.join(",\n    ")}\n)`;
+const tableQueryWithoutComment: TableQuery = (
+    tableModel: TableModel, columnQueries: string[], _: DdlOption, database: Database
+) => {
+    const physicalName = database.escape(tableModel.physicalName);
+    return `CREATE TABLE ${physicalName} (\n    ${columnQueries.join(",\n    ")}\n)`;
 };
 
 const columnQueryWithComment: ColumnQuery = (
-    columnModel: ColumnModel, columnShareModel: ColumnShareModel, inChildRelation: boolean, option: DdlOption
+    columnModel: ColumnModel, columnShareModel: ColumnShareModel,
+    inChildRelation: boolean, option: DdlOption, database: Database
 ) => {
-    const baseQuery = columnQueryWithoutComment(columnModel, columnShareModel, inChildRelation, option);
+    const baseQuery = columnQueryWithoutComment(columnModel, columnShareModel, inChildRelation, option, database);
     if ((option.withComment === false) || (columnShareModel.logicalName === columnShareModel.physicalName)) {
         return baseQuery
     }
@@ -94,8 +105,10 @@ const columnQueryWithComment: ColumnQuery = (
     return `${baseQuery} COMMENT '${escapeComment(columnShareModel.logicalName)}'`;
 };
 
-const tableQueryWithComment: TableQuery = (tableModel: TableModel, columnQueries: string[], option: DdlOption) => {
-    const baseQuery = tableQueryWithoutComment(tableModel, columnQueries, option);
+const tableQueryWithComment: TableQuery = (
+    tableModel: TableModel, columnQueries: string[], option: DdlOption, database: Database
+) => {
+    const baseQuery = tableQueryWithoutComment(tableModel, columnQueries, option, database);
     if ((option.withComment === false) || (tableModel.logicalName === tableModel.physicalName)) {
         return baseQuery
     }
@@ -103,7 +116,7 @@ const tableQueryWithComment: TableQuery = (tableModel: TableModel, columnQueries
     return `${baseQuery} COMMENT '${escapeComment(tableModel.logicalName)}'`;
 };
 
-const createIndexDdl = (erViewModel: ErdDocument, option: DdlOption) => {
+const createIndexDdl = (erViewModel: ErdDocument, option: DdlOption, database: Database) => {
     if (option.withIndex === false) {
         return [];
     }
@@ -117,19 +130,23 @@ const createIndexDdl = (erViewModel: ErdDocument, option: DdlOption) => {
                 const columnModel = erViewModel.findColumnModel(indexColumn.columnModelId) as ColumnModel;
                 const columnShareModel = erViewModel.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
 
+                const columnName = database.escape(columnShareModel.physicalName);
                 const sortQuery = indexColumn.querySort();
-                return columnShareModel.physicalName + (sortQuery ? ` ${sortQuery}` : "");
+                return columnName + (sortQuery ? ` ${sortQuery}` : "");
             });
 
-            return `CREATE ${indexModel.indexOptioin} INDEX ${indexModel.physicalName}${indexTypeQuery}`
-                + ` ON ${tableModel.physicalName} (${columnQueries.join(", ")});`;
+            const indexName = database.escape(indexModel.physicalName);
+            const tableName = database.escape(tableModel.physicalName);
+
+            return `CREATE ${indexModel.indexOptioin} INDEX ${indexName}${indexTypeQuery}`
+                + ` ON ${tableName} (${columnQueries.join(", ")});`;
         });
     });
 
     return ["/* create indexes. */", ...queries, ""];
 };
 
-const createForeignKeyDdl = (erViewModel: ErdDocument, option: DdlOption) => {
+const createForeignKeyDdl = (erViewModel: ErdDocument, option: DdlOption, database: Database) => {
     if (option.withForeignKey === false) {
         return [];
     }
@@ -151,23 +168,28 @@ const createForeignKeyDdl = (erViewModel: ErdDocument, option: DdlOption) => {
             const parentColumnShareModel = (parentColumnModel.columnShareModelId === childColumnModel.columnShareModelId)
                 ? childColumnShareModel : erViewModel.findColumnShareModel(parentColumnModel.columnShareModelId) as ColumnShareModel;
 
-            return { parent: parentColumnShareModel.physicalName, child: childColumnShareModel.physicalName };
+            return {
+                parent: database.escape(parentColumnShareModel.physicalName),
+                child: database.escape(childColumnShareModel.physicalName)
+            };
         });
 
+        const parentTableName = database.escape(parentTableModel.physicalName);
         const alterQueries = [
             `ADD FOREIGN KEY (${pairColumnNames.map(pair => pair.child).join(", ")})`,
-            `REFERENCES ${parentTableModel.physicalName} (${pairColumnNames.map(pair => pair.parent).join(", ")})`,
+            `REFERENCES ${parentTableName} (${pairColumnNames.map(pair => pair.parent).join(", ")})`,
             `ON UPDATE ${relationModel.onUpdateAction}`,
             `ON DELETE ${relationModel.onDeleteAction}`
         ];
 
-        return `ALTER TABLE ${childTableModel.physicalName}\n    ${alterQueries.join("\n    ")};\n`;
+        const childTableName = database.escape(childTableModel.physicalName);
+        return `ALTER TABLE ${childTableName}\n    ${alterQueries.join("\n    ")};\n`;
     });
 
     return ["/* create foreign keys. */", ...queries, ""];
 };
 
-const createCommentDdl = (erViewModel: ErdDocument, option: DdlOption) => {
+const createCommentDdl = (erViewModel: ErdDocument, option: DdlOption, database: Database) => {
     if (option.withTable === false) {
         return [];
     }
@@ -184,13 +206,17 @@ const createCommentDdl = (erViewModel: ErdDocument, option: DdlOption) => {
                     return null;
                 }
 
-                return `COMMENT ON COLUMN ${tableModel.physicalName}.${columnShareModel.physicalName}`
+                const tableName = database.escape(tableModel.physicalName);
+                const columnName = database.escape(columnShareModel.physicalName);
+
+                return `COMMENT ON COLUMN ${tableName}.${columnName}`
                     + ` IS '${escapeComment(columnShareModel.logicalName)}'`;
             })
             .filter((comment): comment is string => (comment != null));
 
         if (tableModel.logicalName !== tableModel.physicalName) {
-            commentQueries.unshift(`COMMENT ON TABLE ${tableModel.physicalName} IS '${escapeComment(tableModel.logicalName)}'`);
+            const tableName = database.escape(tableModel.physicalName);
+            commentQueries.unshift(`COMMENT ON TABLE ${tableName} IS '${escapeComment(tableModel.logicalName)}'`);
         }
 
         if (commentQueries.length > 0) {
