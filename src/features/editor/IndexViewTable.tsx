@@ -275,7 +275,7 @@ type IndexModelAttribute = {
 
 const IndexEditDialog = ({ isOpen, tableIndexModel, columnModels, onUpdateTableIndexModels, onClose }: IndexEditDialogProps) => {
 
-    const [indexOption, setIndexOption] = useState<TableIndexOption>(tableIndexModel ? tableIndexModel.indexOptioin : "");
+    const [indexOption, setIndexOption] = useState<TableIndexOption>(tableIndexModel ? tableIndexModel.indexOption : "");
     const [indexType, setIndexType] = useState<TableIndexType>(tableIndexModel ? tableIndexModel.indexType : "");
     const [physicalName, setPhysicalName] = useState<string>(tableIndexModel ? tableIndexModel.physicalName : "");
     const [indexedColumns, setIndexedColumns] = useState<IndexModelAttribute[]>(tableIndexModel ?
@@ -304,7 +304,7 @@ const IndexEditDialog = ({ isOpen, tableIndexModel, columnModels, onUpdateTableI
             tableIndexModelId: targetId,
             physicalName: physicalName,
             indexColumnModels: indexedColumns.map((model) => new IndexColumnModel({ ...model })),
-            indexOptioin: indexOption,
+            indexOption: indexOption,
             indexType: indexType,
             description: description
         });

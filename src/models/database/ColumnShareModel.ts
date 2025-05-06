@@ -1,4 +1,5 @@
 import ColumnType from "~/models/database/ColumnType";
+import { Database } from "~/models/database/DatabaseType";
 import DisplayStyle from "~/models/database/DisplayStyle";
 import { PropertyNotExistsError } from "~/models/exceptions";
 import { toDateTime } from "~/models/util";
@@ -17,6 +18,7 @@ type ColumnShareModelOptions = {
 }
 
 type ColumnShareQueryType = {
+    database: Database,
     notNull?: boolean
     autoIncrement?: boolean,
     inChildRelation?: boolean
@@ -59,8 +61,11 @@ export default class ColumnShareModel {
         this.createdAt = createdAt ? createdAt : new Date();
     }
 
-    public query({ notNull = false, autoIncrement = false, inChildRelation = false }: ColumnShareQueryType): string {
-        return `${this.physicalName} ` + this.columnType.query(
+    public query({
+        database, notNull = false, autoIncrement = false, inChildRelation = false
+    }: ColumnShareQueryType): string {
+
+        return `${database.escape(this.physicalName)} ` + this.columnType.query(
             {
                 precision: this.precision,
                 scale: this.scale,

@@ -11,7 +11,7 @@ type TableIndexModelOptions = {
     tableIndexModelId: string,
     physicalName: string,
     indexColumnModels: IndexColumnModel[],
-    indexOptioin?: TableIndexOption,
+    indexOption?: TableIndexOption,
     indexType?: TableIndexType,
     description?: string
 };
@@ -21,7 +21,7 @@ export default class TableIndexModel {
     public readonly tableIndexModelId: string;
     public readonly physicalName: string;
     public readonly indexColumnModels: readonly IndexColumnModel[];
-    public readonly indexOptioin: TableIndexOption;
+    public readonly indexOption: TableIndexOption;
     public readonly indexType: TableIndexType;
     public readonly description: string
 
@@ -29,14 +29,14 @@ export default class TableIndexModel {
         tableIndexModelId,
         physicalName,
         indexColumnModels,
-        indexOptioin = "",
+        indexOption = "",
         indexType = "",
         description = ""
     }: TableIndexModelOptions) {
         this.tableIndexModelId = tableIndexModelId;
         this.physicalName = physicalName;
         this.indexColumnModels = [...indexColumnModels] as const;
-        this.indexOptioin = indexOptioin;
+        this.indexOption = indexOption;
         this.indexType = indexType;
         this.description = description;
     }
@@ -46,7 +46,7 @@ export default class TableIndexModel {
             tableIndexModelId: this.tableIndexModelId,
             physicalName: this.physicalName,
             indexColumnModels: this.indexColumnModels.map((model) => model.toJSON()),
-            indexOptioin: this.indexOptioin,
+            indexOptioin: this.indexOption,
             indexType: this.indexType,
             description: this.description
         };
@@ -70,7 +70,7 @@ export default class TableIndexModel {
             tableIndexModelId: obj.tableIndexModelId as string,
             physicalName: obj.physicalName as string,
             indexColumnModels: indexColumnModels,
-            indexOptioin: ("indexOptioin" in obj) ? obj.indexOptioin as TableIndexOption : "",
+            indexOption: ("indexOptioin" in obj) ? obj.indexOptioin as TableIndexOption : "",
             indexType: ("indexType" in obj) ? obj.indexType as TableIndexType : "",
             description: ("description" in obj) ? obj.description as string : "",
         });

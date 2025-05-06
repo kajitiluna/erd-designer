@@ -47,6 +47,34 @@ const ExportDdlView = ({ documentsHolder, isViewOpen, onClose }: ExportDdlViewPr
         onClose();
     };
 
+    const optionPanel = (
+        <Paper elevation={4} sx={{ p: 2 }}>
+            <Typography variant="subtitle1" gutterBottom>CREATE :</Typography>
+            <Grid container justifyContent="flex-start" alignItems="center">
+                <Grid size={{ md: 3, sm: 6 }}>
+                    <FormControlLabel label="Tables" control={
+                        <Checkbox checked={withTable === true}
+                            onChange={(event) => setWithTable(event.target.checked)} />} />
+                </Grid>
+                <Grid size={{ md: 3, sm: 6 }}>
+                    <FormControlLabel label="Indexes" control={
+                        <Checkbox checked={withIndex === true}
+                            onChange={(event) => setWithIndex(event.target.checked)} />} />
+                </Grid>
+                <Grid size={{ md: 3, sm: 6 }}>
+                    <FormControlLabel label="Foreign Keys" control={
+                        <Checkbox checked={withForeignKey === true}
+                            onChange={(event) => setWithForeignKey(event.target.checked)} />} />
+                </Grid>
+                <Grid size={{ md: 3, sm: 6 }}>
+                    <FormControlLabel label="Comments" control={
+                        <Checkbox checked={withComment === true}
+                            onChange={(event) => setWithComment(event.target.checked)} />} />
+                </Grid>
+            </Grid>
+        </Paper>
+    );
+
     return (
         <Dialog fullWidth maxWidth="md" open={isViewOpen} onClose={onClose}>
             <DialogTitle>Export DDL</DialogTitle>
@@ -55,35 +83,7 @@ const ExportDdlView = ({ documentsHolder, isViewOpen, onClose }: ExportDdlViewPr
                     <Divider />
                     <TextField fullWidth required variant="outlined" label="DDL File Name"
                         value={fileName} onChange={(event) => setFileName(event.target.value)} />
-                    <Paper elevation={4} sx={{ p: 2 }}>
-                        <Typography variant="subtitle1" gutterBottom>CREATE :</Typography>
-                        <Grid container justifyContent="flex-start" alignItems="center">
-                            <Grid size={{ md: 3, sm: 6 }}>
-                                <FormControlLabel label="Tables" control={
-                                    <Checkbox checked={withTable === true}
-                                        onChange={(event) => setWithTable(event.target.checked)} />
-                                } />
-                            </Grid>
-                            <Grid size={{ md: 3, sm: 6 }}>
-                                <FormControlLabel label="Indexes" control={
-                                    <Checkbox checked={withIndex === true}
-                                        onChange={(event) => setWithIndex(event.target.checked)} />
-                                } />
-                            </Grid>
-                            <Grid size={{ md: 3, sm: 6 }}>
-                                <FormControlLabel label="Foreign Keys" control={
-                                    <Checkbox checked={withForeignKey === true}
-                                        onChange={(event) => setWithForeignKey(event.target.checked)} />
-                                } />
-                            </Grid>
-                            <Grid size={{ md: 3, sm: 6 }}>
-                                <FormControlLabel label="Comments" control={
-                                    <Checkbox checked={withComment === true}
-                                        onChange={(event) => setWithComment(event.target.checked)} />
-                                } />
-                            </Grid>
-                        </Grid>
-                    </Paper>
+                    {optionPanel}
                 </Stack>
             </DialogContent>
             <DialogActions>

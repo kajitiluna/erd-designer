@@ -17,7 +17,7 @@ describe('TableIndexModel', () => {
             expect(model.tableIndexModelId).toBe('idx-1');
             expect(model.physicalName).toBe('test_index');
             expect(model.indexColumnModels).toHaveLength(1);
-            expect(model.indexOptioin).toBe('');
+            expect(model.indexOption).toBe('');
             expect(model.indexType).toBe('');
             expect(model.description).toBe('');
         });
@@ -35,12 +35,12 @@ describe('TableIndexModel', () => {
                 tableIndexModelId: 'idx-1',
                 physicalName: 'test_index',
                 indexColumnModels,
-                indexOptioin: 'UNIQUE',
+                indexOption: 'UNIQUE',
                 indexType: 'BTREE',
                 description: 'Test index'
             });
 
-            expect(model.indexOptioin).toBe('UNIQUE');
+            expect(model.indexOption).toBe('UNIQUE');
             expect(model.indexType).toBe('BTREE');
             expect(model.description).toBe('Test index');
         });
@@ -80,7 +80,7 @@ describe('TableIndexModel', () => {
                         sortOrderType: 'ASC'
                     })
                 ],
-                indexOptioin: 'UNIQUE'
+                indexOption: 'UNIQUE'
             });
 
             const json = original.toJSON();

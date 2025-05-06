@@ -1,3 +1,4 @@
+import { databases } from '~/models/database/DatabaseType';
 import ColumnShareModel from '../ColumnShareModel';
 import ColumnType from '../ColumnType';
 import DisplayStyle from '../DisplayStyle';
@@ -23,6 +24,8 @@ describe('ColumnShareModel', () => {
         withPrecision: true,
         withScale: true
     });
+
+    const database = databases.postgres;
 
     describe('constructor', () => {
         test('should create with minimum required values', () => {
@@ -98,7 +101,7 @@ describe('ColumnShareModel', () => {
                 columnType: mockWithoutUnsigned
             });
 
-            const query = model.query({});
+            const query = model.query({ database });
             expect(query).toBe('test_column TEST');
         });
 
@@ -110,7 +113,7 @@ describe('ColumnShareModel', () => {
                 columnType: mockWithoutUnsigned
             });
 
-            const query = model.query({ notNull: true });
+            const query = model.query({ database, notNull: true });
             expect(query).toBe('test_column TEST NOT NULL');
         });
     });
