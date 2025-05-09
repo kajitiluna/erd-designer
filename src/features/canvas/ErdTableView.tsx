@@ -54,6 +54,11 @@ const ErdTableView = ({ tableViewModel, onEditAction, onDragAction }: ErdTableVi
     const tableModel = tableViewModel.tableModel;
 
     const handleMouseDown = (event: MouseEvent) => {
+        // 左クリック以外は無視
+        if (event.button !== 0) {
+            return;
+        }
+
         const mousePosition = getLogicalMousePosition(event, displayScale);
         if (editMode === EditModeType.SELECT) {
             event.stopPropagation();
@@ -86,6 +91,11 @@ const ErdTableView = ({ tableViewModel, onEditAction, onDragAction }: ErdTableVi
     };
 
     const handleMouseUp = (event: MouseEvent) => {
+        // 左クリック以外は無視
+        if (event.button !== 0) {
+            return;
+        }
+
         if (editMode === EditModeType.SELECT) {
             if ((selectState.status === "on_selecting")
                 && (selectState.tableIds.has(tableViewModel.tableId))) {
@@ -133,6 +143,24 @@ const ErdTableView = ({ tableViewModel, onEditAction, onDragAction }: ErdTableVi
             });
             dispatchSelectAction(RELEASE_ACTION);
         }
+    };
+
+    const handleClick = (event: MouseEvent) => {
+        // 左クリック以外は無視
+        if (event.button !== 0) {
+            return;
+        }
+
+        event.stopPropagation();
+    };
+
+    const handleDoubleClick = (event: MouseEvent) => {
+        // 左クリック以外は無視
+        if (event.button !== 0) {
+            return;
+        }
+
+        handleOpenEditDialog(event);
     };
 
     const handleOpenEditDialog = (event: MouseEvent) => {
@@ -206,7 +234,7 @@ const ErdTableView = ({ tableViewModel, onEditAction, onDragAction }: ErdTableVi
             <Box id={tableViewModel.tableId} tabIndex={0} sx={boundStyle}
                 style={{ cursor: 'pointer' }} className={tableClassName}
                 onMouseDown={handleMouseDown} onMouseUp={handleMouseUp}
-                onClick={event => event.stopPropagation()} onDoubleClick={handleOpenEditDialog}>
+                onClick={handleClick} onDoubleClick={handleDoubleClick}>
                 <DescriptionTooltip title={tableModel.description} placement="top-end">
                     <Box sx={headerStyle}>{tableModel.displayName(erdDocument.getDisplayStyle())}</Box>
                 </DescriptionTooltip>

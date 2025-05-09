@@ -48,6 +48,8 @@ const ErdCanvas = () => {
     const [editAction, setEditAction] = useState<EditAction>(NO_EDIT_ACTION);
     // リレーション作成にて親テーブルが指定されているときに、論理的なマウス位置を保持する
     const [relationEdge, setRelationEdge] = useState<Point | null>(null);
+    // 中クリックにより Canvas 移動の起点となる位置を保持する
+    const [panningPoint, setPanningPoint] = useState<Point | null>(null);
 
     const erdDocument = documentsHolder.current();
 
@@ -78,6 +80,11 @@ const ErdCanvas = () => {
 
     // キャンバスがクリックされた時の制御を定義
     const handleClickOnCanvas = (event: MouseEvent) => {
+        // 左クリック以外は無視
+        if (event.button !== 0) {
+            return;
+        }
+
         const mousePosition = getLogicalMousePosition(event, displayScale);
 
         if (editMode === EditModeType.CREATE_TABLE) {
@@ -107,11 +114,22 @@ const ErdCanvas = () => {
 
     // ドラッグが開始されたときの制御
     const handleDragStart = (event: MouseEvent) => {
-        if (editMode !== EditModeType.SELECT) {
+        const mousePosition = getLogicalMousePosition(event, displayScale);
+
+        // 中クリックの場合は、キャンバスを移動する
+        if (event.button === 1) {
+            doHandleMiddleClickOnCanvas(mousePosition);
             return;
         }
 
-        const mousePosition = getLogicalMousePosition(event, displayScale);
+        // 左クリック以外は無視
+        if (event.button !== 0) {
+            return;
+        }
+
+        if (editMode !== EditModeType.SELECT) {
+            return;
+        }
 
         // 短形選択中に canvas が押下された場合は、選択を解除する
         if (selectState.tableIds.size + selectState.memoIds.size > 0) {
@@ -126,8 +144,34 @@ const ErdCanvas = () => {
         dispatchDragAction({ type: "start_dragging", start: mousePosition });
     };
 
+    const doHandleMiddleClickOnCanvas = (mousePosition: Point) => {
+        if (panningPoint != null) {
+            setPanningPoint(null);
+
+            // カーソルを元に戻す
+            if (erdCanvasRef.current) {
+                erdCanvasRef.current.style.cursor = findMouseCursorIcon(editMode);
+            }
+
+            return;
+        }
+
+        setPanningPoint(mousePosition);
+        if (erdCanvasRef.current) {
+            erdCanvasRef.current.style.cursor = "grabbing";
+        }
+    };
+
     const handleMoveMouseOnCanvas = (event: MouseEvent) => {
         const mousePosition = getLogicalMousePosition(event, displayScale);
+
+        if (panningPoint != null) {
+            // スクロール位置を更新
+            window.scrollBy((mousePosition.x - panningPoint.x) / 1.4, (mousePosition.y - panningPoint.y) / 1.4);
+            setPanningPoint(mousePosition);
+
+            return;
+        }
 
         if (editMode === EditModeType.CREATE_RELATION) {
             setRelationEdge((selectState.tableIds.size === 1) ? mousePosition : null);
@@ -142,6 +186,11 @@ const ErdCanvas = () => {
     };
 
     const handleDragEnd = (event: MouseEvent) => {
+        // 左クリック以外は無視
+        if (event.button !== 0) {
+            return;
+        }
+
         if ((editMode !== EditModeType.SELECT) || (dragState.status !== "on_dragging")) {
             return;
         }
@@ -218,8 +267,8 @@ const ErdCanvas = () => {
             return;
         }
 
-        return initEffectOfMouseCorsorOnCanvas(editMode, erdCanvas);
-    }, [editMode]);
+        return initEffectOfMouseCorsorOnCanvas(editMode, panningPoint, erdCanvas);
+    }, [editMode, panningPoint]);
 
     // 初回表示時に Canvas の中央にスクロール
     useLayoutEffect(() => {
@@ -466,9 +515,9 @@ const initRectangleWithoutScale = (element: Element, displayScale: number) => {
     });
 };
 
-const initEffectOfMouseCorsorOnCanvas = (editMode: EditMode, erdCanvas: HTMLDivElement) => {
+const initEffectOfMouseCorsorOnCanvas = (editMode: EditMode, panningPoint: Point | null, erdCanvas: HTMLDivElement) => {
     const handleMouseIcon = () => {
-        erdCanvas.style.cursor = findMouseCursorIcon(editMode);
+        erdCanvas.style.cursor = (panningPoint != null) ? "grabbing" :  findMouseCursorIcon(editMode);
     };
 
     erdCanvas.addEventListener("mousemove", handleMouseIcon);

@@ -57,6 +57,11 @@ const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: Stic
     const selected = selectState.memoIds.has(memoViewModel.memoId);
 
     const handleDoubleClickPanel = (event: MouseEvent) => {
+        // 左クリック以外は無視
+        if (event.button !== 0) {
+            return;
+        }
+
         event.stopPropagation();
 
         setTextEdit(true);
@@ -68,6 +73,11 @@ const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: Stic
         : initCurrentRectangle(memoViewModel.rectangleViewModel, dragState.delta(), resizingDirection);
 
     const handleDragStart = (event: MouseEvent) => {
+        // 左クリック以外は無視
+        if (event.button !== 0) {
+            return;
+        }
+
         if (editMode !== EditModeType.SELECT) {
             return;
         }
@@ -106,6 +116,11 @@ const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: Stic
     };
 
     const handleDragEnd = (event: MouseEvent) => {
+        // 左クリック以外は無視
+        if (event.button !== 0) {
+            return;
+        }
+
         if ((dragState.status !== "on_dragging") || !selected) {
             return;
         }
@@ -142,6 +157,15 @@ const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: Stic
         setMouseCursorStyle("pointer");
 
         onDragAction({ type: "clear" });
+    };
+
+    const handleClick = (event: MouseEvent) => {
+        // 左クリック以外は無視
+        if (event.button !== 0) {
+            return;
+        }
+
+        event.stopPropagation();
     };
 
     const handleFocusOut = () => {
@@ -208,7 +232,7 @@ const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: Stic
         return (
             <Box sx={baseStyle}
                 onMouseDown={handleDragStart} onMouseMove={handleMouseMove} onMouseUp={handleDragEnd}
-                onClick={event => event.stopPropagation()} onDoubleClick={handleDoubleClickPanel}>
+                onClick={handleClick} onDoubleClick={handleDoubleClickPanel}>
                 {memoLines.map((line, index) => (
                     <span key={`memo-text_${memoViewModel.memoId}-${index}`}
                         style={initTextStyle(index)}>

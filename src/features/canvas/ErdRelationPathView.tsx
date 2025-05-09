@@ -174,6 +174,15 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         return { svgPaths, drawingPath };
     };
 
+    const handleClick = (event: MouseEvent) => {
+        // 左クリック以外は無視
+        if (event.button !== 0) {
+            return;
+        }
+
+        event.stopPropagation();
+    };
+
     // 操作対象の元となる線分を作成する
     const initBaseSvgPath = (relationView: RelationViewModel, index: number, pair: Point[]) => {
         if (editMode !== EditModeType.SELECT) {
@@ -181,6 +190,11 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         }
 
         const handleDragStart = (event: MouseEvent) => {
+            // 左クリック以外は無視
+            if (event.button !== 0) {
+                return;
+            }
+
             if (editMode !== EditModeType.SELECT) {
                 return
             }
@@ -216,6 +230,11 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         };
 
         const handleDragEnd = (event: MouseEvent) => {
+            // 左クリック以外は無視
+            if (event.button !== 0) {
+                return;
+            }
+
             event.stopPropagation();
 
             const mousePosition = getLogicalMousePosition(event, displayScale);
@@ -223,6 +242,15 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
 
             setLineDragging({ on_dragging: false });
             onDragAction({ type: "clear" });
+        };
+
+        const handleDoubleClick = (event: MouseEvent) => {
+            // 左クリック以外は無視
+            if (event.button !== 0) {
+                return;
+            }
+
+            handleOpenEditDialog(event, relationView)
         };
 
         const line = `M ${pair[0].x + DRAWABLE_AREA.width / 2},${pair[0].y + DRAWABLE_AREA.height / 2}`
@@ -235,8 +263,7 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
                 onMouseDown={handleDragStart} onMouseUp={handleDragEnd}
                 onMouseEnter={initActiveDragModification(false)}
                 onMouseLeave={initActiveDragModification(true)}
-                onClick={event => event.stopPropagation()}
-                onDoubleClick={event => handleOpenEditDialog(event, relationView)} />
+                onClick={handleClick} onDoubleClick={handleDoubleClick} />
         );
     };
 
@@ -278,6 +305,11 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
 
         const initHandleDragStart = (index: number) => {
             return (event: MouseEvent) => {
+                // 左クリック以外は無視
+                if (event.button !== 0) {
+                    return;
+                }
+
                 event.stopPropagation();
 
                 if (selectState.relationId !== relationView.relationId) {
@@ -339,6 +371,11 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         };
 
         const handleDragEnd = (event: MouseEvent) => {
+            // 左クリック以外は無視
+            if (event.button !== 0) {
+                return;
+            }
+
             event.stopPropagation();
 
             if ((lineDragging.on_dragging == false) || (lineDragging.majorChanging == true)
