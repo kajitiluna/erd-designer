@@ -50,6 +50,8 @@ const ErdCanvas = () => {
     const [relationEdge, setRelationEdge] = useState<Point | null>(null);
     // 中クリックにより Canvas 移動の起点となる位置を保持する
     const [panningPoint, setPanningPoint] = useState<Point | null>(null);
+    // FireFox の場合、ドラッグ完了後に click イベントが発生するため、ドラッグ距離を保持して、ドラッグ後のイベントを制御する
+    const [dragDistance, setDragDistance] = useState<number>(0);
 
     const erdDocument = documentsHolder.current();
 
@@ -108,12 +110,18 @@ const ErdCanvas = () => {
             return;
         }
 
+        // ドラッグ操作が行われていると判断した場合は、クリック時の制御を行わない
+        if (dragDistance > 5) {
+            return;
+        }
+
         // 以降の処理は SELECT モード
         dispatchSelectAction(RELEASE_ACTION);
     };
 
     // ドラッグが開始されたときの制御
     const handleDragStart = (event: MouseEvent) => {
+        setDragDistance(0);
         const mousePosition = getLogicalMousePosition(event, displayScale);
 
         // 中クリックの場合は、キャンバスを移動する
@@ -157,6 +165,7 @@ const ErdCanvas = () => {
         }
 
         setPanningPoint(mousePosition);
+
         if (erdCanvasRef.current) {
             erdCanvasRef.current.style.cursor = "all-scroll";
         }
@@ -182,6 +191,8 @@ const ErdCanvas = () => {
             return;
         }
 
+        // ドラッグ操作を記録する
+        setDragDistance(current => current + 1);
         dispatchDragAction({ type: "on_dragging", current: mousePosition });
     };
 

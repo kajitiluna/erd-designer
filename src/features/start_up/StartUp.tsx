@@ -145,7 +145,7 @@ const LoadFileDialog = ({ isOpen, onLoadDocument, onClose }: LoadFileDialogProp)
     return (
         <>
             <Dialog fullWidth maxWidth="md" open={isOpen} onClose={onClose}>
-                <DialogTitle>Load ER Diagram from JSON file.</DialogTitle>
+                <DialogTitle>Load ER Diagram from ERD file.</DialogTitle>
                 <DialogContent>
                     <Divider />
                     <Stack spacing={3} style={{ margin: "20px" }}>
