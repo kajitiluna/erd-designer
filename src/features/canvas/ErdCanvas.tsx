@@ -158,7 +158,7 @@ const ErdCanvas = () => {
 
         setPanningPoint(mousePosition);
         if (erdCanvasRef.current) {
-            erdCanvasRef.current.style.cursor = "grabbing";
+            erdCanvasRef.current.style.cursor = "all-scroll";
         }
     };
 
@@ -167,7 +167,7 @@ const ErdCanvas = () => {
 
         if (panningPoint != null) {
             // スクロール位置を更新
-            window.scrollBy((mousePosition.x - panningPoint.x) / 1.4, (mousePosition.y - panningPoint.y) / 1.4);
+            window.scrollBy((mousePosition.x - panningPoint.x) / 1.2, (mousePosition.y - panningPoint.y) / 1.2);
             setPanningPoint(mousePosition);
 
             return;
@@ -517,7 +517,7 @@ const initRectangleWithoutScale = (element: Element, displayScale: number) => {
 
 const initEffectOfMouseCorsorOnCanvas = (editMode: EditMode, panningPoint: Point | null, erdCanvas: HTMLDivElement) => {
     const handleMouseIcon = () => {
-        erdCanvas.style.cursor = (panningPoint != null) ? "grabbing" :  findMouseCursorIcon(editMode);
+        erdCanvas.style.cursor = (panningPoint != null) ? "all-scroll" :  findMouseCursorIcon(editMode);
     };
 
     erdCanvas.addEventListener("mousemove", handleMouseIcon);
