@@ -2,7 +2,7 @@ import RelationModel from "~/models/database/RelationModel";
 import LineViewModel from "~/models/LineViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
 
-export default class RelationViewModelStrage {
+export default class RelationViewModelStorage {
 
     private relationIdMap: Map<string, RelationViewModel>;
     private parentTableModelIdMap: Map<string, RelationViewModel[]>;
@@ -62,7 +62,7 @@ export default class RelationViewModelStrage {
         return this.childColumnModelIdMap.get(childColumnModelId) ?? null;
     }
 
-    public updateRelationModel(updatingModel: RelationModel): RelationViewModelStrage {
+    public updateRelationModel(updatingModel: RelationModel): RelationViewModelStorage {
         const currentViewModel = this.relationIdMap.get(updatingModel.relationModelId);
         const nextViewModel = (currentViewModel != null)
             ? currentViewModel.updateRelationModel(updatingModel)
@@ -74,17 +74,17 @@ export default class RelationViewModelStrage {
         return this.update(nextViewModel);
     }
 
-    public deleteRelation(relationId: string): RelationViewModelStrage {
+    public deleteRelation(relationId: string): RelationViewModelStorage {
         const nextRelationIdMap = new Map(this.relationIdMap);
         const deleted = nextRelationIdMap.delete(relationId);
         if (deleted === false) {
             return this;
         }
 
-        return new RelationViewModelStrage(Array.from(nextRelationIdMap.values()));
+        return new RelationViewModelStorage(Array.from(nextRelationIdMap.values()));
     }
 
-    public updateLineViewModel(relationId: string, nextLineViewModel: LineViewModel): RelationViewModelStrage {
+    public updateLineViewModel(relationId: string, nextLineViewModel: LineViewModel): RelationViewModelStorage {
         const current = this.relationIdMap.get(relationId);
         if (current == null) {
             return this;
@@ -102,14 +102,14 @@ export default class RelationViewModelStrage {
         return this.update(nextViewModel);
     }
 
-    private update(model: RelationViewModel): RelationViewModelStrage {
+    private update(model: RelationViewModel): RelationViewModelStorage {
         const nextRelationMap = new Map(this.relationIdMap);
         nextRelationMap.set(model.relationId, model);
 
-        return new RelationViewModelStrage(Array.from(nextRelationMap.values()));
+        return new RelationViewModelStorage(Array.from(nextRelationMap.values()));
     }
 
-    public moveRelation(tableIds: Set<string>, moving: { x: number, y: number }): RelationViewModelStrage {
+    public moveRelation(tableIds: Set<string>, moving: { x: number, y: number }): RelationViewModelStorage {
         if (this.relationIdMap.size === 0) {
             return this;
         }
@@ -152,7 +152,7 @@ export default class RelationViewModelStrage {
             return this;
         }
 
-        return new RelationViewModelStrage(nextRelations);
+        return new RelationViewModelStorage(nextRelations);
     }
 }
 

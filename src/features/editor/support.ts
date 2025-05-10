@@ -48,10 +48,10 @@ const validatePhysicalValue = (org: string) => {
         return org;
     }
 
-    const trimedValue = org.trim();
-    if (PHYSICAL_PATTERN.test(trimedValue) === false) {
+    const trimmedValue = org.trim();
+    if (PHYSICAL_PATTERN.test(trimmedValue) === false) {
         return null;
     }
 
-    return trimedValue;
+    return trimmedValue;
 };

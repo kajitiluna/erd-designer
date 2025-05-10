@@ -1,6 +1,6 @@
 import { v4 as uuidV4 } from 'uuid';
 import ColorValue from '~/models/ColorValue';
-import ColumnShareModelStrage from '~/models/ColumnShareModelStrage';
+import ColumnShareModelStorage from '~/models/ColumnShareModelStorage';
 import { Database, databases } from '~/models/database';
 import ColumnModel from '~/models/database/ColumnModel';
 import ColumnShareModel from '~/models/database/ColumnShareModel';
@@ -13,9 +13,9 @@ import ErdSettingModel from '~/models/ErdSettingModel';
 import { PropertyNotExistsError } from '~/models/exceptions';
 import LineViewModel from '~/models/LineViewModel';
 import MemoViewModel from '~/models/MemoViewModel';
-import MemoViewModelStrage from '~/models/MemoViewModelStrage';
+import MemoViewModelStorage from '~/models/MemoViewModelStorage';
 import RelationViewModel from '~/models/RelationViewModel';
-import RelationViewModelStrage from '~/models/RelationViewModelStrage';
+import RelationViewModelStorage from '~/models/RelationViewModelStorage';
 import TableViewModel from '~/models/TableViewModel';
 import { toDateTime, toObjects } from '~/models/util';
 
@@ -36,30 +36,30 @@ export default class ErdDocument {
 
     public readonly documentName: string;
     public readonly erdSettingModel: ErdSettingModel;
-    private readonly columnShareModelStrage: ColumnShareModelStrage;
+    private readonly columnShareModelStorage: ColumnShareModelStorage;
     private readonly tableViewModelIds: readonly string[];
     private readonly tableViewModelMap: Map<string, TableViewModel>;
     private readonly columnModelMap: Map<string, ColumnModel>;
-    private readonly relationViewModelStrage: RelationViewModelStrage;
-    private readonly memoViewModelStrage: MemoViewModelStrage;
+    private readonly relationViewModelStorage: RelationViewModelStorage;
+    private readonly memoViewModelStorage: MemoViewModelStorage;
     public readonly databaseSettingModel: DatabaseSettingModel;
     public readonly lastUpdatedAt: Date;
 
     private constructor(
         documentName: string, erdSettingModel: ErdSettingModel,
         tableViewModelIds: readonly string[], tableViewModelMap: Map<string, TableViewModel>,
-        columnModelMap: Map<string, ColumnModel>, columnShareModelStrage: ColumnShareModelStrage,
-        relationViewModelStrage: RelationViewModelStrage, memoViewModelStrage: MemoViewModelStrage,
+        columnModelMap: Map<string, ColumnModel>, columnShareModelStorage: ColumnShareModelStorage,
+        relationViewModelStorage: RelationViewModelStorage, memoViewModelStorage: MemoViewModelStorage,
         databaseSettingModel: DatabaseSettingModel, lastUpdatedAt: Date | null = null
     ) {
         this.documentName = documentName;
         this.erdSettingModel = erdSettingModel;
-        this.columnShareModelStrage = columnShareModelStrage;
+        this.columnShareModelStorage = columnShareModelStorage;
         this.tableViewModelIds = tableViewModelIds;
         this.tableViewModelMap = tableViewModelMap;
         this.columnModelMap = columnModelMap;
-        this.relationViewModelStrage = relationViewModelStrage;
-        this.memoViewModelStrage = memoViewModelStrage;
+        this.relationViewModelStorage = relationViewModelStorage;
+        this.memoViewModelStorage = memoViewModelStorage;
         this.databaseSettingModel = databaseSettingModel;
         this.lastUpdatedAt = lastUpdatedAt ? lastUpdatedAt : new Date();
     }
@@ -76,9 +76,9 @@ export default class ErdDocument {
             tableViewModels.map(viewModel => viewModel.tableId),
             new Map(tableViewModels.map(viewModel => [viewModel.tableId, viewModel])),
             new Map(columnModels.map((model) => [model.columnModelId, model])),
-            ColumnShareModelStrage.create(columnShareModels),
-            new RelationViewModelStrage(relationViewModels),
-            MemoViewModelStrage.create(foregroundMemoViewModels, backgroundMemoViewModels),
+            ColumnShareModelStorage.create(columnShareModels),
+            new RelationViewModelStorage(relationViewModels),
+            MemoViewModelStorage.create(foregroundMemoViewModels, backgroundMemoViewModels),
             databaseSettingModel,
             lastUpdatedAt
         );
@@ -108,31 +108,31 @@ export default class ErdDocument {
     }
 
     public findColumnShareModel(columnShareModelId: string): ColumnShareModel | null {
-        return this.columnShareModelStrage.find(columnShareModelId);
+        return this.columnShareModelStorage.find(columnShareModelId);
     }
 
-    public getColumnShareModelStrage(): ColumnShareModelStrage {
-        return this.columnShareModelStrage.copy();
+    public getColumnShareModelStorage(): ColumnShareModelStorage {
+        return this.columnShareModelStorage.copy();
     }
 
-    public findRelataionViewModel(relationId: string): RelationViewModel | null {
-        return this.relationViewModelStrage.findByRelationId(relationId);
+    public findRelationViewModel(relationId: string): RelationViewModel | null {
+        return this.relationViewModelStorage.findByRelationId(relationId);
     }
 
     public getRelationViewModels(): RelationViewModel[] {
-        return this.relationViewModelStrage.getModels();
+        return this.relationViewModelStorage.getModels();
     }
 
     public inChildRelation(columnModelId: string): boolean {
-        return this.relationViewModelStrage.inChildRelation(columnModelId);
+        return this.relationViewModelStorage.inChildRelation(columnModelId);
     }
 
     public findParentRelation(childColumnModelId: string) {
-        return this.relationViewModelStrage.findParentRelation(childColumnModelId);
+        return this.relationViewModelStorage.findParentRelation(childColumnModelId);
     }
 
     public getMemoViewModels() {
-        return this.memoViewModelStrage.getMemos();
+        return this.memoViewModelStorage.getMemos();
     }
 
     /**
@@ -140,18 +140,18 @@ export default class ErdDocument {
      * 
      * @param updatingTableViewModel 更新後のテーブルモデル
      * @param updatingColumnModels 更新後のカラムモデル
-     * @param updatingColumnShareModelStrage 更新後のカラム共有モデル
+     * @param updatingColumnShareModelStorage 更新後のカラム共有モデル
      * @returns 操作後のモデル
      */
     public updateTableViewModel(
         updatingTableViewModel: TableViewModel, updatingColumnModels: ColumnModel[],
-        updatingColumnShareModelStrage: ColumnShareModelStrage
+        updatingColumnShareModelStorage: ColumnShareModelStorage
     ): ErdDocument {
 
         const previousTableViewModel = this.tableViewModelMap.get(updatingTableViewModel.tableId);
         if (previousTableViewModel == null) {
             return this.doAddTableViewModel(
-                updatingTableViewModel, updatingColumnModels, updatingColumnShareModelStrage);
+                updatingTableViewModel, updatingColumnModels, updatingColumnShareModelStorage);
         }
 
         // 更新対象のテーブルに relation が親として定義されている場合、子テーブルに PK の変更を反映する
@@ -187,9 +187,9 @@ export default class ErdDocument {
             .filter(columnModel => nextExistsColumnShareModelIds.has(columnModel.columnShareModelId) === false)
             .map(columnModel => columnModel.columnShareModelId);
 
-        const nextColumnShareModelStrage = updatingColumnShareModelStrage.copy();
+        const nextColumnShareModelStorage = updatingColumnShareModelStorage.copy();
         if (deletingColumnShareModelIds.length > 0) {
-            nextColumnShareModelStrage.deleteModels(deletingColumnShareModelIds);
+            nextColumnShareModelStorage.deleteModels(deletingColumnShareModelIds);
         }
 
         return new ErdDocument(
@@ -198,16 +198,16 @@ export default class ErdDocument {
             this.tableViewModelIds,
             nextTableViewModelMap,
             nextColumnModelMap,
-            nextColumnShareModelStrage,
+            nextColumnShareModelStorage,
             nextRelationViewModelRepository,
-            this.memoViewModelStrage,
+            this.memoViewModelStorage,
             this.databaseSettingModel
         );
     }
 
     private doAddTableViewModel(
         addingTableViewModel: TableViewModel, addingColumnModels: ColumnModel[],
-        columnShareModelStrage: ColumnShareModelStrage
+        columnShareModelStorage: ColumnShareModelStorage
     ): ErdDocument {
         const nextTableViewModelIds = [...this.tableViewModelIds, addingTableViewModel.tableId];
 
@@ -225,9 +225,9 @@ export default class ErdDocument {
             nextTableViewModelIds,
             nextTableViewModelMap,
             nextColumnModelMap,
-            columnShareModelStrage.copy(),
-            this.relationViewModelStrage,
-            this.memoViewModelStrage,
+            columnShareModelStorage.copy(),
+            this.relationViewModelStorage,
+            this.memoViewModelStorage,
             this.databaseSettingModel
         );
     }
@@ -237,14 +237,14 @@ export default class ErdDocument {
         updatingTableViewModel: TableViewModel,
         updatingColumnModels: ColumnModel[]
     ) {
-        const relationViewModels = this.relationViewModelStrage
+        const relationViewModels = this.relationViewModelStorage
             .getRelationsByParent(updatingTableViewModel.tableId);
         // relation が定義されていない場合は何もしない
         if (relationViewModels.length === 0) {
             return {
                 tableViewModels: [updatingTableViewModel],
                 columnModels: updatingColumnModels,
-                relationRepository: this.relationViewModelStrage
+                relationRepository: this.relationViewModelStorage
             };
         }
 
@@ -268,7 +268,7 @@ export default class ErdDocument {
             previousTableViewModel.tableModel.columnModelIds
                 .map(columnModelId => this.findColumnModel(columnModelId) as ColumnModel)
                 .filter(columnModel => columnModel.primaryKey === true)
-                .map(coumnModel => coumnModel.columnModelId)
+                .map(columnModel => columnModel.columnModelId)
         );
         const addingPrimaryKeys = updatingPrimaryKeys
             .filter(updatingColumn => previousPrimaryKeySet.has(updatingColumn.columnModelId) === false);
@@ -278,7 +278,7 @@ export default class ErdDocument {
             return {
                 tableViewModels: [updatingTableViewModel],
                 columnModels: updatingColumnModels,
-                relationRepository: this.relationViewModelStrage
+                relationRepository: this.relationViewModelStorage
             };
         }
 
@@ -353,25 +353,25 @@ export default class ErdDocument {
         }, {
             tableViewModels: [updatingTableViewModel],
             columnModels: [...updatingColumnModels],
-            relationRepository: this.relationViewModelStrage
+            relationRepository: this.relationViewModelStorage
         });
     }
 
     /**
      * 指定されたIDのテーブルを削除したモデルを作成する。
      * 
-     * @param deletingTablelId 削除対象のテーブルID
+     * @param deletingTableId 削除対象のテーブルID
      * @returns 操作後のモデル。
      */
-    public deleteTable(deletingTablelId: string): ErdDocument {
-        const deletingTarget = this.tableViewModelMap.get(deletingTablelId);
+    public deleteTable(deletingTableId: string): ErdDocument {
+        const deletingTarget = this.tableViewModelMap.get(deletingTableId);
         if (deletingTarget == null) {
             return this;
         }
 
-        const nextTableViewModelIds = this.tableViewModelIds.filter(tableId => (tableId !== deletingTablelId));
+        const nextTableViewModelIds = this.tableViewModelIds.filter(tableId => (tableId !== deletingTableId));
         const nextTableViewModelMap = new Map(this.tableViewModelMap);
-        nextTableViewModelMap.delete(deletingTablelId);
+        nextTableViewModelMap.delete(deletingTableId);
 
         const nextColumnMap = new Map(this.columnModelMap);
         (deletingTarget as TableViewModel).tableModel.columnModelIds.forEach(
@@ -383,7 +383,7 @@ export default class ErdDocument {
                 columnModel => columnModel.columnShareModelId
             )
         );
-        const currentColumnShareModels = this.columnShareModelStrage.getModels();
+        const currentColumnShareModels = this.columnShareModelStorage.getModels();
         const updatingColumnShareModels = currentColumnShareModels.filter(
             shareModel => existedColumnShareModelIds.has(shareModel.columnShareModelId)
         );
@@ -394,9 +394,9 @@ export default class ErdDocument {
             nextTableViewModelIds,
             nextTableViewModelMap,
             nextColumnMap,
-            ColumnShareModelStrage.create(updatingColumnShareModels),
-            this.relationViewModelStrage,
-            this.memoViewModelStrage,
+            ColumnShareModelStorage.create(updatingColumnShareModels),
+            this.relationViewModelStorage,
+            this.memoViewModelStorage,
             this.databaseSettingModel
         );
     }
@@ -467,16 +467,16 @@ export default class ErdDocument {
             this.tableViewModelIds,
             nextTableViewModelMap,
             nextColumnModelMap,
-            this.columnShareModelStrage,
-            this.relationViewModelStrage.updateRelationModel(updatingModel),
-            this.memoViewModelStrage,
+            this.columnShareModelStorage,
+            this.relationViewModelStorage.updateRelationModel(updatingModel),
+            this.memoViewModelStorage,
             this.databaseSettingModel
         );
     }
 
     public deleteRelation(relationId: string): ErdDocument {
-        const next = this.relationViewModelStrage.deleteRelation(relationId);
-        if (next === this.relationViewModelStrage) {
+        const next = this.relationViewModelStorage.deleteRelation(relationId);
+        if (next === this.relationViewModelStorage) {
             return this;
         }
 
@@ -486,16 +486,16 @@ export default class ErdDocument {
             this.tableViewModelIds,
             this.tableViewModelMap,
             this.columnModelMap,
-            this.columnShareModelStrage,
+            this.columnShareModelStorage,
             next,
-            this.memoViewModelStrage,
+            this.memoViewModelStorage,
             this.databaseSettingModel
         );
     }
 
     public updateRelationLineModel(relationId: string, updatingModel: LineViewModel): ErdDocument {
-        const nextRelationStrage = this.relationViewModelStrage.updateLineViewModel(relationId, updatingModel);
-        if (this.relationViewModelStrage === nextRelationStrage) {
+        const nextRelationStorage = this.relationViewModelStorage.updateLineViewModel(relationId, updatingModel);
+        if (this.relationViewModelStorage === nextRelationStorage) {
             return this;
         }
 
@@ -505,9 +505,9 @@ export default class ErdDocument {
             this.tableViewModelIds,
             this.tableViewModelMap,
             this.columnModelMap,
-            this.columnShareModelStrage,
-            nextRelationStrage,
-            this.memoViewModelStrage,
+            this.columnShareModelStorage,
+            nextRelationStorage,
+            this.memoViewModelStorage,
             this.databaseSettingModel
         );
     }
@@ -554,15 +554,15 @@ export default class ErdDocument {
             }
         });
 
-        const nextRelatinViewStrage = this.relationViewModelStrage.moveRelation(tableIds, moving);
+        const nextRelationViewStorage = this.relationViewModelStorage.moveRelation(tableIds, moving);
 
-        return this.doUpdateTableRectangle([...tableIds], doMoveTableView, nextRelatinViewStrage);
+        return this.doUpdateTableRectangle([...tableIds], doMoveTableView, nextRelationViewStorage);
     }
 
     private doUpdateTableRectangle(
         tableIds: string[],
         updateTableView: (tableViewModel: TableViewModel) => TableViewModel,
-        nextRelatinViewStrage: RelationViewModelStrage | null = null
+        nextRelationViewStorage: RelationViewModelStorage | null = null
     ) {
         if (tableIds.length === 0) {
             return this;
@@ -584,9 +584,9 @@ export default class ErdDocument {
             this.tableViewModelIds,
             nextTableViewModelMap,
             this.columnModelMap,
-            this.columnShareModelStrage,
-            (nextRelatinViewStrage != null) ? nextRelatinViewStrage : this.relationViewModelStrage,
-            this.memoViewModelStrage,
+            this.columnShareModelStorage,
+            (nextRelationViewStorage != null) ? nextRelationViewStorage : this.relationViewModelStorage,
+            this.memoViewModelStorage,
             this.databaseSettingModel
         );
     }
@@ -598,7 +598,7 @@ export default class ErdDocument {
      * @returns 操作後のモデル
      */
     public addMemo(addingMemo: MemoViewModel): ErdDocument {
-        return this.doUpdateMemoViewModel(() => this.memoViewModelStrage.addMemo(addingMemo));
+        return this.doUpdateMemoViewModel(() => this.memoViewModelStorage.addMemo(addingMemo));
     }
 
     /**
@@ -608,7 +608,7 @@ export default class ErdDocument {
      * @returns 操作後のモデル
      */
     public updateMemo(updatingMemo: MemoViewModel): ErdDocument {
-        return this.doUpdateMemoViewModel(() => this.memoViewModelStrage.updateMemo(updatingMemo));
+        return this.doUpdateMemoViewModel(() => this.memoViewModelStorage.updateMemo(updatingMemo));
     }
 
     /**
@@ -618,7 +618,7 @@ export default class ErdDocument {
      * @returns 操作後のモデル
      */
     public deleteMemo(memoId: string): ErdDocument {
-        return this.doUpdateMemoViewModel(() => this.memoViewModelStrage.deleteMemo(memoId));
+        return this.doUpdateMemoViewModel(() => this.memoViewModelStorage.deleteMemo(memoId));
     }
 
     /**
@@ -629,12 +629,12 @@ export default class ErdDocument {
      * @returns 操作後のモデル
      */
     public arrangeMemo(memoId: string, direction: "front" | "back"): ErdDocument {
-        return this.doUpdateMemoViewModel(() => this.memoViewModelStrage.arrangeMemo(memoId, direction));
+        return this.doUpdateMemoViewModel(() => this.memoViewModelStorage.arrangeMemo(memoId, direction));
     }
 
-    private doUpdateMemoViewModel(updateFunction: () => MemoViewModelStrage): ErdDocument {
-        const nextMemoViewStrage = updateFunction();
-        if (nextMemoViewStrage === this.memoViewModelStrage) {
+    private doUpdateMemoViewModel(updateFunction: () => MemoViewModelStorage): ErdDocument {
+        const nextMemoViewStorage = updateFunction();
+        if (nextMemoViewStorage === this.memoViewModelStorage) {
             return this;
         }
 
@@ -644,9 +644,9 @@ export default class ErdDocument {
             this.tableViewModelIds,
             this.tableViewModelMap,
             this.columnModelMap,
-            this.columnShareModelStrage,
-            this.relationViewModelStrage,
-            nextMemoViewStrage,
+            this.columnShareModelStorage,
+            this.relationViewModelStorage,
+            nextMemoViewStorage,
             this.databaseSettingModel
         );
     }
@@ -663,8 +663,8 @@ export default class ErdDocument {
             return this;
         }
 
-        const nextMemoViewStrage = this.memoViewModelStrage.moveMemo(memoIds, moving);
-        if (nextMemoViewStrage === this.memoViewModelStrage) {
+        const nextMemoViewStorage = this.memoViewModelStorage.moveMemo(memoIds, moving);
+        if (nextMemoViewStorage === this.memoViewModelStorage) {
             return this;
         }
 
@@ -674,9 +674,9 @@ export default class ErdDocument {
             this.tableViewModelIds,
             this.tableViewModelMap,
             this.columnModelMap,
-            this.columnShareModelStrage,
-            this.relationViewModelStrage,
-            nextMemoViewStrage,
+            this.columnShareModelStorage,
+            this.relationViewModelStorage,
+            nextMemoViewStorage,
             this.databaseSettingModel
         );
     }
@@ -698,9 +698,9 @@ export default class ErdDocument {
             this.tableViewModelIds,
             this.tableViewModelMap,
             this.columnModelMap,
-            this.columnShareModelStrage,
-            this.relationViewModelStrage,
-            this.memoViewModelStrage,
+            this.columnShareModelStorage,
+            this.relationViewModelStorage,
+            this.memoViewModelStorage,
             this.databaseSettingModel
         );
     }
@@ -722,9 +722,9 @@ export default class ErdDocument {
             this.tableViewModelIds,
             this.tableViewModelMap,
             this.columnModelMap,
-            this.columnShareModelStrage,
-            this.relationViewModelStrage,
-            this.memoViewModelStrage,
+            this.columnShareModelStorage,
+            this.relationViewModelStorage,
+            this.memoViewModelStorage,
             this.databaseSettingModel
         );
     }
@@ -735,15 +735,15 @@ export default class ErdDocument {
             .filter((viewModel): viewModel is TableViewModel => viewModel != null)
             .map(viewModel => viewModel.toJSON());
 
-        const { frontMemos, backMemos } = this.memoViewModelStrage.getMemos();
+        const { frontMemos, backMemos } = this.memoViewModelStorage.getMemos();
 
         return {
             documentName: this.documentName,
             lastUpdatedAt: this.lastUpdatedAt,
             tableViewModels: tableViewModels,
             columnModels: Array.from(this.columnModelMap.values()).map(model => model.toJSON()),
-            columnShareModels: this.columnShareModelStrage.getModels().map(model => model.toJSON()),
-            relationViewModels: this.relationViewModelStrage.getModels().map(model => model.toJSON()),
+            columnShareModels: this.columnShareModelStorage.getModels().map(model => model.toJSON()),
+            relationViewModels: this.relationViewModelStorage.getModels().map(model => model.toJSON()),
             foregroundMemos: frontMemos.map(memo => memo.toJSON()),
             backgroundMemos: backMemos.map(memo => memo.toJSON()),
             erdSettingModel: this.erdSettingModel.toJSON(),

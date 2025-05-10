@@ -50,6 +50,8 @@ const ErdCanvas = () => {
     const [relationEdge, setRelationEdge] = useState<Point | null>(null);
     // 中クリックにより Canvas 移動の起点となる位置を保持する
     const [panningPoint, setPanningPoint] = useState<Point | null>(null);
+    // FireFox の場合、ドラッグ完了後に click イベントが発生するため、ドラッグ距離を保持して、ドラッグ後のイベントを制御する
+    const [dragDistance, setDragDistance] = useState<number>(0);
 
     const erdDocument = documentsHolder.current();
 
@@ -108,12 +110,18 @@ const ErdCanvas = () => {
             return;
         }
 
+        // ドラッグ操作が行われていると判断した場合は、クリック時の制御を行わない
+        if (dragDistance > 5) {
+            return;
+        }
+
         // 以降の処理は SELECT モード
         dispatchSelectAction(RELEASE_ACTION);
     };
 
     // ドラッグが開始されたときの制御
     const handleDragStart = (event: MouseEvent) => {
+        setDragDistance(0);
         const mousePosition = getLogicalMousePosition(event, displayScale);
 
         // 中クリックの場合は、キャンバスを移動する
@@ -157,6 +165,7 @@ const ErdCanvas = () => {
         }
 
         setPanningPoint(mousePosition);
+
         if (erdCanvasRef.current) {
             erdCanvasRef.current.style.cursor = "all-scroll";
         }
@@ -182,6 +191,8 @@ const ErdCanvas = () => {
             return;
         }
 
+        // ドラッグ操作を記録する
+        setDragDistance(current => current + 1);
         dispatchDragAction({ type: "on_dragging", current: mousePosition });
     };
 
@@ -267,7 +278,7 @@ const ErdCanvas = () => {
             return;
         }
 
-        return initEffectOfMouseCorsorOnCanvas(editMode, panningPoint, erdCanvas);
+        return initEffectOfMouseCursorOnCanvas(editMode, panningPoint, erdCanvas);
     }, [editMode, panningPoint]);
 
     // 初回表示時に Canvas の中央にスクロール
@@ -282,7 +293,7 @@ const ErdCanvas = () => {
         return initEffectOfScrollOnCanvas(displayScale);
     }, [displayScale]);
 
-    // keyUp 時のイベントを widnow.document に登録
+    // keyUp 時のイベントを window.document に登録
     useEffect(() => {
         return initEffectOfKeyDownOnCanvas(documentsHolder, dispatchEditMode);
     }, [dispatchEditMode, documentsHolder]);
@@ -515,7 +526,7 @@ const initRectangleWithoutScale = (element: Element, displayScale: number) => {
     });
 };
 
-const initEffectOfMouseCorsorOnCanvas = (editMode: EditMode, panningPoint: Point | null, erdCanvas: HTMLDivElement) => {
+const initEffectOfMouseCursorOnCanvas = (editMode: EditMode, panningPoint: Point | null, erdCanvas: HTMLDivElement) => {
     const handleMouseIcon = () => {
         erdCanvas.style.cursor = (panningPoint != null) ? "all-scroll" :  findMouseCursorIcon(editMode);
     };
@@ -543,7 +554,7 @@ const findMouseCursorIcon = (editMode: EditMode) => {
 const initEffectOfScrollOnCanvas = (displayScale: number) => {
     const moveEdge = () => {
         const leftEdge = (DRAWABLE_AREA.width - CANVAS_AREA.width * displayScale) / 2;
-        const rigthEdge = (DRAWABLE_AREA.width + CANVAS_AREA.width * displayScale) / 2 - window.innerWidth;
+        const rightEdge = (DRAWABLE_AREA.width + CANVAS_AREA.width * displayScale) / 2 - window.innerWidth;
         const topEdge = (DRAWABLE_AREA.height - CANVAS_AREA.height * displayScale) / 2;
         const bottomEdge = (DRAWABLE_AREA.height + CANVAS_AREA.height * displayScale) / 2 - window.innerHeight;
 
@@ -554,9 +565,9 @@ const initEffectOfScrollOnCanvas = (displayScale: number) => {
         if (window.scrollX < leftEdge) {
             modifyScroll = true;
             nextScrollX = leftEdge;
-        } else if (window.scrollX > rigthEdge) {
+        } else if (window.scrollX > rightEdge) {
             modifyScroll = true;
-            nextScrollX = rigthEdge;
+            nextScrollX = rightEdge;
         }
         if (window.scrollY < topEdge) {
             modifyScroll = true;

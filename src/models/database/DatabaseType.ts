@@ -21,6 +21,8 @@ export class Database {
     }
 }
 
+// cSpell:disable
+
 const commonReservedWords = [
     "ALL", "AND", "ANY", "AS", "ASC", "BETWEEN", "BY", "CASE", "CHECK", "COLUMN", "CONSTRAINT", "CREATE",
     "CROSS", "CURRENT_DATE", "CURRENT_TIME", "CURRENT_TIMESTAMP", "CURRENT_USER", "DATABASE", "DEFAULT",
@@ -154,8 +156,11 @@ const mysqlReservedWords = [
     "X509", "XA", "XID", "XML", "XOR", "YEAR", "YEAR_MONTH", "ZEROFILL"
 ];
 
+// cSpell:enable
+
 export type Databases = { [key in DatabaseType]: Database };
 
+// cSpell: ignore SPGIST FULLTEXT
 export const databases: Databases = {
     "postgres": new Database("postgres", "PostgreSQL",
         new TableIndexSupport(["UNIQUE"], ["BTREE", "HASH", "GIST", "SPGIST", "GIN", "BRIN"], true),

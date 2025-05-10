@@ -76,7 +76,7 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         dispatchSelectAction(RELEASE_ACTION);
     };
 
-    const initLineSegumentInfo = (relationView: RelationViewModel) => {
+    const initLineSegmentInfo = (relationView: RelationViewModel) => {
 
         const findTableRectangle = (tableId: string) => {
             const rectangle = rectangleMap.get(tableId);
@@ -154,14 +154,14 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         const relationLinePairs = relationEdges.slice(0, -1)
             .map((value, index) => [value, relationEdges[index + 1]]);
 
-        const relationLineSeguments = relationLinePairs.map((pair, index) => {
+        const relationLineSegments = relationLinePairs.map((pair, index) => {
             const baseSvgPath: JSX.Element = initBaseSvgPath(relationView, index, pair);
             const drawingLine: string = initDrawingLine(relationView, index, pair);
 
             return { baseSvgPath, drawingLine };
         });
 
-        const svgBasePaths = relationLineSeguments.map(lineSegument => lineSegument.baseSvgPath);
+        const svgBasePaths = relationLineSegments.map(lineSegment => lineSegment.baseSvgPath);
         const svgEdges = initSvgEdges(relationView);
         const svgRemoveEdgePath = initSvgRemoveEdgePath(relationView, relationLinePairs);
 
@@ -169,7 +169,7 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
             ? [...svgBasePaths, ...svgEdges, svgRemoveEdgePath] : [...svgBasePaths, ...svgEdges];
 
         const drawingPath = `M ${parentEdge.x + DRAWABLE_AREA.width / 2},${parentEdge.y + DRAWABLE_AREA.height / 2}`
-            + relationLineSeguments.map(lineSegument => lineSegument.drawingLine).join(" ");
+            + relationLineSegments.map(lineSegment => lineSegment.drawingLine).join(" ");
 
         return { svgPaths, drawingPath };
     };
@@ -355,7 +355,7 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         const parentEdge = relationLinePairs[selectState.edgeId][0];
         const childEdge = relationLinePairs[selectState.edgeId + 1][1];
 
-        const deactiveLine = `M ${parentEdge.x + DRAWABLE_AREA.width / 2},${parentEdge.y + DRAWABLE_AREA.height / 2}`
+        const deActiveLine = `M ${parentEdge.x + DRAWABLE_AREA.width / 2},${parentEdge.y + DRAWABLE_AREA.height / 2}`
             + ` L ${childEdge.x + DRAWABLE_AREA.width / 2},${childEdge.y + DRAWABLE_AREA.height / 2}`;
 
         const initActiveDragModification = (majorChanging: boolean) => {
@@ -390,8 +390,8 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         };
 
         return (
-            <path key={`relation-line_${relationView.relationId}_deactive-line`}
-                d={deactiveLine} stroke="transparent" strokeWidth={15} fill="none"
+            <path key={`relation-line_${relationView.relationId}_deActive-line`}
+                d={deActiveLine} stroke="transparent" strokeWidth={15} fill="none"
                 className={styleClasses.inactiveDraggedSvg} style={{ pointerEvents: "auto" }}
                 onMouseEnter={initActiveDragModification(false)}
                 onMouseLeave={initActiveDragModification(true)}
@@ -413,8 +413,8 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
     };
 
     const elements = relationViews.map(relationView => {
-        const lineSegument = initLineSegumentInfo(relationView);
-        if (lineSegument == null) {
+        const lineSegment = initLineSegmentInfo(relationView);
+        if (lineSegment == null) {
             return null;
         }
 
@@ -450,11 +450,11 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         return {
             svgElement: (
                 <g key={`relation-line_${relationView.relationId}`}>
-                    <path d={lineSegument.drawingPath} stroke="black" fill="none"
+                    <path d={lineSegment.drawingPath} stroke="black" fill="none"
                         strokeWidth={relationView.lineViewModel.strokeWidth}
                         markerStart={parentMarker} markerEnd={childMarker}
                         className={initPathCss(relationView, selected)} />
-                    {lineSegument.svgPaths}
+                    {lineSegment.svgPaths}
                 </g>
             ),
             tooltip: tooltip

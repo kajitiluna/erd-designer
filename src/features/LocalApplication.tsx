@@ -2,21 +2,21 @@ import { useState } from "react";
 import { Container, Paper, Typography } from "@mui/material";
 
 import ErdDocument from "~/models/ErdDocument";
-import initializeErdDocumentDB from "~/features/strage/IndexedErdDocumentStrage";
+import initializeErdDocumentDB from "~/features/storage/IndexedErdDocumentStorage";
 import StartUp from "~/features/start_up/StartUp";
-import ErdDocumentStrage from "~/features/strage/ErdDocumentStrage";
+import ErdDocumentStorage from "~/features/storage/ErdDocumentStorage";
 import MainView from "~/features/MainView";
 import ExportSpecificationContext, { ImageContent } from "~/context/ExportSpecificationContext";
 import exportExcelFormatSpecification from "~/features/spec/ExcelFormatSpecification";
 import download from "~/components/file-downloader";
 
-const LocalApplicataion = () => {
-    const [documentStrage, setDocumentStrage] = useState<ErdDocumentStrage | null>(null);
+const LocalApplication = () => {
+    const [documentStorage, setDocumentStorage] = useState<ErdDocumentStorage | null>(null);
     const [erdDocument, setErdDocument] = useState<ErdDocument | null>(null);
-    const [strageHandler, setStrageHandler] = useState<StrageHandler>({ handle: () => { } });
+    const [storageHandler, setStorageHandler] = useState<StorageHandler>({ handle: () => { } });
 
-    if (documentStrage == null) {
-        initializeErdDocumentDB().then(strage => setDocumentStrage(strage));
+    if (documentStorage == null) {
+        initializeErdDocumentDB().then(storage => setDocumentStorage(storage));
 
         return (
             <Container>
@@ -35,13 +35,13 @@ const LocalApplicataion = () => {
     }
 
     const handleOpenDocument = (openDocument: ErdDocument, onSave: (document: ErdDocument) => void) => {
-        setStrageHandler({ handle: onSave });
+        setStorageHandler({ handle: onSave });
         setErdDocument(openDocument);
     };
 
     if (erdDocument == null) {
         return (
-            <StartUp documentStrage={documentStrage} onOpenDocument={handleOpenDocument} />
+            <StartUp documentStorage={documentStorage} onOpenDocument={handleOpenDocument} />
         );
     }
 
@@ -54,13 +54,13 @@ const LocalApplicataion = () => {
 
     return (
         <ExportSpecificationContext.Provider value={{ exportSpecification }}>
-            <MainView erdDocument={erdDocument} onSave={strageHandler.handle} />
+            <MainView erdDocument={erdDocument} onSave={storageHandler.handle} />
         </ExportSpecificationContext.Provider>
     );
 };
 
-type StrageHandler = {
+type StorageHandler = {
     handle: (updating: ErdDocument) => void
 };
 
-export default LocalApplicataion;
+export default LocalApplication;

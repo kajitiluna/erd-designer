@@ -1,7 +1,7 @@
-import ErdDocumentSummary from "~/features/strage/ErdDocumentSummary";
+import ErdDocumentSummary from "~/features/storage/ErdDocumentSummary";
 import ErdDocument from "~/models/ErdDocument";
 
-export default interface ErdDocumentStrage {
+export default interface ErdDocumentStorage {
 
     isAvailable(): boolean
 

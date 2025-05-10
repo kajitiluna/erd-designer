@@ -1,0 +1,6 @@
+{
+    "recommendations": [
+        "firefox-devtools.vscode-firefox-debug",
+        "vitest.explorer",
+    ]
+}

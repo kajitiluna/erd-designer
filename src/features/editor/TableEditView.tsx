@@ -1,12 +1,12 @@
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Stack, Tab, Tabs, TextField } from "@mui/material";
 import React, { useState } from "react";
-import { ColumnShareModelStrageContext } from "~/context/ColumnShareModelStrageContext";
+import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ColumnViewTable from "~/features/editor/ColumnViewTable";
 import IndexViewTable from "~/features/editor/IndexViewTable";
 import { initHandleChangeWithSyncPhysicalName } from "~/features/editor/support";
-import ColumnShareModelStrage from "~/models/ColumnShareModelStrage";
+import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
 import TableIndexModel from "~/models/database/TableIndexModel";
@@ -24,7 +24,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const erdDocument: ErdDocument = documentsHolder.current();
 
-    const [columnShareModelStrage, setColumnShareModelStrage] = useState(erdDocument.getColumnShareModelStrage());
+    const [columnShareModelStorage, setColumnShareModelStorage] = useState(erdDocument.getColumnShareModelStorage());
 
     const tableModel: TableModel = tableViewModel.tableModel;
     const [physicalTableName, setPhysicalTableName] = useState<string>(tableModel.physicalName);
@@ -52,7 +52,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
         }
 
         const columnNameSet = new Set<string>(columnModels
-            .map(columModel => columnShareModelStrage.find(columModel.columnShareModelId))
+            .map(columnModel => columnShareModelStorage.find(columnModel.columnShareModelId))
             .filter(shareModel => shareModel != null)
             .map(shareModel => (shareModel as ColumnShareModel).physicalName)
         );
@@ -62,7 +62,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
     const editValueValidated = (physicalTableName.length > 0) && (logicalTableName.length > 0)
         && validateColumnModels(columnModels);
 
-    const handleComplated = () => {
+    const handleCompleted = () => {
         if (editValueValidated === false) {
             return;
         }
@@ -93,7 +93,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             headerColor: tableViewModel.headerColor
         });
 
-        documentsHolder.updateTableViewModel(nextTableViewModel, columnModels, columnShareModelStrage);
+        documentsHolder.updateTableViewModel(nextTableViewModel, columnModels, columnShareModelStorage);
 
         onClose();
     };
@@ -118,9 +118,9 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
     </>);
 
     return (
-        <ColumnShareModelStrageContext.Provider value={{
-            columnShareModelStrage: columnShareModelStrage,
-            updateStrage: (updating: ColumnShareModelStrage) => setColumnShareModelStrage(updating)
+        <ColumnShareModelStorageContext.Provider value={{
+            columnShareModelStorage: columnShareModelStorage,
+            updateStorage: (updating: ColumnShareModelStorage) => setColumnShareModelStorage(updating)
         }}>
             <Dialog fullWidth maxWidth="lg" open={isOpen} sx={{ userSelect: "none" }} onClose={onClose}>
                 <DialogTitle>Edit Table</DialogTitle>
@@ -130,7 +130,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
                         <Stack direction="row" spacing={2}>
                             <TableNamePanel label="PhysicalName" value={physicalTableName}
                                 setValue={handleChangePhysicalName} />
-                            <TableNamePanel label="LogicallName" value={logicalTableName}
+                            <TableNamePanel label="LogicalName" value={logicalTableName}
                                 setValue={(event) => setLogicalTableName(event.target.value)} />
                         </Stack>
                         {tabPanel}
@@ -142,10 +142,10 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={onClose}>Cancel</Button>
-                    <Button variant="contained" disabled={!editValueValidated} onClick={handleComplated}>OK</Button>
+                    <Button variant="contained" disabled={!editValueValidated} onClick={handleCompleted}>OK</Button>
                 </DialogActions>
             </Dialog >
-        </ColumnShareModelStrageContext.Provider>
+        </ColumnShareModelStorageContext.Provider>
     );
 };
 

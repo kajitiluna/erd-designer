@@ -1,3 +1,12 @@
 {
     "typescript.preferences.importModuleSpecifier": "non-relative",
+    "cSpell.words": [
+        "exceljs",
+        "Gdrive",
+        "kajitiluna",
+        "officedocument",
+        "openxmlformats",
+        "spreadsheetml",
+        "testrun",
+    ],
 }

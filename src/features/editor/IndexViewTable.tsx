@@ -21,7 +21,7 @@ import EdgedIconButton from "~/components/EdgedIconButton";
 import ErdDocument from "~/models/ErdDocument";
 import ColumnModel from "~/models/database/ColumnModel";
 import TableIndexModel, { IndexColumnModel, NullsOrderType, SortOrderType } from "~/models/database/TableIndexModel";
-import { ColumnShareModelStrageContext } from "~/context/ColumnShareModelStrageContext";
+import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import TableIndexSupport, { TableIndexOption, TableIndexType } from "~/models/database/TableIndexSupport";
 import { initHandleChangePhysicalName } from "~/features/editor/support";
@@ -36,7 +36,7 @@ type IndexViewTableProps = {
 
 const IndexViewTable = ({ columnModels, tableIndexModels, onUpdateTableIndexModels }: IndexViewTableProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
-    const { columnShareModelStrage } = React.useContext(ColumnShareModelStrageContext);
+    const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
 
     const erdDocument: ErdDocument = documentsHolder.current();
 
@@ -54,7 +54,7 @@ const IndexViewTable = ({ columnModels, tableIndexModels, onUpdateTableIndexMode
     const cellStyle = { '&:nth-of-type(odd)': { backgroundColor: 'action.hover' } };
 
     const initColumnTitleRow = (columnModel: ColumnModel, rowIndex: number) => {
-        const columnShareModel = columnShareModelStrage.find(columnModel.columnShareModelId);
+        const columnShareModel = columnShareModelStorage.find(columnModel.columnShareModelId);
         const inChildRelation = erdDocument.inChildRelation(columnModel.columnModelId);
 
         return (
@@ -294,7 +294,7 @@ const IndexEditDialog = ({ isOpen, tableIndexModel, columnModels, onUpdateTableI
     }
 
     const editValueValidated = (physicalName.length > 0) && (indexedColumns.length > 0)
-    const handleComplated = () => {
+    const handleCompleted = () => {
         if (editValueValidated === false) {
             return;
         }
@@ -335,7 +335,7 @@ const IndexEditDialog = ({ isOpen, tableIndexModel, columnModels, onUpdateTableI
                     <Divider />
                     <Stack direction="row" spacing={2}>
                         {tableIndexSupport.indexOptions.map((targetOption) => (
-                            <FormControlLabel key={`indexoption_${targetOption}`} label={targetOption} control={
+                            <FormControlLabel key={`index_option_${targetOption}`} label={targetOption} control={
                                 <Checkbox checked={targetOption === indexOption}
                                     onChange={(event) => setIndexOption((event.target.checked ? targetOption : ""))} />
                             } />
@@ -353,7 +353,7 @@ const IndexEditDialog = ({ isOpen, tableIndexModel, columnModels, onUpdateTableI
                                     value={indexType} onChange={handleChangeIndexType}>
                                     <MenuItem value="">(Default)</MenuItem>
                                     {tableIndexSupport.indexTypes.map((targetIndexType) => (
-                                        <MenuItem key={`indextype/${targetIndexType}`}
+                                        <MenuItem key={`index_type/${targetIndexType}`}
                                             value={targetIndexType}>{targetIndexType}</MenuItem>
                                     ))}
                                 </Select>
@@ -371,7 +371,7 @@ const IndexEditDialog = ({ isOpen, tableIndexModel, columnModels, onUpdateTableI
             </DialogContent>
             <DialogActions>
                 <Button onClick={handleClose}>Cancel</Button>
-                <Button variant="contained" disabled={!editValueValidated} onClick={handleComplated}>OK</Button>
+                <Button variant="contained" disabled={!editValueValidated} onClick={handleCompleted}>OK</Button>
             </DialogActions>
         </Dialog>
     );
@@ -383,14 +383,14 @@ type IndexColumnTransferPanelProps = {
     onUpdateIndexedColumns: (updateFunction: ((previous: IndexModelAttribute[]) => IndexModelAttribute[])) => void
 };
 
-type ColumnModelDetaial = {
+type ColumnModelDetail = {
     columnModel: ColumnModel,
     columnShareModel: ColumnShareModel
 };
 
 const IndexColumnTransferPanel = ({ columnModels, indexedColumns, onUpdateIndexedColumns }: IndexColumnTransferPanelProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
-    const { columnShareModelStrage } = React.useContext(ColumnShareModelStrageContext);
+    const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
 
     const [selectedFromId, setSelectedFromId] = useState<string | null>(null);
     const [selectedIndexedId, setSelectedIndexedId] = useState<string | null>(null);
@@ -398,15 +398,15 @@ const IndexColumnTransferPanel = ({ columnModels, indexedColumns, onUpdateIndexe
     const erdDocument = documentsHolder.current();
     const databaseType = erdDocument.getDatabase();
 
-    const columnModelMap: Map<string, ColumnModelDetaial> = new Map(
+    const columnModelMap: Map<string, ColumnModelDetail> = new Map(
         columnModels
             .map((model) => {
                 return {
                     columnModel: model,
-                    columnShareModel: columnShareModelStrage.find(model.columnShareModelId)
+                    columnShareModel: columnShareModelStorage.find(model.columnShareModelId)
                 }
             })
-            .filter((pair): pair is ColumnModelDetaial => (pair.columnShareModel != null))
+            .filter((pair): pair is ColumnModelDetail => (pair.columnShareModel != null))
             .map((pair) => [pair.columnModel.columnModelId, pair])
     );
 
@@ -415,7 +415,7 @@ const IndexColumnTransferPanel = ({ columnModels, indexedColumns, onUpdateIndexe
     const fromColumnsPanel = columnModels
         .filter((model) => (indexedColumnModelIds.has(model.columnModelId) === false))
         .map((model) => columnModelMap.get(model.columnModelId))
-        .filter((pair): pair is ColumnModelDetaial => (pair != null))
+        .filter((pair): pair is ColumnModelDetail => (pair != null))
         .map((pair) => {
             const columnModelId = pair.columnModel.columnModelId;
             const columnShareModel = pair.columnShareModel;
@@ -489,7 +489,7 @@ const IndexColumnTransferPanel = ({ columnModels, indexedColumns, onUpdateIndexe
         })
         // カラムが削除された場合、該当する columnModelDetail が null になる
         .filter((pair): pair is {
-            indexedColumn: IndexColumnModel, columnModelDetail: ColumnModelDetaial
+            indexedColumn: IndexColumnModel, columnModelDetail: ColumnModelDetail
         } => (pair.columnModelDetail != null))
         .map((pair) => { return { ...pair.columnModelDetail, ...pair.indexedColumn } })
         .map((pair, arrayIndex) => {

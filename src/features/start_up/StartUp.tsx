@@ -8,38 +8,38 @@ import { v4 as uuidV4 } from 'uuid';
 
 import ErdDocument from "~/models/ErdDocument";
 import ErdDocumentListPanel from "~/features/start_up/ErdDocumentListPanel";
-import ErdDocumentStrage from "~/features/strage/ErdDocumentStrage";
+import ErdDocumentStorage from "~/features/storage/ErdDocumentStorage";
 import InitializeDatabaseDialog from "~/features/start_up/InitializeDatabaseDialog";
 import Logo from "~/logo.svg";
 import RegalFooter from "~/features/regal/RegalFooter";
 import ExplanationPanel from "~/features/regal/ExplanationPanel";
 
 type StartUpProp = {
-    documentStrage: ErdDocumentStrage,
+    documentStorage: ErdDocumentStorage,
     onOpenDocument: (openDocument: ErdDocument, onSave: (document: ErdDocument) => void) => void
 };
 
 type DiagramName = "new_file" | "load_file" | ""
 
-const StartUp = ({ documentStrage, onOpenDocument }: StartUpProp) => {
+const StartUp = ({ documentStorage, onOpenDocument }: StartUpProp) => {
     const [openDialogName, setOpenDialogName] = useState<DiagramName>("");
 
     const handleCloseDialog = () => setOpenDialogName("");
 
     const handleCreateDocument = (erdDocument: ErdDocument) => {
         const documentKey = uuidV4();
-        documentStrage.save(documentKey, erdDocument);
+        documentStorage.save(documentKey, erdDocument);
 
-        const handleOnSave = (updating: ErdDocument) => documentStrage.save(documentKey, updating);
+        const handleOnSave = (updating: ErdDocument) => documentStorage.save(documentKey, updating);
 
         onOpenDocument(erdDocument, handleOnSave);
     };
 
     const handleLoadDocument = (erdDocument: ErdDocument) => {
         const documentKey = uuidV4();
-        documentStrage.save(documentKey, erdDocument);
+        documentStorage.save(documentKey, erdDocument);
 
-        const handleOnSave = (updating: ErdDocument) => documentStrage.save(documentKey, updating);
+        const handleOnSave = (updating: ErdDocument) => documentStorage.save(documentKey, updating);
 
         onOpenDocument(erdDocument, handleOnSave);
     };
@@ -71,7 +71,7 @@ const StartUp = ({ documentStrage, onOpenDocument }: StartUpProp) => {
                         </Button>
                     </Stack>
                 </Box>
-                <ErdDocumentListPanel documentStrage={documentStrage} onOpenDocument={onOpenDocument} />
+                <ErdDocumentListPanel documentStorage={documentStorage} onOpenDocument={onOpenDocument} />
 
                 {(openDialogName === "new_file") && (
                     <InitializeDatabaseDialog
@@ -145,7 +145,7 @@ const LoadFileDialog = ({ isOpen, onLoadDocument, onClose }: LoadFileDialogProp)
     return (
         <>
             <Dialog fullWidth maxWidth="md" open={isOpen} onClose={onClose}>
-                <DialogTitle>Load ER Diagram from JSON file.</DialogTitle>
+                <DialogTitle>Load ER Diagram from ERD file.</DialogTitle>
                 <DialogContent>
                     <Divider />
                     <Stack spacing={3} style={{ margin: "20px" }}>

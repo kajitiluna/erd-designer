@@ -18,7 +18,7 @@ const GoogleDriveApplication = () => {
 };
 
 const GoogleDriveInnerApplication = () => {
-    const [implictToken, setImplicitToken] = useState<ImplicitToken>(initImplictToken);
+    const [implicitToken, setImplicitToken] = useState<ImplicitToken>(initImplicitToken);
 
     const authorize = useGoogleLogin({
         flow: "implicit",
@@ -39,7 +39,7 @@ const GoogleDriveInnerApplication = () => {
             console.warn(`Canceled to authorize. ${error}`);
         },
         onError: error => {
-            console.warn(`Failed to authroize. ${error}`);
+            console.warn(`Failed to authorize. ${error}`);
         }
     });
 
@@ -52,7 +52,7 @@ const GoogleDriveInnerApplication = () => {
             version: gdriveFile.version
         };
         sessionStorage.setItem("temporaryDocument", JSON.stringify(temporaryDocument));
-        sessionStorage.setItem("temporaryToken", JSON.stringify(implictToken));
+        sessionStorage.setItem("temporaryToken", JSON.stringify(implicitToken));
 
         window.history.replaceState(null, "", "/erd-designer/gdrive");
         window.location.href = "/erd-designer/gdrive";
@@ -67,13 +67,13 @@ const GoogleDriveInnerApplication = () => {
         <Routes>
             <Route path='init' element={
                 <GoogleDriveInitializer
-                    implictToken={implictToken}
+                    implicitToken={implicitToken}
                     authorize={authorize}
                     onInitialize={handleInitialize} />
             } />
             <Route path='' element={
                 <GoogleDriveFile
-                    implictToken={implictToken}
+                    implicitToken={implicitToken}
                     authorize={authorize} />
             } />
         </Routes>
@@ -90,19 +90,19 @@ type ImplicitToken = {
     expiresAt: number
 };
 
-const initImplictToken = (): ImplicitToken => {
+const initImplicitToken = (): ImplicitToken => {
     const temporaryToken = sessionStorage.getItem("temporaryToken");
 
     if (temporaryToken == null) {
         return { accessToken: "", expiresAt: 0 };
     }
 
-    const implictToken = JSON.parse(temporaryToken);
-    if ((!("accessToken" in implictToken) || !("expiresAt" in implictToken))) {
+    const implicitToken = JSON.parse(temporaryToken);
+    if ((!("accessToken" in implicitToken) || !("expiresAt" in implicitToken))) {
         return { accessToken: "", expiresAt: 0 };
     }
 
-    return implictToken;
+    return implicitToken;
 };
 
 type GdriveFile = {

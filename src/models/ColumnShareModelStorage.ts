@@ -1,6 +1,6 @@
 import ColumnShareModel from "~/models/database/ColumnShareModel";
 
-export default class ColumnShareModelStrage {
+export default class ColumnShareModelStorage {
 
     private columnShareModelMap: Map<string, ColumnShareModel>;
 
@@ -13,7 +13,7 @@ export default class ColumnShareModelStrage {
             : columnShareModels.map((model) => [model.columnShareModelId, model])
         );
 
-        return new ColumnShareModelStrage(mapping);
+        return new ColumnShareModelStorage(mapping);
     }
 
     getModels(): ColumnShareModel[] {
@@ -62,7 +62,7 @@ export default class ColumnShareModelStrage {
         );
     }
 
-    copy(): ColumnShareModelStrage {
-        return new ColumnShareModelStrage(new Map(this.columnShareModelMap));
+    copy(): ColumnShareModelStorage {
+        return new ColumnShareModelStorage(new Map(this.columnShareModelMap));
     }
 }

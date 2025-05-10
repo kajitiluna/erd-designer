@@ -28,14 +28,14 @@ const ColorSelector = ({ color = ColorValue.WHITE, shape = "circle", callback }:
         <IconButton onMouseDown={handleClick}>
             <CircleIcon sx={{
                 color: color.toHex(),
-                stroke: color.revierseGrayscale().toHex(), strokeWidth: "1px"
+                stroke: color.reverseGrayscale().toHex(), strokeWidth: "1px"
             }} />
         </IconButton>
     ) : (
         <Box onClick={handleClick} sx={{
             height: "30px",
             backgroundColor: color.toHex(),
-            border: `1px solid ${color.revierseGrayscale().toHex()}`,
+            border: `1px solid ${color.reverseGrayscale().toHex()}`,
             borderRadius: "5px",
             margin: "10px"
         }} className={ColorSelectorStyle.colorSelector} />

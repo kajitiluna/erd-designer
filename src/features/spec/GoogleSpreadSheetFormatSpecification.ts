@@ -109,7 +109,7 @@ const createTableSpecSheet = (databaseType: DatabaseType, tableSpec: TableDetail
     const tableSummaryRecords = [
         { title: "TableName (physical)", value: tableSpec.physicalName },
         { title: "TableName (logical)", value: tableSpec.logicalName },
-        { title: "Description", value: tableSpec.description, heigth: 60 }
+        { title: "Description", value: tableSpec.description, height: 60 }
     ];
     const totalSummaryInfo = doInitVerticalGridContent(tableSummaryRecords);
     const totalSummary = {
@@ -119,7 +119,7 @@ const createTableSpecSheet = (databaseType: DatabaseType, tableSpec: TableDetail
     };
 
     // カラム定義
-    const columnGridTtile = {
+    const columnGridTitle = {
         startRow: totalSummaryInfo.rowData.length + 1,
         startColumn: 0,
         rowData: [{ values: [initBoldCell("Columns Specification")] }],
@@ -130,7 +130,7 @@ const createTableSpecSheet = (databaseType: DatabaseType, tableSpec: TableDetail
         headers: columnsHeader, rows: Array.from(tableSpec.exportColumns())
     });
     const columnSummary = {
-        startRow: columnGridTtile.startRow + 1,
+        startRow: columnGridTitle.startRow + 1,
         startColumn: 0,
         rowData: columnRowData,
         columnMetadata: columnMetadata
@@ -144,7 +144,7 @@ const createTableSpecSheet = (databaseType: DatabaseType, tableSpec: TableDetail
     ];
 
     // インデックス定義
-    const tableIndexGridTtile = {
+    const tableIndexGridTitle = {
         startRow: columnSummary.startRow + columnRowData.length + 1,
         startColumn: 0,
         rowData: [{ values: [initBoldCell("Indexes Specification")] }],
@@ -152,7 +152,7 @@ const createTableSpecSheet = (databaseType: DatabaseType, tableSpec: TableDetail
 
     const tableIndexGrids = [];
     const tableIndexMergeRanges = [];
-    let startRow = tableIndexGridTtile.startRow + 1;
+    let startRow = tableIndexGridTitle.startRow + 1;
     for (const tableIndex of tableSpec.exportTableIndexes()) {
         const { gridData, mergeRanges } = initTableIndexContent(startRow, databaseType, tableIndex);
 
@@ -174,8 +174,8 @@ const createTableSpecSheet = (databaseType: DatabaseType, tableSpec: TableDetail
 
     return {
         properties: sheetProperty,
-        data: [totalSummary, columnGridTtile, columnSummary]
-            .concat((tableIndexGrids.length > 0) ? [tableIndexGridTtile, ...tableIndexGrids] : []),
+        data: [totalSummary, columnGridTitle, columnSummary]
+            .concat((tableIndexGrids.length > 0) ? [tableIndexGridTitle, ...tableIndexGrids] : []),
         mergeRanges: summaryMergeRanges.concat(tableIndexMergeRanges)
     };
 };
@@ -195,7 +195,7 @@ const initTableIndexContent = (
         { title: "IndexName", value: tableIndex.indexName },
         { title: "IndexType", value: tableIndex.indexType },
         { title: "Option", value: tableIndex.indexOption },
-        { title: "Description", value: tableIndex.description, heigth: 60 },
+        { title: "Description", value: tableIndex.description, height: 60 },
         {
             title: "Indexed Columns",
             value: { headers: subHeaders, rows: tableIndex.indexedColumns }
@@ -349,7 +349,7 @@ const doInitGridContent = ({ headers, rows }: GridContentArgs) => {
 type VerticalGridContentArgs = {
     title: string,
     value: string | GridContentArgs,
-    heigth?: number
+    height?: number
 };
 
 const doInitVerticalGridContent = (contents: VerticalGridContentArgs[]) => {
@@ -442,7 +442,7 @@ const doInitVerticalGridContent = (contents: VerticalGridContentArgs[]) => {
     });
 
     const rowMetadata = contents.flatMap(content => {
-        const metadata = [content.heigth ? { pixelSize: content.heigth } : {}];
+        const metadata = [content.height ? { pixelSize: content.height } : {}];
 
         if (typeof content.value === "string") {
             return metadata;

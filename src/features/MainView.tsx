@@ -13,13 +13,13 @@ import DisplayScalePanel from "~/features/canvas/DisplayScalePanel";
 import ErdCanvas from "~/features/canvas/ErdCanvas";
 import EditMode, { EditModeType } from "~/models/EditMode";
 import ErdDocument from "~/models/ErdDocument";
-import { DEFAULT_LOVAL_SETTING, LocalSettingContext, reduceLocalSetting } from "~/context/LocalSettingContext";
+import { DEFAULT_LOCAL_SETTING, LocalSettingContext, reduceLocalSetting } from "~/context/LocalSettingContext";
 import TitlePanel from "~/features/canvas/TitlePanel";
 
 type MainViewProps = {
     erdDocument: ErdDocument,
     onSave: (updating: ErdDocument) => void,
-    erdExortable?: boolean
+    erdExportable?: boolean
 };
 
 type ErdDocumentsHolderOptions = {
@@ -27,12 +27,12 @@ type ErdDocumentsHolderOptions = {
     cursor: number
 };
 
-const MainView = ({ erdDocument, onSave, erdExortable = true }: MainViewProps) => {
+const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) => {
 
     const [holderProps, setHolderProps] = useState<ErdDocumentsHolderOptions>({ erdDocuments: [erdDocument], cursor: 0 });
     const [selectState, dispatchSelectAction] = useReducer(reduceSelectAction, EMPTY_SELECT_STATE);
     const [editMode, dispatchEditMode] = useReducer(initReduceEditMode(dispatchSelectAction), EditModeType.SELECT);
-    const [localSetting, dispatchLocalSetting] = useReducer(reduceLocalSetting, DEFAULT_LOVAL_SETTING);
+    const [localSetting, dispatchLocalSetting] = useReducer(reduceLocalSetting, DEFAULT_LOCAL_SETTING);
     const [scale, setScale] = useState<number>(1);
 
     const handleOnSave = (documents: ErdDocument[], cursor: number) => {
@@ -77,7 +77,7 @@ const MainView = ({ erdDocument, onSave, erdExortable = true }: MainViewProps) =
                                 <TitlePanel />
                             </Box>
                             <Box sx={controlPanelStyle}>
-                                <ControlPanel erdExortable={erdExortable} />
+                                <ControlPanel erdExportable={erdExportable} />
                             </Box>
                             <Box sx={scalePanelStyle}>
                                 <DisplayScalePanel scale={scale} onChangeScale={setScale} />

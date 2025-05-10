@@ -1,4 +1,4 @@
-
+// cSpell: ignore FULLTEXT SPGIST
 export type TableIndexOption = "UNIQUE" | "FULLTEXT" | "SPATIAL" | "";
 export type TableIndexType = "BTREE" | "HASH" | "GIST" | "SPGIST" | "GIN" | "BRIN" | "";
 

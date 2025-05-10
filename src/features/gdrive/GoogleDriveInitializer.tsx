@@ -9,19 +9,19 @@ import Logo from "~/logo.svg";
 import RegalFooter from "~/features/regal/RegalFooter";
 
 type GoogleDriveInitializerProp = {
-    implictToken: { accessToken: string, expiresAt: number },
+    implicitToken: { accessToken: string, expiresAt: number },
     authorize: () => void,
     onInitialize: (gdriveFile: GdriveFile) => void
 };
 
-const GoogleDriveInitializer = ({ implictToken, authorize, onInitialize }: GoogleDriveInitializerProp) => {
+const GoogleDriveInitializer = ({ implicitToken, authorize, onInitialize }: GoogleDriveInitializerProp) => {
     const [gdriveFolderId, setGdriveFolderId] = useState<string | null>(null);
     const [erdDocument, setErdDocument] = useState<ErdDocument | null>(null);
 
     const gdriveState = useGdriveStateParam();
 
     const handleCreateDocument = (erdDocument: ErdDocument) => {
-        if ((gdriveFolderId == null) || (implictToken.accessToken === "")) {
+        if ((gdriveFolderId == null) || (implicitToken.accessToken === "")) {
             return;
         }
 
@@ -30,13 +30,13 @@ const GoogleDriveInitializer = ({ implictToken, authorize, onInitialize }: Googl
 
     useEffect(() => {
         const currentDate = new Date().getTime();
-        if (implictToken.expiresAt < currentDate) {
+        if (implicitToken.expiresAt < currentDate) {
             return;
         }
 
         if (gdriveState.action === "open") {
             openGdriveFile({
-                accessToken: implictToken.accessToken, fileId: gdriveState.fileId
+                accessToken: implicitToken.accessToken, fileId: gdriveState.fileId
             }).then(gdriveFile => {
                 onInitialize(gdriveFile);
             }).catch(error => {
@@ -47,7 +47,7 @@ const GoogleDriveInitializer = ({ implictToken, authorize, onInitialize }: Googl
         if (gdriveState.action === "create") {
             setGdriveFolderId(gdriveState.folderId);
         }
-    }, [implictToken, gdriveState, authorize, onInitialize]);
+    }, [implicitToken, gdriveState, authorize, onInitialize]);
 
     // GoogleDrive にファイルを新規作成する
     useEffect(() => {
@@ -56,13 +56,13 @@ const GoogleDriveInitializer = ({ implictToken, authorize, onInitialize }: Googl
         }
 
         createGdriveFile({
-            accessToken: implictToken.accessToken, folderId: gdriveFolderId, erdDocument
+            accessToken: implicitToken.accessToken, folderId: gdriveFolderId, erdDocument
         }).then(gdriveFile => {
             onInitialize(gdriveFile);
         }).catch(error => {
             console.error(`Failed to create file. ${error}`);
         });
-    }, [erdDocument, gdriveFolderId, implictToken.accessToken, onInitialize]);
+    }, [erdDocument, gdriveFolderId, implicitToken.accessToken, onInitialize]);
 
     const boxStyle = {
         marginTop: 8,
@@ -73,7 +73,7 @@ const GoogleDriveInitializer = ({ implictToken, authorize, onInitialize }: Googl
 
     const currentDate = new Date().getTime();
     const onProcessing = (erdDocument != null)
-        || ((implictToken.expiresAt >= currentDate) && (gdriveState.action === "open"));
+        || ((implicitToken.expiresAt >= currentDate) && (gdriveState.action === "open"));
 
     return (
         <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
@@ -83,7 +83,7 @@ const GoogleDriveInitializer = ({ implictToken, authorize, onInitialize }: Googl
                     Entity Relationship Diagram Designer
                 </Typography>
 
-                {(implictToken.expiresAt < currentDate) && (
+                {(implicitToken.expiresAt < currentDate) && (
                     <Stack spacing={2} sx={{ justifyContent: "center", alignItems: "center" }}>
                         <Typography variant="body1" gutterBottom>
                             Need to authorize to edit the ERD file on the Google Drive.

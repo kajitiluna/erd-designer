@@ -2,7 +2,7 @@ import MemoViewModel from "~/models/MemoViewModel";
 
 type MemoDirection = "front" | "back";
 
-export default class MemoViewModelStrage {
+export default class MemoViewModelStorage {
 
     private memoIdMap: Map<string, MemoViewModel>;
     private foregroundIds: readonly string[];
@@ -18,8 +18,8 @@ export default class MemoViewModelStrage {
         this.backgroundIds = backgroundIds;
     }
 
-    public static create(foregroundMemos: MemoViewModel[], backgroundMemos: MemoViewModel[]): MemoViewModelStrage {
-        return new MemoViewModelStrage(
+    public static create(foregroundMemos: MemoViewModel[], backgroundMemos: MemoViewModel[]): MemoViewModelStorage {
+        return new MemoViewModelStorage(
             new Map(foregroundMemos.concat(backgroundMemos).map(memo => [memo.memoId, memo])),
             foregroundMemos.map(memo => memo.memoId),
             backgroundMemos.map(memo => memo.memoId)
@@ -41,24 +41,24 @@ export default class MemoViewModelStrage {
         return { frontMemos, backMemos };
     }
 
-    public addMemo(addingMemo: MemoViewModel, position: MemoDirection = "front"): MemoViewModelStrage {
+    public addMemo(addingMemo: MemoViewModel, position: MemoDirection = "front"): MemoViewModelStorage {
         const nextMemoIdMap = new Map(this.memoIdMap);
         nextMemoIdMap.set(addingMemo.memoId, addingMemo);
 
         const nextFronts = (position === "front") ? [...this.foregroundIds, addingMemo.memoId] : this.foregroundIds;
         const nextBacks = (position === "back") ? [addingMemo.memoId, ...this.backgroundIds] : this.backgroundIds;
 
-        return new MemoViewModelStrage(nextMemoIdMap, nextFronts, nextBacks);
+        return new MemoViewModelStorage(nextMemoIdMap, nextFronts, nextBacks);
     }
 
-    public updateMemo(updatingMemo: MemoViewModel): MemoViewModelStrage {
+    public updateMemo(updatingMemo: MemoViewModel): MemoViewModelStorage {
         const nextMemoIdMap = new Map(this.memoIdMap);
         nextMemoIdMap.set(updatingMemo.memoId, updatingMemo);
 
-        return new MemoViewModelStrage(nextMemoIdMap, this.foregroundIds, this.backgroundIds);
+        return new MemoViewModelStorage(nextMemoIdMap, this.foregroundIds, this.backgroundIds);
     }
 
-    public deleteMemo(memoId: string): MemoViewModelStrage {
+    public deleteMemo(memoId: string): MemoViewModelStorage {
         const nextMemoIdMap = new Map(this.memoIdMap);
         const deleted = nextMemoIdMap.delete(memoId);
         if (deleted === false) {
@@ -71,10 +71,10 @@ export default class MemoViewModelStrage {
         const nextFronts = (frontIndex >= 0) ? removeElement(this.foregroundIds, frontIndex) : this.foregroundIds;
         const nextBacks = (backIndex >= 0) ? removeElement(this.backgroundIds, backIndex) : this.backgroundIds;
 
-        return new MemoViewModelStrage(nextMemoIdMap, nextFronts, nextBacks);
+        return new MemoViewModelStorage(nextMemoIdMap, nextFronts, nextBacks);
     }
 
-    public moveMemo(memoIds: string[], moving: { x: number, y: number }): MemoViewModelStrage {
+    public moveMemo(memoIds: string[], moving: { x: number, y: number }): MemoViewModelStorage {
         const nextMemoIdMap = new Map(this.memoIdMap);
         memoIds.forEach(memoId => {
             const current = nextMemoIdMap.get(memoId);
@@ -85,10 +85,10 @@ export default class MemoViewModelStrage {
             nextMemoIdMap.set(memoId, current.move(moving));
         });
 
-        return new MemoViewModelStrage(nextMemoIdMap, this.foregroundIds, this.backgroundIds);
+        return new MemoViewModelStorage(nextMemoIdMap, this.foregroundIds, this.backgroundIds);
     }
 
-    public arrangeMemo(memoId: string, direction: MemoDirection): MemoViewModelStrage {
+    public arrangeMemo(memoId: string, direction: MemoDirection): MemoViewModelStorage {
         const targetMemo = this.memoIdMap.get(memoId);
         if (targetMemo == null) {
             return this;
@@ -108,7 +108,7 @@ export default class MemoViewModelStrage {
         const nextFronts = (frontIndex >= 0) ? removeElement(this.foregroundIds, frontIndex) : this.foregroundIds;
         const nextBacks = (backIndex >= 0) ? removeElement(this.backgroundIds, backIndex) : this.backgroundIds;
 
-        return new MemoViewModelStrage(
+        return new MemoViewModelStorage(
             this.memoIdMap,
             ((direction === "front") ? [...nextFronts, memoId] : nextFronts),
             ((direction === "back") ? [memoId, ...nextBacks] : nextBacks)
