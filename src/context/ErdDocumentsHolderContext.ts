@@ -1,6 +1,6 @@
 import React from "react";
 import ColorValue from "~/models/ColorValue";
-import ColumnShareModelStrage from "~/models/ColumnShareModelStrage";
+import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import ColumnModel from "~/models/database/ColumnModel";
 import RelationModel from "~/models/database/RelationModel";
 import ErdDocument from "~/models/ErdDocument";
@@ -17,40 +17,40 @@ export class ErdDocumentsHolder {
 
     private cursor: number;
 
-    private readonly updateDoocument: (documents: ErdDocument[], cursor: number) => void;
+    private readonly updateDocument: (documents: ErdDocument[], cursor: number) => void;
 
-    constructor(erdDocuments: ErdDocument[], cursor: number, updateDoocument: (documents: ErdDocument[], cursor: number) => void) {
+    constructor(erdDocuments: ErdDocument[], cursor: number, updateDocument: (documents: ErdDocument[], cursor: number) => void) {
         this.erdDocuments = erdDocuments;
         this.cursor = cursor;
-        this.updateDoocument = updateDoocument;
+        this.updateDocument = updateDocument;
     }
 
     public current(): ErdDocument {
         return this.erdDocuments[this.cursor];
     }
 
-    public undoable(): boolean {
+    public canUndo(): boolean {
         return this.cursor < this.erdDocuments.length - 1;
     }
 
     public undo() {
-        if (this.undoable() === false) {
+        if (this.canUndo() === false) {
             return;
         }
 
-        this.updateDoocument(this.erdDocuments, this.cursor + 1);
+        this.updateDocument(this.erdDocuments, this.cursor + 1);
     }
 
-    public redoable(): boolean {
+    public canRedo(): boolean {
         return this.cursor > 0;
     }
 
     public redo() {
-        if (this.redoable() === false) {
+        if (this.canRedo() === false) {
             return;
         }
 
-        this.updateDoocument(this.erdDocuments, this.cursor - 1);
+        this.updateDocument(this.erdDocuments, this.cursor - 1);
     }
 
     private doUpdate(next: ErdDocument) {
@@ -58,7 +58,7 @@ export class ErdDocumentsHolder {
         const nextHistory = this.erdDocuments.slice(this.cursor, lastIndex);
         nextHistory.unshift(next);
 
-        this.updateDoocument(nextHistory, 0);
+        this.updateDocument(nextHistory, 0);
     }
 
     /**
@@ -66,17 +66,17 @@ export class ErdDocumentsHolder {
      * 
      * @param updatingTableViewModel テーブルモデル
      * @param updatingColumnModels 更新後のカラムモデル
-     * @param columnShareModelStrage カラム共有モデル
+     * @param columnShareModelStorage カラム共有モデル
      * @returns 操作後のモデル
      */
     public updateTableViewModel(
         updatingModel: TableViewModel,
         updatingColumnModels: ColumnModel[],
-        columnShareModelRepository: ColumnShareModelStrage
+        columnShareModelStorage: ColumnShareModelStorage
     ) {
         const previousModel = this.current();
         const nextModel = previousModel.updateTableViewModel(
-            updatingModel, updatingColumnModels, columnShareModelRepository
+            updatingModel, updatingColumnModels, columnShareModelStorage
         );
 
         this.doUpdate(nextModel);
@@ -166,7 +166,7 @@ export class ErdDocumentsHolder {
 
     private doUpdateRelationEdge(relationId: string, updateFunction: (previous: LineViewModel) => LineViewModel) {
         const previous: ErdDocument = this.current();
-        const previousRelation = previous.findRelataionViewModel(relationId);
+        const previousRelation = previous.findRelationViewModel(relationId);
         if (previousRelation == null) {
             return;
         }

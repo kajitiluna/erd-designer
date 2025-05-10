@@ -5,24 +5,24 @@ import {
     IconButton, List, ListItem, ListItemButton, ListItemText, Paper, Stack, Typography
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
-import ErdDocumentStrage from "~/features/strage/ErdDocumentStrage";
+import ErdDocumentStorage from "~/features/storage/ErdDocumentStorage";
 import ErdDocument from "~/models/ErdDocument";
-import ErdDocumentSummary from "~/features/strage/ErdDocumentSummary";
+import ErdDocumentSummary from "~/features/storage/ErdDocumentSummary";
 
 
 type ErdDocumentListPanelProp = {
-    documentStrage: ErdDocumentStrage,
+    documentStorage: ErdDocumentStorage,
     onOpenDocument: (openDocument: ErdDocument, onSave: (document: ErdDocument) => void) => void
 };
 
-const ErdDocumentListPanel = ({ documentStrage, onOpenDocument }: ErdDocumentListPanelProp) => {
+const ErdDocumentListPanel = ({ documentStorage, onOpenDocument }: ErdDocumentListPanelProp) => {
 
     const [erdSummaries, setErdSummaries] = useState<ErdDocumentSummary[] | null>(null);
     // 削除対象として選択された ErdDocument のキー
     const [deletingDocument, setDeletingDocument] = useState<ErdDocumentSummary | null>(null);
 
     if (erdSummaries == null) {
-        documentStrage.findAll().then(documents => setErdSummaries(documents));
+        documentStorage.findAll().then(documents => setErdSummaries(documents));
     }
 
     if (erdSummaries == null) {
@@ -32,13 +32,13 @@ const ErdDocumentListPanel = ({ documentStrage, onOpenDocument }: ErdDocumentLis
     }
 
     const handleOpenDocument = (key: string) => {
-        documentStrage.find(key).then(document => {
+        documentStorage.find(key).then(document => {
             if (document == null) {
-                console.warn(`Not dound document. key : ${key}`);
+                console.warn(`Not found document. key : ${key}`);
                 return;
             }
 
-            const handleOnSave = (updating: ErdDocument) => documentStrage.save(key, updating);
+            const handleOnSave = (updating: ErdDocument) => documentStorage.save(key, updating);
 
             onOpenDocument(document, handleOnSave);
         });
@@ -63,8 +63,8 @@ const ErdDocumentListPanel = ({ documentStrage, onOpenDocument }: ErdDocumentLis
     const handleCloseDialog = () => setDeletingDocument(null);
     // ErdDocument を削除した後は、ErdDocument の一覧を再取得して、一覧表示を更新する
     const handleDeleteDocument = (summary: ErdDocumentSummary) => {
-        documentStrage.delete(summary.key)
-            .then(() => documentStrage.findAll())
+        documentStorage.delete(summary.key)
+            .then(() => documentStorage.findAll())
             .then(summaries => setErdSummaries(summaries));
 
         handleCloseDialog();

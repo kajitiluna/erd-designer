@@ -29,10 +29,10 @@ import { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
 import ExportSpecificationContext, { ImageContent } from "~/context/ExportSpecificationContext";
 
 type ControlPanelProps = {
-    erdExortable: boolean
+    erdExportable: boolean
 };
 
-const ControlPanel = ({ erdExortable }: ControlPanelProps) => {
+const ControlPanel = ({ erdExportable }: ControlPanelProps) => {
     const panelStyle = {
         display: "flex",
         flexDirection: "column",
@@ -50,7 +50,7 @@ const ControlPanel = ({ erdExortable }: ControlPanelProps) => {
         <Box sx={panelStyle}>
             <EditModePanel />
             <ActionPanel />
-            <SubMenuButton erdExortable={erdExortable} />
+            <SubMenuButton erdExportable={erdExportable} />
         </Box>
     );
 };
@@ -147,11 +147,11 @@ const ActionPanel = () => {
                 </Select>
             </FormControl>
             <Button key="undo" variant="text" startIcon={<UndoIcon />}
-                disabled={!documentsHolder.undoable()} onClick={() => documentsHolder.undo()}>
+                disabled={!documentsHolder.canUndo()} onClick={() => documentsHolder.undo()}>
                 Undo
             </Button>
             <Button key="undo" variant="text" startIcon={<RedoIcon />}
-                disabled={!documentsHolder.redoable()} onClick={() => documentsHolder.redo()}>
+                disabled={!documentsHolder.canRedo()} onClick={() => documentsHolder.redo()}>
                 Redo
             </Button>
         </ButtonGroup>
@@ -159,10 +159,10 @@ const ActionPanel = () => {
 };
 
 type SubMenuButtonProps = {
-    erdExortable: boolean
+    erdExportable: boolean
 };
 
-const SubMenuButton = ({ erdExortable }: SubMenuButtonProps) => {
+const SubMenuButton = ({ erdExportable }: SubMenuButtonProps) => {
     const { dispatchSelectAction } = React.useContext(SelectEntityContext);
     const [configureElement, setConfigureElement] = useState<HTMLElement | null>();
     const [selectedMenu, setSelectedMenu] = useState<"export_ddl" | "">("");
@@ -214,7 +214,7 @@ const SubMenuButton = ({ erdExortable }: SubMenuButtonProps) => {
                     <MenuItem onClick={() => setSelectedMenu("export_ddl")}>Export DDL</MenuItem>
                     <MenuItem onClick={handleSaveAsImage}>Save as image</MenuItem>
                     <MenuItem onClick={handleExportSpecification}>Export specification</MenuItem>
-                    {erdExortable && <MenuItem onClick={handleSaveToJson}>Save to ERD file</MenuItem>}
+                    {erdExportable && <MenuItem onClick={handleSaveToJson}>Save to ERD file</MenuItem>}
                 </Menu>
             </Box>
 

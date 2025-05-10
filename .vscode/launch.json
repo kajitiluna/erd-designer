@@ -7,9 +7,22 @@
         {
             "type": "chrome",
             "request": "launch",
-            "name": "Debug for vite",
+            "name": "Debug for vite (Chrome)",
             "url": "http://localhost:5173",
             "webRoot": "${workspaceFolder}"
+        },
+        {
+            "type": "firefox",
+            "request": "launch",
+            "name": "Debug for vite (FireFox)",
+            "url": "http://localhost:5173",
+            "webRoot": "${workspaceFolder}",
+            "pathMappings": [
+                {
+                    "url": "http://localhost:5173/erd-designer/src",
+                    "path": "${workspaceFolder}/src"
+                }
+            ]
         }
     ]
 }

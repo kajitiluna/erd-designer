@@ -71,7 +71,7 @@ export default class ColumnShareModel {
                 scale: this.scale,
                 onNotNull: notNull,
                 defaultValue: this.defaultValue,
-                onUnsign: this.unsigned,
+                onUnsigned: this.unsigned,
                 onAutoIncrement: autoIncrement,
                 inChildRelation
             }

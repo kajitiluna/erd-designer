@@ -10,11 +10,11 @@ import ExportSpecificationContext from "~/context/ExportSpecificationContext";
 import exportSpreadSheetFormatSpecification from "~/features/spec/GoogleSpreadSheetFormatSpecification";
 
 type GoogleDriveFileProp = {
-    implictToken: { accessToken: string, expiresAt: number },
+    implicitToken: { accessToken: string, expiresAt: number },
     authorize: () => void
 };
 
-const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
+const GoogleDriveFile = ({ implicitToken, authorize }: GoogleDriveFileProp) => {
     const [sessionDocument, setSessionDocument] = useState<SessionDocument | null>(initSessionDocument);
     const [messageToast, setMessageToast] = useState<MessageToast | null>(null);
     const updateQueueRef = React.useRef<Promise<string>>(Promise.resolve(""));
@@ -36,7 +36,7 @@ const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
         }
 
         const latestMetadata = await findGdriveMetadata({
-            accessToken: implictToken.accessToken, fileId: gdriveFileId
+            accessToken: implicitToken.accessToken, fileId: gdriveFileId
         });
 
         if (currentVersion !== latestMetadata.version) {
@@ -66,7 +66,7 @@ const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
 
         const withUpdateName = (`${nextDocument.documentName}.erd` !== latestMetadata.fileName);
         const result = await updateGdriveFile({
-            accessToken: implictToken.accessToken, fileId: gdriveFileId,
+            accessToken: implicitToken.accessToken, fileId: gdriveFileId,
             erdDocument: nextDocument, withName: withUpdateName
         });
 
@@ -85,7 +85,7 @@ const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
     const exportSpecification = (erdDocument: ErdDocument) => {
         const specInfo = exportSpreadSheetFormatSpecification(erdDocument);
 
-        createSpreadSheet(implictToken.accessToken, specInfo).then(spreadSheetId => {
+        createSpreadSheet(implicitToken.accessToken, specInfo).then(spreadSheetId => {
             const handleOpenSpec = (event: MouseEvent) => {
                 event.stopPropagation();
 
@@ -123,24 +123,24 @@ const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
         }
 
         // 再読み込みされた直後は token がクリアされるので、再度認証を行ったうえで最新のファイルを取得する。
-        if (implictToken.expiresAt < new Date().getTime()) {
+        if (implicitToken.expiresAt < new Date().getTime()) {
             return;
         }
 
         openGdriveFile({
-            accessToken: implictToken.accessToken, fileId: gdriveFileId
+            accessToken: implicitToken.accessToken, fileId: gdriveFileId
         }).then(gdriveFile => {
             setSessionDocument({ erdDocument: gdriveFile.erdDocument, version: gdriveFile.version });
         }).catch(error => {
             console.error(`Failed to open file. ${error}`);
         });
-    }, [implictToken, sessionDocument, gdriveFileId]);
+    }, [implicitToken, sessionDocument, gdriveFileId]);
 
     // アクセストークンの有効期限が切れる少し前に通知を表示する
     useEffect(() => {
         const currentDate = new Date().getTime();
-        const remaindTime = implictToken.expiresAt - currentDate;
-        if (remaindTime <= 0) {
+        const remainedTime = implicitToken.expiresAt - currentDate;
+        if (remainedTime <= 0) {
             setSessionDocument(null);
             return;
         }
@@ -164,17 +164,17 @@ const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
                     </Button>
                 )
             });
-        }, remaindTime - 3 * 60 * 1000);
+        }, remainedTime - 3 * 60 * 1000);
 
-        const timeoutedTimerId = setTimeout(() => {
+        const timeoutTimerId = setTimeout(() => {
             setSessionDocument(null);
-        }, remaindTime);
+        }, remainedTime);
 
         return () => {
-            clearTimeout(timeoutedTimerId);
+            clearTimeout(timeoutTimerId);
             clearTimeout(notifyTimerId)
         };
-    }, [implictToken, authorize]);
+    }, [implicitToken, authorize]);
 
     // ドキュメント読み込み直後に、現在のバージョンを保持する
     useEffect(() => {
@@ -222,7 +222,7 @@ const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
                 <Typography variant="h2" align="center" style={{ marginBottom: "30px" }}>
                     Entity Relationship Diagram Designer
                 </Typography>
-                {(implictToken.expiresAt < currentDate) ? (
+                {(implicitToken.expiresAt < currentDate) ? (
                     <Stack spacing={2} sx={{ justifyContent: "center", alignItems: "center" }}>
                         <Typography variant="body1" gutterBottom>
                             Need to re-authorize to edit the ERD file on the Google Drive.
@@ -253,7 +253,7 @@ const GoogleDriveFile = ({ implictToken, authorize }: GoogleDriveFileProp) => {
     return (
         <ExportSpecificationContext.Provider value={{ exportSpecification }}>
             <MainView erdDocument={sessionDocument.erdDocument}
-                onSave={handleSave} erdExortable={false} />
+                onSave={handleSave} erdExportable={false} />
             {messageDisplay}
         </ExportSpecificationContext.Provider>
     );

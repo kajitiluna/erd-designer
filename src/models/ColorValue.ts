@@ -24,7 +24,7 @@ export default class ColorValue {
         return `rgba(${this.red}, ${this.green}, ${this.blue}, ${alpha})`
     }
 
-    public revierseGrayscale(): ColorValue {
+    public reverseGrayscale(): ColorValue {
         const reverseAverage = 255 - (this.red + this.green + this.blue) / 3;
         return new ColorValue({ red: reverseAverage, green: reverseAverage, blue: reverseAverage });
     }

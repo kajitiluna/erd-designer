@@ -1,6 +1,6 @@
-import ErdDocumentStrage from "~/features/strage/ErdDocumentStrage";
-import ErdDocumentSummary from "~/features/strage/ErdDocumentSummary";
-import { INDEXED_DB_NAME, INDEXED_DB_VERSION, INDEXED_OBJECT_ERD_DOCUMENT } from "~/features/strage/IndexedDBConst";
+import ErdDocumentStorage from "~/features/storage/ErdDocumentStorage";
+import ErdDocumentSummary from "~/features/storage/ErdDocumentSummary";
+import { INDEXED_DB_NAME, INDEXED_DB_VERSION, INDEXED_OBJECT_ERD_DOCUMENT } from "~/features/storage/IndexedDBConst";
 import ErdDocument from "~/models/ErdDocument";
 
 type InternalDocument = {
@@ -11,16 +11,16 @@ type InternalDocument = {
 };
 
 const initializeErdDocumentDB = () => {
-    return new Promise<ErdDocumentStrage>((resolve) => {
+    return new Promise<ErdDocumentStorage>((resolve) => {
         const request = indexedDB.open(INDEXED_DB_NAME, INDEXED_DB_VERSION);
         request.onerror = (event) => {
-            console.warn(`Occuured error in creating IndexedDB instance. Detail : ${event}`);
-            resolve(new NoOperationStrage());
+            console.warn(`Occurred error in creating IndexedDB instance. Detail : ${event}`);
+            resolve(new NoOperationStorage());
         };
 
         request.onsuccess = () => {
             const database = request.result;
-            resolve(new IndexedDBStrage(database));
+            resolve(new IndexedDBStorage(database));
         };
 
         request.onupgradeneeded = () => {
@@ -28,12 +28,12 @@ const initializeErdDocumentDB = () => {
             database.createObjectStore(INDEXED_OBJECT_ERD_DOCUMENT, { keyPath: "key" });
             console.info("Upgraded IndexedDB instance.")
 
-            resolve(new IndexedDBStrage(database));
+            resolve(new IndexedDBStorage(database));
         };
     });
 };
 
-class IndexedDBStrage implements ErdDocumentStrage {
+class IndexedDBStorage implements ErdDocumentStorage {
 
     private readonly database: IDBDatabase;
 
@@ -154,7 +154,7 @@ class IndexedDBStrage implements ErdDocumentStrage {
     }
 }
 
-class NoOperationStrage implements ErdDocumentStrage {
+class NoOperationStorage implements ErdDocumentStorage {
 
     isAvailable(): boolean {
         return false;

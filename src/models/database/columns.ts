@@ -6,6 +6,7 @@ const POSTGRES_INTEGER = new ColumnType({ id: 15, name: 'integer', description: 
 const POSTGRES_BIGINT = new ColumnType({ id: 17, name: 'bigint', description: '8バイト符号付き整数', baseQuery: 'BIGINT', withPrecision: false, withScale: false });
 
 const databaseColumns: ReadonlyMap<DatabaseType, readonly ColumnType[]> = new Map<DatabaseType, readonly ColumnType[]>([
+    // cSpell: ignore bytea smallserial bigserial tsquery tsvector lseg macaddr
     ["postgres", [
         new ColumnType({ id: 1, name: 'bit', description: '固定長ビット列', baseQuery: 'BIT', withPrecision: false, withScale: false }),
         new ColumnType({ id: 2, name: 'bit (n)', description: '固定長ビット列', baseQuery: 'BIT[[PARAM]]', withPrecision: true, withScale: false }),
@@ -60,6 +61,7 @@ const databaseColumns: ReadonlyMap<DatabaseType, readonly ColumnType[]> = new Ma
         ColumnType.EMPTY
     ]],
 
+    // cSpell: ignore tinyint mediumint tinytext longtext varbinary tinyblob mediumblob longblob linestring multipoint multilinestring multipolygon geometrycollection
     ["mysql", [
         new ColumnType({ id: 1, name: 'bit', description: 'ビット値型', baseQuery: 'BIT', withPrecision: false, withScale: false, withUnsigned: false, withAuthIncrement: false }),
         new ColumnType({ id: 2, name: 'bit (m)', description: 'ビット値型', baseQuery: 'BIT[[PARAM]]', withPrecision: true, withScale: false, withUnsigned: false, withAuthIncrement: false }),

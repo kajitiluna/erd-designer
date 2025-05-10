@@ -3,7 +3,7 @@ import { PropertyNotExistsError } from '~/models/exceptions';
 
 type QueryOptions = {
     precision?: string, scale?: string, onNotNull?: boolean, defaultValue?: string,
-    onUnsign?: boolean, onAutoIncrement?: boolean, inChildRelation?: boolean
+    onUnsigned?: boolean, onAutoIncrement?: boolean, inChildRelation?: boolean
 }
 
 type ColumnTypeOptions = {
@@ -40,7 +40,7 @@ export default class ColumnType {
      * @param id 型ID (データベース間の互換に用いる)
      * @param name 型定義
      * @param description 型の説明
-     * @param baseQuery クエリ定義 (`[[PARAM]]` をクエリ作成時に `(precision, sclae)` に変換する)
+     * @param baseQuery クエリ定義 (`[[PARAM]]` をクエリ作成時に `(precision, scale)` に変換する)
      * @param withPrecision precision の設定が可能な型か
      * @param withScale scale の設定が可能な型か
      * @param withUnsigned unsigned の設定が可能な型か
@@ -65,12 +65,12 @@ export default class ColumnType {
 
     query({
         precision = "", scale = "", onNotNull = false, defaultValue = "",
-        onUnsign = false, onAutoIncrement = false, inChildRelation = false
+        onUnsigned = false, onAutoIncrement = false, inChildRelation = false
     }: QueryOptions): string {
 
         let query = this.specifiedType({ precision, scale, inChildRelation });
 
-        if (onUnsign) {
+        if (onUnsigned) {
             query = query + " UNSIGNED";
         }
         if (onNotNull) {

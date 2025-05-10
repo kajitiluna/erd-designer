@@ -62,7 +62,7 @@ const RelationEditView = ({ isOpen, relationViewModel, parentTableModel, childTa
     const editValueValidated = (relationPairs.length > 0)
         && relationPairs.every((pair) => pair.childColumnModelId !== "");
 
-    const handleComplated = (event: MouseEvent) => {
+    const handleCompleted = (event: MouseEvent) => {
         if (editValueValidated === false) {
             return;
         }
@@ -115,7 +115,7 @@ const RelationEditView = ({ isOpen, relationViewModel, parentTableModel, childTa
                         childTableModel={childTableModel}
                         parentPrimaryColumns={parentPrimaryColumns}
                         relationPairs={relationPairs}
-                        updateRelatinPairs={setRelationPairs} />
+                        updateRelationPairs={setRelationPairs} />
                     <RelationCandidatePanel
                         parentCardinality={parentCardinality} onUpdateParentCardinality={setParentCardinality}
                         childCardinality={childCardinality} onUpdateChildCardinality={setChildCardinality} />
@@ -126,7 +126,7 @@ const RelationEditView = ({ isOpen, relationViewModel, parentTableModel, childTa
             </DialogContent>
             <DialogActions>
                 <Button onClick={handleCloseDialog}>Cancel</Button>
-                <Button variant="contained" disabled={!editValueValidated} onClick={handleComplated}>OK</Button>
+                <Button variant="contained" disabled={!editValueValidated} onClick={handleCompleted}>OK</Button>
             </DialogActions>
         </Dialog>
     );
@@ -138,12 +138,12 @@ type RelationReferencesPanelProps = {
     childTableModel: TableModel,
     parentPrimaryColumns: ColumnModel[],
     relationPairs: RelationPair[],
-    updateRelatinPairs: (updateFunction: (previous: RelationPair[]) => RelationPair[]) => void
+    updateRelationPairs: (updateFunction: (previous: RelationPair[]) => RelationPair[]) => void
 };
 
 const RelationReferencesPanel = ({
     erdDocument, parentTableModel, childTableModel, parentPrimaryColumns,
-    relationPairs, updateRelatinPairs
+    relationPairs, updateRelationPairs
 }: RelationReferencesPanelProps) => {
 
     const childColumnPairs = childTableModel.columnModelIds
@@ -176,7 +176,7 @@ const RelationReferencesPanel = ({
 
         const labelId = `label-${primaryColumn.columnShareModelId}`
         const handleChangeForeign = (event: SelectChangeEvent<string>) => {
-            updateRelatinPairs((previousPairs) => {
+            updateRelationPairs((previousPairs) => {
                 const nextPairs = previousPairs.map((pair) => {
                     if (pair.parentColumnModelId !== primaryColumn.columnModelId) {
                         return pair

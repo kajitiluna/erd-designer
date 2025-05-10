@@ -66,7 +66,7 @@ After starting the development server, open your browser and navigate to http://
   ```
 - Run Tests:
   ```sh
-  npm run test
+  npm run testrun
   ```
 
 ## Contributing

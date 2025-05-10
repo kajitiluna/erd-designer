@@ -121,6 +121,7 @@ const addDiagramSheet = (workbook: ExcelJS.Workbook, image: ImageContent) => {
     });
 };
 
+// cSpell:ignore FFBBDEFB argb
 const HEADER_FILL: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFBBDEFB' } } as const;
 
 const addTableListSheet = (workbook: ExcelJS.Workbook, exportTables: () => TableListSpecGenerator) => {
@@ -291,8 +292,8 @@ const addTableSpecs = (
     // Description セルの高さ調整
     const descriptionRow = tableSheet.getRow(3);
     descriptionRow.height = 45;
-    const descritpionCell = descriptionRow.getCell(2);
-    descritpionCell.alignment = { wrapText: true };
+    const descriptionCell = descriptionRow.getCell(2);
+    descriptionCell.alignment = { wrapText: true };
 
     const columnsSpecTitle = tableSheet.getCell(5, 1);
     columnsSpecTitle.font = { bold: true };
@@ -344,8 +345,8 @@ const doAddIndexSpecForTable = (
     // Description セルの高さ調整
     const descriptionRow = tableSheet.getRow(startRowNumber + 3);
     descriptionRow.height = 45;
-    const descritpionCell = descriptionRow.getCell(2);
-    descritpionCell.alignment = { wrapText: true };
+    const descriptionCell = descriptionRow.getCell(2);
+    descriptionCell.alignment = { wrapText: true };
 
     // タイトルセルの書式設定
     const titleHeaderIndexes = [

@@ -46,7 +46,7 @@ export default class TableIndexModel {
             tableIndexModelId: this.tableIndexModelId,
             physicalName: this.physicalName,
             indexColumnModels: this.indexColumnModels.map((model) => model.toJSON()),
-            indexOptioin: this.indexOption,
+            indexOption: this.indexOption,
             indexType: this.indexType,
             description: this.description
         };
@@ -70,12 +70,27 @@ export default class TableIndexModel {
             tableIndexModelId: obj.tableIndexModelId as string,
             physicalName: obj.physicalName as string,
             indexColumnModels: indexColumnModels,
-            indexOption: ("indexOptioin" in obj) ? obj.indexOptioin as TableIndexOption : "",
+            indexOption: parseIndexOption(obj),
             indexType: ("indexType" in obj) ? obj.indexType as TableIndexType : "",
             description: ("description" in obj) ? obj.description as string : "",
         });
     }
 }
+
+const parseIndexOption = (obj: object) => {
+    if ("indexOption" in obj) {
+        return obj.indexOption as TableIndexOption;
+    }
+
+    // 過去バージョンで typo したフィールド名で保存を行っていたため、互換性のために当時のフィールド名でも取得している
+    // cSpell:disable
+    if ("indexOptioin" in obj) {
+        return obj.indexOptioin as TableIndexOption;
+    }
+    // cSpell:enable
+
+    return "";
+};
 
 type IndexColumnModelOptions = {
     columnModelId: string,

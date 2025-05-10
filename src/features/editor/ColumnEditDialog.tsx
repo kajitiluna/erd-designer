@@ -13,7 +13,7 @@ import { initHandleChangeWithSyncPhysicalName } from "~/features/editor/support"
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
 import ColumnType from "~/models/database/ColumnType";
-import { ColumnShareModelStrageContext } from '~/context/ColumnShareModelStrageContext';
+import { ColumnShareModelStorageContext } from '~/context/ColumnShareModelStorageContext';
 import EdgedIconButton from '~/components/EdgedIconButton';
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from '~/context/ErdDocumentsHolderContext';
 import ErdDocument from '~/models/ErdDocument';
@@ -35,9 +35,9 @@ type ColumnTypeAttribute = {
 }
 
 const ColumnEditDialog = ({ isOpen, columnModel, onUpdateColumnModels, onClose }: ColumnEditDialogProps) => {
-    const { columnShareModelStrage, updateStrage } = React.useContext(ColumnShareModelStrageContext);
+    const { columnShareModelStorage, updateStorage } = React.useContext(ColumnShareModelStorageContext);
 
-    const columnShareModel: ColumnShareModel | null = columnShareModelStrage.find(columnModel.columnShareModelId);
+    const columnShareModel: ColumnShareModel | null = columnShareModelStorage.find(columnModel.columnShareModelId);
 
     const [checkedPrimaryKey, setPrimaryKey] = useState<boolean>(columnModel.primaryKey);
     const [checkedNotNull, setNotNull] = useState<boolean>(columnModel.notNull);
@@ -88,7 +88,7 @@ const ColumnEditDialog = ({ isOpen, columnModel, onUpdateColumnModels, onClose }
     const validatedValue = (physicalName.length > 0) && (logicalName.length > 0)
         && validateColumnTypeAttribute(columnTypeAttribute);
 
-    const handleComplated = (event: MouseEvent) => {
+    const handleCompleted = (event: MouseEvent) => {
         if ((columnTypeAttribute == null) || (validatedValue === false)) {
             return;
         }
@@ -103,7 +103,7 @@ const ColumnEditDialog = ({ isOpen, columnModel, onUpdateColumnModels, onClose }
             description: description,
             ...columnTypeAttribute
         });
-        columnShareModelStrage.addModel(updatedShareModel);
+        columnShareModelStorage.addModel(updatedShareModel);
 
         const updatedModel = new ColumnModel({
             columnModelId: columnModel.columnModelId,
@@ -127,7 +127,7 @@ const ColumnEditDialog = ({ isOpen, columnModel, onUpdateColumnModels, onClose }
             );
         });
 
-        updateStrage(columnShareModelStrage);
+        updateStorage(columnShareModelStorage);
         onClose();
     };
 
@@ -159,7 +159,7 @@ const ColumnEditDialog = ({ isOpen, columnModel, onUpdateColumnModels, onClose }
                 <ColumnModelPanel
                     columnShareModelId={columnShareModelId}
                     associateColumnModel={associateColumnModel}
-                    unrelateColumnModel={() => setColumnShareModelId("")} />
+                    unlinkColumnModel={() => setColumnShareModelId("")} />
                 <TextField required variant="outlined" id="physicalName" label="Physical Name"
                     value={physicalName} onChange={handleChangePhysicalName} />
                 <TextField required variant="outlined" id="logicalName" label="Logical Name"
@@ -185,7 +185,7 @@ const ColumnEditDialog = ({ isOpen, columnModel, onUpdateColumnModels, onClose }
             </DialogContent>
             <DialogActions>
                 <Button onClick={handleCloseDialog}>Cancel</Button>
-                <Button variant="contained" disabled={!validatedValue} onClick={handleComplated}>OK</Button>
+                <Button variant="contained" disabled={!validatedValue} onClick={handleCompleted}>OK</Button>
             </DialogActions>
         </Dialog>
     );
@@ -224,16 +224,16 @@ const validateColumnTypeAttribute = (value: ColumnTypeAttribute | null): boolean
 type ColumnModelPanelProps = {
     columnShareModelId: string,
     associateColumnModel: (columnShareModel: ColumnShareModel) => void,
-    unrelateColumnModel: () => void
+    unlinkColumnModel: () => void
 };
 
-const ColumnModelPanel = ({ columnShareModelId, associateColumnModel, unrelateColumnModel }: ColumnModelPanelProps) => {
+const ColumnModelPanel = ({ columnShareModelId, associateColumnModel, unlinkColumnModel }: ColumnModelPanelProps) => {
 
-    const { columnShareModelStrage } = React.useContext(ColumnShareModelStrageContext);
-    const columnShareModel = columnShareModelId ? columnShareModelStrage.find(columnShareModelId) : null;
+    const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
+    const columnShareModel = columnShareModelId ? columnShareModelStorage.find(columnShareModelId) : null;
 
     const [isOpenSearchDialog, setOpenSearchDialog] = useState<boolean>(false);
-    const [isOpenUnrelateDialog, setOpenUnrelateDialog] = useState<boolean>(false);
+    const [isOpenUnlinkDialog, setOpenUnlinkDialog] = useState<boolean>(false);
 
     const searchButton = (
         <>
@@ -260,13 +260,13 @@ const ColumnModelPanel = ({ columnShareModelId, associateColumnModel, unrelateCo
         );
     }
 
-    const handleOpenUnrelateDialog = (event: MouseEvent) => {
+    const handleOpenUnlinkDialog = (event: MouseEvent) => {
         event.stopPropagation();
-        setOpenUnrelateDialog(true);
+        setOpenUnlinkDialog(true);
     };
-    const handleCloseUnreateDialog = (event: MouseEvent) => {
+    const handleCloseUnlinkDialog = (event: MouseEvent) => {
         event.stopPropagation();
-        setOpenUnrelateDialog(false)
+        setOpenUnlinkDialog(false)
     };
 
     return (
@@ -277,22 +277,22 @@ const ColumnModelPanel = ({ columnShareModelId, associateColumnModel, unrelateCo
             <Typography variant="body1">{`'${columnShareModel.logicalName}'`}</Typography>
             <EdgedIconButton
                 tooltip="Unrelated with column model"
-                onClick={handleOpenUnrelateDialog}>
+                onClick={handleOpenUnlinkDialog}>
                 <CloseIcon />
             </EdgedIconButton>
             {searchButton}
-            <Dialog open={isOpenUnrelateDialog} onClose={handleCloseUnreateDialog}>
-                <DialogTitle>Unrelate column model?</DialogTitle>
+            <Dialog open={isOpenUnlinkDialog} onClose={handleCloseUnlinkDialog}>
+                <DialogTitle>Unlink column model?</DialogTitle>
                 <DialogContent>
-                    <DialogContentText>Are you sure to unrelate the column model ?</DialogContentText>
+                    <DialogContentText>Are you sure to unlink the column model ?</DialogContentText>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseUnreateDialog}>Cancel</Button>
+                    <Button onClick={handleCloseUnlinkDialog}>Cancel</Button>
                     <Button variant="contained" color="warning" onClick={() => {
-                        unrelateColumnModel();
-                        setOpenUnrelateDialog(false);
+                        unlinkColumnModel();
+                        setOpenUnlinkDialog(false);
                     }}>
-                        Unrelate
+                        Unlink
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -330,7 +330,7 @@ const ColumnTypeEditPanel = ({ columnTypeAttribute, updateColumnType }: ColumnTy
     };
 
     // precision に正の値のみ受け付ける制御
-    const handleChangePresicion = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChangePrecision = (event: React.ChangeEvent<HTMLInputElement>) => {
         const inputValue = event.target.value;
         const updatedValue = Number(inputValue) > 0 ? inputValue : "";
         updateColumnType({
@@ -353,7 +353,7 @@ const ColumnTypeEditPanel = ({ columnTypeAttribute, updateColumnType }: ColumnTy
         });
     };
 
-    const handleChangeUnsign = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChangeUnsigned = (event: React.ChangeEvent<HTMLInputElement>) => {
         const checked = event.target.checked;
         updateColumnType({
             columnType: columnType as ColumnType,
@@ -383,7 +383,7 @@ const ColumnTypeEditPanel = ({ columnTypeAttribute, updateColumnType }: ColumnTy
                     <TextField variant="outlined" id="precision" label="Precision" type="number"
                         disabled={!editablePrecision} required={editablePrecision}
                         error={editablePrecision && (precision === "")}
-                        value={precision} onChange={handleChangePresicion} />
+                        value={precision} onChange={handleChangePrecision} />
                 </Box>
             </Grid>
             <Grid size={{ xs: 4, sm: 2 }}>
@@ -396,7 +396,7 @@ const ColumnTypeEditPanel = ({ columnTypeAttribute, updateColumnType }: ColumnTy
                 <Box sx={{ pl: 1 }}>
                     {editableUnsigned &&
                         <FormControlLabel label="unsigned" control={
-                            <Checkbox checked={unsigned} onChange={handleChangeUnsign} />
+                            <Checkbox checked={unsigned} onChange={handleChangeUnsigned} />
                         } />
                     }
                 </Box>

@@ -12,7 +12,7 @@ import PrimaryKeyIcon from "~/components/icons/PrimaryKeyIcon";
 import EdgedIconButton from "~/components/EdgedIconButton";
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnEditDialog from "~/features/editor/ColumnEditDialog";
-import { ColumnShareModelStrageContext } from "~/context/ColumnShareModelStrageContext";
+import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 
 type ColumnViewTableProps = {
     columnModels: ColumnModel[],
@@ -21,13 +21,13 @@ type ColumnViewTableProps = {
 };
 
 const ColumnViewTable = ({ columnModels, onUpdateColumnModels, isChildRelation }: ColumnViewTableProps) => {
-    const { columnShareModelStrage } = React.useContext(ColumnShareModelStrageContext);
+    const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
 
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
     const [editingColumnModel, setEditingColumnModel] = useState<ColumnModel | null>(null);
 
     const initColumnModelRow = (columnModel: ColumnModel, targetIndex: number) => {
-        const columnShareModel = columnShareModelStrage.find(columnModel.columnShareModelId);
+        const columnShareModel = columnShareModelStorage.find(columnModel.columnShareModelId);
         const inChildRelation = isChildRelation(columnModel.columnModelId);
 
         const handleRowClicked = (event: MouseEvent) => {
@@ -52,11 +52,11 @@ const ColumnViewTable = ({ columnModels, onUpdateColumnModels, isChildRelation }
 
                 setSelectedIndex(null);
                 onUpdateColumnModels(previous => {
-                    const nextCoumnModels = [...previous];
-                    nextCoumnModels[targetIndex] = previous[targetIndex + shift];
-                    nextCoumnModels[targetIndex + shift] = previous[targetIndex];
+                    const nextColumnModels = [...previous];
+                    nextColumnModels[targetIndex] = previous[targetIndex + shift];
+                    nextColumnModels[targetIndex + shift] = previous[targetIndex];
 
-                    return nextCoumnModels
+                    return nextColumnModels
                 });
             }
         };

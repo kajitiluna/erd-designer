@@ -1,6 +1,10 @@
-import { Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField } from "@mui/material";
 import React, { MouseEvent, useState } from "react";
-import { ColumnShareModelStrageContext } from "~/context/ColumnShareModelStrageContext";
+import {
+    Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
+    Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField
+} from "@mui/material";
+
+import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
 
 type SearchColumnShareModelDialogProps = {
@@ -13,8 +17,8 @@ type FilterType = "physicalName" | "logicalName" | "type" | "description"
 type FilterCondition = { [key in FilterType]: string };
 
 const SearchColumnShareModelDialog = ({ isOpen, associateColumnModel, onClose }: SearchColumnShareModelDialogProps) => {
-    const { columnShareModelStrage } = React.useContext(ColumnShareModelStrageContext);
-    const columnShareModels = columnShareModelStrage.getModels();
+    const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
+    const columnShareModels = columnShareModelStorage.getModels();
 
     const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout | null>(null);
     const [filterCondition, setFilterCondition] = useState<FilterCondition>({

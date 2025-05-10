@@ -370,7 +370,7 @@ const initMouseCursorStyle = (direction: ResizingDirection) => {
     return `${verticalPrefix}${horizontalPrefix}-resize`;
 };
 
-const MINMUM_SIZE = 30;
+const MINIMUM_SIZE = 30;
 
 const initCurrentRectangle = (
     base: RectangleViewModel, delta: { x: number, y: number }, direction: ResizingDirection
@@ -382,16 +382,16 @@ const initCurrentRectangle = (
 
     // 横幅および縦幅が 100 未満になる場合は、幅を 100 にする
     if (direction.horizontal === "left") {
-        left = (base.width - delta.x < MINMUM_SIZE) ? base.right - MINMUM_SIZE : base.left + delta.x;
+        left = (base.width - delta.x < MINIMUM_SIZE) ? base.right - MINIMUM_SIZE : base.left + delta.x;
     }
     if (direction.horizontal === "right") {
-        right = (base.width + delta.x < MINMUM_SIZE) ? base.left + MINMUM_SIZE : base.right + delta.x;
+        right = (base.width + delta.x < MINIMUM_SIZE) ? base.left + MINIMUM_SIZE : base.right + delta.x;
     }
     if (direction.vertical === "top") {
-        top = (base.height - delta.y < MINMUM_SIZE) ? base.bottom - MINMUM_SIZE : base.top + delta.y;
+        top = (base.height - delta.y < MINIMUM_SIZE) ? base.bottom - MINIMUM_SIZE : base.top + delta.y;
     }
     if (direction.vertical === "bottom") {
-        bottom = (base.height + delta.y < MINMUM_SIZE) ? base.top + MINMUM_SIZE : base.bottom + delta.y;
+        bottom = (base.height + delta.y < MINIMUM_SIZE) ? base.top + MINIMUM_SIZE : base.bottom + delta.y;
     }
 
     return RectangleViewModel.createFromEdges({ left, top, right, bottom });
@@ -494,7 +494,7 @@ const StickyControlPane = ({ memoViewModel }: StickyControlPaneProps) => {
         </Stack>
     );
 
-    const handleCloseComfirmationDialog = (event: MouseEvent) => {
+    const handleCloseConfirmationDialog = (event: MouseEvent) => {
         event.stopPropagation();
 
         setOpenDeleteDialog(false)
@@ -507,13 +507,13 @@ const StickyControlPane = ({ memoViewModel }: StickyControlPaneProps) => {
 
     const deleteDialog = (
         <div onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
-            <Dialog open={isOpenDeleteDialog} onClose={handleCloseComfirmationDialog}>
+            <Dialog open={isOpenDeleteDialog} onClose={handleCloseConfirmationDialog}>
                 <DialogTitle>Delete table?</DialogTitle>
                 <DialogContent>
                     <DialogContentText>Are you sure to delete the memo ?</DialogContentText>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseComfirmationDialog}>Cancel</Button>
+                    <Button onClick={handleCloseConfirmationDialog}>Cancel</Button>
                     <Button variant="contained" color="error" onClick={handleDeleteMemo}>Delete</Button>
                 </DialogActions>
             </Dialog>

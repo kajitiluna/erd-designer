@@ -267,7 +267,7 @@ const ErdCanvas = () => {
             return;
         }
 
-        return initEffectOfMouseCorsorOnCanvas(editMode, panningPoint, erdCanvas);
+        return initEffectOfMouseCursorOnCanvas(editMode, panningPoint, erdCanvas);
     }, [editMode, panningPoint]);
 
     // 初回表示時に Canvas の中央にスクロール
@@ -282,7 +282,7 @@ const ErdCanvas = () => {
         return initEffectOfScrollOnCanvas(displayScale);
     }, [displayScale]);
 
-    // keyUp 時のイベントを widnow.document に登録
+    // keyUp 時のイベントを window.document に登録
     useEffect(() => {
         return initEffectOfKeyDownOnCanvas(documentsHolder, dispatchEditMode);
     }, [dispatchEditMode, documentsHolder]);
@@ -515,7 +515,7 @@ const initRectangleWithoutScale = (element: Element, displayScale: number) => {
     });
 };
 
-const initEffectOfMouseCorsorOnCanvas = (editMode: EditMode, panningPoint: Point | null, erdCanvas: HTMLDivElement) => {
+const initEffectOfMouseCursorOnCanvas = (editMode: EditMode, panningPoint: Point | null, erdCanvas: HTMLDivElement) => {
     const handleMouseIcon = () => {
         erdCanvas.style.cursor = (panningPoint != null) ? "all-scroll" :  findMouseCursorIcon(editMode);
     };
@@ -543,7 +543,7 @@ const findMouseCursorIcon = (editMode: EditMode) => {
 const initEffectOfScrollOnCanvas = (displayScale: number) => {
     const moveEdge = () => {
         const leftEdge = (DRAWABLE_AREA.width - CANVAS_AREA.width * displayScale) / 2;
-        const rigthEdge = (DRAWABLE_AREA.width + CANVAS_AREA.width * displayScale) / 2 - window.innerWidth;
+        const rightEdge = (DRAWABLE_AREA.width + CANVAS_AREA.width * displayScale) / 2 - window.innerWidth;
         const topEdge = (DRAWABLE_AREA.height - CANVAS_AREA.height * displayScale) / 2;
         const bottomEdge = (DRAWABLE_AREA.height + CANVAS_AREA.height * displayScale) / 2 - window.innerHeight;
 
@@ -554,9 +554,9 @@ const initEffectOfScrollOnCanvas = (displayScale: number) => {
         if (window.scrollX < leftEdge) {
             modifyScroll = true;
             nextScrollX = leftEdge;
-        } else if (window.scrollX > rigthEdge) {
+        } else if (window.scrollX > rightEdge) {
             modifyScroll = true;
-            nextScrollX = rigthEdge;
+            nextScrollX = rightEdge;
         }
         if (window.scrollY < topEdge) {
             modifyScroll = true;

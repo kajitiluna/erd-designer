@@ -10,22 +10,22 @@ export const openGdriveFile = async ({ accessToken, fileId }: OpenGdriveFileArgs
     const headerInfo = { headers: { Authorization: `Bearer ${accessToken}` } };
 
     const fetchContent = async () => {
-        const resposne = await fetch(`${fileUri}?alt=media`, headerInfo);
-        if (!resposne.ok) {
-            throw new Error(`Failed to open file. ${JSON.stringify(resposne)}`);
+        const response = await fetch(`${fileUri}?alt=media`, headerInfo);
+        if (!response.ok) {
+            throw new Error(`Failed to open file. ${JSON.stringify(response)}`);
         }
 
-        const jsonContent = await resposne.json();
+        const jsonContent = await response.json();
         return ErdDocument.toObject(jsonContent);
     };
 
     const fetchMetadata = async () => {
-        const resposne = await fetch(`${fileUri}?fields=modifiedTime`, headerInfo);
-        if (!resposne.ok) {
-            throw new Error(`Failed to get metadata. ${JSON.stringify(resposne)}`);
+        const response = await fetch(`${fileUri}?fields=modifiedTime`, headerInfo);
+        if (!response.ok) {
+            throw new Error(`Failed to get metadata. ${JSON.stringify(response)}`);
         }
 
-        const metaJson = await resposne.json();
+        const metaJson = await response.json();
         return {
             fileId: fileId,
             version: metaJson.modifiedTime as string
@@ -110,7 +110,7 @@ export const updateGdriveFile = async ({ accessToken, fileId, erdDocument, withN
 
     const responseMetadata = await response.json();
     if (!("modifiedTime" in responseMetadata)) {
-        throw new Error(`Failed to find modifiedTime in the responsne. ${JSON.stringify(responseMetadata)}`);
+        throw new Error(`Failed to find modifiedTime in the response. ${JSON.stringify(responseMetadata)}`);
     }
 
     return { fileId, version: responseMetadata.modifiedTime as string };
@@ -157,10 +157,10 @@ const doMultipartGdriveFile = async ({ accessToken, fileId = null, metadata, erd
 
     const responseJson = await response.json();
     if (!("id" in responseJson)) {
-        throw new Error(`Failed to find id in the responsne. ${JSON.stringify(responseJson)}`);
+        throw new Error(`Failed to find id in the response. ${JSON.stringify(responseJson)}`);
     }
     if (!("modifiedTime" in responseJson)) {
-        throw new Error(`Failed to find modifiedTime in the responsne. ${JSON.stringify(responseJson)}`);
+        throw new Error(`Failed to find modifiedTime in the response. ${JSON.stringify(responseJson)}`);
     }
 
     const responseFileId = responseJson.id as string;
@@ -210,10 +210,10 @@ const doCreateSpreadSheet = async (accessToken: string, spreadSheet: { propertie
 
     const responseJson = await response.json();
     if (!("spreadsheetId" in responseJson)) {
-        throw new Error(`Failed to find spreadsheetId in the responsne. ${JSON.stringify(responseJson)}`);
+        throw new Error(`Failed to find spreadsheetId in the response. ${JSON.stringify(responseJson)}`);
     }
     if (!("sheets" in responseJson)) {
-        throw new Error(`Failed to find sheets in the responsne. ${JSON.stringify(responseJson)}`);
+        throw new Error(`Failed to find sheets in the response. ${JSON.stringify(responseJson)}`);
     }
 
     const spreadSheetId = responseJson.spreadsheetId as string;

@@ -42,7 +42,7 @@ export const reduceLocalSetting = (current: LocalSetting, action: LocalSettingAc
     return current;
 };
 
-export const DEFAULT_LOVAL_SETTING = {
+export const DEFAULT_LOCAL_SETTING = {
     defaultColor: {
         background: new ColorValue({ red: 227, green: 242, blue: 253 }),
         foreground: ColorValue.BLACK
