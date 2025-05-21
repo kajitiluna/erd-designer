@@ -2,7 +2,7 @@ import { MouseEvent } from "react";
 
 import { CardinalityType } from "~/models/database";
 
-export const CANVAS_AREA = { width: 5000, height: 5000 } as const;
+export const CANVAS_AREA = { width: 25000, height: 25000 } as const;
 // 描画領域は CANVAS_AREA を下に、最大拡大率を表示しうるサイズにする
 export const DRAWABLE_AREA = { width: CANVAS_AREA.width * 2, height: CANVAS_AREA.height * 2 } as const;
 
