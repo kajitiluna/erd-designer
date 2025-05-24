@@ -1,5 +1,7 @@
 import { MouseEvent, ReactNode } from 'react';
-import { IconButton, Stack, Tooltip, Typography } from '@mui/material';
+import { IconButton, Stack, Typography } from '@mui/material';
+
+import TopLeftTooltip from '~/components/TopLeftTooltip';
 
 type EdgedIconButtonProps = {
     disabled?: boolean,
@@ -35,14 +37,14 @@ const EdgedIconButton = ({
     if (withText === false) {
         return (
             <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}>
-                <Tooltip title={tooltip} placement="top">{iconButton}</Tooltip>
+                <TopLeftTooltip title={tooltip}>{iconButton}</TopLeftTooltip>
             </Stack>
         );
     }
 
     return (
         <Stack direction="row" alignItems="center" spacing={1}>
-            <Tooltip title={tooltip} placement="top">{iconButton}</Tooltip>
+            <TopLeftTooltip title={tooltip}>{iconButton}</TopLeftTooltip>
             {withText && <Typography variant="body2">{tooltip}</Typography>}
         </Stack>
     );

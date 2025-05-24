@@ -86,23 +86,20 @@ export default class ColumnShareModel {
         return this.columnType.specifiedType({ precision: this.precision, scale: this.scale, inChildRelation });
     }
 
-    public matchForReferenceType(other: ColumnShareModel): boolean {
-        if (this.columnType.foreignColumn !== other.columnType.foreignColumn) {
+    public matchForReferenceType(parent: ColumnShareModel): boolean {
+        const columnType = this.specifiedColumnType()
+        const parentColumnType = parent.specifiedColumnType(true);
+        if (columnType !== parentColumnType) {
             return false;
         }
 
-        if (this.columnType.withPrecision && (this.precision !== other.precision)) {
-            return false;
-        }
-        if (this.columnType.withScale && (this.scale !== other.scale)) {
-            return false;
-        }
-        if (this.columnType.withUnsigned && (this.unsigned !== other.unsigned)) {
+        if (this.columnType.withUnsigned && (this.unsigned !== parent.unsigned)) {
             return false;
         }
 
         return true;
     }
+
 
     public toJSON(): Record<string, unknown> {
         return {

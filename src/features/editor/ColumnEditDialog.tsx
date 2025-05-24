@@ -3,11 +3,12 @@ import React, { ChangeEvent, MouseEvent, useState } from "react";
 import {
     Autocomplete, Box, Button, Checkbox,
     Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
-    FormControlLabel, Paper, Stack, TextField, Typography
+    FormControlLabel, Paper, Stack, TextField, Tooltip, Typography
 } from "@mui/material";
 import Grid from '@mui/material/Grid2';
 import SearchIcon from "@mui/icons-material/Search";
 import CloseIcon from "@mui/icons-material/Close";
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
 import { initHandleChangeWithSyncPhysicalName } from "~/features/editor/support";
 import ColumnModel from "~/models/database/ColumnModel";
@@ -35,6 +36,9 @@ type ColumnTypeAttribute = {
 }
 
 const ColumnEditDialog = ({ isOpen, columnModel, onUpdateColumnModels, onClose }: ColumnEditDialogProps) => {
+    const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const erdDocument: ErdDocument = documentsHolder.current();
+
     const { columnShareModelStorage, updateStorage } = React.useContext(ColumnShareModelStorageContext);
 
     const columnShareModel: ColumnShareModel | null = columnShareModelStorage.find(columnModel.columnShareModelId);
@@ -84,6 +88,12 @@ const ColumnEditDialog = ({ isOpen, columnModel, onUpdateColumnModels, onClose }
             setNotNull(true);
         }
     };
+
+    // 外部キー制約が定義され shareModelId が異なる場合は型を変更できない
+    const parentRelation = erdDocument.findParentRelation(columnModel.columnModelId)
+    const editableColumnType = (parentRelation == null) || (
+        erdDocument.findColumnModel(parentRelation.columnModelId)?.columnShareModelId === columnModel.columnShareModelId
+    )
 
     const validatedValue = (physicalName.length > 0) && (logicalName.length > 0)
         && validateColumnTypeAttribute(columnTypeAttribute);
@@ -166,6 +176,7 @@ const ColumnEditDialog = ({ isOpen, columnModel, onUpdateColumnModels, onClose }
                     value={logicalName} onChange={(event) => setLogicalName(event.target.value)} />
                 <ColumnTypeEditPanel
                     columnTypeAttribute={columnTypeAttribute}
+                    disabled={!editableColumnType}
                     updateColumnType={updateColumnType} />
                 <TextField variant="outlined" id="description" label="Description"
                     multiline rows={3} slotProps={{ input: { style: { resize: 'vertical' } } }}
@@ -302,10 +313,11 @@ const ColumnModelPanel = ({ columnShareModelId, associateColumnModel, unlinkColu
 
 type ColumnTypeEditPanelProps = {
     columnTypeAttribute: ColumnTypeAttribute | null,
+    disabled?: boolean,
     updateColumnType: (value: ColumnTypeAttribute) => void
 };
 
-const ColumnTypeEditPanel = ({ columnTypeAttribute, updateColumnType }: ColumnTypeEditPanelProps) => {
+const ColumnTypeEditPanel = ({ columnTypeAttribute, disabled = false, updateColumnType }: ColumnTypeEditPanelProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const erdDocument: ErdDocument = documentsHolder.current();
     const databaseSetting: DatabaseSettingModel = erdDocument.databaseSettingModel
@@ -364,45 +376,52 @@ const ColumnTypeEditPanel = ({ columnTypeAttribute, updateColumnType }: ColumnTy
     };
 
     return (
-        <Grid container>
-            <Grid size={{ xs: 12, sm: 6 }}>
-                <Box sx={{ pr: 1 }}>
-                    <Autocomplete id="columnType" disableClearable
-                        renderInput={(params) => <TextField  {...params} label="Column Type" />}
-                        options={databaseSetting.columnTypes.map((columnType) => {
-                            return { label: columnType.name, id: columnType.id }
-                        })}
-                        value={columnType ? { label: columnType.name, id: columnType.id } : { label: "", id: 0 }}
-                        isOptionEqualToValue={(option, value) => option.id === value.id}
-                        onChange={(_event, newValue) => handleChangeColumnType(newValue.id)}
-                    />
-                </Box>
+        <Grid container spacing={1}>
+            <Grid size={{ xs: 12, md: 5 }}>
+                <Autocomplete id="columnType" disableClearable disabled={disabled}
+                    renderInput={(params) => <TextField  {...params} label="Column Type" />}
+                    options={databaseSetting.columnTypes.map((columnType) => {
+                        return { label: columnType.name, id: columnType.id }
+                    })}
+                    value={columnType ? { label: columnType.name, id: columnType.id } : { label: "", id: 0 }}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    onChange={(_event, newValue) => handleChangeColumnType(newValue.id)}
+                />
             </Grid>
-            <Grid size={{ xs: 4, sm: 2 }}>
-                <Box sx={{ pr: 1 }}>
-                    <TextField variant="outlined" id="precision" label="Precision" type="number"
-                        disabled={!editablePrecision} required={editablePrecision}
-                        error={editablePrecision && (precision === "")}
-                        value={precision} onChange={handleChangePrecision} />
-                </Box>
+            <Grid size={{ xs: 3, md: 2 }}>
+                <TextField variant="outlined" id="precision" label="Precision" type="number"
+                    disabled={!editablePrecision || disabled} required={editablePrecision}
+                    error={editablePrecision && (precision === "")}
+                    value={precision} onChange={handleChangePrecision} />
             </Grid>
-            <Grid size={{ xs: 4, sm: 2 }}>
+            <Grid size={{ xs: 3, md: 2 }}>
                 <TextField variant="outlined" id="scale" label="Scale" type="number"
-                    disabled={!editableScale} required={editableScale}
+                    disabled={!editableScale || disabled} required={editableScale}
                     error={editableScale && (scale === "")}
                     value={scale} onChange={handleChangeScale} />
             </Grid>
-            <Grid size={{ xs: 4, sm: 2 }}>
-                <Box sx={{ pl: 1 }}>
-                    {editableUnsigned &&
+            {editableUnsigned && (
+                <Grid size={{ xs: 4, md: 2 }}>
+                    <Box display="flex" alignItems="center" height="100%" sx={{ pl: 1 }}>
                         <FormControlLabel label="unsigned" control={
-                            <Checkbox checked={unsigned} onChange={handleChangeUnsigned} />
+                            <Checkbox disabled={disabled} checked={unsigned} onChange={handleChangeUnsigned} />
                         } />
-                    }
-                </Box>
-            </Grid>
+                    </Box>
+                </Grid>
+            )}
+            {disabled && (
+                <Grid size={{ xs: 2, md: 1 }}>
+                    <Box display="flex" alignItems="center" justifyContent="center" height="100%">
+                        <Tooltip placement="left" arrow title={messageForForeignColumn}>
+                            <HelpOutlineIcon />
+                        </Tooltip>
+                    </Box>
+                </Grid>
+            )}
         </Grid>
     );
 };
+
+const messageForForeignColumn = "Unable to change column type: the column is set as a foreign key. Please remove the relation to proceed."
 
 export default ColumnEditDialog;

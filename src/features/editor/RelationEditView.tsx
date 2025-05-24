@@ -2,6 +2,7 @@ import { v4 as uuidV4 } from 'uuid';
 
 import React, { MouseEvent, useState } from "react";
 import {
+    Alert,
     Box, Button, Dialog, DialogActions, DialogContent, DialogTitle,
     Divider, FormControl, InputLabel, MenuItem, Paper, Select, SelectChangeEvent, Stack,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography
@@ -147,9 +148,9 @@ const RelationReferencesPanel = ({
 }: RelationReferencesPanelProps) => {
 
     const childColumnPairs = childTableModel.columnModelIds
-        .map((columnModelId) => erdDocument.findColumnModel(columnModelId))
+        .map(columnModelId => erdDocument.findColumnModel(columnModelId))
         .filter((columnModel): columnModel is ColumnModel => columnModel != null)
-        .map((columnModel) => {
+        .map(columnModel => {
             return {
                 columnModel: columnModel,
                 columnShareModel: erdDocument.findColumnShareModel(columnModel.columnShareModelId)
@@ -165,13 +166,18 @@ const RelationReferencesPanel = ({
             return (<></>);
         }
 
+        // 子カラムを新規作成する際、親カラムと同じ物理名で作成するため、
+        // 既に親カラムと同じカラムが存在する場合は、新規作成できないよう制限する
         const creatableNewColumn = (
             childColumnPairs.some(
                 (pair) => pair.columnShareModel.physicalName === parentColumnShareModel.physicalName
             ) === false
         )
-        const foreignPairs = childColumnPairs.filter((pair) =>
-            pair.columnShareModel.matchForReferenceType(parentColumnShareModel)
+
+        // 外部キー制約を指定できるのは、既に外部キー制約が定義されていないもの、かつ、型定義が同一のカラムのみ
+        const foreignPairs = childColumnPairs.filter(pair =>
+            !erdDocument.inChildRelation(pair.columnModel.columnModelId)
+            && pair.columnShareModel.matchForReferenceType(parentColumnShareModel)
         );
 
         const labelId = `label-${primaryColumn.columnShareModelId}`
@@ -208,7 +214,7 @@ const RelationReferencesPanel = ({
                     ))}
                 </Select>
             </FormControl>
-        ) : (<></>);
+        ) : (<Alert severity="warning">No columns can be associated.</Alert>);
 
         return (
             <TableRow key={primaryColumn.columnShareModelId}>
