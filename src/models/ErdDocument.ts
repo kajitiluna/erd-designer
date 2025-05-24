@@ -418,13 +418,13 @@ export default class ErdDocument {
         });
 
         const nextAddingColumnModels = detailPairs
-            .filter((pair) => pair.childColumnModel == null)
-            .map((pair) => {
+            .filter(pair => pair.childColumnModel == null)
+            .map(pair => {
                 const parentColumnModel = this.findColumnModel(pair.parentColumnModelId) as ColumnModel;
                 return new ColumnModel({
                     columnModelId: pair.childColumnModelId,
                     columnShareModelId: parentColumnModel.columnShareModelId,
-                    notNull: true
+                    notNull: ["1", "1..N"].includes(updatingModel.childCardinality)
                 });
             });
 
