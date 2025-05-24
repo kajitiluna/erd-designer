@@ -376,27 +376,23 @@ const ColumnTypeEditPanel = ({ columnTypeAttribute, disabled = false, updateColu
     };
 
     return (
-        <Grid container>
+        <Grid container spacing={1}>
             <Grid size={{ xs: 12, md: 5 }}>
-                <Box sx={{ pr: 1 }}>
-                    <Autocomplete id="columnType" disableClearable disabled={disabled}
-                        renderInput={(params) => <TextField  {...params} label="Column Type" />}
-                        options={databaseSetting.columnTypes.map((columnType) => {
-                            return { label: columnType.name, id: columnType.id }
-                        })}
-                        value={columnType ? { label: columnType.name, id: columnType.id } : { label: "", id: 0 }}
-                        isOptionEqualToValue={(option, value) => option.id === value.id}
-                        onChange={(_event, newValue) => handleChangeColumnType(newValue.id)}
-                    />
-                </Box>
+                <Autocomplete id="columnType" disableClearable disabled={disabled}
+                    renderInput={(params) => <TextField  {...params} label="Column Type" />}
+                    options={databaseSetting.columnTypes.map((columnType) => {
+                        return { label: columnType.name, id: columnType.id }
+                    })}
+                    value={columnType ? { label: columnType.name, id: columnType.id } : { label: "", id: 0 }}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    onChange={(_event, newValue) => handleChangeColumnType(newValue.id)}
+                />
             </Grid>
             <Grid size={{ xs: 3, md: 2 }}>
-                <Box sx={{ pr: 1 }}>
-                    <TextField variant="outlined" id="precision" label="Precision" type="number"
-                        disabled={!editablePrecision || disabled} required={editablePrecision}
-                        error={editablePrecision && (precision === "")}
-                        value={precision} onChange={handleChangePrecision} />
-                </Box>
+                <TextField variant="outlined" id="precision" label="Precision" type="number"
+                    disabled={!editablePrecision || disabled} required={editablePrecision}
+                    error={editablePrecision && (precision === "")}
+                    value={precision} onChange={handleChangePrecision} />
             </Grid>
             <Grid size={{ xs: 3, md: 2 }}>
                 <TextField variant="outlined" id="scale" label="Scale" type="number"
@@ -404,18 +400,18 @@ const ColumnTypeEditPanel = ({ columnTypeAttribute, disabled = false, updateColu
                     error={editableScale && (scale === "")}
                     value={scale} onChange={handleChangeScale} />
             </Grid>
-            <Grid size={{ xs: 4, md: 2 }}>
-                <Box display="flex" alignItems="center" height="100%" sx={{ pl: 1 }}>
-                    {editableUnsigned &&
+            {editableUnsigned && (
+                <Grid size={{ xs: 4, md: 2 }}>
+                    <Box display="flex" alignItems="center" height="100%" sx={{ pl: 1 }}>
                         <FormControlLabel label="unsigned" control={
                             <Checkbox disabled={disabled} checked={unsigned} onChange={handleChangeUnsigned} />
                         } />
-                    }
-                </Box>
-            </Grid>
+                    </Box>
+                </Grid>
+            )}
             {disabled && (
                 <Grid size={{ xs: 2, md: 1 }}>
-                    <Box display="flex" alignItems="center" height="100%">
+                    <Box display="flex" alignItems="center" justifyContent="center" height="100%">
                         <Tooltip placement="left" arrow title={messageForForeignColumn}>
                             <HelpOutlineIcon />
                         </Tooltip>
