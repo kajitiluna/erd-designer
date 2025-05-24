@@ -132,24 +132,4 @@ describe('ColumnShareModel', () => {
             expect(model.displayName(DisplayStyle.BOTH)).toBe('Test Column / test_column');
         });
     });
-
-    describe('matchForReferenceType', () => {
-        test('should match same column types', () => {
-            const model1 = new ColumnShareModel({
-                columnShareModelId: 'test-id-1',
-                physicalName: 'test_column_1',
-                logicalName: 'Test Column 1',
-                columnType: mockWithoutUnsigned
-            });
-
-            const model2 = new ColumnShareModel({
-                columnShareModelId: 'test-id-2',
-                physicalName: 'test_column_2',
-                logicalName: 'Test Column 2',
-                columnType: mockWithoutUnsigned
-            });
-
-            expect(model1.matchForReferenceType(model2)).toBe(true);
-        });
-    });
 });
