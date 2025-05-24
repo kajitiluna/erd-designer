@@ -2,6 +2,7 @@ import { v4 as uuidV4 } from 'uuid';
 
 import React, { MouseEvent, useState } from "react";
 import {
+    Alert,
     Box, Button, Dialog, DialogActions, DialogContent, DialogTitle,
     Divider, FormControl, InputLabel, MenuItem, Paper, Select, SelectChangeEvent, Stack,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography
@@ -173,10 +174,10 @@ const RelationReferencesPanel = ({
             ) === false
         )
 
-        // 外部キー制約を指定できるのは型定義が同一のカラムのみ
-        const parentColumnType = parentColumnShareModel.specifiedColumnType(true)
+        // 外部キー制約を指定できるのは、既に外部キー制約が定義されていないもの、かつ、型定義が同一のカラムのみ
         const foreignPairs = childColumnPairs.filter(pair =>
-            pair.columnShareModel.specifiedColumnType() === parentColumnType
+            !erdDocument.inChildRelation(pair.columnModel.columnModelId)
+            && pair.columnShareModel.matchForReferenceType(parentColumnShareModel)
         );
 
         const labelId = `label-${primaryColumn.columnShareModelId}`
@@ -213,7 +214,7 @@ const RelationReferencesPanel = ({
                     ))}
                 </Select>
             </FormControl>
-        ) : (<></>);
+        ) : (<Alert severity="warning">No columns can be associated.</Alert>);
 
         return (
             <TableRow key={primaryColumn.columnShareModelId}>

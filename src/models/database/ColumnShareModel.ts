@@ -86,6 +86,21 @@ export default class ColumnShareModel {
         return this.columnType.specifiedType({ precision: this.precision, scale: this.scale, inChildRelation });
     }
 
+    public matchForReferenceType(parent: ColumnShareModel): boolean {
+        const columnType = this.specifiedColumnType()
+        const parentColumnType = parent.specifiedColumnType(true);
+        if (columnType !== parentColumnType) {
+            return false;
+        }
+
+        if (this.columnType.withUnsigned && (this.unsigned !== parent.unsigned)) {
+            return false;
+        }
+
+        return true;
+    }
+
+
     public toJSON(): Record<string, unknown> {
         return {
             columnShareModelId: this.columnShareModelId,

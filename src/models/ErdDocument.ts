@@ -417,6 +417,7 @@ export default class ErdDocument {
             }
         });
 
+        const isNotNullOption = ["1", "1..N"].includes(updatingModel.childCardinality)
         const nextAddingColumnModels = detailPairs
             .filter(pair => pair.childColumnModel == null)
             .map(pair => {
@@ -424,7 +425,7 @@ export default class ErdDocument {
                 return new ColumnModel({
                     columnModelId: pair.childColumnModelId,
                     columnShareModelId: parentColumnModel.columnShareModelId,
-                    notNull: ["1", "1..N"].includes(updatingModel.childCardinality)
+                    notNull: isNotNullOption
                 });
             });
 
@@ -434,7 +435,7 @@ export default class ErdDocument {
                 childColumnModelId: string,
                 childColumnModel: ColumnModel
             } => (pair.childColumnModel != null) && (pair.childColumnModel.notNull === false))
-            .map((pair) => new ColumnModel({ ...pair.childColumnModel, notNull: true }));
+            .map(pair => new ColumnModel({ ...pair.childColumnModel, notNull: isNotNullOption }));
 
         let nextTableViewModelMap: Map<string, TableViewModel>;
         if (nextAddingColumnModels.length > 0) {
