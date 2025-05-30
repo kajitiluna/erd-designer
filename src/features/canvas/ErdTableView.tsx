@@ -21,16 +21,16 @@ import PrimaryKeyIcon from "~/components/icons/PrimaryKeyIcon";
 import ForeignKeyIcon from "~/components/icons/ForeignKeyIcon";
 import EditModeContext from "~/context/EditModeContext";
 import { EditModeType } from "~/models/EditMode";
-import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
+import { RELEASE_ACTION, SelectEntityContext, SelectState } from "~/context/SelectEntityContext";
 import EditAction from "~/features/canvas/EditAction";
 import RelationModel from "~/models/database/RelationModel";
 import RelationViewModel from "~/models/RelationViewModel";
 import LineViewModel from "~/models/LineViewModel";
 import { DragAction, DragActionContext } from "~/context/DragActionContext";
-
-import styleClasses from "./ErdCanvas.module.css";
 import TableModel from "~/models/database/TableModel";
 import TopLeftTooltip from "~/components/TopLeftTooltip";
+
+import styleClasses from "./ErdCanvas.module.css";
 
 export const ERD_TABLE_VIEW_CLASS_NAME = "erdTableView";
 
@@ -244,7 +244,7 @@ const ErdTableView = ({ tableViewModel, onEditAction, onDragAction }: ErdTableVi
                         <Table size="small">
                             <TableBody sx={{ fontSize: "0.875em" }}>
                                 {tableModel.columnModelIds.map(columnModelId =>
-                                    initTableColumn(columnModelId, tableModel, erdDocument))}
+                                    initTableColumn(columnModelId, tableModel, erdDocument, selectState))}
                             </TableBody>
                         </Table>
                     </TableContainer>
@@ -285,7 +285,7 @@ const ErdTableView = ({ tableViewModel, onEditAction, onDragAction }: ErdTableVi
     );
 };
 
-const initTableColumn = (columnId: string, tableModel: TableModel, erdDocument: ErdDocument) => {
+const initTableColumn = (columnId: string, tableModel: TableModel, erdDocument: ErdDocument, selectState: SelectState) => {
     const columnModel: ColumnModel | null = erdDocument.findColumnModel(columnId);
     if (columnModel == null) {
         console.warn(`columnModel is not existed. columnModelId = ${columnId}`)
@@ -303,9 +303,15 @@ const initTableColumn = (columnId: string, tableModel: TableModel, erdDocument: 
     const inChildRelation = erdDocument.inChildRelation(columnModel.columnModelId);
     const fontColor = initTableColumnFontColor(columnModel, inChildRelation);
 
+    const selectedRelationColumn = isSelectedRelationColumn(columnId, erdDocument, selectState);
+
     const displayColumnName = columnShareModel.displayName(erdDocument.getDisplayStyle());
     const displayColumnType = columnShareModel.specifiedColumnType(inChildRelation).replace("TIME ZONE", "TZ");
     const displayOption = initDisplayOption(columnModel);
+
+    const styleRow = selectedRelationColumn ? {
+        backgroundColor: "rgba(73, 76, 218, 0.12)",
+    }: {};
 
     const stylePrimaryCell = {
         whiteSpace: "nowrap",
@@ -331,7 +337,7 @@ const initTableColumn = (columnId: string, tableModel: TableModel, erdDocument: 
     };
 
     return (
-        <TableRow key={`erd-table-column_${columnId}`}>
+        <TableRow key={`erd-table-column_${columnId}`} sx={styleRow}>
             <TableCell align="center" sx={stylePrimaryCell} >
                 {columnModel.primaryKey && <PrimaryKeyIcon />}
             </TableCell>
@@ -378,6 +384,25 @@ const initTableColumnFontColor = (columnModel: ColumnModel, inChildRelation: boo
 
     return inChildRelation ? KeyColor.foreign : "#000000";
 };
+
+const isSelectedRelationColumn = (columnId: string, erdDocument: ErdDocument, selectState: SelectState) => {
+    if (selectState.relationId == null) {
+        return false;
+    }
+
+    const viewModel = erdDocument.findRelationViewModel(selectState.relationId)
+    if (viewModel == null) {
+        return false;
+    }
+
+    for (const pair of viewModel.relationModel.relationPairs) {
+        if (pair.parentColumnModelId === columnId || pair.childColumnModelId === columnId) {
+            return true;
+        }
+    }
+
+    return false;
+}
 
 const initDisplayOption = (columnModel: ColumnModel): string => {
     const columnOptions = [];
