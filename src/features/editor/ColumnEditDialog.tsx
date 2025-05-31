@@ -198,7 +198,7 @@ const ColumnEditDialog = ({ isOpen, columnModel, onUpdateColumnModels, onClose }
                         fullWidth variant="outlined" size="small" value={overriddenPhysicalName}
                         slotProps={initClearButton(overriddenPhysicalName, setOverriddenPhysicalName)}
                         onChange={initHandleChangePhysicalName(setOverriddenPhysicalName)} />
-                    <TextField id="overriddenPhysicalName" label="Logical Name"
+                    <TextField id="overriddenLogicalName" label="Logical Name"
                         fullWidth variant="outlined" size="small" value={overriddenLogicalName}
                         slotProps={initClearButton(overriddenLogicalName, setOverriddenLogicalName)}
                         onChange={event => setOverriddenLogicalName(event.target.value)} />
@@ -251,9 +251,9 @@ const ColumnEditDialog = ({ isOpen, columnModel, onUpdateColumnModels, onClose }
     );
 };
 
-const messageForOverrideNames = 
-"Allows you to override physical or logical names defined in the column model for this specific column."
-+ " This is useful when you want to customize names individually while maintaining shared column definitions.";
+const messageForOverrideNames =
+    "Allows you to override physical or logical names defined in the column model for this specific column." +
+    " This is useful when you want to customize names individually while maintaining shared column definitions.";
 
 const toColumnTypeAttribute = (columnShareModel: ColumnShareModel) => {
     return {
@@ -476,7 +476,7 @@ const ColumnTypeEditPanel = ({ columnTypeAttribute, disabled = false, updateColu
 };
 
 const messageForForeignColumn =
-    "Unable to change column type: the column is set as a foreign key."
-    + " Please remove the relation to proceed."
+    "Unable to change column type: the column is set as a foreign key." +
+    " Please remove the relation to proceed."
 
 export default ColumnEditDialog;

@@ -40,7 +40,7 @@ export default class ColumnModel {
         this.logicalName = logicalName.trim();
         this.primaryKey = primaryKey;
         this.notNull = notNull;
-        this.unique = unique;;
+        this.unique = unique;
         this.autoIncrement = autoIncrement;
     }
 
