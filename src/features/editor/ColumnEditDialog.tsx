@@ -1,16 +1,18 @@
 import { v4 as uuidV4 } from 'uuid';
 import React, { ChangeEvent, MouseEvent, useState } from "react";
 import {
-    Autocomplete, Box, Button, Checkbox,
+    Accordion, AccordionDetails, AccordionSummary, Autocomplete, Box, Button, Checkbox,
     Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
-    FormControlLabel, Paper, Stack, TextField, Tooltip, Typography
+    FormControlLabel, IconButton, Paper, Stack, TextField, Tooltip, Typography
 } from "@mui/material";
 import Grid from '@mui/material/Grid2';
 import SearchIcon from "@mui/icons-material/Search";
 import CloseIcon from "@mui/icons-material/Close";
+import ClearIcon from '@mui/icons-material/Clear';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
-import { initHandleChangeWithSyncPhysicalName } from "~/features/editor/support";
+import { initHandleChangePhysicalName, initHandleChangeWithSyncPhysicalName } from "~/features/editor/support";
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
 import ColumnType from "~/models/database/ColumnType";
@@ -49,6 +51,8 @@ const ColumnEditDialog = ({ isOpen, columnModel, onUpdateColumnModels, onClose }
     const [checkAutoIncrement, setAutoIncrement] = useState<boolean>(columnModel.autoIncrement);
     const [editableAutoIncrement, setEditableAutoIncrement]
         = useState<boolean>(columnShareModel ? columnShareModel.columnType.withAuthIncrement : false);
+    const [overriddenPhysicalName, setOverriddenPhysicalName] = useState<string>(columnModel.physicalName);
+    const [overriddenLogicalName, setOverriddenLogicalName] = useState<string>(columnModel.logicalName);
 
     const [columnShareModelId, setColumnShareModelId]
         = useState<string>(columnShareModel ? columnShareModel.columnShareModelId : "");
@@ -118,21 +122,23 @@ const ColumnEditDialog = ({ isOpen, columnModel, onUpdateColumnModels, onClose }
         const updatedModel = new ColumnModel({
             columnModelId: columnModel.columnModelId,
             columnShareModelId: updatedShareModel.columnShareModelId,
+            physicalName: overriddenPhysicalName,
+            logicalName: overriddenLogicalName,
             primaryKey: checkedPrimaryKey,
             notNull: checkedNotNull,
             unique: checkedUnique,
             autoIncrement: columnTypeAttribute.columnType.withAuthIncrement ? checkAutoIncrement : false
         });
 
-        onUpdateColumnModels((previousColumnModels) => {
-            const previousColumnModelIds = new Set(previousColumnModels.map((model) => model.columnModelId));
+        onUpdateColumnModels(previousColumnModels => {
+            const previousColumnModelIds = new Set(previousColumnModels.map(model => model.columnModelId));
 
             // 新規の場合は追加
             if (previousColumnModelIds.has(updatedModel.columnModelId) === false) {
                 return [...previousColumnModels, updatedModel];
             }
 
-            return previousColumnModels.map((model) =>
+            return previousColumnModels.map(model =>
                 (model.columnModelId === updatedModel.columnModelId) ? updatedModel : model
             );
         });
@@ -163,6 +169,44 @@ const ColumnEditDialog = ({ isOpen, columnModel, onUpdateColumnModels, onClose }
         </Stack>
     );
 
+    const initClearButton = (value: string, setValue: (value: string) => void) => {
+        return value == "" ? {} : {
+            input: {
+                endAdornment: <IconButton size="small" onClick={() => setValue("")}>
+                    <ClearIcon />
+                </IconButton>
+            }
+        }
+    }
+
+    const overriddenPanel = (
+        <Accordion defaultExpanded={(overriddenPhysicalName != "") || (overriddenLogicalName != "")}>
+            <AccordionSummary id="override-names-header"
+                aria-controls="override-names-content" expandIcon={<ExpandMoreIcon />}>
+                <Stack direction="row" spacing={2} alignItems="center" width="100%">
+                    <Typography variant="body2">Override Names (optional)</Typography>
+                    <Box display="flex" alignItems="center" justifyContent="center" height="100%">
+                        <Tooltip placement="right" arrow title={messageForOverrideNames}>
+                            <HelpOutlineIcon fontSize="small" />
+                        </Tooltip>
+                    </Box>
+                </Stack>
+            </AccordionSummary>
+            <AccordionDetails>
+                <Stack direction="row" spacing={1}>
+                    <TextField id="overriddenPhysicalName" label="Physical Name"
+                        fullWidth variant="outlined" size="small" value={overriddenPhysicalName}
+                        slotProps={initClearButton(overriddenPhysicalName, setOverriddenPhysicalName)}
+                        onChange={initHandleChangePhysicalName(setOverriddenPhysicalName)} />
+                    <TextField id="overriddenPhysicalName" label="Logical Name"
+                        fullWidth variant="outlined" size="small" value={overriddenLogicalName}
+                        slotProps={initClearButton(overriddenLogicalName, setOverriddenLogicalName)}
+                        onChange={event => setOverriddenLogicalName(event.target.value)} />
+                </Stack>
+            </AccordionDetails>
+        </Accordion>
+    );
+
     const attributePanel = (
         <Paper elevation={4} sx={{ p: 2 }}>
             <Stack spacing={3}>
@@ -170,10 +214,14 @@ const ColumnEditDialog = ({ isOpen, columnModel, onUpdateColumnModels, onClose }
                     columnShareModelId={columnShareModelId}
                     associateColumnModel={associateColumnModel}
                     unlinkColumnModel={() => setColumnShareModelId("")} />
-                <TextField required variant="outlined" id="physicalName" label="Physical Name"
-                    value={physicalName} onChange={handleChangePhysicalName} />
-                <TextField required variant="outlined" id="logicalName" label="Logical Name"
-                    value={logicalName} onChange={(event) => setLogicalName(event.target.value)} />
+                <Stack direction="row" spacing={1}>
+                    <TextField id="physicalName" label="Physical Name"
+                        required fullWidth variant="outlined" value={physicalName}
+                        onChange={handleChangePhysicalName} />
+                    <TextField id="logicalName" label="Logical Name"
+                        required fullWidth variant="outlined" value={logicalName}
+                        onChange={event => setLogicalName(event.target.value)} />
+                </Stack>
                 <ColumnTypeEditPanel
                     columnTypeAttribute={columnTypeAttribute}
                     disabled={!editableColumnType}
@@ -191,6 +239,7 @@ const ColumnEditDialog = ({ isOpen, columnModel, onUpdateColumnModels, onClose }
             <DialogContent>
                 <Stack spacing={3}>
                     {constraintPanel}
+                    {overriddenPanel}
                     {attributePanel}
                 </Stack>
             </DialogContent>
@@ -201,6 +250,10 @@ const ColumnEditDialog = ({ isOpen, columnModel, onUpdateColumnModels, onClose }
         </Dialog>
     );
 };
+
+const messageForOverrideNames = 
+"Allows you to override physical or logical names defined in the column model for this specific column."
++ " This is useful when you want to customize names individually while maintaining shared column definitions.";
 
 const toColumnTypeAttribute = (columnShareModel: ColumnShareModel) => {
     return {
@@ -413,7 +466,7 @@ const ColumnTypeEditPanel = ({ columnTypeAttribute, disabled = false, updateColu
                 <Grid size={{ xs: 2, md: 1 }}>
                     <Box display="flex" alignItems="center" justifyContent="center" height="100%">
                         <Tooltip placement="left" arrow title={messageForForeignColumn}>
-                            <HelpOutlineIcon />
+                            <HelpOutlineIcon fontSize="small" />
                         </Tooltip>
                     </Box>
                 </Grid>
@@ -422,6 +475,8 @@ const ColumnTypeEditPanel = ({ columnTypeAttribute, disabled = false, updateColu
     );
 };
 
-const messageForForeignColumn = "Unable to change column type: the column is set as a foreign key. Please remove the relation to proceed."
+const messageForForeignColumn =
+    "Unable to change column type: the column is set as a foreign key."
+    + " Please remove the relation to proceed."
 
 export default ColumnEditDialog;

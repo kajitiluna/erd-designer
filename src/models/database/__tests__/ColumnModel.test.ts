@@ -46,6 +46,8 @@ describe('ColumnModel', () => {
             expect(json).toEqual({
                 columnModelId: 'test-id',
                 columnShareModelId: 'share-id',
+                physicalName: '',
+                logicalName: '',
                 primaryKey: false,
                 notNull: false,
                 unique: false,

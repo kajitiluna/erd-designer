@@ -8,7 +8,7 @@ import IndexViewTable from "~/features/editor/IndexViewTable";
 import { initHandleChangeWithSyncPhysicalName } from "~/features/editor/support";
 import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import ColumnModel from "~/models/database/ColumnModel";
-import ColumnShareModel from "~/models/database/ColumnShareModel";
+import { overrideColumnName } from "~/models/database/support";
 import TableIndexModel from "~/models/database/TableIndexModel";
 import TableModel from "~/models/database/TableModel";
 import ErdDocument from "~/models/ErdDocument";
@@ -51,10 +51,16 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             return false;
         }
 
-        const columnNameSet = new Set<string>(columnModels
-            .map(columnModel => columnShareModelStorage.find(columnModel.columnShareModelId))
-            .filter(shareModel => shareModel != null)
-            .map(shareModel => (shareModel as ColumnShareModel).physicalName)
+        const columnNameSet = new Set<string>(
+            columnModels.map(columnModel => {
+                const columnShareModel = columnShareModelStorage.find(columnModel.columnShareModelId);
+                if (columnShareModel == null) {
+                    return null;
+                }
+
+                const columnName = overrideColumnName(columnModel, columnShareModel);
+                return columnName.physicalName;
+            }).filter(physicalName => physicalName != null)
         );
 
         return columnNameSet.size === columnModels.length;
