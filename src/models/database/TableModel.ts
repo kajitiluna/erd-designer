@@ -32,8 +32,8 @@ export default class TableModel {
         description = ""
     }: TableModelOptions) {
         this.tableModelId = tableModelId ? tableModelId : uuidV4();
-        this.physicalName = physicalName;
-        this.logicalName = logicalName;
+        this.physicalName = physicalName.trim();
+        this.logicalName = logicalName.trim();
         this.columnModelIds = columnModelIds;
         this.tableIndexModels = tableIndexModels;
         this.description = description;

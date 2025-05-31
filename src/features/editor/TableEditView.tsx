@@ -8,7 +8,7 @@ import IndexViewTable from "~/features/editor/IndexViewTable";
 import { initHandleChangeWithSyncPhysicalName } from "~/features/editor/support";
 import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import ColumnModel from "~/models/database/ColumnModel";
-import ColumnShareModel from "~/models/database/ColumnShareModel";
+import { overrideColumnName } from "~/models/database/support";
 import TableIndexModel from "~/models/database/TableIndexModel";
 import TableModel from "~/models/database/TableModel";
 import ErdDocument from "~/models/ErdDocument";
@@ -51,10 +51,16 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             return false;
         }
 
-        const columnNameSet = new Set<string>(columnModels
-            .map(columnModel => columnShareModelStorage.find(columnModel.columnShareModelId))
-            .filter(shareModel => shareModel != null)
-            .map(shareModel => (shareModel as ColumnShareModel).physicalName)
+        const columnNameSet = new Set<string>(
+            columnModels.map(columnModel => {
+                const columnShareModel = columnShareModelStorage.find(columnModel.columnShareModelId);
+                if (columnShareModel == null) {
+                    return null;
+                }
+
+                const columnName = overrideColumnName(columnModel, columnShareModel);
+                return columnName.physicalName;
+            }).filter(physicalName => physicalName != null)
         );
 
         return columnNameSet.size === columnModels.length;
@@ -75,16 +81,16 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             logicalName: logicalTableName,
             columnModelIds: columnModels.map((model) => model.columnModelId),
             tableIndexModels: tableIndexModels
-                .map((tableIndexModel) => new TableIndexModel({
+                .map(tableIndexModel => new TableIndexModel({
                     tableIndexModelId: tableIndexModel.tableIndexModelId,
                     physicalName: tableIndexModel.physicalName,
                     indexColumnModels: tableIndexModel.indexColumnModels
-                        .filter((model) => columnModelIds.has(model.columnModelId)),
+                        .filter(model => columnModelIds.has(model.columnModelId)),
                     indexOption: tableIndexModel.indexOption,
                     indexType: tableIndexModel.indexType,
                     description: tableIndexModel.description
                 }))
-                .filter((tableIndexModel) => tableIndexModel.indexColumnModels.length > 0),
+                .filter(tableIndexModel => tableIndexModel.indexColumnModels.length > 0),
             description: description
         });
         const nextTableViewModel = new TableViewModel({

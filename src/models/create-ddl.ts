@@ -2,6 +2,7 @@ import { Database } from "~/models/database";
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
 import RelationModel from "~/models/database/RelationModel";
+import { overrideColumnName } from "~/models/database/support";
 import TableModel from "~/models/database/TableModel";
 import ErdDocument from "~/models/ErdDocument";
 import TableViewModel from "~/models/TableViewModel";
@@ -80,6 +81,7 @@ const columnQueryWithoutComment: ColumnQuery = (
 ) => {
     return columnShareModel.query({
         database: database,
+        overridePhysicalName: columnModel.physicalName,
         notNull: columnModel.notNull,
         autoIncrement: columnModel.autoIncrement,
         inChildRelation
@@ -98,11 +100,16 @@ const columnQueryWithComment: ColumnQuery = (
     inChildRelation: boolean, option: DdlOption, database: Database
 ) => {
     const baseQuery = columnQueryWithoutComment(columnModel, columnShareModel, inChildRelation, option, database);
-    if ((option.withComment === false) || (columnShareModel.logicalName === columnShareModel.physicalName)) {
+    if (option.withComment === false) {
         return baseQuery
     }
 
-    return `${baseQuery} COMMENT '${escapeComment(columnShareModel.logicalName)}'`;
+    const overrideName = overrideColumnName(columnModel, columnShareModel);
+    if (overrideName.physicalName === overrideName.logicalName) {
+        return baseQuery;
+    }
+
+    return `${baseQuery} COMMENT '${escapeComment(overrideName.logicalName)}'`;
 };
 
 const tableQueryWithComment: TableQuery = (

@@ -9,7 +9,7 @@ export default class RelationViewModelStorage {
     private childColumnModelIdMap: Map<string, ParentRelation>;
 
     constructor(relationViewModels: readonly RelationViewModel[]) {
-        this.relationIdMap = new Map(relationViewModels.map((model) => [model.relationId, model]));
+        this.relationIdMap = new Map(relationViewModels.map(model => [model.relationId, model]));
 
         this.parentTableModelIdMap = relationViewModels.reduce((pairs, model) => {
             let currentPair = pairs.get(model.relationModel.parentTableModelId);

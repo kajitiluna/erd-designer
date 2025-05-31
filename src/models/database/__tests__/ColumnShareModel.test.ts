@@ -1,7 +1,6 @@
 import { databases } from '~/models/database/DatabaseType';
 import ColumnShareModel from '../ColumnShareModel';
 import ColumnType from '../ColumnType';
-import DisplayStyle from '../DisplayStyle';
 
 describe('ColumnShareModel', () => {
     // unsigned を定義できない (withUnsigned === false) の ColumnType
@@ -115,21 +114,6 @@ describe('ColumnShareModel', () => {
 
             const query = model.query({ database, notNull: true });
             expect(query).toBe('test_column TEST NOT NULL');
-        });
-    });
-
-    describe('displayName', () => {
-        test('should return correct display name for each style', () => {
-            const model = new ColumnShareModel({
-                columnShareModelId: 'test-id',
-                physicalName: 'test_column',
-                logicalName: 'Test Column',
-                columnType: mockWithoutUnsigned
-            });
-
-            expect(model.displayName(DisplayStyle.PHYSICAL)).toBe('test_column');
-            expect(model.displayName(DisplayStyle.LOGICAL)).toBe('Test Column');
-            expect(model.displayName(DisplayStyle.BOTH)).toBe('Test Column / test_column');
         });
     });
 

@@ -1,6 +1,5 @@
 import ColumnType from "~/models/database/ColumnType";
 import { Database } from "~/models/database/DatabaseType";
-import DisplayStyle from "~/models/database/DisplayStyle";
 import { PropertyNotExistsError } from "~/models/exceptions";
 import { toDateTime } from "~/models/util";
 
@@ -19,6 +18,7 @@ type ColumnShareModelOptions = {
 
 type ColumnShareQueryType = {
     database: Database,
+    overridePhysicalName?: string,
     notNull?: boolean
     autoIncrement?: boolean,
     inChildRelation?: boolean
@@ -62,10 +62,12 @@ export default class ColumnShareModel {
     }
 
     public query({
-        database, notNull = false, autoIncrement = false, inChildRelation = false
+        database, overridePhysicalName="",
+        notNull = false, autoIncrement = false, inChildRelation = false
     }: ColumnShareQueryType): string {
 
-        return `${database.escape(this.physicalName)} ` + this.columnType.query(
+        const columnName = overridePhysicalName != "" ? overridePhysicalName : this.physicalName;
+        return `${database.escape(columnName)} ` + this.columnType.query(
             {
                 precision: this.precision,
                 scale: this.scale,
@@ -76,10 +78,6 @@ export default class ColumnShareModel {
                 inChildRelation
             }
         );
-    }
-
-    public displayName(displayStyle: DisplayStyle): string {
-        return displayStyle.displayName(this.physicalName, this.logicalName);
     }
 
     public specifiedColumnType(inChildRelation: boolean = false): string {

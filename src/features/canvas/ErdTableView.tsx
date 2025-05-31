@@ -31,6 +31,9 @@ import TableModel from "~/models/database/TableModel";
 import TopLeftTooltip from "~/components/TopLeftTooltip";
 
 import styleClasses from "./ErdCanvas.module.css";
+import ColumnShareModel from "~/models/database/ColumnShareModel";
+import DisplayStyle from "~/models/database/DisplayStyle";
+import { overrideColumnName } from "~/models/database/support";
 
 export const ERD_TABLE_VIEW_CLASS_NAME = "erdTableView";
 
@@ -305,13 +308,13 @@ const initTableColumn = (columnId: string, tableModel: TableModel, erdDocument: 
 
     const selectedRelationColumn = isSelectedRelationColumn(columnId, erdDocument, selectState);
 
-    const displayColumnName = columnShareModel.displayName(erdDocument.getDisplayStyle());
+    const displayColumnName = initDisplayColumnName(columnModel, columnShareModel, erdDocument.getDisplayStyle());
     const displayColumnType = columnShareModel.specifiedColumnType(inChildRelation).replace("TIME ZONE", "TZ");
     const displayOption = initDisplayOption(columnModel);
 
     const styleRow = selectedRelationColumn ? {
         backgroundColor: "rgba(73, 76, 218, 0.12)",
-    }: {};
+    } : {};
 
     const stylePrimaryCell = {
         whiteSpace: "nowrap",
@@ -402,6 +405,12 @@ const isSelectedRelationColumn = (columnId: string, erdDocument: ErdDocument, se
     }
 
     return false;
+}
+
+const initDisplayColumnName = (columnModel: ColumnModel, shareModel: ColumnShareModel, displayStyle: DisplayStyle): string => {
+    const overrideName = overrideColumnName(columnModel, shareModel);
+
+    return displayStyle.displayName(overrideName.physicalName, overrideName.logicalName);
 }
 
 const initDisplayOption = (columnModel: ColumnModel): string => {

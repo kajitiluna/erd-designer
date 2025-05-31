@@ -13,6 +13,7 @@ import EdgedIconButton from "~/components/EdgedIconButton";
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnEditDialog from "~/features/editor/ColumnEditDialog";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
+import { overrideColumnName } from "~/models/database/support";
 
 type ColumnViewTableProps = {
     columnModels: ColumnModel[],
@@ -28,6 +29,12 @@ const ColumnViewTable = ({ columnModels, onUpdateColumnModels, isChildRelation }
 
     const initColumnModelRow = (columnModel: ColumnModel, targetIndex: number) => {
         const columnShareModel = columnShareModelStorage.find(columnModel.columnShareModelId);
+        if (columnShareModel == null) {
+            console.warn(`ColumnShareModel not found for columnModelId: ${columnModel.columnModelId}`);
+            return (<></>)
+        }
+
+        const overrideName = overrideColumnName(columnModel, columnShareModel);
         const inChildRelation = isChildRelation(columnModel.columnModelId);
 
         const handleRowClicked = (event: MouseEvent) => {
@@ -94,9 +101,9 @@ const ColumnViewTable = ({ columnModels, onUpdateColumnModels, isChildRelation }
                 sx={{ '&:nth-of-type(odd)': { backgroundColor: 'action.hover' } }} style={{ cursor: 'pointer' }}>
                 <TableCell align="center">{columnModel.primaryKey && <PrimaryKeyIcon />}</TableCell>
                 <TableCell align="center">{inChildRelation && <ForeignKeyIcon />}</TableCell>
-                <TableCell>{columnShareModel ? columnShareModel.physicalName : ""}</TableCell>
-                <TableCell>{columnShareModel ? columnShareModel.logicalName : ""}</TableCell>
-                <TableCell>{columnShareModel ? columnShareModel.specifiedColumnType(inChildRelation) : ""}</TableCell>
+                <TableCell>{overrideName.physicalName}</TableCell>
+                <TableCell>{overrideName.logicalName}</TableCell>
+                <TableCell>{columnShareModel.specifiedColumnType(inChildRelation)}</TableCell>
                 <TableCell align="center">{columnModel.notNull && <CheckIcon fontSize="small" />}</TableCell>
                 <TableCell align="center">{columnModel.unique && <CheckIcon fontSize="small" />}</TableCell>
                 <TableCell>{buttonPanel}</TableCell>

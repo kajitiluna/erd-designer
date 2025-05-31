@@ -26,6 +26,7 @@ import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocu
 import TableIndexSupport, { TableIndexOption, TableIndexType } from "~/models/database/TableIndexSupport";
 import { initHandleChangePhysicalName } from "~/features/editor/support";
 import ColumnShareModel from '~/models/database/ColumnShareModel';
+import { overrideColumnName } from '~/models/database/support';
 
 
 type IndexViewTableProps = {
@@ -55,13 +56,19 @@ const IndexViewTable = ({ columnModels, tableIndexModels, onUpdateTableIndexMode
 
     const initColumnTitleRow = (columnModel: ColumnModel, rowIndex: number) => {
         const columnShareModel = columnShareModelStorage.find(columnModel.columnShareModelId);
+        if (columnShareModel == null) {
+            console.warn(`ColumnShareModel not found for columnModelId: ${columnModel.columnModelId}`);
+            return (<></>)
+        }
+
+        const overrideName = overrideColumnName(columnModel, columnShareModel);
         const inChildRelation = erdDocument.inChildRelation(columnModel.columnModelId);
 
         return (
             <TableRow key={`index-view-column-title-${rowIndex}`} sx={{ height: "43px" }}>
                 <TableCell align="center" sx={cellStyle}>{columnModel.primaryKey && <PrimaryKeyIcon />}</TableCell>
                 <TableCell align="center">{inChildRelation && <ForeignKeyIcon />}</TableCell>
-                <TableCell sx={cellStyle}>{columnShareModel ? columnShareModel.physicalName : ""}</TableCell>
+                <TableCell sx={cellStyle}>{overrideName.physicalName}</TableCell>
             </TableRow>
         );
     };
@@ -303,7 +310,7 @@ const IndexEditDialog = ({ isOpen, tableIndexModel, columnModels, onUpdateTableI
         const nextTableIndexModel = new TableIndexModel({
             tableIndexModelId: targetId,
             physicalName: physicalName,
-            indexColumnModels: indexedColumns.map((model) => new IndexColumnModel({ ...model })),
+            indexColumnModels: indexedColumns.map(model => new IndexColumnModel({ ...model })),
             indexOption: indexOption,
             indexType: indexType,
             description: description
@@ -407,18 +414,18 @@ const IndexColumnTransferPanel = ({ columnModels, indexedColumns, onUpdateIndexe
                 }
             })
             .filter((pair): pair is ColumnModelDetail => (pair.columnShareModel != null))
-            .map((pair) => [pair.columnModel.columnModelId, pair])
+            .map(pair => [pair.columnModel.columnModelId, pair])
     );
 
     const indexedColumnModelIds = new Set(indexedColumns.map((model) => model.columnModelId));
 
     const fromColumnsPanel = columnModels
-        .filter((model) => (indexedColumnModelIds.has(model.columnModelId) === false))
-        .map((model) => columnModelMap.get(model.columnModelId))
+        .filter(model => (indexedColumnModelIds.has(model.columnModelId) === false))
+        .map(model => columnModelMap.get(model.columnModelId))
         .filter((pair): pair is ColumnModelDetail => (pair != null))
-        .map((pair) => {
+        .map(pair => {
             const columnModelId = pair.columnModel.columnModelId;
-            const columnShareModel = pair.columnShareModel;
+            const columnName = overrideColumnName(pair.columnModel, pair.columnShareModel);
             const inChildRelation = erdDocument.inChildRelation(columnModelId);
 
             const handleSelect = (event: MouseEvent) => {
@@ -429,8 +436,8 @@ const IndexColumnTransferPanel = ({ columnModels, indexedColumns, onUpdateIndexe
             return (
                 <TableRow key={columnModelId} style={{ cursor: 'pointer' }}
                     selected={columnModelId === selectedFromId} onClick={handleSelect}>
-                    <TableCell>{columnShareModel.physicalName}</TableCell>
-                    <TableCell>{columnShareModel.specifiedColumnType(inChildRelation)}</TableCell>
+                    <TableCell>{columnName.physicalName}</TableCell>
+                    <TableCell>{pair.columnShareModel.specifiedColumnType(inChildRelation)}</TableCell>
                 </TableRow>
             )
         });
@@ -483,7 +490,7 @@ const IndexColumnTransferPanel = ({ columnModels, indexedColumns, onUpdateIndexe
     );
 
     const indexedColumnsPanel = indexedColumns
-        .map((model) => {
+        .map(model => {
             const detail = columnModelMap.get(model.columnModelId)
             return { indexedColumn: model, columnModelDetail: detail }
         })
@@ -491,12 +498,13 @@ const IndexColumnTransferPanel = ({ columnModels, indexedColumns, onUpdateIndexe
         .filter((pair): pair is {
             indexedColumn: IndexColumnModel, columnModelDetail: ColumnModelDetail
         } => (pair.columnModelDetail != null))
-        .map((pair) => { return { ...pair.columnModelDetail, ...pair.indexedColumn } })
+        .map(pair => { return { ...pair.columnModelDetail, ...pair.indexedColumn } })
         .map((pair, arrayIndex) => {
             const columnModelId = pair.columnModel.columnModelId;
-            const columnShareModel = pair.columnShareModel;
             const sortOrderType = pair.sortOrderType;
             const nullsOrderType = pair.nullsOrderType;
+
+            const columnName = overrideColumnName(pair.columnModel, pair.columnShareModel);
             const inChildRelation = erdDocument.inChildRelation(columnModelId);
 
             const handleSelect = (event: MouseEvent) => {
@@ -516,21 +524,23 @@ const IndexColumnTransferPanel = ({ columnModels, indexedColumns, onUpdateIndexe
             };
             const handleChangeNullsOrder = (event: SelectChangeEvent) => {
                 const nextNullsOrderType = event.target.value as NullsOrderType;
-                onUpdateIndexedColumns((previousColumns) => previousColumns.map(
-                    (previous) => (previous.columnModelId !== columnModelId) ? previous : {
-                        columnModelId: previous.columnModelId,
-                        sortOrderType: previous.sortOrderType,
-                        nullsOrderType: nextNullsOrderType
-                    }
-                ));
+                onUpdateIndexedColumns(previousColumns =>
+                    previousColumns.map(previous =>
+                        (previous.columnModelId !== columnModelId) ? previous : {
+                            columnModelId: previous.columnModelId,
+                            sortOrderType: previous.sortOrderType,
+                            nullsOrderType: nextNullsOrderType
+                        }
+                    )
+                );
             };
 
             return (
                 <TableRow key={columnModelId} style={{ cursor: 'pointer' }}
                     selected={columnModelId === selectedIndexedId} onClick={handleSelect}>
                     <TableCell align="right" sx={{ width: 10 }}>{arrayIndex + 1}</TableCell>
-                    <TableCell>{columnShareModel.physicalName}</TableCell>
-                    <TableCell>{columnShareModel.specifiedColumnType(inChildRelation)}</TableCell>
+                    <TableCell>{columnName.physicalName}</TableCell>
+                    <TableCell>{pair.columnShareModel.specifiedColumnType(inChildRelation)}</TableCell>
                     <TableCell>
                         <FormControl fullWidth size="small">
                             <InputLabel id={`sort-order-${columnModelId}`}>Sort Order</InputLabel>
