@@ -81,16 +81,16 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             logicalName: logicalTableName,
             columnModelIds: columnModels.map((model) => model.columnModelId),
             tableIndexModels: tableIndexModels
-                .map((tableIndexModel) => new TableIndexModel({
+                .map(tableIndexModel => new TableIndexModel({
                     tableIndexModelId: tableIndexModel.tableIndexModelId,
                     physicalName: tableIndexModel.physicalName,
                     indexColumnModels: tableIndexModel.indexColumnModels
-                        .filter((model) => columnModelIds.has(model.columnModelId)),
+                        .filter(model => columnModelIds.has(model.columnModelId)),
                     indexOption: tableIndexModel.indexOption,
                     indexType: tableIndexModel.indexType,
                     description: tableIndexModel.description
                 }))
-                .filter((tableIndexModel) => tableIndexModel.indexColumnModels.length > 0),
+                .filter(tableIndexModel => tableIndexModel.indexColumnModels.length > 0),
             description: description
         });
         const nextTableViewModel = new TableViewModel({
