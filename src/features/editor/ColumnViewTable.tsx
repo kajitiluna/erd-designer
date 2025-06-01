@@ -14,28 +14,29 @@ import ColumnModel from "~/models/database/ColumnModel";
 import ColumnEditDialog from "~/features/editor/ColumnEditDialog";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import { overrideColumnName } from "~/models/database/support";
+import { ColumnWrapModel } from "~/features/editor/support";
+import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 
 type ColumnViewTableProps = {
-    columnModels: ColumnModel[],
-    onUpdateColumnModels: (updateFunction: ((previous: ColumnModel[]) => ColumnModel[])) => void,
-    isChildRelation: (columnModelId: string) => boolean
+    columnWrapModels: ColumnWrapModel[],
+    isChildRelation: (columnModelId: string) => boolean,
+    isEditableColumnType: (columnModelId: string) => boolean,
+    onUpdateColumnWrapModels: (updateFunction: ((previous: ColumnWrapModel[]) => ColumnWrapModel[])) => void
 };
 
-const ColumnViewTable = ({ columnModels, onUpdateColumnModels, isChildRelation }: ColumnViewTableProps) => {
+const ColumnViewTable = ({
+    columnWrapModels, isChildRelation, isEditableColumnType, onUpdateColumnWrapModels
+}: ColumnViewTableProps) => {
+
     const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
 
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
     const [editingColumnModel, setEditingColumnModel] = useState<ColumnModel | null>(null);
 
-    const initColumnModelRow = (columnModel: ColumnModel, targetIndex: number) => {
-        const columnShareModel = columnShareModelStorage.find(columnModel.columnShareModelId);
-        if (columnShareModel == null) {
-            console.warn(`ColumnShareModel not found for columnModelId: ${columnModel.columnModelId}`);
-            return (<></>)
-        }
-
-        const overrideName = overrideColumnName(columnModel, columnShareModel);
-        const inChildRelation = isChildRelation(columnModel.columnModelId);
+    const initColumnModelRow = (columnWrapModel: ColumnWrapModel, targetIndex: number) => {
+        const { cells, inChildRelation } = (columnWrapModel.modelType === "single")
+            ? doInitSingleColumnRow(columnWrapModel.columnModel)
+            : doInitGroupColumnRow(columnWrapModel.columnGroupModel);
 
         const handleRowClicked = (event: MouseEvent) => {
             event.stopPropagation();
@@ -46,19 +47,24 @@ const ColumnViewTable = ({ columnModels, onUpdateColumnModels, isChildRelation }
         const handleEditColumn = (event: MouseEvent) => {
             event.stopPropagation();
             setSelectedIndex(null);
-            setEditingColumnModel(columnModel);
+
+            if (columnWrapModel.modelType === "single") {
+                setEditingColumnModel(columnWrapModel.columnModel);
+            } else {
+                // TODO
+            }
         };
 
         const initHandleShiftColumn = (shift: (1 | -1)) => {
             return (event: MouseEvent) => {
-                if ((targetIndex + shift < 0) || (targetIndex + shift >= columnModels.length)) {
+                if ((targetIndex + shift < 0) || (targetIndex + shift >= columnWrapModels.length)) {
                     return;
                 }
 
                 event.stopPropagation();
 
                 setSelectedIndex(null);
-                onUpdateColumnModels(previous => {
+                onUpdateColumnWrapModels(previous => {
                     const nextColumnModels = [...previous];
                     nextColumnModels[targetIndex] = previous[targetIndex + shift];
                     nextColumnModels[targetIndex + shift] = previous[targetIndex];
@@ -72,7 +78,7 @@ const ColumnViewTable = ({ columnModels, onUpdateColumnModels, isChildRelation }
             event.stopPropagation();
 
             setSelectedIndex(null);
-            onUpdateColumnModels(previous => previous.filter((_, index) => targetIndex !== index))
+            onUpdateColumnWrapModels(previous => previous.filter((_, index) => targetIndex !== index))
         }
 
         const buttonPanel = (
@@ -84,7 +90,7 @@ const ColumnViewTable = ({ columnModels, onUpdateColumnModels, isChildRelation }
                     onClick={initHandleShiftColumn(-1)}>
                     <ArrowUpwardIcon fontSize="small" />
                 </EdgedIconButton>
-                <EdgedIconButton tooltip="Move down" disabled={targetIndex === columnModels.length - 1}
+                <EdgedIconButton tooltip="Move down" disabled={targetIndex === columnWrapModels.length - 1}
                     onClick={initHandleShiftColumn(1)}>
                     <ArrowDownwardIcon fontSize="small" />
                 </EdgedIconButton>
@@ -99,6 +105,24 @@ const ColumnViewTable = ({ columnModels, onUpdateColumnModels, isChildRelation }
             <TableRow key={`column-view-${targetIndex}`} selected={selectedIndex === targetIndex}
                 onClick={handleRowClicked} onDoubleClick={handleEditColumn}
                 sx={{ '&:nth-of-type(odd)': { backgroundColor: 'action.hover' } }} style={{ cursor: 'pointer' }}>
+                {cells}
+                <TableCell>{buttonPanel}</TableCell>
+            </TableRow>
+        );
+    };
+
+    const doInitSingleColumnRow = (columnModel: ColumnModel) => {
+        const columnShareModel = columnShareModelStorage.find(columnModel.columnShareModelId);
+        if (columnShareModel == null) {
+            console.warn(`ColumnShareModel not found for columnModelId: ${columnModel.columnModelId}`);
+            return { cells: (<></>), inChildRelation: true };
+        }
+
+        const overrideName = overrideColumnName(columnModel, columnShareModel);
+        const inChildRelation = isChildRelation(columnModel.columnModelId);
+
+        return {
+            cells: (<>
                 <TableCell align="center">{columnModel.primaryKey && <PrimaryKeyIcon />}</TableCell>
                 <TableCell align="center">{inChildRelation && <ForeignKeyIcon />}</TableCell>
                 <TableCell>{overrideName.physicalName}</TableCell>
@@ -106,10 +130,21 @@ const ColumnViewTable = ({ columnModels, onUpdateColumnModels, isChildRelation }
                 <TableCell>{columnShareModel.specifiedColumnType(inChildRelation)}</TableCell>
                 <TableCell align="center">{columnModel.notNull && <CheckIcon fontSize="small" />}</TableCell>
                 <TableCell align="center">{columnModel.unique && <CheckIcon fontSize="small" />}</TableCell>
-                <TableCell>{buttonPanel}</TableCell>
-            </TableRow>
-        );
+            </>),
+            inChildRelation: inChildRelation
+        };
     };
+
+    const doInitGroupColumnRow = (columnGroupModel: ColumnGroupModel) => {
+        return {
+            cells: (<>
+                <TableCell align="center"></TableCell>
+                <TableCell align="center"></TableCell>
+                <TableCell colSpan={5}>{columnGroupModel.groupName}</TableCell>
+            </>),
+            inChildRelation: false
+        };
+    }
 
     const tableHeader = (
         <TableHead>
@@ -138,7 +173,8 @@ const ColumnViewTable = ({ columnModels, onUpdateColumnModels, isChildRelation }
             <Table stickyHeader size="small" aria-label="column view table" style={{ tableLayout: "fixed" }}>
                 {tableHeader}
                 <TableBody>
-                    {columnModels.map((columnModel: ColumnModel, index: number) => initColumnModelRow(columnModel, index))}
+                    {columnWrapModels.map((columnWrapModel: ColumnWrapModel, index: number) =>
+                        initColumnModelRow(columnWrapModel, index))}
                 </TableBody>
             </Table>
             <Box sx={{ p: "5px" }}>
@@ -150,7 +186,8 @@ const ColumnViewTable = ({ columnModels, onUpdateColumnModels, isChildRelation }
                 <ColumnEditDialog
                     isOpen={editingColumnModel != null}
                     columnModel={editingColumnModel}
-                    onUpdateColumnModels={onUpdateColumnModels}
+                    isEditableColumnType={isEditableColumnType}
+                    onUpdateWrapColumnModels={onUpdateColumnWrapModels}
                     onClose={() => setEditingColumnModel(null)} />
             )}
         </TableContainer>

@@ -16,7 +16,6 @@ import TableModel from "~/models/database/TableModel";
 import ErdDocument from "~/models/ErdDocument";
 import RelationViewModel from "~/models/RelationViewModel";
 import ColumnModel from "~/models/database/ColumnModel";
-import ColumnShareModel from "~/models/database/ColumnShareModel";
 import { initHandleChangePhysicalName } from '~/features/editor/support';
 
 type RelationEditViewProps = {
@@ -33,13 +32,12 @@ const RelationEditView = ({ isOpen, relationViewModel, parentTableModel, childTa
 
     const relationModel: RelationModel = relationViewModel.relationModel;
 
-    const parentPrimaryColumns: ColumnModel[] = parentTableModel.columnModelIds
-        .map((columnModelId) => erdDocument.findColumnModel(columnModelId))
-        .filter((columnModel): columnModel is ColumnModel =>
-            (columnModel != null) && (columnModel.primaryKey));
+    const parentPrimaryColumns: ColumnModel[] =
+        erdDocument.toAllColumnModels(parentTableModel)
+            .filter(columnModel => columnModel.primaryKey);
 
-    const previousRelationMap = new Map(relationModel.relationPairs.map(
-        (pair) => [pair.parentColumnModelId, pair.childColumnModelId])
+    const previousRelationMap = new Map(relationModel.relationPairs
+        .map(pair => [pair.parentColumnModelId, pair.childColumnModelId])
     );
 
     const [relationName, setRelationName] = useState<string>(relationModel.relationName);
@@ -147,18 +145,16 @@ const RelationReferencesPanel = ({
     relationPairs, updateRelationPairs
 }: RelationReferencesPanelProps) => {
 
-    const childColumnPairs = childTableModel.columnModelIds
-        .map(columnModelId => erdDocument.findColumnModel(columnModelId))
-        .filter((columnModel): columnModel is ColumnModel => columnModel != null)
+    const childColumnPairs = erdDocument.toAllColumnModels(childTableModel)
         .map(columnModel => {
-            return {
-                columnModel: columnModel,
-                columnShareModel: erdDocument.findColumnShareModel(columnModel.columnShareModelId)
+            const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
+            if (columnShareModel == null) {
+                return null;
             }
-        }).filter(
-            (pair): pair is { columnModel: ColumnModel, columnShareModel: ColumnShareModel } =>
-                (pair.columnShareModel != null)
-        );
+
+            return { columnModel, columnShareModel }
+        })
+        .filter(pair => (pair != null));
 
     const initRelationRow = (primaryColumn: ColumnModel, index: number) => {
         const parentColumnShareModel = erdDocument.findColumnShareModel(primaryColumn.columnShareModelId)
@@ -175,9 +171,9 @@ const RelationReferencesPanel = ({
         )
 
         // 外部キー制約を指定できるのは、既に外部キー制約が定義されていないもの、かつ、型定義が同一のカラムのみ
-        const foreignPairs = childColumnPairs.filter(pair =>
-            !erdDocument.inChildRelation(pair.columnModel.columnModelId)
-            && pair.columnShareModel.matchForReferenceType(parentColumnShareModel)
+        const foreignPairs = childColumnPairs.filter(childPair =>
+            !erdDocument.inChildRelation(childTableModel.tableModelId, childPair.columnModel.columnModelId)
+            && childPair.columnShareModel.matchForReferenceType(parentColumnShareModel)
         );
 
         const labelId = `label-${primaryColumn.columnShareModelId}`

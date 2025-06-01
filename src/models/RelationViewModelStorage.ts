@@ -6,6 +6,7 @@ export default class RelationViewModelStorage {
 
     private relationIdMap: Map<string, RelationViewModel>;
     private parentTableModelIdMap: Map<string, RelationViewModel[]>;
+    // `子テーブルID:子カラムID` をキーに、親テーブルIDと親カラムIDのペアを値とするマップ
     private childColumnModelIdMap: Map<string, ParentRelation>;
 
     constructor(relationViewModels: readonly RelationViewModel[]) {
@@ -25,7 +26,8 @@ export default class RelationViewModelStorage {
             .filter(model => model.relationModel.relationPairs.length > 0)
             .flatMap(model => model.relationModel.relationPairs
                 .map(pair => [
-                    pair.childColumnModelId, {
+                    `${model.relationModel.childTableModelId}:${pair.childColumnModelId}`,
+                    {
                         tableModelId: model.relationModel.parentTableModelId,
                         columnModelId: pair.parentColumnModelId
                     }
@@ -34,10 +36,8 @@ export default class RelationViewModelStorage {
     }
 
     public getModels(): RelationViewModel[] {
-        const models = Array.from(this.relationIdMap.values());
-        models.sort((first, second) => first.relationId.localeCompare(second.relationId, "en"));
-
-        return models;
+        return Array.from(this.relationIdMap.values())
+            .sort((first, second) => first.relationId.localeCompare(second.relationId, "en"));
     }
 
     public findByRelationId(relationId: string): RelationViewModel | null {
@@ -54,12 +54,12 @@ export default class RelationViewModelStorage {
         return models ? models : [];
     }
 
-    public inChildRelation(columnModelId: string): boolean {
-        return this.childColumnModelIdMap.has(columnModelId);
+    public inChildRelation(tableModelId: string, columnModelId: string): boolean {
+        return this.childColumnModelIdMap.has(`${tableModelId}:${columnModelId}`);
     }
 
-    public findParentRelation(childColumnModelId: string): ParentRelation | null {
-        return this.childColumnModelIdMap.get(childColumnModelId) ?? null;
+    public findParentRelation(childTableModelId: string, childColumnModelId: string): ParentRelation | null {
+        return this.childColumnModelIdMap.get(`${childTableModelId}:${childColumnModelId}`) ?? null;
     }
 
     public updateRelationModel(updatingModel: RelationModel): RelationViewModelStorage {
