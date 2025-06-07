@@ -45,14 +45,13 @@ const initExportAllColumnsGenerator = (erdDocument: ErdDocument) => function* ()
 };
 
 const initExportColumnGenerator = (erdDocument: ErdDocument, tableModel: TableModel) => function* () {
-    for (const columnModelId of tableModel.columnModelIds) {
-        const columnInfo = doFindColumnInfo(erdDocument, columnModelId);
-        if (columnInfo == null) {
+    for (const columnModel of erdDocument.toAllColumnModels(tableModel)) {
+        const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
+        if (columnShareModel == null) {
             continue;
         }
 
-        const { columnModel, columnShareModel } = columnInfo;
-        const parentRelation = erdDocument.findParentRelation(columnModel.columnModelId);
+        const parentRelation = erdDocument.findParentRelation(tableModel.tableModelId, columnModel.columnModelId);
 
         yield {
             physicalTableName: tableModel.physicalName,
@@ -73,20 +72,6 @@ const initExportColumnGenerator = (erdDocument: ErdDocument, tableModel: TableMo
         };
     }
 };
-
-const doFindColumnInfo = (erdDocument: ErdDocument, columnModelId: string) => {
-    const columnModel = erdDocument.findColumnModel(columnModelId);
-    if (columnModel == null) {
-        return null;
-    }
-
-    const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
-    if (columnShareModel == null) {
-        return null;
-    }
-
-    return { columnModel, columnShareModel };
-}
 
 const initForeignRelation = (erdDocument: ErdDocument, parentRelation: ParentRelation | null) => {
     if (parentRelation == null) {
@@ -136,12 +121,15 @@ const initExportTableSpecsGenerator = (erdDocument: ErdDocument) => function* ()
 const initExportTableIndexesGenerator = (erdDocument: ErdDocument, tableModel: TableModel) => function* () {
     for (const tableIndex of tableModel.tableIndexModels) {
         const indexedColumns = tableIndex.indexColumnModels.map(model => {
-            const columnInfo = doFindColumnInfo(erdDocument, model.columnModelId);
-            if (columnInfo == null) {
+            const columnModel = erdDocument.findColumnModel(model.columnModelId);
+            if (columnModel == null) {
                 return null;
             }
 
-            const { columnShareModel } = columnInfo;
+            const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
+            if (columnShareModel == null) {
+                return null;
+            }
 
             return {
                 physicalName: columnShareModel.physicalName,

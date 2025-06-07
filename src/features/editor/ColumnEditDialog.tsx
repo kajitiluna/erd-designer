@@ -12,7 +12,7 @@ import ClearIcon from '@mui/icons-material/Clear';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
-import { initHandleChangePhysicalName, initHandleChangeWithSyncPhysicalName } from "~/features/editor/support";
+import { ColumnWrapModel, initHandleChangePhysicalName, initHandleChangeWithSyncPhysicalName } from "~/features/editor/support";
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
 import ColumnType from "~/models/database/ColumnType";
@@ -26,7 +26,8 @@ import SearchColumnShareModelDialog from '~/features/editor/SearchColumnShareMod
 type ColumnEditDialogProps = {
     isOpen: boolean,
     columnModel: ColumnModel,
-    onUpdateColumnModels: (updateFunction: ((previous: ColumnModel[]) => ColumnModel[])) => void,
+    isEditableColumnType: (columnModel: ColumnModel) => boolean,
+    onUpdateWrapColumnModels: (updateFunction: ((previous: ColumnWrapModel[]) => ColumnWrapModel[])) => void,
     onClose: () => void
 };
 
@@ -37,9 +38,9 @@ type ColumnTypeAttribute = {
     unsigned: boolean
 }
 
-const ColumnEditDialog = ({ isOpen, columnModel, onUpdateColumnModels, onClose }: ColumnEditDialogProps) => {
-    const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
-    const erdDocument: ErdDocument = documentsHolder.current();
+const ColumnEditDialog = ({
+    isOpen, columnModel, isEditableColumnType, onUpdateWrapColumnModels, onClose
+}: ColumnEditDialogProps) => {
 
     const { columnShareModelStorage, updateStorage } = React.useContext(ColumnShareModelStorageContext);
 
@@ -94,10 +95,7 @@ const ColumnEditDialog = ({ isOpen, columnModel, onUpdateColumnModels, onClose }
     };
 
     // 外部キー制約が定義され shareModelId が異なる場合は型を変更できない
-    const parentRelation = erdDocument.findParentRelation(columnModel.columnModelId)
-    const editableColumnType = (parentRelation == null) || (
-        erdDocument.findColumnModel(parentRelation.columnModelId)?.columnShareModelId === columnModel.columnShareModelId
-    )
+    const editableColumnType = isEditableColumnType(columnModel);
 
     const validatedValue = (physicalName.length > 0) && (logicalName.length > 0)
         && validateColumnTypeAttribute(columnTypeAttribute);
@@ -130,16 +128,20 @@ const ColumnEditDialog = ({ isOpen, columnModel, onUpdateColumnModels, onClose }
             autoIncrement: columnTypeAttribute.columnType.withAuthIncrement ? checkAutoIncrement : false
         });
 
-        onUpdateColumnModels(previousColumnModels => {
-            const previousColumnModelIds = new Set(previousColumnModels.map(model => model.columnModelId));
+        onUpdateWrapColumnModels(previousColumnModels => {
+            const previousColumnModelIds = new Set(previousColumnModels
+                .map(model => (model.modelType === "single") ? model.columnModel.columnModelId : null)
+                .filter(columnModelId => columnModelId != null) as string[]
+            );
 
             // 新規の場合は追加
             if (previousColumnModelIds.has(updatedModel.columnModelId) === false) {
-                return [...previousColumnModels, updatedModel];
+                return [...previousColumnModels, { modelType: "single", columnModel: updatedModel }];
             }
 
             return previousColumnModels.map(model =>
-                (model.columnModelId === updatedModel.columnModelId) ? updatedModel : model
+                ((model.modelType === "single") && (model.columnModel.columnModelId === updatedModel.columnModelId))
+                    ? { modelType: "single", columnModel: updatedModel } : model
             );
         });
 

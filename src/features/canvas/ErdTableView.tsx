@@ -233,6 +233,9 @@ const ErdTableView = ({ tableViewModel, onEditAction, onDragAction }: ErdTableVi
         `${ERD_TABLE_VIEW_CLASS_NAME} ${styleClasses.selectedBox}`
         : ERD_TABLE_VIEW_CLASS_NAME;
 
+    const tableRows = erdDocument.toAllColumnModels(tableModel)
+        .map(columnModel => initTableColumn(columnModel, tableModel, erdDocument, selectState))
+
     return (
         <Box sx={tableStyle}>
             <Box id={tableViewModel.tableId} tabIndex={0} sx={boundStyle}
@@ -245,10 +248,7 @@ const ErdTableView = ({ tableViewModel, onEditAction, onDragAction }: ErdTableVi
                 <Box sx={bodyStyle}>
                     <TableContainer>
                         <Table size="small">
-                            <TableBody sx={{ fontSize: "0.875em" }}>
-                                {tableModel.columnModelIds.map(columnModelId =>
-                                    initTableColumn(columnModelId, tableModel, erdDocument, selectState))}
-                            </TableBody>
+                            <TableBody sx={{ fontSize: "0.875em" }}>{tableRows}</TableBody>
                         </Table>
                     </TableContainer>
                 </Box>
@@ -288,13 +288,7 @@ const ErdTableView = ({ tableViewModel, onEditAction, onDragAction }: ErdTableVi
     );
 };
 
-const initTableColumn = (columnId: string, tableModel: TableModel, erdDocument: ErdDocument, selectState: SelectState) => {
-    const columnModel: ColumnModel | null = erdDocument.findColumnModel(columnId);
-    if (columnModel == null) {
-        console.warn(`columnModel is not existed. columnModelId = ${columnId}`)
-        return (<></>);
-    }
-
+const initTableColumn = (columnModel: ColumnModel, tableModel: TableModel, erdDocument: ErdDocument, selectState: SelectState) => {
     const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
     if (columnShareModel == null) {
         console.warn(`columnShareModel is not existed. columnShareModelId = ${columnModel.columnShareModelId}`)
@@ -303,10 +297,10 @@ const initTableColumn = (columnId: string, tableModel: TableModel, erdDocument: 
 
     const tableIndexModels = tableModel.tableIndexModels;
 
-    const inChildRelation = erdDocument.inChildRelation(columnModel.columnModelId);
+    const inChildRelation = erdDocument.inChildRelation(tableModel.tableModelId, columnModel.columnModelId);
     const fontColor = initTableColumnFontColor(columnModel, inChildRelation);
 
-    const selectedRelationColumn = isSelectedRelationColumn(columnId, erdDocument, selectState);
+    const selectedRelationColumn = isSelectedRelationColumn(columnModel.columnModelId, erdDocument, selectState);
 
     const displayColumnName = initDisplayColumnName(columnModel, columnShareModel, erdDocument.getDisplayStyle());
     const displayColumnType = columnShareModel.specifiedColumnType(inChildRelation).replace("TIME ZONE", "TZ");
@@ -340,7 +334,7 @@ const initTableColumn = (columnId: string, tableModel: TableModel, erdDocument: 
     };
 
     return (
-        <TableRow key={`erd-table-column_${columnId}`} sx={styleRow}>
+        <TableRow key={`erd-table-column_${columnModel.columnModelId}`} sx={styleRow}>
             <TableCell align="center" sx={stylePrimaryCell} >
                 {columnModel.primaryKey && <PrimaryKeyIcon />}
             </TableCell>

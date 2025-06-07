@@ -49,16 +49,16 @@ const initCreateTableDdl = (commentWithQuery: boolean) => {
         const tableViewModels = erdDocument.getTableViewModels();
         const queries = tableViewModels.map(tableViewModel => {
             const tableModel: TableModel = tableViewModel.tableModel;
-            const columnQueries = tableModel.columnModelIds.map(columnModelId => {
-                const columnModel = erdDocument.findColumnModel(columnModelId) as ColumnModel;
+            const allColumnModels = erdDocument.toAllColumnModels(tableModel);
+
+            const columnQueries = allColumnModels.map(columnModel => {
                 const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
-                const inChildRelation = erdDocument.inChildRelation(columnModel.columnModelId);
+                const inChildRelation = erdDocument.inChildRelation(tableModel.tableModelId, columnModel.columnModelId);
 
                 return columnQuery(columnModel, columnShareModel, inChildRelation, option, database);
             });
 
-            const primaryKeys = tableModel.columnModelIds
-                .map(columnModelId => erdDocument.findColumnModel(columnModelId) as ColumnModel)
+            const primaryKeys = allColumnModels
                 .filter(columnModel => columnModel.primaryKey === true)
                 .map(columnModel => erdDocument.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel)
                 .map(columnShareModel => database.escape(columnShareModel.physicalName));
@@ -196,19 +196,18 @@ const createForeignKeyDdl = (erViewModel: ErdDocument, option: DdlOption, databa
     return ["/* create foreign keys. */", ...queries, ""];
 };
 
-const createCommentDdl = (erViewModel: ErdDocument, option: DdlOption, database: Database) => {
+const createCommentDdl = (erdDocument: ErdDocument, option: DdlOption, database: Database) => {
     if (option.withTable === false) {
         return [];
     }
 
-    const tableViewModels = erViewModel.getTableViewModels();
+    const tableViewModels = erdDocument.getTableViewModels();
     const queries = tableViewModels.flatMap(tableViewModel => {
         const tableModel: TableModel = tableViewModel.tableModel;
 
-        const commentQueries = tableModel.columnModelIds
-            .map(columnModelId => {
-                const columnModel = erViewModel.findColumnModel(columnModelId) as ColumnModel;
-                const columnShareModel = erViewModel.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
+        const commentQueries = erdDocument.toAllColumnModels(tableModel)
+            .map(columnModel => {
+                const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
                 if (columnShareModel.logicalName === columnShareModel.physicalName) {
                     return null;
                 }

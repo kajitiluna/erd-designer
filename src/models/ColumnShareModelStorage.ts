@@ -17,26 +17,23 @@ export default class ColumnShareModelStorage {
     }
 
     getModels(): ColumnShareModel[] {
-        const models = Array.from(this.columnShareModelMap.values());
+        return Array.from(this.columnShareModelMap.values())
+            .sort((first, second) => {
+                const physicalNameResult = first.physicalName.localeCompare(second.physicalName, "en");
+                if (physicalNameResult !== 0) {
+                    return physicalNameResult;
+                }
+                const logicalNameResult = first.logicalName.localeCompare(second.logicalName, "en");
+                if (logicalNameResult !== 0) {
+                    return logicalNameResult;
+                }
+                const columnTypeResult = first.columnType.name.localeCompare(second.columnType.name, "en");
+                if (columnTypeResult !== 0) {
+                    return columnTypeResult;
+                }
 
-        models.sort((first, second) => {
-            const physicalNameResult = first.physicalName.localeCompare(second.physicalName, "en");
-            if (physicalNameResult !== 0) {
-                return physicalNameResult;
-            }
-            const logicalNameResult = first.logicalName.localeCompare(second.logicalName, "en");
-            if (logicalNameResult !== 0) {
-                return logicalNameResult;
-            }
-            const columnTypeResult = first.columnType.name.localeCompare(second.columnType.name, "en");
-            if (columnTypeResult !== 0) {
-                return columnTypeResult;
-            }
-
-            return first.columnShareModelId.localeCompare(second.columnShareModelId, "en");
-        });
-
-        return models;
+                return first.columnShareModelId.localeCompare(second.columnShareModelId, "en");
+            });
     }
 
     find(columnShareModelId: string): ColumnShareModel | null {

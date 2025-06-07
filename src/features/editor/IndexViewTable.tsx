@@ -18,37 +18,42 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import PrimaryKeyIcon from "~/components/icons/PrimaryKeyIcon";
 import ForeignKeyIcon from "~/components/icons/ForeignKeyIcon";
 import EdgedIconButton from "~/components/EdgedIconButton";
-import ErdDocument from "~/models/ErdDocument";
 import ColumnModel from "~/models/database/ColumnModel";
 import TableIndexModel, { IndexColumnModel, NullsOrderType, SortOrderType } from "~/models/database/TableIndexModel";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
-import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import TableIndexSupport, { TableIndexOption, TableIndexType } from "~/models/database/TableIndexSupport";
-import { initHandleChangePhysicalName } from "~/features/editor/support";
+import { ColumnWrapModel, initHandleChangePhysicalName } from "~/features/editor/support";
 import ColumnShareModel from '~/models/database/ColumnShareModel';
 import { overrideColumnName } from '~/models/database/support';
+import { Database } from '~/models/database';
 
 
 type IndexViewTableProps = {
-    columnModels: ColumnModel[],
+    database: Database,
+    columnWrapModels: ColumnWrapModel[],
     tableIndexModels: TableIndexModel[],
+    isChildRelation: (columnModelId: string) => boolean,
     onUpdateTableIndexModels: (updateFunction: ((previous: TableIndexModel[]) => TableIndexModel[])) => void
 };
 
-const IndexViewTable = ({ columnModels, tableIndexModels, onUpdateTableIndexModels }: IndexViewTableProps) => {
-    const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
-    const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
+const IndexViewTable = ({
+    database, columnWrapModels, tableIndexModels, isChildRelation, onUpdateTableIndexModels
+}: IndexViewTableProps) => {
 
-    const erdDocument: ErdDocument = documentsHolder.current();
+    const columnModels: ColumnModel[] = columnWrapModels.flatMap(model =>
+        (model.modelType === "single") ? [model.columnModel] : model.columnModels
+    );
+    const existedColumnModelIds = new Set(columnModels.map(columnModel => columnModel.columnModelId));
+
+    const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
 
     const [isOpenEditDialog, setOpenEditDialog] = useState<boolean>(false);
     const [targetIndexModel, setTargetIndexModel] = useState<TableIndexModel | null>(null);
 
-    const columnIdToOrders = tableIndexModels.map(
-        (indexModel: TableIndexModel) => new Map<string, string>(
-            indexModel.indexColumnModels.map(
-                (indexColumnModel, index) => [indexColumnModel.columnModelId, `${index + 1}`]
-            )
+    const columnIdToOrders = tableIndexModels.map(indexModel =>
+        new Map<string, string>(indexModel.indexColumnModels
+            .filter(indexColumnModel => existedColumnModelIds.has(indexColumnModel.columnModelId))
+            .map((indexColumnModel, index) => [indexColumnModel.columnModelId, `${index + 1}`])
         )
     );
 
@@ -62,7 +67,7 @@ const IndexViewTable = ({ columnModels, tableIndexModels, onUpdateTableIndexMode
         }
 
         const overrideName = overrideColumnName(columnModel, columnShareModel);
-        const inChildRelation = erdDocument.inChildRelation(columnModel.columnModelId);
+        const inChildRelation = isChildRelation(columnModel.columnModelId);
 
         return (
             <TableRow key={`index-view-column-title-${rowIndex}`} sx={{ height: "43px" }}>
@@ -81,12 +86,12 @@ const IndexViewTable = ({ columnModels, tableIndexModels, onUpdateTableIndexMode
         );
     };
 
-    const arrayOfHandleSelect = tableIndexModels.map((indexModel) => {
+    const arrayOfHandleSelect = tableIndexModels.map(indexModel => {
         return () => {
             setTargetIndexModel(indexModel);
         }
     });
-    const arrayOfHandleEditIndex = tableIndexModels.map((indexModel) => {
+    const arrayOfHandleEditIndex = tableIndexModels.map(indexModel => {
         return () => {
             setTargetIndexModel(indexModel);
             setOpenEditDialog(true);
@@ -123,10 +128,8 @@ const IndexViewTable = ({ columnModels, tableIndexModels, onUpdateTableIndexMode
         return (
             <TableRow key={columnModels.length}>
                 {tableIndexModels.map((_, indexIndex) => (
-                    <TableCell key={`edit_${indexIndex}`} align="center"
-                        sx={getCurrentCellStyle(indexIndex)}>
-                        <EdgedIconButton tooltip="Edit index"
-                            onClick={arrayOfHandleEditIndex[indexIndex]}>
+                    <TableCell key={`edit_${indexIndex}`} align="center" sx={getCurrentCellStyle(indexIndex)}>
+                        <EdgedIconButton tooltip="Edit index" onClick={arrayOfHandleEditIndex[indexIndex]}>
                             <EditIcon fontSize="small" />
                         </EdgedIconButton>
                     </TableCell>
@@ -168,7 +171,7 @@ const IndexViewTable = ({ columnModels, tableIndexModels, onUpdateTableIndexMode
                 return;
             }
 
-            onUpdateTableIndexModels((previous) => {
+            onUpdateTableIndexModels(previous => {
                 const nextTableIndexModels = [...previous]
                 nextTableIndexModels[indexIndex] = tableIndexModels[indexIndex + shift];
                 nextTableIndexModels[indexIndex + shift] = tableIndexModels[indexIndex];
@@ -257,8 +260,10 @@ const IndexViewTable = ({ columnModels, tableIndexModels, onUpdateTableIndexMode
             </Grid>
             {isOpenEditDialog && <IndexEditDialog
                 isOpen={isOpenEditDialog}
+                database={database}
                 tableIndexModel={targetIndexModel}
                 columnModels={columnModels}
+                isChildRelation={isChildRelation}
                 onUpdateTableIndexModels={onUpdateTableIndexModels}
                 onClose={() => setOpenEditDialog(false)}
             />}
@@ -268,8 +273,10 @@ const IndexViewTable = ({ columnModels, tableIndexModels, onUpdateTableIndexMode
 
 type IndexEditDialogProps = {
     isOpen: boolean,
+    database: Database,
     tableIndexModel?: TableIndexModel | null,
     columnModels: ColumnModel[],
+    isChildRelation: (columnModelId: string) => boolean,
     onUpdateTableIndexModels: (updateFunction: ((previous: TableIndexModel[]) => TableIndexModel[])) => void,
     onClose: () => void
 };
@@ -280,19 +287,20 @@ type IndexModelAttribute = {
     nullsOrderType: NullsOrderType
 }
 
-const IndexEditDialog = ({ isOpen, tableIndexModel, columnModels, onUpdateTableIndexModels, onClose }: IndexEditDialogProps) => {
+const IndexEditDialog = ({
+    isOpen, database, tableIndexModel, columnModels, isChildRelation, onUpdateTableIndexModels, onClose
+}: IndexEditDialogProps) => {
 
     const [indexOption, setIndexOption] = useState<TableIndexOption>(tableIndexModel ? tableIndexModel.indexOption : "");
     const [indexType, setIndexType] = useState<TableIndexType>(tableIndexModel ? tableIndexModel.indexType : "");
     const [physicalName, setPhysicalName] = useState<string>(tableIndexModel ? tableIndexModel.physicalName : "");
-    const [indexedColumns, setIndexedColumns] = useState<IndexModelAttribute[]>(tableIndexModel ?
-        tableIndexModel.indexColumnModels.map((model) => { return { ...model } }) : []);
+    const [indexedColumns, setIndexedColumns] = useState<IndexModelAttribute[]>(tableIndexModel
+        ? tableIndexModel.indexColumnModels
+            .filter(model => columnModels.some(columnModel => (columnModel.columnModelId === model.columnModelId)))
+            .map(model => { return { ...model } })
+        : []);
     const [description, setDescription] = useState<string>(tableIndexModel ? tableIndexModel.description : "");
 
-    const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
-
-    const erdDocument: ErdDocument = documentsHolder.current();
-    const database = erdDocument.getDatabase();
     const tableIndexSupport: TableIndexSupport = database.tableIndexSupport;
 
     const handleChangeIndexType = (event: SelectChangeEvent) => {
@@ -368,8 +376,10 @@ const IndexEditDialog = ({ isOpen, tableIndexModel, columnModels, onUpdateTableI
                         </Grid>
                     </Grid>
                     <IndexColumnTransferPanel
+                        database={database}
                         columnModels={columnModels}
                         indexedColumns={indexedColumns}
+                        isChildRelation={isChildRelation}
                         onUpdateIndexedColumns={setIndexedColumns} />
                     <TextField variant="outlined" id="description" label="Description"
                         multiline rows={3} slotProps={{ input: { style: { resize: 'vertical' } } }}
@@ -385,8 +395,10 @@ const IndexEditDialog = ({ isOpen, tableIndexModel, columnModels, onUpdateTableI
 };
 
 type IndexColumnTransferPanelProps = {
+    database: Database,
     columnModels: ColumnModel[],
     indexedColumns: IndexModelAttribute[],
+    isChildRelation: (columnModelId: string) => boolean,
     onUpdateIndexedColumns: (updateFunction: ((previous: IndexModelAttribute[]) => IndexModelAttribute[])) => void
 };
 
@@ -395,15 +407,13 @@ type ColumnModelDetail = {
     columnShareModel: ColumnShareModel
 };
 
-const IndexColumnTransferPanel = ({ columnModels, indexedColumns, onUpdateIndexedColumns }: IndexColumnTransferPanelProps) => {
-    const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
+const IndexColumnTransferPanel = ({
+    database, columnModels, indexedColumns, isChildRelation, onUpdateIndexedColumns
+}: IndexColumnTransferPanelProps) => {
     const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
 
     const [selectedFromId, setSelectedFromId] = useState<string | null>(null);
     const [selectedIndexedId, setSelectedIndexedId] = useState<string | null>(null);
-
-    const erdDocument = documentsHolder.current();
-    const databaseType = erdDocument.getDatabase();
 
     const columnModelMap: Map<string, ColumnModelDetail> = new Map(
         columnModels
@@ -426,7 +436,7 @@ const IndexColumnTransferPanel = ({ columnModels, indexedColumns, onUpdateIndexe
         .map(pair => {
             const columnModelId = pair.columnModel.columnModelId;
             const columnName = overrideColumnName(pair.columnModel, pair.columnShareModel);
-            const inChildRelation = erdDocument.inChildRelation(columnModelId);
+            const inChildRelation = isChildRelation(columnModelId);
 
             const handleSelect = (event: MouseEvent) => {
                 event.stopPropagation();
@@ -505,7 +515,7 @@ const IndexColumnTransferPanel = ({ columnModels, indexedColumns, onUpdateIndexe
             const nullsOrderType = pair.nullsOrderType;
 
             const columnName = overrideColumnName(pair.columnModel, pair.columnShareModel);
-            const inChildRelation = erdDocument.inChildRelation(columnModelId);
+            const inChildRelation = isChildRelation(columnModelId);
 
             const handleSelect = (event: MouseEvent) => {
                 event.stopPropagation();
@@ -552,7 +562,7 @@ const IndexColumnTransferPanel = ({ columnModels, indexedColumns, onUpdateIndexe
                             </Select>
                         </FormControl>
                     </TableCell>
-                    {databaseType.tableIndexSupport.nullsOrder && <TableCell>
+                    {database.tableIndexSupport.nullsOrder && <TableCell>
                         <FormControl fullWidth size="small">
                             <InputLabel id={`nulls-order-${columnModelId}`}>Nulls Order</InputLabel>
                             <Select label="Null order" labelId={`nulls-order-${columnModelId}`}

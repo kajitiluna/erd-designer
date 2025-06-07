@@ -1,13 +1,16 @@
 import { v4 as uuidV4 } from 'uuid';
+
 import ColorValue from '~/models/ColorValue';
 import ColumnShareModelStorage from '~/models/ColumnShareModelStorage';
 import { Database, databases } from '~/models/database';
+import ColumnGroupModel from '~/models/database/ColumnGroupModel';
 import ColumnModel from '~/models/database/ColumnModel';
 import ColumnShareModel from '~/models/database/ColumnShareModel';
 import DisplayStyle from '~/models/database/DisplayStyle';
 import RelationModel from '~/models/database/RelationModel';
 import RelationPair from '~/models/database/RelationPair';
-import TableModel from '~/models/database/TableModel';
+import TableIndexModel from '~/models/database/TableIndexModel';
+import TableModel, { ColumnModelType } from '~/models/database/TableModel';
 import DatabaseSettingModel from '~/models/DatabaseSettingModel';
 import ErdSettingModel from '~/models/ErdSettingModel';
 import { PropertyNotExistsError } from '~/models/exceptions';
@@ -23,6 +26,7 @@ type ErdDocumentOptions = {
     documentName: string,
     erdSettingModel: ErdSettingModel,
     tableViewModels?: readonly TableViewModel[],
+    columnGroupModels?: readonly ColumnGroupModel[],
     columnModels?: readonly ColumnModel[],
     columnShareModels?: readonly ColumnShareModel[],
     relationViewModels?: readonly RelationViewModel[],
@@ -39,6 +43,7 @@ export default class ErdDocument {
     private readonly columnShareModelStorage: ColumnShareModelStorage;
     private readonly tableViewModelIds: readonly string[];
     private readonly tableViewModelMap: Map<string, TableViewModel>;
+    private readonly columnGroupModelMap: Map<string, ColumnGroupModel>;
     private readonly columnModelMap: Map<string, ColumnModel>;
     private readonly relationViewModelStorage: RelationViewModelStorage;
     private readonly memoViewModelStorage: MemoViewModelStorage;
@@ -48,6 +53,7 @@ export default class ErdDocument {
     private constructor(
         documentName: string, erdSettingModel: ErdSettingModel,
         tableViewModelIds: readonly string[], tableViewModelMap: Map<string, TableViewModel>,
+        columnGroupModelMap: Map<string, ColumnGroupModel>,
         columnModelMap: Map<string, ColumnModel>, columnShareModelStorage: ColumnShareModelStorage,
         relationViewModelStorage: RelationViewModelStorage, memoViewModelStorage: MemoViewModelStorage,
         databaseSettingModel: DatabaseSettingModel, lastUpdatedAt: Date | null = null
@@ -57,6 +63,7 @@ export default class ErdDocument {
         this.columnShareModelStorage = columnShareModelStorage;
         this.tableViewModelIds = tableViewModelIds;
         this.tableViewModelMap = tableViewModelMap;
+        this.columnGroupModelMap = columnGroupModelMap;
         this.columnModelMap = columnModelMap;
         this.relationViewModelStorage = relationViewModelStorage;
         this.memoViewModelStorage = memoViewModelStorage;
@@ -66,7 +73,7 @@ export default class ErdDocument {
 
     public static create({
         documentName, erdSettingModel, databaseSettingModel,
-        tableViewModels = [], columnModels = [], columnShareModels = [],
+        tableViewModels = [], columnGroupModels = [], columnModels = [], columnShareModels = [],
         relationViewModels = [], foregroundMemoViewModels = [], backgroundMemoViewModels = [],
         lastUpdatedAt = null
     }: ErdDocumentOptions): ErdDocument {
@@ -75,7 +82,8 @@ export default class ErdDocument {
             documentName, erdSettingModel,
             tableViewModels.map(viewModel => viewModel.tableId),
             new Map(tableViewModels.map(viewModel => [viewModel.tableId, viewModel])),
-            new Map(columnModels.map((model) => [model.columnModelId, model])),
+            new Map(columnGroupModels.map(groupModel => [groupModel.columnGroupId, groupModel])),
+            new Map(columnModels.map(columnModel => [columnModel.columnModelId, columnModel])),
             ColumnShareModelStorage.create(columnShareModels),
             new RelationViewModelStorage(relationViewModels),
             MemoViewModelStorage.create(foregroundMemoViewModels, backgroundMemoViewModels),
@@ -102,9 +110,45 @@ export default class ErdDocument {
             .map(tableId => this.tableViewModelMap.get(tableId) as TableViewModel)
     }
 
+    public findColumnGroupModel(columnGroupId: string): ColumnGroupModel | null {
+        const columnGroupModel = this.columnGroupModelMap.get(columnGroupId);
+        return columnGroupModel ? columnGroupModel : null;
+    }
+
+    public getColumnGroupModels(): ColumnGroupModel[] {
+        const models = Array.from(this.columnGroupModelMap.values());
+
+        return models.sort((firsts, seconde) => {
+            const nameCompared = firsts.groupName.localeCompare(seconde.groupName, "en");
+            if (nameCompared !== 0) {
+                return nameCompared;
+            }
+
+            return firsts.columnGroupId.localeCompare(seconde.columnGroupId, "en");
+        });
+    }
+
     public findColumnModel(columnModelId: string): ColumnModel | null {
         const columnModel = this.columnModelMap.get(columnModelId);
         return columnModel ? columnModel : null;
+    }
+
+    public toAllColumnModels(tableModel: TableModel): ColumnModel[] {
+        return tableModel.columns
+            .flatMap(column => {
+                if (column.modelType === "single") {
+                    return [column.columnModelId];
+                }
+
+                const columnGroupModel = this.findColumnGroupModel(column.columnGroupId);
+                if (columnGroupModel == null) {
+                    return [];
+                }
+
+                return columnGroupModel.columnModelIds;
+            })
+            .map(columnModelId => this.findColumnModel(columnModelId))
+            .filter(columnModel => columnModel != null);
     }
 
     public findColumnShareModel(columnShareModelId: string): ColumnShareModel | null {
@@ -123,12 +167,12 @@ export default class ErdDocument {
         return this.relationViewModelStorage.getModels();
     }
 
-    public inChildRelation(columnModelId: string): boolean {
-        return this.relationViewModelStorage.inChildRelation(columnModelId);
+    public inChildRelation(tableModelId: string, columnModelId: string): boolean {
+        return this.relationViewModelStorage.inChildRelation(tableModelId, columnModelId);
     }
 
-    public findParentRelation(childColumnModelId: string) {
-        return this.relationViewModelStorage.findParentRelation(childColumnModelId);
+    public findParentRelation(childTableModelId: string, childColumnModelId: string) {
+        return this.relationViewModelStorage.findParentRelation(childTableModelId, childColumnModelId);
     }
 
     public getMemoViewModels() {
@@ -151,14 +195,15 @@ export default class ErdDocument {
         const previousTableViewModel = this.tableViewModelMap.get(updatingTableViewModel.tableId);
         if (previousTableViewModel == null) {
             return this.doAddTableViewModel(
-                updatingTableViewModel, updatingColumnModels, updatingColumnShareModelStorage);
+                updatingTableViewModel, updatingColumnModels, updatingColumnShareModelStorage
+            );
         }
 
         // 更新対象のテーブルに relation が親として定義されている場合、子テーブルに PK の変更を反映する
         const {
-            tableViewModels: nextTableViewModels,
-            columnModels: nextColumnModels,
-            relationRepository: nextRelationViewModelRepository
+            nextTableViewModels,
+            nextColumnModelMap: updatingColumnModelMap,
+            nextRelationViewModelStorage
         } = this.doUpdateTableViewModelWithRelation(
             previousTableViewModel, updatingTableViewModel, updatingColumnModels
         );
@@ -169,10 +214,12 @@ export default class ErdDocument {
         });
 
         const nextColumnModelMap = new Map(this.columnModelMap);
-        previousTableViewModel.tableModel.columnModelIds.forEach(
-            columnModelId => nextColumnModelMap.delete(columnModelId)
-        );
-        nextColumnModels.forEach(columnModel =>
+        previousTableViewModel.tableModel.columns.forEach(column => {
+            if (column.modelType === "single") {
+                nextColumnModelMap.delete(column.columnModelId);
+            }
+        });
+        updatingColumnModelMap.forEach(columnModel =>
             nextColumnModelMap.set(columnModel.columnModelId, columnModel)
         );
 
@@ -181,8 +228,15 @@ export default class ErdDocument {
             Array.from(nextColumnModelMap.values())
                 .map(columnModel => columnModel.columnShareModelId)
         );
-        const deletingColumnShareModelIds = previousTableViewModel.tableModel.columnModelIds
-            .map(columnModelId => this.findColumnModel(columnModelId) as ColumnModel)
+        const deletingColumnShareModelIds = previousTableViewModel.tableModel.columns
+            .flatMap(column => {
+                if (column.modelType === "single") {
+                    return [column.columnModelId];
+                }
+
+                const columnGroupModel = this.columnGroupModelMap.get(column.columnGroupId) as ColumnGroupModel;
+                return columnGroupModel.columnModelIds;
+            }).map(columnModelId => this.findColumnModel(columnModelId) as ColumnModel)
             .filter(columnModel => nextExistsColumnShareModelIds.has(columnModel.columnShareModelId) === false)
             .map(columnModel => columnModel.columnShareModelId);
 
@@ -196,9 +250,10 @@ export default class ErdDocument {
             this.erdSettingModel,
             this.tableViewModelIds,
             nextTableViewModelMap,
+            this.columnGroupModelMap,
             nextColumnModelMap,
             nextColumnShareModelStorage,
-            nextRelationViewModelRepository,
+            nextRelationViewModelStorage,
             this.memoViewModelStorage,
             this.databaseSettingModel
         );
@@ -214,7 +269,7 @@ export default class ErdDocument {
         nextTableViewModelMap.set(addingTableViewModel.tableId, addingTableViewModel);
 
         const nextColumnModelMap = new Map(this.columnModelMap);
-        addingColumnModels.forEach((columnModel) =>
+        addingColumnModels.forEach(columnModel =>
             nextColumnModelMap.set(columnModel.columnModelId, columnModel)
         );
 
@@ -223,6 +278,7 @@ export default class ErdDocument {
             this.erdSettingModel,
             nextTableViewModelIds,
             nextTableViewModelMap,
+            this.columnGroupModelMap,
             nextColumnModelMap,
             columnShareModelStorage.copy(),
             this.relationViewModelStorage,
@@ -236,131 +292,217 @@ export default class ErdDocument {
         updatingTableViewModel: TableViewModel,
         updatingColumnModels: ColumnModel[]
     ) {
+        const nextColumnModelMap = new Map(updatingColumnModels
+            .map(model => [model.columnModelId, model]));
+
         const relationViewModels = this.relationViewModelStorage
-            .getRelationsByParent(updatingTableViewModel.tableId);
+            .fetchRelationsByParent(updatingTableViewModel.tableId);
+
         // relation が定義されていない場合は何もしない
         if (relationViewModels.length === 0) {
             return {
-                tableViewModels: [updatingTableViewModel],
-                columnModels: updatingColumnModels,
-                relationRepository: this.relationViewModelStorage
+                nextTableViewModels: [updatingTableViewModel],
+                nextColumnModelMap: nextColumnModelMap,
+                nextRelationViewModelStorage: this.relationViewModelStorage
             };
         }
 
-        const updatingColumnModelMap =
-            new Map(updatingColumnModels.map(model => [model.columnModelId, model]));
-        const updatingPrimaryKeys = updatingTableViewModel.tableModel.columnModelIds
-            .map(columnModelId => updatingColumnModelMap.get(columnModelId) as ColumnModel)
+        const updatingPrimaryKeys = updatingTableViewModel.tableModel.columns
+            .flatMap(column => {
+                if (column.modelType === "single") {
+                    return [nextColumnModelMap.get(column.columnModelId) as ColumnModel]
+                }
+
+                // GroupColumn は参照のみなので、変更前の ErdDocument から取得する
+                const columnGroupModel = this.columnGroupModelMap.get(column.columnGroupId);
+                if (columnGroupModel == null) {
+                    return [];
+                }
+
+                return columnGroupModel.columnModelIds
+                    .map(columnModelId => this.findColumnModel(columnModelId) as ColumnModel);
+            })
             .filter(columnModel => columnModel.primaryKey === true)
 
-        const deletingPrimaryKeyIdSet = new Set(
-            previousTableViewModel.tableModel.columnModelIds
-                .map(columnModelId => this.findColumnModel(columnModelId) as ColumnModel)
-                .filter(previousColumnModel => (previousColumnModel.primaryKey === true)
-                    && (updatingPrimaryKeys.some(updatingKey =>
-                        updatingKey.columnModelId === previousColumnModel.columnModelId) === false
-                    ))
-                .map(columnModel => columnModel.columnModelId)
-        );
+        const previousColumnModels = this.toAllColumnModels(previousTableViewModel.tableModel);
 
-        const previousPrimaryKeySet = new Set(
-            previousTableViewModel.tableModel.columnModelIds
-                .map(columnModelId => this.findColumnModel(columnModelId) as ColumnModel)
-                .filter(columnModel => columnModel.primaryKey === true)
-                .map(columnModel => columnModel.columnModelId)
-        );
-        const addingPrimaryKeys = updatingPrimaryKeys
-            .filter(updatingColumn => previousPrimaryKeySet.has(updatingColumn.columnModelId) === false);
+        // 更新に伴い、PK の削除となる ColumnModelId
+        const deletingPrimaryKeyIds = previousColumnModels
+            .filter(previousColumnModel =>
+                (previousColumnModel.primaryKey === true)
+                && (updatingPrimaryKeys.some(updatingKey =>
+                    updatingKey.columnModelId === previousColumnModel.columnModelId
+                ) === false)
+            )
+            .map(columnModel => columnModel.columnModelId);
+
+        const previousPrimaryKeyIds = previousColumnModels
+            .filter(columnModel => columnModel.primaryKey === true)
+            .map(columnModel => columnModel.columnModelId);
+        // 更新に伴い、PK の追加となる ColumnModelId
+        const addingPrimaryKeys = updatingPrimaryKeys.filter(updatingColumn =>
+            previousPrimaryKeyIds.includes(updatingColumn.columnModelId) === false);
 
         // PKに差分がない場合は relation に変更ないので、何もしない
-        if ((deletingPrimaryKeyIdSet.size === 0) && (addingPrimaryKeys.length === 0)) {
+        if ((deletingPrimaryKeyIds.length === 0) && (addingPrimaryKeys.length === 0)) {
             return {
-                tableViewModels: [updatingTableViewModel],
-                columnModels: updatingColumnModels,
-                relationRepository: this.relationViewModelStorage
+                nextTableViewModels: [updatingTableViewModel],
+                nextColumnModelMap: nextColumnModelMap,
+                nextRelationViewModelStorage: this.relationViewModelStorage
             };
         }
 
-        return relationViewModels.reduce((updating, previousViewModel) => {
-            const previousRelationModel = previousViewModel.relationModel;
-            const nextRelationPairs = previousRelationModel.relationPairs
-                .filter(pair => deletingPrimaryKeyIdSet.has(pair.parentColumnModelId) === false);
+        const nextTableViewModels = new Map([[updatingTableViewModel.tableId, updatingTableViewModel]]);
 
-            const updatingColumnModels = [...updating.columnModels];
-            const addingChildColumnIds = addingPrimaryKeys.map(addingParentColumn => {
-                const addingChildColumnModel = new ColumnModel({
-                    columnModelId: uuidV4(),
-                    columnShareModelId: addingParentColumn.columnShareModelId,
-                    notNull: true
+        return this.doUpdateRelationWithPrimaryKeyChanged(
+            relationViewModels, nextTableViewModels, nextColumnModelMap,
+            addingPrimaryKeys, deletingPrimaryKeyIds
+        );
+    }
+
+    private doUpdateRelationWithPrimaryKeyChanged(
+        relationViewModels: RelationViewModel[],
+        tableViewModels: Map<string, TableViewModel>,
+        updatingColumnModelMap: Map<string, ColumnModel>,
+        addingPrimaryKeys: ColumnModel[],
+        deletingPrimaryKeyIds: string[],
+        updatingColumnGroupModel: ColumnGroupModel | null = null
+    ) {
+        const nextTableViewModels = new Map(tableViewModels);
+        const nextColumnModelMap = new Map(updatingColumnModelMap);
+        const updatingRelationModels = new Map<string, RelationModel>();
+        const deletingRelationIds = new Set<string>();
+
+        // PK に指定したカラムが削除された場合、該当カラムを利用したリレーション定義を削除する
+        if (deletingPrimaryKeyIds.length > 0) {
+            for (const relationViewModel of relationViewModels) {
+                const previousRelationModel = relationViewModel.relationModel;
+                const nextPairs = previousRelationModel.relationPairs
+                    .filter(pair => deletingPrimaryKeyIds.includes(pair.parentColumnModelId) === false);
+
+                // リレーション定義に変更がない場合は何もしない
+                if (previousRelationModel.relationPairs.length === nextPairs.length) {
+                    continue;
+                }
+
+                // リレーション定義がなくなった場合は削除候補 (PK追加により、削除されない場合もある)
+                if (nextPairs.length === 0) {
+                    deletingRelationIds.add(relationViewModel.relationId);
+                }
+
+                const nextRelationModel = new RelationModel({
+                    ...relationViewModel.relationModel,
+                    relationPairs: nextPairs
+                });
+                updatingRelationModels.set(nextRelationModel.relationModelId, nextRelationModel);
+            }
+        }
+
+        // PK にカラムが追加される場合、子テーブルに新規にカラムを追加する
+        if (addingPrimaryKeys.length > 0) {
+            for (const beforeViewModel of relationViewModels) {
+                const previousRelationModel = updatingRelationModels.get(beforeViewModel.relationId)
+                    || beforeViewModel.relationModel;
+
+                const childTableViewModel = nextTableViewModels.get(previousRelationModel.childTableModelId)
+                    || this.tableViewModelMap.get(previousRelationModel.childTableModelId);
+                if (childTableViewModel == null) {
+                    continue;
+                }
+
+                // 子テーブルにも同じカラムグループが存在するならば、同じカラムグループを利用する
+                const hasSameGroupColumn = (updatingColumnGroupModel === null) ? false
+                    : childTableViewModel.tableModel.columns
+                        .some(column => (column.modelType === "group")
+                            && (column.columnGroupId === updatingColumnGroupModel.columnGroupId));
+                if (hasSameGroupColumn) {
+                    const nextRelationPairs = [
+                        ...previousRelationModel.relationPairs,
+                        ...addingPrimaryKeys.map(addingColumn => new RelationPair({
+                            parentColumnModelId: addingColumn.columnModelId,
+                            childColumnModelId: addingColumn.columnModelId
+                        }))
+                    ];
+
+                    const nextRelationModel = new RelationModel({
+                        ...previousRelationModel,
+                        relationPairs: nextRelationPairs
+                    });
+
+                    updatingRelationModels.set(nextRelationModel.relationModelId, nextRelationModel);
+                    deletingRelationIds.delete(nextRelationModel.relationModelId);
+                    continue;
+                }
+
+                // 子テーブルに同じカラムグループが存在しない場合は、子テーブルに新規にカラムを追加する
+                const addingObjects = addingPrimaryKeys.map(addingParentColumn => {
+                    const addingChildColumnModel = new ColumnModel({
+                        columnModelId: uuidV4(),
+                        columnShareModelId: addingParentColumn.columnShareModelId,
+                        physicalName: addingParentColumn.physicalName,
+                        logicalName: addingParentColumn.logicalName,
+                        notNull: true
+                    });
+
+                    return {
+                        columnModel: addingChildColumnModel,
+                        relationPair: new RelationPair({
+                            parentColumnModelId: addingParentColumn.columnModelId,
+                            childColumnModelId: addingChildColumnModel.columnModelId
+                        })
+                    };
                 });
 
-                updatingColumnModels.push(addingChildColumnModel);
-                nextRelationPairs.push(new RelationPair({
-                    parentColumnModelId: addingParentColumn.columnModelId,
-                    childColumnModelId: addingChildColumnModel.columnModelId
-                }));
+                const addingColumnModels = addingObjects.map(addingObj => addingObj.columnModel);
+                const addingRelationPairs = addingObjects.map(addingObj => addingObj.relationPair);
 
-                return addingChildColumnModel.columnModelId;
-            });
+                addingColumnModels.forEach(addingColumnModel => {
+                    nextColumnModelMap.set(addingColumnModel.columnModelId, addingColumnModel);
+                });
 
-            // PKが全て解除された場合は relation を削除する
-            if (nextRelationPairs.length === 0) {
-                return {
-                    tableViewModels: updating.tableViewModels,
-                    columnModels: updating.columnModels,
-                    relationRepository: updating.relationRepository
-                        .deleteRelation(previousViewModel.relationId)
-                };
+                const nextChildTableViewModel = new TableViewModel({
+                    ...childTableViewModel,
+                    tableModel: new TableModel({
+                        ...childTableViewModel.tableModel,
+                        columns: [
+                            ...childTableViewModel.tableModel.columns,
+                            ...addingColumnModels.map(columnModel => (
+                                {
+                                    modelType: "single",
+                                    columnModelId: columnModel.columnModelId,
+                                } as ColumnModelType
+                            ))
+                        ],
+                        tableIndexModels: [...childTableViewModel.tableModel.tableIndexModels]
+                    })
+                });
+                nextTableViewModels.set(nextChildTableViewModel.tableId, nextChildTableViewModel);
+
+                const nextRelationPairs = [...previousRelationModel.relationPairs, ...addingRelationPairs];
+                const nextRelationModel = new RelationModel({
+                    ...previousRelationModel,
+                    relationPairs: nextRelationPairs
+                });
+                updatingRelationModels.set(nextRelationModel.relationModelId, nextRelationModel);
+                deletingRelationIds.delete(nextRelationModel.relationModelId);
             }
+        }
 
-            // TODO 子テーブルに新規に外部キーを追加する際に、それが子テーブルの PK になるか否かの判断および処理
+        deletingRelationIds.forEach(deletingId => updatingRelationModels.delete(deletingId));
 
-            const updatingRelationModel = new RelationModel({
-                ...previousRelationModel,
-                relationPairs: nextRelationPairs
-            });
-            const nextRelationRepository = updating.relationRepository.updateRelationModel(updatingRelationModel);
-
-            if (addingChildColumnIds.length === 0) {
-                return {
-                    tableViewModels: updating.tableViewModels,
-                    columnModels: updatingColumnModels,
-                    relationRepository: nextRelationRepository
-                };
-            }
-
-            const previousChildTableViewModel = this.tableViewModelMap
-                .get(previousRelationModel.childTableModelId) as TableViewModel;
-            const previousTableModel = previousChildTableViewModel.tableModel;
-            const updatingChildTableViewModel = new TableViewModel({
-                ...previousChildTableViewModel,
-                tableModel: new TableModel({
-                    tableModelId: previousTableModel.tableModelId,
-                    physicalName: previousTableModel.physicalName,
-                    logicalName: previousTableModel.logicalName,
-                    columnModelIds: [...previousTableModel.columnModelIds, ...addingChildColumnIds],
-                    tableIndexModels: [...previousTableModel.tableIndexModels],
-                    description: previousTableModel.description
-                })
-            });
-
-            return {
-                tableViewModels: [...updating.tableViewModels, updatingChildTableViewModel],
-                columnModels: updatingColumnModels,
-                relationRepository: nextRelationRepository
-            };
-        }, {
-            tableViewModels: [updatingTableViewModel],
-            columnModels: [...updatingColumnModels],
-            relationRepository: this.relationViewModelStorage
-        });
+        return {
+            nextTableViewModels, nextColumnModelMap,
+            nextRelationViewModelStorage: this.relationViewModelStorage
+                .updateRelationModel(Array.from(updatingRelationModels.values()))
+                .deleteRelation(Array.from(deletingRelationIds))
+        };
     }
 
     /**
      * 指定されたIDのテーブルを削除したモデルを作成する。
      * 
      * @param deletingTableId 削除対象のテーブルID
-     * @returns 操作後のモデル。
+     * @returns 操作後のモデル
      */
     public deleteTable(deletingTableId: string): ErdDocument {
         const deletingTarget = this.tableViewModelMap.get(deletingTableId);
@@ -373,9 +515,9 @@ export default class ErdDocument {
         nextTableViewModelMap.delete(deletingTableId);
 
         const nextColumnMap = new Map(this.columnModelMap);
-        (deletingTarget as TableViewModel).tableModel.columnModelIds.forEach(
-            columnModelId => nextColumnMap.delete(columnModelId)
-        );
+        deletingTarget.tableModel.columns
+            .flatMap(column => (column.modelType === "single") ? [column.columnModelId] : [])
+            .forEach(columnModelId => nextColumnMap.delete(columnModelId));
 
         const existedColumnShareModelIds = new Set(
             Array.from(nextColumnMap.values()).map(
@@ -392,12 +534,335 @@ export default class ErdDocument {
             this.erdSettingModel,
             nextTableViewModelIds,
             nextTableViewModelMap,
+            this.columnGroupModelMap,
             nextColumnMap,
             ColumnShareModelStorage.create(updatingColumnShareModels),
-            this.relationViewModelStorage,
+            this.relationViewModelStorage.deleteFromTableId([deletingTableId]),
             this.memoViewModelStorage,
             this.databaseSettingModel
         );
+    }
+
+    /**
+     * 指定された絡むグループの追加もしくは更新を行う。
+     * 
+     * @param updatingModel 更新対象
+     * @param updatingColumnModels 更新カラム
+     * @param updatingColumnShareModelStorage 更新後のカラム共有モデルストレージ 
+     * @returns 操作後のモデル。
+     */
+    public updateColumnGroup(
+        updatingModel: ColumnGroupModel,
+        updatingColumnModels: ColumnModel[],
+        updatingColumnShareModelStorage: ColumnShareModelStorage
+    ): ErdDocument {
+        const previousModel = this.columnGroupModelMap.get(updatingModel.columnGroupId) || null;
+
+        const nextColumnGroupModelMap = new Map(this.columnGroupModelMap);
+        nextColumnGroupModelMap.set(updatingModel.columnGroupId, updatingModel);
+
+        const preNextColumnModelMap = new Map(this.columnModelMap);
+        previousModel?.columnModelIds.forEach(columnModelId => {
+            preNextColumnModelMap.delete(columnModelId);
+        });
+        updatingColumnModels.forEach(columnModel => {
+            preNextColumnModelMap.set(columnModel.columnModelId, columnModel);
+        });
+
+        // インデクス、およびリレーションの更新
+        const { nextTableViewModels, nextColumnModelMap, nextRelationViewModelStorage }
+            = this.doUpdateTableViewModelsWithUpdatingColumnGroup(
+                previousModel, updatingModel, preNextColumnModelMap
+            );
+
+        const nextTableViewModelMap = (nextTableViewModels.size > 0)
+            ? new Map([...this.tableViewModelMap, ...nextTableViewModels])
+            : this.tableViewModelMap;
+
+        return new ErdDocument(
+            this.documentName,
+            this.erdSettingModel,
+            this.tableViewModelIds,
+            nextTableViewModelMap,
+            nextColumnGroupModelMap,
+            nextColumnModelMap,
+            updatingColumnShareModelStorage.copy(),
+            nextRelationViewModelStorage,
+            this.memoViewModelStorage,
+            this.databaseSettingModel
+        );
+    }
+
+    private doUpdateTableViewModelsWithUpdatingColumnGroup(
+        previousModel: ColumnGroupModel | null, updatingColumnGroupModel: ColumnGroupModel,
+        columnModelMap: Map<string, ColumnModel>
+    ) {
+        const tableViewModels = Array.from(this.tableViewModelMap.values())
+            .filter(tableViewModel => tableViewModel.tableModel.columns
+                .some(column => (column.modelType === "group")
+                    && (column.columnGroupId === updatingColumnGroupModel.columnGroupId)));
+
+        // 該当カラムグループを参照しているテーブルが存在しない場合は、何もしない
+        if (tableViewModels.length === 0) {
+            return {
+                nextTableViewModels: new Map<string, TableViewModel>(),
+                nextColumnModelMap: columnModelMap,
+                nextRelationViewModelStorage: this.relationViewModelStorage
+            };
+        }
+
+        const deletingColumnModelIds = new Set((previousModel == null) ? []
+            : previousModel.columnModelIds.filter(previousId =>
+                (updatingColumnGroupModel.columnModelIds.includes(previousId) === false))
+        );
+
+        const nextTableViewModels = new Map<string, TableViewModel>();
+
+        // 削除したカラムにインデクス定義がある場合は、インデクス定義から削除する
+        if (deletingColumnModelIds.size > 0) {
+            for (const beforeTableViewModel of tableViewModels) {
+                const beforeTableModel = beforeTableViewModel.tableModel;
+
+                let hasChanged = false;
+                const nextTableIndexModels = beforeTableModel.tableIndexModels.flatMap(tableIndexModel => {
+                    const nextIndexColumnModels = tableIndexModel.indexColumnModels
+                        .filter(indexModel => deletingColumnModelIds.has(indexModel.columnModelId) === false);
+                    if (tableIndexModel.indexColumnModels.length === nextIndexColumnModels.length) {
+                        return tableIndexModel;
+                    }
+
+                    hasChanged = true;
+                    // インデクス定義がなくなった場合は削除
+                    if (nextIndexColumnModels.length === 0) {
+                        return [];
+                    }
+
+                    return [
+                        new TableIndexModel({
+                            ...tableIndexModel,
+                            indexColumnModels: nextIndexColumnModels
+                        })
+                    ];
+                });
+
+                if (hasChanged === false) {
+                    continue;
+                }
+
+                const nextTableViewModel = new TableViewModel({
+                    ...beforeTableViewModel,
+                    tableModel: new TableModel({
+                        ...beforeTableModel,
+                        columns: [...beforeTableModel.columns],
+                        tableIndexModels: nextTableIndexModels
+                    })
+                });
+                nextTableViewModels.set(nextTableViewModel.tableId, nextTableViewModel);
+            }
+        }
+
+        const previousPrimaryKeyIds = (previousModel == null) ? []
+            : previousModel.columnModelIds
+                .map(columnModelId => this.columnModelMap.get(columnModelId))
+                .filter((columnModel): columnModel is ColumnModel =>
+                    (columnModel != null) && (columnModel.primaryKey === true))
+                .map(columnModel => columnModel.columnModelId);
+        const nextPrimaryColumnModels = updatingColumnGroupModel.columnModelIds
+            .map(columnModelId => columnModelMap.get(columnModelId))
+            .filter((columnModel): columnModel is ColumnModel =>
+                (columnModel != null) && (columnModel.primaryKey === true));
+
+        const deletingPrimaryKeyIds = previousPrimaryKeyIds.filter(previousId =>
+            (nextPrimaryColumnModels.every(nextPk => (nextPk.columnModelId !== previousId)))
+        );
+        const addingPrimaryKeys = nextPrimaryColumnModels.filter(nextColumn =>
+            (previousPrimaryKeyIds.includes(nextColumn.columnModelId) === false)
+        );
+
+        // PK のチェックはリレーションが定義されているテーブルのみが対象
+        const relationViewModels = tableViewModels.flatMap(tableViewModel =>
+            this.relationViewModelStorage.fetchRelationsByParent(tableViewModel.tableId)
+        );
+
+        return this.doUpdateRelationWithPrimaryKeyChanged(
+            relationViewModels, nextTableViewModels, columnModelMap,
+            addingPrimaryKeys, deletingPrimaryKeyIds, updatingColumnGroupModel
+        );
+    }
+
+    /**
+     * 指定したカラムグループを削除する。
+     * 
+     * @param columnGroupId 削除対象のカラムグループID
+     * @returns 操作後のモデル
+     */
+    public deleteColumnGroup(columnGroupId: string): ErdDocument {
+        const previousModel = this.columnGroupModelMap.get(columnGroupId);
+        if (previousModel == null) {
+            return this;
+        }
+
+        const nextColumnGroupModelMap = new Map(this.columnGroupModelMap);
+        nextColumnGroupModelMap.delete(columnGroupId);
+
+        const nextColumnModelMap = new Map(this.columnModelMap);
+        previousModel.columnModelIds.forEach(columnModelId => {
+            nextColumnModelMap.delete(columnModelId);
+        });
+
+        const existedColumnShareModelIds = new Set(
+            Array.from(nextColumnModelMap.values()).map(
+                columnModel => columnModel.columnShareModelId
+            )
+        );
+        const currentColumnShareModels = this.columnShareModelStorage.getModels();
+        const updatingColumnShareModels = currentColumnShareModels.filter(
+            shareModel => existedColumnShareModelIds.has(shareModel.columnShareModelId)
+        );
+
+        const { nextTableViewModelMap, nextRelationViewModelStorage }
+            = this.doUpdateTableViewModelsWithDeletingColumnGroup(previousModel);
+
+        return new ErdDocument(
+            this.documentName,
+            this.erdSettingModel,
+            this.tableViewModelIds,
+            nextTableViewModelMap,
+            nextColumnGroupModelMap,
+            nextColumnModelMap,
+            ColumnShareModelStorage.create(updatingColumnShareModels),
+            nextRelationViewModelStorage,
+            this.memoViewModelStorage,
+            this.databaseSettingModel
+        );
+    }
+
+    private doUpdateTableViewModelsWithDeletingColumnGroup(previousModel: ColumnGroupModel) {
+        const previousColumnModels = previousModel.columnModelIds
+            .map(columnModelId => this.columnModelMap.get(columnModelId))
+            .filter((columnModel): columnModel is ColumnModel => (columnModel != null));
+        const previousPkColumnModelIds = previousColumnModels
+            .filter(columnModel => (columnModel.primaryKey === true))
+            .map(columnModel => columnModel.columnModelId);
+
+        const nextTableViewModelMap = new Map(this.tableViewModelMap);
+        const changedPreviousTableModels: TableModel[] = [];
+        const deleteTableIds: string[] = [];
+        const deleteRelationIds = new Set<string>();
+        let hasChanged = false;
+
+        // インデクスの更新
+        for (const entry of this.tableViewModelMap.entries()) {
+            const [tableId, tableViewModel] = entry;
+            const nextColumns = tableViewModel.tableModel.columns
+                .filter(column => (column.modelType === "single")
+                    || (column.columnGroupId !== previousModel.columnGroupId)
+                );
+
+            if (tableViewModel.tableModel.columns.length === nextColumns.length) {
+                continue;
+            }
+
+            hasChanged = true;
+            if (nextColumns.length === 0) {
+                nextTableViewModelMap.delete(tableId);
+                deleteTableIds.push(tableId);
+                continue;
+            }
+
+            changedPreviousTableModels.push(tableViewModel.tableModel);
+
+            const nextTableIndexModels = tableViewModel.tableModel.tableIndexModels
+                .map(tableIndexModel => {
+                    const nextIndexColumnModels = tableIndexModel.indexColumnModels
+                        .filter(indexColumnModel =>
+                            previousModel.columnModelIds.includes(indexColumnModel.columnModelId) === false
+                        );
+
+                    if (nextIndexColumnModels.length === tableIndexModel.indexColumnModels.length) {
+                        return tableIndexModel;
+                    }
+                    if (nextIndexColumnModels.length === 0) {
+                        return null;
+                    }
+
+                    return new TableIndexModel({
+                        ...tableIndexModel,
+                        indexColumnModels: nextIndexColumnModels
+                    });
+                })
+                .filter(tableIndexModel => tableIndexModel != null);
+
+            const nextTableViewModel = new TableViewModel({
+                ...tableViewModel,
+                tableModel: new TableModel({
+                    ...tableViewModel.tableModel,
+                    columns: nextColumns,
+                    tableIndexModels: nextTableIndexModels,
+                })
+            });
+            nextTableViewModelMap.set(tableId, nextTableViewModel);
+        }
+
+        // 親リレーションの更新
+        const updatingParentRelationViewModels: Map<string, RelationModel> = (previousPkColumnModelIds.length > 0)
+            ? new Map(changedPreviousTableModels
+                .flatMap(tableModel =>
+                    this.relationViewModelStorage.fetchRelationsByParent(tableModel.tableModelId)
+                        .map(relationViewModel => {
+                            const nextPairs = relationViewModel.relationModel.relationPairs.filter(pair =>
+                                (previousPkColumnModelIds.includes(pair.parentColumnModelId) === false)
+                            );
+
+                            if (nextPairs.length === 0) {
+                                deleteRelationIds.add(relationViewModel.relationId);
+                                return null;
+                            }
+
+                            return new RelationModel({
+                                ...relationViewModel.relationModel,
+                                relationPairs: nextPairs
+                            });
+                        })
+                        .filter((relationViewModel): relationViewModel is RelationModel => (relationViewModel != null))
+                )
+                .map(relationModel => [relationModel.relationModelId, relationModel])
+            ) : new Map();
+
+        // 子リレーションの更新
+        const updatingChildRelationModels = changedPreviousTableModels.flatMap(tableModel =>
+            this.relationViewModelStorage.fetchRelationsByChild(tableModel.tableModelId)
+                .filter(viewModel => deleteRelationIds.has(viewModel.relationId) === false)
+                .map(viewModel => updatingParentRelationViewModels.get(viewModel.relationId) || viewModel.relationModel)
+                .filter(relationModel => {
+                    // 子テーブルから削除されたカラムに紐づくリレーションが存在する場合、該当リレーションを削除する
+                    for (const pair of relationModel.relationPairs) {
+                        for (const columnModelId of previousModel.columnModelIds) {
+                            if (pair.childColumnModelId === columnModelId) {
+                                deleteRelationIds.add(relationModel.relationModelId);
+                                return false;
+                            }
+                        }
+                    }
+
+                    return true;
+                })
+                .filter(relationModel => updatingParentRelationViewModels.has(relationModel.relationModelId))
+        );
+
+        // 最終的なリレーション更新
+        const updatingRelationModels = new Map(updatingParentRelationViewModels);
+        updatingChildRelationModels.forEach(model => updatingRelationModels.set(model.relationModelId, model));
+
+        const nextRelationViewModelStorage = this.relationViewModelStorage
+            .updateRelationModel(Array.from(updatingRelationModels.values()))
+            .deleteFromTableId(deleteTableIds)
+            .deleteRelation(Array.from(deleteRelationIds));
+
+        return {
+            nextTableViewModelMap: hasChanged ? nextTableViewModelMap : this.tableViewModelMap,
+            nextRelationViewModelStorage: nextRelationViewModelStorage
+        }
     }
 
     public updateRelationModel(updatingModel: RelationModel): ErdDocument {
@@ -424,6 +889,8 @@ export default class ErdDocument {
                 return new ColumnModel({
                     columnModelId: pair.childColumnModelId,
                     columnShareModelId: parentColumnModel.columnShareModelId,
+                    physicalName: parentColumnModel.physicalName,
+                    logicalName: parentColumnModel.logicalName,
                     notNull: isNotNullOption
                 });
             });
@@ -466,16 +933,17 @@ export default class ErdDocument {
             this.erdSettingModel,
             this.tableViewModelIds,
             nextTableViewModelMap,
+            this.columnGroupModelMap,
             nextColumnModelMap,
             this.columnShareModelStorage,
-            this.relationViewModelStorage.updateRelationModel(updatingModel),
+            this.relationViewModelStorage.updateRelationModel([updatingModel]),
             this.memoViewModelStorage,
             this.databaseSettingModel
         );
     }
 
     public deleteRelation(relationId: string): ErdDocument {
-        const next = this.relationViewModelStorage.deleteRelation(relationId);
+        const next = this.relationViewModelStorage.deleteRelation([relationId]);
         if (next === this.relationViewModelStorage) {
             return this;
         }
@@ -485,6 +953,7 @@ export default class ErdDocument {
             this.erdSettingModel,
             this.tableViewModelIds,
             this.tableViewModelMap,
+            this.columnGroupModelMap,
             this.columnModelMap,
             this.columnShareModelStorage,
             next,
@@ -504,6 +973,7 @@ export default class ErdDocument {
             this.erdSettingModel,
             this.tableViewModelIds,
             this.tableViewModelMap,
+            this.columnGroupModelMap,
             this.columnModelMap,
             this.columnShareModelStorage,
             nextRelationStorage,
@@ -583,6 +1053,7 @@ export default class ErdDocument {
             this.erdSettingModel,
             this.tableViewModelIds,
             nextTableViewModelMap,
+            this.columnGroupModelMap,
             this.columnModelMap,
             this.columnShareModelStorage,
             (nextRelationViewStorage != null) ? nextRelationViewStorage : this.relationViewModelStorage,
@@ -643,6 +1114,7 @@ export default class ErdDocument {
             this.erdSettingModel,
             this.tableViewModelIds,
             this.tableViewModelMap,
+            this.columnGroupModelMap,
             this.columnModelMap,
             this.columnShareModelStorage,
             this.relationViewModelStorage,
@@ -673,6 +1145,7 @@ export default class ErdDocument {
             this.erdSettingModel,
             this.tableViewModelIds,
             this.tableViewModelMap,
+            this.columnGroupModelMap,
             this.columnModelMap,
             this.columnShareModelStorage,
             this.relationViewModelStorage,
@@ -697,6 +1170,7 @@ export default class ErdDocument {
             this.erdSettingModel,
             this.tableViewModelIds,
             this.tableViewModelMap,
+            this.columnGroupModelMap,
             this.columnModelMap,
             this.columnShareModelStorage,
             this.relationViewModelStorage,
@@ -721,6 +1195,7 @@ export default class ErdDocument {
             updatingSetting,
             this.tableViewModelIds,
             this.tableViewModelMap,
+            this.columnGroupModelMap,
             this.columnModelMap,
             this.columnShareModelStorage,
             this.relationViewModelStorage,
@@ -734,14 +1209,20 @@ export default class ErdDocument {
             .map(tableId => this.tableViewModelMap.get(tableId))
             .filter((viewModel): viewModel is TableViewModel => viewModel != null)
             .map(viewModel => viewModel.toJSON());
-
+        const columnGroupModels = Array.from(this.columnGroupModelMap.values())
+            .sort((first, second) => first.groupName.localeCompare(second.groupName, "en"))
+            .map(model => model.toJSON())
+        const columnModels = Array.from(this.columnModelMap.values())
+            .sort((first, second) => first.columnModelId.localeCompare(second.columnModelId, "en"))
+            .map(model => model.toJSON());
         const { frontMemos, backMemos } = this.memoViewModelStorage.getMemos();
 
         return {
             documentName: this.documentName,
             lastUpdatedAt: this.lastUpdatedAt,
             tableViewModels: tableViewModels,
-            columnModels: Array.from(this.columnModelMap.values()).map(model => model.toJSON()),
+            columnGroupModels: columnGroupModels,
+            columnModels: columnModels,
             columnShareModels: this.columnShareModelStorage.getModels().map(model => model.toJSON()),
             relationViewModels: this.relationViewModelStorage.getModels().map(model => model.toJSON()),
             foregroundMemos: frontMemos.map(memo => memo.toJSON()),
@@ -780,22 +1261,25 @@ export default class ErdDocument {
 
         const tableViewModels = toObjects(obj.tableViewModels, "tableViewModels",
             (value) => TableViewModel.toObject(value))
+        const columnGroupModels = ("columnGroupModels" in obj)
+            ? toObjects(obj.columnGroupModels, "columnGroupModels", value => ColumnGroupModel.toObject(value)) : [];
         const columnModels = toObjects(obj.columnModels, "columnModels",
-            (value) => ColumnModel.toObject(value))
+            value => ColumnModel.toObject(value))
         const columnShareModels = toObjects(obj.columnShareModels, "columnShareModels",
-            (value) => ColumnShareModel.toObject(value, toColumnType));
+            value => ColumnShareModel.toObject(value, toColumnType));
         const relationViewModels = toObjects(obj.relationViewModels, "relationViewModels",
-            (value) => RelationViewModel.toObject(value));
+            value => RelationViewModel.toObject(value));
         const foregroundMemos = ("foregroundMemos" in obj)
-            ? (toObjects(obj.foregroundMemos, "foregroundMemos", value => MemoViewModel.toObject(value))) : [];
+            ? toObjects(obj.foregroundMemos, "foregroundMemos", value => MemoViewModel.toObject(value)) : [];
         const backgroundMemos = ("backgroundMemos" in obj)
-            ? (toObjects(obj.backgroundMemos, "backgroundMemos", value => MemoViewModel.toObject(value))) : [];
+            ? toObjects(obj.backgroundMemos, "backgroundMemos", value => MemoViewModel.toObject(value)) : [];
         const lastUpdatedAt = ("lastUpdatedAt" in obj) ? toDateTime(obj.lastUpdatedAt) : new Date();
 
         return ErdDocument.create({
             documentName: obj.documentName as string,
             erdSettingModel: erdSettingModel,
             tableViewModels: tableViewModels,
+            columnGroupModels: columnGroupModels,
             columnModels: columnModels,
             columnShareModels: columnShareModels,
             relationViewModels: relationViewModels,

@@ -1,4 +1,4 @@
-import TableModel from '../TableModel';
+import TableModel, { ColumnModelType } from '../TableModel';
 import TableIndexModel from '../TableIndexModel';
 import { IndexColumnModel } from '../TableIndexModel';
 
@@ -10,7 +10,7 @@ describe('TableModel', () => {
             expect(model.tableModelId).toBeTruthy(); // UUID should be generated
             expect(model.physicalName).toBe('');
             expect(model.logicalName).toBe('');
-            expect(model.columnModelIds).toEqual([]);
+            expect(model.columns).toEqual([]);
             expect(model.tableIndexModels).toEqual([]);
             expect(model.description).toBe('');
         });
@@ -34,7 +34,10 @@ describe('TableModel', () => {
                 tableModelId: 'test-id',
                 physicalName: 'test_table',
                 logicalName: 'Test Table',
-                columnModelIds: ['col1', 'col2'],
+                columns: [
+                    { modelType: 'single', columnModelId: 'col1' },
+                    { modelType: 'single', columnModelId: 'col2' }
+                ] as ColumnModelType[],
                 tableIndexModels: [tableIndexModel],
                 description: 'Test description'
             };
@@ -44,7 +47,7 @@ describe('TableModel', () => {
             expect(model.tableModelId).toBe(options.tableModelId);
             expect(model.physicalName).toBe(options.physicalName);
             expect(model.logicalName).toBe(options.logicalName);
-            expect(model.columnModelIds).toEqual(options.columnModelIds);
+            expect(model.columns).toEqual(options.columns);
             expect(model.tableIndexModels).toEqual(options.tableIndexModels);
             expect(model.description).toBe(options.description);
         });

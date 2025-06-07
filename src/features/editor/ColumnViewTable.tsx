@@ -4,6 +4,7 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CheckIcon from "@mui/icons-material/Check";
+import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 
@@ -11,31 +12,35 @@ import ForeignKeyIcon from "~/components/icons/ForeignKeyIcon";
 import PrimaryKeyIcon from "~/components/icons/PrimaryKeyIcon";
 import EdgedIconButton from "~/components/EdgedIconButton";
 import ColumnModel from "~/models/database/ColumnModel";
-import ColumnEditDialog from "~/features/editor/ColumnEditDialog";
+import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import { overrideColumnName } from "~/models/database/support";
+import ColumnEditDialog from "~/features/editor/ColumnEditDialog";
+import { ColumnWrapModel } from "~/features/editor/support";
+import ColumnGroupView from "~/features/editor/ColumnGroupView";
 
 type ColumnViewTableProps = {
-    columnModels: ColumnModel[],
-    onUpdateColumnModels: (updateFunction: ((previous: ColumnModel[]) => ColumnModel[])) => void,
-    isChildRelation: (columnModelId: string) => boolean
+    columnWrapModels: ColumnWrapModel[],
+    availableColumnGroup: boolean,
+    isChildRelation: (columnModelId: string) => boolean,
+    isEditableColumnType: (columnModel: ColumnModel) => boolean,
+    onUpdateColumnWrapModels: (updateFunction: ((previous: ColumnWrapModel[]) => ColumnWrapModel[])) => void
 };
 
-const ColumnViewTable = ({ columnModels, onUpdateColumnModels, isChildRelation }: ColumnViewTableProps) => {
+const ColumnViewTable = ({
+    columnWrapModels, availableColumnGroup, isChildRelation, isEditableColumnType, onUpdateColumnWrapModels
+}: ColumnViewTableProps) => {
+
     const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
 
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
     const [editingColumnModel, setEditingColumnModel] = useState<ColumnModel | null>(null);
+    const [editingColumnGroupIndex, setEditingColumnGroupIndex] = useState<number | "ADD" | null>(null);
 
-    const initColumnModelRow = (columnModel: ColumnModel, targetIndex: number) => {
-        const columnShareModel = columnShareModelStorage.find(columnModel.columnShareModelId);
-        if (columnShareModel == null) {
-            console.warn(`ColumnShareModel not found for columnModelId: ${columnModel.columnModelId}`);
-            return (<></>)
-        }
-
-        const overrideName = overrideColumnName(columnModel, columnShareModel);
-        const inChildRelation = isChildRelation(columnModel.columnModelId);
+    const initColumnModelRow = (columnWrapModel: ColumnWrapModel, targetIndex: number) => {
+        const { cells, inChildRelation } = (columnWrapModel.modelType === "single")
+            ? doInitSingleColumnRow(columnWrapModel.columnModel)
+            : doInitGroupColumnRow(columnWrapModel.columnGroupModel);
 
         const handleRowClicked = (event: MouseEvent) => {
             event.stopPropagation();
@@ -46,24 +51,29 @@ const ColumnViewTable = ({ columnModels, onUpdateColumnModels, isChildRelation }
         const handleEditColumn = (event: MouseEvent) => {
             event.stopPropagation();
             setSelectedIndex(null);
-            setEditingColumnModel(columnModel);
+
+            if (columnWrapModel.modelType === "single") {
+                setEditingColumnModel(columnWrapModel.columnModel);
+            } else {
+                setEditingColumnGroupIndex(targetIndex);
+            }
         };
 
         const initHandleShiftColumn = (shift: (1 | -1)) => {
             return (event: MouseEvent) => {
-                if ((targetIndex + shift < 0) || (targetIndex + shift >= columnModels.length)) {
+                if ((targetIndex + shift < 0) || (targetIndex + shift >= columnWrapModels.length)) {
                     return;
                 }
 
                 event.stopPropagation();
 
                 setSelectedIndex(null);
-                onUpdateColumnModels(previous => {
-                    const nextColumnModels = [...previous];
-                    nextColumnModels[targetIndex] = previous[targetIndex + shift];
-                    nextColumnModels[targetIndex + shift] = previous[targetIndex];
+                onUpdateColumnWrapModels(previous => {
+                    const nextColumnWrapModels = [...previous];
+                    nextColumnWrapModels[targetIndex] = previous[targetIndex + shift];
+                    nextColumnWrapModels[targetIndex + shift] = previous[targetIndex];
 
-                    return nextColumnModels
+                    return nextColumnWrapModels
                 });
             }
         };
@@ -72,7 +82,7 @@ const ColumnViewTable = ({ columnModels, onUpdateColumnModels, isChildRelation }
             event.stopPropagation();
 
             setSelectedIndex(null);
-            onUpdateColumnModels(previous => previous.filter((_, index) => targetIndex !== index))
+            onUpdateColumnWrapModels(previous => previous.filter((_, index) => targetIndex !== index))
         }
 
         const buttonPanel = (
@@ -84,7 +94,7 @@ const ColumnViewTable = ({ columnModels, onUpdateColumnModels, isChildRelation }
                     onClick={initHandleShiftColumn(-1)}>
                     <ArrowUpwardIcon fontSize="small" />
                 </EdgedIconButton>
-                <EdgedIconButton tooltip="Move down" disabled={targetIndex === columnModels.length - 1}
+                <EdgedIconButton tooltip="Move down" disabled={targetIndex === columnWrapModels.length - 1}
                     onClick={initHandleShiftColumn(1)}>
                     <ArrowDownwardIcon fontSize="small" />
                 </EdgedIconButton>
@@ -99,6 +109,24 @@ const ColumnViewTable = ({ columnModels, onUpdateColumnModels, isChildRelation }
             <TableRow key={`column-view-${targetIndex}`} selected={selectedIndex === targetIndex}
                 onClick={handleRowClicked} onDoubleClick={handleEditColumn}
                 sx={{ '&:nth-of-type(odd)': { backgroundColor: 'action.hover' } }} style={{ cursor: 'pointer' }}>
+                {cells}
+                <TableCell>{buttonPanel}</TableCell>
+            </TableRow>
+        );
+    };
+
+    const doInitSingleColumnRow = (columnModel: ColumnModel) => {
+        const columnShareModel = columnShareModelStorage.find(columnModel.columnShareModelId);
+        if (columnShareModel == null) {
+            console.warn(`ColumnShareModel not found for columnModelId: ${columnModel.columnModelId}`);
+            return { cells: (<></>), inChildRelation: true };
+        }
+
+        const overrideName = overrideColumnName(columnModel, columnShareModel);
+        const inChildRelation = isChildRelation(columnModel.columnModelId);
+
+        return {
+            cells: (<>
                 <TableCell align="center">{columnModel.primaryKey && <PrimaryKeyIcon />}</TableCell>
                 <TableCell align="center">{inChildRelation && <ForeignKeyIcon />}</TableCell>
                 <TableCell>{overrideName.physicalName}</TableCell>
@@ -106,10 +134,21 @@ const ColumnViewTable = ({ columnModels, onUpdateColumnModels, isChildRelation }
                 <TableCell>{columnShareModel.specifiedColumnType(inChildRelation)}</TableCell>
                 <TableCell align="center">{columnModel.notNull && <CheckIcon fontSize="small" />}</TableCell>
                 <TableCell align="center">{columnModel.unique && <CheckIcon fontSize="small" />}</TableCell>
-                <TableCell>{buttonPanel}</TableCell>
-            </TableRow>
-        );
+            </>),
+            inChildRelation: inChildRelation
+        };
     };
+
+    const doInitGroupColumnRow = (columnGroupModel: ColumnGroupModel) => {
+        return {
+            cells: (<>
+                <TableCell align="center"></TableCell>
+                <TableCell align="center"></TableCell>
+                <TableCell colSpan={5}>{columnGroupModel.groupName}</TableCell>
+            </>),
+            inChildRelation: false
+        };
+    }
 
     const tableHeader = (
         <TableHead>
@@ -133,26 +172,78 @@ const ColumnViewTable = ({ columnModels, onUpdateColumnModels, isChildRelation }
         setEditingColumnModel(columnModel);
     };
 
+    const handleAddColumnGroup = (event: MouseEvent) => {
+        event.stopPropagation();
+
+        setEditingColumnGroupIndex("ADD");
+    };
+
+    const handleUpdateColumnGroup = (columnWrapModel: ColumnWrapModel) => {
+        if (editingColumnGroupIndex == null) {
+            return;
+        }
+
+        if (editingColumnGroupIndex === "ADD") {
+            onUpdateColumnWrapModels(previous => [...previous, columnWrapModel]);
+            return;
+        }
+
+        onUpdateColumnWrapModels(previous => {
+            if ((editingColumnGroupIndex < 0) || (editingColumnGroupIndex >= previous.length)) {
+                return previous;
+            }
+
+            const nextColumnWrapModels = [...previous];
+            nextColumnWrapModels[editingColumnGroupIndex] = columnWrapModel;
+
+            return nextColumnWrapModels;
+        });
+    };
+
     return (
         <TableContainer>
             <Table stickyHeader size="small" aria-label="column view table" style={{ tableLayout: "fixed" }}>
                 {tableHeader}
                 <TableBody>
-                    {columnModels.map((columnModel: ColumnModel, index: number) => initColumnModelRow(columnModel, index))}
+                    {(columnWrapModels.length > 0)
+                        ? columnWrapModels.map((columnWrapModel: ColumnWrapModel, index: number) =>
+                            initColumnModelRow(columnWrapModel, index))
+                        : (
+                            <TableRow>
+                                <TableCell colSpan={8} align="center" sx={{ p: 2 }}>
+                                    (No columns)
+                                </TableCell>
+                            </TableRow>
+                        )}
                 </TableBody>
             </Table>
-            <Box sx={{ p: "5px" }}>
-                <EdgedIconButton tooltip="Add column" withText onClick={handleAddColumn}>
-                    <AddIcon />
-                </EdgedIconButton>
+            <Box sx={{ margin: 1, marginLeft: 1, marginBottom: 0.5 }}>
+                <Stack direction="row" spacing={5} justifyContent="flex-start" alignItems="center">
+                    <EdgedIconButton tooltip="Add column" withText onClick={handleAddColumn}>
+                        <AddIcon />
+                    </EdgedIconButton>
+                    {availableColumnGroup && (
+                        <EdgedIconButton tooltip="Add group column" withText onClick={handleAddColumnGroup}>
+                            <PlaylistAddIcon />
+                        </EdgedIconButton>
+                    )}
+                </Stack>
             </Box>
             {(editingColumnModel != null) && (
                 <ColumnEditDialog
                     isOpen={editingColumnModel != null}
                     columnModel={editingColumnModel}
-                    onUpdateColumnModels={onUpdateColumnModels}
+                    isEditableColumnType={isEditableColumnType}
+                    onUpdateWrapColumnModels={onUpdateColumnWrapModels}
                     onClose={() => setEditingColumnModel(null)} />
             )}
+            {(editingColumnGroupIndex != null && (
+                <ColumnGroupView
+                    isOpen={editingColumnGroupIndex !== null}
+                    viewMode="select"
+                    onSelect={handleUpdateColumnGroup}
+                    onClose={() => setEditingColumnGroupIndex(null)} />
+            ))}
         </TableContainer>
     );
 };

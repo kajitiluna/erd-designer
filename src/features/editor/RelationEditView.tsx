@@ -2,9 +2,8 @@ import { v4 as uuidV4 } from 'uuid';
 
 import React, { MouseEvent, useState } from "react";
 import {
-    Alert,
-    Box, Button, Dialog, DialogActions, DialogContent, DialogTitle,
-    Divider, FormControl, InputLabel, MenuItem, Paper, Select, SelectChangeEvent, Stack,
+    Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
+    FormControl, InputLabel, MenuItem, Paper, Select, SelectChangeEvent, Stack,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography
 } from "@mui/material";
 import Grid from '@mui/material/Grid2';
@@ -16,8 +15,8 @@ import TableModel from "~/models/database/TableModel";
 import ErdDocument from "~/models/ErdDocument";
 import RelationViewModel from "~/models/RelationViewModel";
 import ColumnModel from "~/models/database/ColumnModel";
-import ColumnShareModel from "~/models/database/ColumnShareModel";
 import { initHandleChangePhysicalName } from '~/features/editor/support';
+import { overrideColumnName } from '~/models/database/support';
 
 type RelationEditViewProps = {
     isOpen: boolean,
@@ -33,18 +32,17 @@ const RelationEditView = ({ isOpen, relationViewModel, parentTableModel, childTa
 
     const relationModel: RelationModel = relationViewModel.relationModel;
 
-    const parentPrimaryColumns: ColumnModel[] = parentTableModel.columnModelIds
-        .map((columnModelId) => erdDocument.findColumnModel(columnModelId))
-        .filter((columnModel): columnModel is ColumnModel =>
-            (columnModel != null) && (columnModel.primaryKey));
+    const parentPrimaryColumns: ColumnModel[] =
+        erdDocument.toAllColumnModels(parentTableModel)
+            .filter(columnModel => columnModel.primaryKey);
 
-    const previousRelationMap = new Map(relationModel.relationPairs.map(
-        (pair) => [pair.parentColumnModelId, pair.childColumnModelId])
+    const previousRelationMap = new Map(relationModel.relationPairs
+        .map(pair => [pair.parentColumnModelId, pair.childColumnModelId])
     );
 
     const [relationName, setRelationName] = useState<string>(relationModel.relationName);
     const [relationPairs, setRelationPairs] = useState<RelationPair[]>(
-        parentPrimaryColumns.map((primaryColumn) => new RelationPair({
+        parentPrimaryColumns.map(primaryColumn => new RelationPair({
             parentColumnModelId: primaryColumn.columnModelId,
             childColumnModelId: previousRelationMap.get(primaryColumn.columnModelId) || ""
         }))
@@ -70,7 +68,7 @@ const RelationEditView = ({ isOpen, relationViewModel, parentTableModel, childTa
 
         event.stopPropagation();
 
-        const nextRelationPairs = relationPairs.map((pair) => {
+        const nextRelationPairs = relationPairs.map(pair => {
             if (pair.childColumnModelId !== INDICATING_FOR_NEW_COLUMN) {
                 return pair;
             }
@@ -117,7 +115,7 @@ const RelationEditView = ({ isOpen, relationViewModel, parentTableModel, childTa
                         parentPrimaryColumns={parentPrimaryColumns}
                         relationPairs={relationPairs}
                         updateRelationPairs={setRelationPairs} />
-                    <RelationCandidatePanel
+                    <RelationCardinalityPanel
                         parentCardinality={parentCardinality} onUpdateParentCardinality={setParentCardinality}
                         childCardinality={childCardinality} onUpdateChildCardinality={setChildCardinality} />
                     <RelationActionPanel
@@ -147,18 +145,18 @@ const RelationReferencesPanel = ({
     relationPairs, updateRelationPairs
 }: RelationReferencesPanelProps) => {
 
-    const childColumnPairs = childTableModel.columnModelIds
-        .map(columnModelId => erdDocument.findColumnModel(columnModelId))
-        .filter((columnModel): columnModel is ColumnModel => columnModel != null)
+    const childColumnDetails = erdDocument.toAllColumnModels(childTableModel)
         .map(columnModel => {
-            return {
-                columnModel: columnModel,
-                columnShareModel: erdDocument.findColumnShareModel(columnModel.columnShareModelId)
+            const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
+            if (columnShareModel == null) {
+                return null;
             }
-        }).filter(
-            (pair): pair is { columnModel: ColumnModel, columnShareModel: ColumnShareModel } =>
-                (pair.columnShareModel != null)
-        );
+
+            const columnName = overrideColumnName(columnModel, columnShareModel);
+
+            return { columnModel, columnShareModel, columnName };
+        })
+        .filter(pair => (pair != null));
 
     const initRelationRow = (primaryColumn: ColumnModel, index: number) => {
         const parentColumnShareModel = erdDocument.findColumnShareModel(primaryColumn.columnShareModelId)
@@ -166,23 +164,24 @@ const RelationReferencesPanel = ({
             return (<></>);
         }
 
+        const parentColumnName = overrideColumnName(primaryColumn, parentColumnShareModel);
+
         // 子カラムを新規作成する際、親カラムと同じ物理名で作成するため、
         // 既に親カラムと同じカラムが存在する場合は、新規作成できないよう制限する
         const creatableNewColumn = (
-            childColumnPairs.some(
-                (pair) => pair.columnShareModel.physicalName === parentColumnShareModel.physicalName
+            childColumnDetails.some(childColumn =>
+                childColumn.columnName.physicalName === parentColumnName.physicalName
             ) === false
         )
 
-        // 外部キー制約を指定できるのは、既に外部キー制約が定義されていないもの、かつ、型定義が同一のカラムのみ
-        const foreignPairs = childColumnPairs.filter(pair =>
-            !erdDocument.inChildRelation(pair.columnModel.columnModelId)
-            && pair.columnShareModel.matchForReferenceType(parentColumnShareModel)
+        // 外部キー制約を指定できるのは、型定義が同一のカラムのみ
+        const foreignDetails = childColumnDetails.filter(childPair =>
+            childPair.columnShareModel.matchForReferenceType(parentColumnShareModel)
         );
 
         const labelId = `label-${primaryColumn.columnShareModelId}`
         const handleChangeForeign = (event: SelectChangeEvent<string>) => {
-            updateRelationPairs((previousPairs) => {
+            updateRelationPairs(previousPairs => {
                 const nextPairs = previousPairs.map((pair) => {
                     if (pair.parentColumnModelId !== primaryColumn.columnModelId) {
                         return pair
@@ -198,7 +197,7 @@ const RelationReferencesPanel = ({
             });
         };
 
-        const selector = (creatableNewColumn || (foreignPairs.length > 0)) ? (
+        const selector = (creatableNewColumn || (foreignDetails.length > 0)) ? (
             <FormControl fullWidth>
                 <InputLabel id={labelId} required>Foreign column</InputLabel>
                 <Select size="small" labelId={labelId} id={`selector-${primaryColumn.columnShareModelId}`}
@@ -207,9 +206,10 @@ const RelationReferencesPanel = ({
                     {creatableNewColumn &&
                         <MenuItem value={INDICATING_FOR_NEW_COLUMN}>(Create new column)</MenuItem>
                     }
-                    {foreignPairs.map((pair) => (
-                        <MenuItem key={pair.columnModel.columnModelId} value={pair.columnModel.columnModelId}>
-                            {pair.columnShareModel.logicalName} / {pair.columnShareModel.physicalName}
+                    {foreignDetails.map(childColumn => (
+                        <MenuItem key={childColumn.columnModel.columnModelId}
+                            value={childColumn.columnModel.columnModelId}>
+                            {childColumn.columnName.logicalName} / {childColumn.columnName.physicalName}
                         </MenuItem>
                     ))}
                 </Select>
@@ -262,16 +262,16 @@ const RelationReferencesPanel = ({
 
 const INDICATING_FOR_NEW_COLUMN = "[[NEW_COLUMN]]";
 
-type RelationCandidatePanelProps = {
+type RelationCardinalityPanelProps = {
     parentCardinality: CardinalityType,
     onUpdateParentCardinality: (updating: CardinalityType) => void,
     childCardinality: CardinalityType,
     onUpdateChildCardinality: (updating: CardinalityType) => void,
 };
 
-const RelationCandidatePanel = ({
+const RelationCardinalityPanel = ({
     parentCardinality, onUpdateParentCardinality, childCardinality, onUpdateChildCardinality
-}: RelationCandidatePanelProps) => {
+}: RelationCardinalityPanelProps) => {
     return (
         <Paper elevation={4} sx={{ p: 2 }}>
             <Stack direction="column">

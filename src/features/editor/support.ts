@@ -1,5 +1,17 @@
 import { ChangeEvent } from "react";
 
+import ColumnGroupModel from "~/models/database/ColumnGroupModel";
+import ColumnModel from "~/models/database/ColumnModel";
+
+export type ColumnWrapModel = {
+    modelType: "single",
+    columnModel: ColumnModel
+} | {
+    modelType: "group",
+    columnGroupModel: ColumnGroupModel,
+    columnModels: ColumnModel[]
+};
+
 export const initHandleChangePhysicalName = (
     setPhysicalName: (updatingPhysicalName: string) => void
 ): ((event: ChangeEvent<HTMLInputElement>) => void) => {
