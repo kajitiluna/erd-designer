@@ -4,8 +4,8 @@ import { PropertyNotExistsError } from "~/models/exceptions";
 
 type ColumnGroupModelOptions = {
     columnGroupId?: string,
-    groupName: string,
-    columnModelIds: string[],
+    groupName?: string,
+    columnModelIds?: string[],
     description?: string
 }
 
@@ -17,7 +17,7 @@ export default class ColumnGroupModel {
     public readonly description: string;
 
     constructor({
-        columnGroupId = "", groupName, columnModelIds, description = ""
+        columnGroupId = "", groupName = "", columnModelIds = [], description = ""
     }: ColumnGroupModelOptions) {
         this.columnGroupId = columnGroupId ? columnGroupId : uuidV4();
         this.groupName = groupName.trim();

@@ -1,6 +1,7 @@
 import React from "react";
 import ColorValue from "~/models/ColorValue";
 import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
+import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import ColumnModel from "~/models/database/ColumnModel";
 import RelationModel from "~/models/database/RelationModel";
 import ErdDocument from "~/models/ErdDocument";
@@ -107,6 +108,44 @@ export class ErdDocumentsHolder {
     public updateTableViewColor(tableIds: string[], background: ColorValue, foreground: ColorValue) {
         const previous: ErdDocument = this.current();
         const next = previous.updateTableViewColor(tableIds, background, foreground);
+        if (previous === next) {
+            return;
+        }
+
+        this.doUpdate(next);
+    }
+
+    /**
+     * 指定された絡むグループの追加もしくは更新を行う。
+     * 
+     * @param updatingModel 更新対象
+     * @param updatingColumnModels 更新カラム
+     * @param columnShareModelStorage 更新後のカラム共有モデルストレージ 
+     */
+    public updateColumnGroup(
+        updatingModel: ColumnGroupModel,
+        updatingColumnModels: ColumnModel[],
+        columnShareModelStorage: ColumnShareModelStorage
+    ) {
+        const previous: ErdDocument = this.current();
+        const next = previous.updateColumnGroup(
+            updatingModel, updatingColumnModels, columnShareModelStorage
+        );
+        if (previous === next) {
+            return;
+        }
+
+        this.doUpdate(next);
+    }
+
+    /**
+     * 指定したカラムグループを削除する。
+     * 
+     * @param columnGroupId 削除対象のカラムグループID
+     */
+    public deleteColumnGroup(columnGroupId: string) {
+        const previous: ErdDocument = this.current();
+        const next: ErdDocument = previous.deleteColumnGroup(columnGroupId);
         if (previous === next) {
             return;
         }

@@ -41,19 +41,19 @@ const IndexViewTable = ({
 }: IndexViewTableProps) => {
 
     const columnModels: ColumnModel[] = columnWrapModels.flatMap(model =>
-        (model.modelType === "single") ? [model.columnModel] : Array.from(model.columnModels.values())
+        (model.modelType === "single") ? [model.columnModel] : model.columnModels
     );
+    const existedColumnModelIds = new Set(columnModels.map(columnModel => columnModel.columnModelId));
 
     const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
 
     const [isOpenEditDialog, setOpenEditDialog] = useState<boolean>(false);
     const [targetIndexModel, setTargetIndexModel] = useState<TableIndexModel | null>(null);
 
-    const columnIdToOrders = tableIndexModels.map(
-        (indexModel: TableIndexModel) => new Map<string, string>(
-            indexModel.indexColumnModels.map(
-                (indexColumnModel, index) => [indexColumnModel.columnModelId, `${index + 1}`]
-            )
+    const columnIdToOrders = tableIndexModels.map(indexModel =>
+        new Map<string, string>(indexModel.indexColumnModels
+            .filter(indexColumnModel => existedColumnModelIds.has(indexColumnModel.columnModelId))
+            .map((indexColumnModel, index) => [indexColumnModel.columnModelId, `${index + 1}`])
         )
     );
 
@@ -171,7 +171,7 @@ const IndexViewTable = ({
                 return;
             }
 
-            onUpdateTableIndexModels((previous) => {
+            onUpdateTableIndexModels(previous => {
                 const nextTableIndexModels = [...previous]
                 nextTableIndexModels[indexIndex] = tableIndexModels[indexIndex + shift];
                 nextTableIndexModels[indexIndex + shift] = tableIndexModels[indexIndex];
@@ -294,8 +294,11 @@ const IndexEditDialog = ({
     const [indexOption, setIndexOption] = useState<TableIndexOption>(tableIndexModel ? tableIndexModel.indexOption : "");
     const [indexType, setIndexType] = useState<TableIndexType>(tableIndexModel ? tableIndexModel.indexType : "");
     const [physicalName, setPhysicalName] = useState<string>(tableIndexModel ? tableIndexModel.physicalName : "");
-    const [indexedColumns, setIndexedColumns] = useState<IndexModelAttribute[]>(tableIndexModel ?
-        tableIndexModel.indexColumnModels.map((model) => { return { ...model } }) : []);
+    const [indexedColumns, setIndexedColumns] = useState<IndexModelAttribute[]>(tableIndexModel
+        ? tableIndexModel.indexColumnModels
+            .filter(model => columnModels.some(columnModel => (columnModel.columnModelId === model.columnModelId)))
+            .map(model => { return { ...model } })
+        : []);
     const [description, setDescription] = useState<string>(tableIndexModel ? tableIndexModel.description : "");
 
     const tableIndexSupport: TableIndexSupport = database.tableIndexSupport;

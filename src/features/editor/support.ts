@@ -9,7 +9,7 @@ export type ColumnWrapModel = {
 } | {
     modelType: "group",
     columnGroupModel: ColumnGroupModel,
-    columnModels: Map<string, ColumnModel>
+    columnModels: ColumnModel[]
 };
 
 export const initHandleChangePhysicalName = (

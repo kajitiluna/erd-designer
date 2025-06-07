@@ -1,7 +1,7 @@
+import React from "react";
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Stack, Tab, Tabs, TextField } from "@mui/material";
-import React, { useState } from "react";
-import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 
+import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ColumnViewTable from "~/features/editor/ColumnViewTable";
 import IndexViewTable from "~/features/editor/IndexViewTable";
@@ -25,36 +25,18 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const erdDocument: ErdDocument = documentsHolder.current();
 
-    const [columnShareModelStorage, setColumnShareModelStorage] = useState(erdDocument.getColumnShareModelStorage());
+    const [columnShareModelStorage, setColumnShareModelStorage] = React.useState(erdDocument.getColumnShareModelStorage());
 
     const tableModel: TableModel = tableViewModel.tableModel;
-    const [physicalTableName, setPhysicalTableName] = useState<string>(tableModel.physicalName);
-    const [logicalTableName, setLogicalTableName] = useState<string>(tableModel.logicalName);
-    const [columnWrapModels, setColumnWrapModels] = useState<ColumnWrapModel[]>(
-        tableModel.columns.map(column => {
-            if (column.modelType === "single") {
-                return {
-                    modelType: "single",
-                    columnModel: erdDocument.findColumnModel(column.columnModelId) as ColumnModel
-                };
-            }
-
-            const columnGroupModel = erdDocument.findColumnGroupModel(column.columnGroupId) as ColumnGroupModel;
-            const columnModels = new Map(columnGroupModel.columnModelIds
-                .map(columnModelId => [columnModelId, erdDocument.findColumnModel(columnModelId) as ColumnModel])
-            );
-
-            return {
-                modelType: "group",
-                columnGroupModel: columnGroupModel,
-                columnModels: columnModels
-            };
-        })
+    const [physicalTableName, setPhysicalTableName] = React.useState<string>(tableModel.physicalName);
+    const [logicalTableName, setLogicalTableName] = React.useState<string>(tableModel.logicalName);
+    const [columnWrapModels, setColumnWrapModels] = React.useState<ColumnWrapModel[]>(
+        initColumnWrapModels(erdDocument, tableModel)
     );
-    const [tableIndexModels, setTableIndexModels] = useState<TableIndexModel[]>([...tableModel.tableIndexModels]);
-    const [description, setDescription] = useState<string>(tableModel.description);
+    const [tableIndexModels, setTableIndexModels] = React.useState<TableIndexModel[]>([...tableModel.tableIndexModels]);
+    const [description, setDescription] = React.useState<string>(tableModel.description);
 
-    const [tabIndex, setTabIndex] = useState<number>(0);
+    const [tabIndex, setTabIndex] = React.useState<number>(0);
 
     // 論理名が物理名と合致もしくは論理名が空の場合は、論理名に物理名の値を設定する
     const handleChangePhysicalName = initHandleChangeWithSyncPhysicalName({
@@ -63,15 +45,19 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
     });
 
     // 物理名に重複がないことをチェックする
-    const validateColumnModels = (columnModels: ColumnWrapModel[]) => {
-        if (columnModels.length === 0) {
+    const validateColumnModels = (columnWrapModels: ColumnWrapModel[]) => {
+        if (columnWrapModels.length === 0) {
             return false;
         }
 
-        const columnNameSet = new Set<string>(
-            columnModels.flatMap(wrapModel =>
-                (wrapModel.modelType === "single")
-                    ? [wrapModel.columnModel] : Array.from(wrapModel.columnModels.values())
+        const columnCount = columnWrapModels.flatMap(columnWrapModel =>
+            (columnWrapModel.modelType === "single")
+                ? [columnWrapModel.columnModel] : columnWrapModel.columnModels)
+            .length;
+
+        const columnNameSet = new Set<string>(columnWrapModels
+            .flatMap(wrapModel => (wrapModel.modelType === "single")
+                ? [wrapModel.columnModel] : wrapModel.columnModels
             ).map(columnModel => {
                 const columnShareModel = columnShareModelStorage.find(columnModel.columnShareModelId);
                 if (columnShareModel == null) {
@@ -83,7 +69,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             }).filter(physicalName => physicalName != null)
         );
 
-        return columnNameSet.size === columnModels.length;
+        return columnNameSet.size === columnCount;
     };
     const editValueValidated = (physicalTableName.length > 0) && (logicalTableName.length > 0)
         && validateColumnModels(columnWrapModels);
@@ -102,8 +88,9 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             .flatMap(wrapModel => (wrapModel.modelType === "single") ? [wrapModel.columnModel] : []);
         const allColumnModelIds = new Set(columnWrapModels
             .flatMap(wrapModel => (wrapModel.modelType === "single")
-                ? [wrapModel.columnModel] : Array.from(wrapModel.columnModels.values())
-            ).map(model => model.columnModelId)
+                ? [wrapModel.columnModel.columnModelId]
+                : wrapModel.columnGroupModel.columnModelIds
+            )
         );
 
         const nextTableModel = new TableModel({
@@ -161,6 +148,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
         <div hidden={tabIndex !== 0}>
             <ColumnViewTable
                 columnWrapModels={columnWrapModels}
+                availableColumnGroup={true}
                 isChildRelation={isChildRelation}
                 isEditableColumnType={isEditableColumnType}
                 onUpdateColumnWrapModels={setColumnWrapModels} />
@@ -205,6 +193,28 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             </Dialog >
         </ColumnShareModelStorageContext.Provider>
     );
+};
+
+const initColumnWrapModels = (erdDocument: ErdDocument, tableModel: TableModel): ColumnWrapModel[] => {
+    return tableModel.columns.map(column => {
+        if (column.modelType === "single") {
+            return {
+                modelType: "single",
+                columnModel: erdDocument.findColumnModel(column.columnModelId) as ColumnModel
+            };
+        }
+
+        const columnGroupModel = erdDocument.findColumnGroupModel(column.columnGroupId) as ColumnGroupModel;
+        const columnModels = columnGroupModel.columnModelIds
+            .map(columnModelId => erdDocument.findColumnModel(columnModelId))
+            .filter((columnModel): columnModel is ColumnModel => (columnModel != null));
+
+        return {
+            modelType: "group",
+            columnGroupModel: columnGroupModel,
+            columnModels: columnModels
+        };
+    });
 };
 
 type TableNamePanelProps = {

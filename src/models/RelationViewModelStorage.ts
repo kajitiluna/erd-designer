@@ -6,21 +6,19 @@ export default class RelationViewModelStorage {
 
     private relationIdMap: Map<string, RelationViewModel>;
     private parentTableModelIdMap: Map<string, RelationViewModel[]>;
+    private childTableModelIdMap: Map<string, RelationViewModel[]>;
     // `子テーブルID:子カラムID` をキーに、親テーブルIDと親カラムIDのペアを値とするマップ
     private childColumnModelIdMap: Map<string, ParentRelation>;
 
     constructor(relationViewModels: readonly RelationViewModel[]) {
         this.relationIdMap = new Map(relationViewModels.map(model => [model.relationId, model]));
 
-        this.parentTableModelIdMap = relationViewModels.reduce((pairs, model) => {
-            let currentPair = pairs.get(model.relationModel.parentTableModelId);
-            if (currentPair == null) {
-                currentPair = [];
-                pairs.set(model.relationModel.parentTableModelId, currentPair);
-            }
-            currentPair.push(model);
-            return pairs;
-        }, new Map<string, RelationViewModel[]>());
+        this.parentTableModelIdMap = RelationViewModelStorage.toTableIdMapping(
+            relationViewModels, (relationModel: RelationModel) => relationModel.parentTableModelId
+        );
+        this.childTableModelIdMap = RelationViewModelStorage.toTableIdMapping(
+            relationViewModels, (relationModel: RelationModel) => relationModel.childTableModelId
+        );
 
         this.childColumnModelIdMap = new Map(relationViewModels
             .filter(model => model.relationModel.relationPairs.length > 0)
@@ -33,6 +31,24 @@ export default class RelationViewModelStorage {
                     }
                 ])
             ));
+    }
+
+    private static toTableIdMapping(
+        relationViewModels: readonly RelationViewModel[], toTableId: (relationModel: RelationModel) => string
+    ): Map<string, RelationViewModel[]> {
+        const tableIdMap = new Map<string, RelationViewModel[]>();
+        relationViewModels.forEach(viewModel => {
+            const tableId = toTableId(viewModel.relationModel);
+
+            const relationIds = tableIdMap.get(tableId);
+            if (relationIds != null) {
+                relationIds.push(viewModel);
+            } else {
+                tableIdMap.set(tableId, [viewModel]);
+            }
+        });
+
+        return tableIdMap;
     }
 
     public getModels(): RelationViewModel[] {
@@ -49,8 +65,13 @@ export default class RelationViewModelStorage {
         return model;
     }
 
-    public getRelationsByParent(parentTableId: string): RelationViewModel[] {
+    public fetchRelationsByParent(parentTableId: string): RelationViewModel[] {
         const models = this.parentTableModelIdMap.get(parentTableId);
+        return models ? models : [];
+    }
+
+    public fetchRelationsByChild(childTableId: string): RelationViewModel[] {
+        const models = this.childTableModelIdMap.get(childTableId);
         return models ? models : [];
     }
 
@@ -62,22 +83,53 @@ export default class RelationViewModelStorage {
         return this.childColumnModelIdMap.get(`${childTableModelId}:${childColumnModelId}`) ?? null;
     }
 
-    public updateRelationModel(updatingModel: RelationModel): RelationViewModelStorage {
-        const currentViewModel = this.relationIdMap.get(updatingModel.relationModelId);
-        const nextViewModel = (currentViewModel != null)
-            ? currentViewModel.updateRelationModel(updatingModel)
-            : new RelationViewModel({
-                relationModel: updatingModel,
-                lineViewModel: new LineViewModel({ strokeWidth: 1 })
-            });
+    public updateRelationModel(updatingModels: RelationModel[]): RelationViewModelStorage {
+        if (updatingModels.length === 0) {
+            return this;
+        }
 
-        return this.update(nextViewModel);
+        const nextViewModels = updatingModels.map(updatingModel => {
+            const currentViewModel = this.relationIdMap.get(updatingModel.relationModelId);
+
+            return (currentViewModel != null)
+                ? currentViewModel.updateRelationModel(updatingModel)
+                : new RelationViewModel({
+                    relationModel: updatingModel,
+                    lineViewModel: new LineViewModel({ strokeWidth: 1 })
+                });
+        });
+
+        return this.update(nextViewModels);
     }
 
-    public deleteRelation(relationId: string): RelationViewModelStorage {
+    public deleteRelation(relationIds: string[]): RelationViewModelStorage {
+        if (relationIds.length === 0) {
+            return this;
+        }
+
         const nextRelationIdMap = new Map(this.relationIdMap);
-        const deleted = nextRelationIdMap.delete(relationId);
-        if (deleted === false) {
+        relationIds.forEach(relationId => nextRelationIdMap.delete(relationId));
+        if (nextRelationIdMap.size === this.relationIdMap.size) {
+            return this;
+        }
+
+        return new RelationViewModelStorage(Array.from(nextRelationIdMap.values()));
+    }
+
+    public deleteFromTableId(tableIds: string[]): RelationViewModelStorage {
+        if (tableIds.length === 0) {
+            return this;
+        }
+
+        const nextRelationIdMap = new Map(this.relationIdMap);
+        for (const tableId of tableIds) {
+            const relationModels = this.childTableModelIdMap.get(tableId) || [];
+            relationModels.forEach(relationModel => {
+                nextRelationIdMap.delete(relationModel.relationId);
+            });
+        }
+
+        if (nextRelationIdMap.size === this.relationIdMap.size) {
             return this;
         }
 
@@ -99,12 +151,16 @@ export default class RelationViewModelStorage {
             lineViewModel: nextLineViewModel
         });
 
-        return this.update(nextViewModel);
+        return this.update([nextViewModel]);
     }
 
-    private update(model: RelationViewModel): RelationViewModelStorage {
+    private update(models: RelationViewModel[]): RelationViewModelStorage {
+        if (models.length === 0) {
+            return this;
+        }
+
         const nextRelationMap = new Map(this.relationIdMap);
-        nextRelationMap.set(model.relationId, model);
+        models.forEach(model => nextRelationMap.set(model.relationId, model));
 
         return new RelationViewModelStorage(Array.from(nextRelationMap.values()));
     }
