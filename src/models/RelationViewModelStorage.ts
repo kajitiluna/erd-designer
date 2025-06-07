@@ -14,10 +14,10 @@ export default class RelationViewModelStorage {
         this.relationIdMap = new Map(relationViewModels.map(model => [model.relationId, model]));
 
         this.parentTableModelIdMap = RelationViewModelStorage.toTableIdMapping(
-            relationViewModels, (relationModel: RelationModel) => relationModel.parentTableModelId
+            relationViewModels, relationModel => relationModel.parentTableModelId
         );
         this.childTableModelIdMap = RelationViewModelStorage.toTableIdMapping(
-            relationViewModels, (relationModel: RelationModel) => relationModel.childTableModelId
+            relationViewModels, relationModel => relationModel.childTableModelId
         );
 
         this.childColumnModelIdMap = new Map(relationViewModels

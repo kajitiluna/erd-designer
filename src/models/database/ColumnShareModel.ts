@@ -85,7 +85,7 @@ export default class ColumnShareModel {
     }
 
     public matchForReferenceType(parent: ColumnShareModel): boolean {
-        const columnType = this.specifiedColumnType()
+        const columnType = this.specifiedColumnType(true)
         const parentColumnType = parent.specifiedColumnType(true);
         if (columnType !== parentColumnType) {
             return false;
