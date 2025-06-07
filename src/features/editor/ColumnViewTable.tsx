@@ -23,7 +23,7 @@ type ColumnViewTableProps = {
     columnWrapModels: ColumnWrapModel[],
     availableColumnGroup: boolean,
     isChildRelation: (columnModelId: string) => boolean,
-    isEditableColumnType: (columnModelId: string) => boolean,
+    isEditableColumnType: (columnModel: ColumnModel) => boolean,
     onUpdateColumnWrapModels: (updateFunction: ((previous: ColumnWrapModel[]) => ColumnWrapModel[])) => void
 };
 

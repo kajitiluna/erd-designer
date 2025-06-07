@@ -126,18 +126,18 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
 
     const isChildRelation = (columnModelId: string) =>
         erdDocument.inChildRelation(tableModel.tableModelId, columnModelId);
-    const isEditableColumnType = (columnModelId: string) => {
-        const parentRelation = erdDocument.findParentRelation(tableModel.tableModelId, columnModelId)
+    const isEditableColumnType = (columnModel: ColumnModel) => {
+        const parentRelation = erdDocument.findParentRelation(tableModel.tableModelId, columnModel.columnModelId)
         if (parentRelation == null) {
             return true;
         }
 
-        const columnModel = erdDocument.findColumnModel(parentRelation.columnModelId);
-        if (columnModel == null) {
+        const parentColumnModel = erdDocument.findColumnModel(parentRelation.columnModelId);
+        if (parentColumnModel == null) {
             return true;
         }
 
-        return (columnModel.columnShareModelId === columnModel.columnShareModelId);
+        return (parentColumnModel.columnShareModelId === columnModel.columnShareModelId);
     };
 
     const tabPanel = (<>

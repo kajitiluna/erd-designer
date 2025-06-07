@@ -26,7 +26,7 @@ import SearchColumnShareModelDialog from '~/features/editor/SearchColumnShareMod
 type ColumnEditDialogProps = {
     isOpen: boolean,
     columnModel: ColumnModel,
-    isEditableColumnType: (columnModelId: string) => boolean,
+    isEditableColumnType: (columnModel: ColumnModel) => boolean,
     onUpdateWrapColumnModels: (updateFunction: ((previous: ColumnWrapModel[]) => ColumnWrapModel[])) => void,
     onClose: () => void
 };
@@ -95,7 +95,7 @@ const ColumnEditDialog = ({
     };
 
     // 外部キー制約が定義され shareModelId が異なる場合は型を変更できない
-    const editableColumnType = isEditableColumnType(columnModel.columnModelId);
+    const editableColumnType = isEditableColumnType(columnModel);
 
     const validatedValue = (physicalName.length > 0) && (logicalName.length > 0)
         && validateColumnTypeAttribute(columnTypeAttribute);
