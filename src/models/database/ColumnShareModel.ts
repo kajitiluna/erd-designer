@@ -11,7 +11,6 @@ type ColumnShareModelOptions = {
     precision?: string,
     scale?: string,
     unsigned?: boolean,
-    defaultValue?: string,
     description?: string,
     createdAt?: Date | null
 }
@@ -21,6 +20,7 @@ type ColumnShareQueryType = {
     overridePhysicalName?: string,
     notNull?: boolean
     autoIncrement?: boolean,
+    defaultValue?: string,
     inChildRelation?: boolean
 };
 
@@ -33,7 +33,6 @@ export default class ColumnShareModel {
     public readonly precision: string;
     public readonly scale: string;
     public readonly unsigned: boolean;
-    public readonly defaultValue: string;
     public readonly description: string;
     private readonly createdAt: Date;
 
@@ -45,7 +44,6 @@ export default class ColumnShareModel {
         precision = "",
         scale = "",
         unsigned = false,
-        defaultValue = "",
         description = "",
         createdAt = null }: ColumnShareModelOptions
     ) {
@@ -56,14 +54,13 @@ export default class ColumnShareModel {
         this.precision = columnType.withPrecision ? precision : "";
         this.scale = columnType.withScale ? scale : "";
         this.unsigned = columnType.withUnsigned ? unsigned : false;
-        this.defaultValue = defaultValue;
         this.description = description;
         this.createdAt = createdAt ? createdAt : new Date();
     }
 
     public query({
         database, overridePhysicalName="",
-        notNull = false, autoIncrement = false, inChildRelation = false
+        notNull = false, autoIncrement = false, defaultValue = "", inChildRelation = false
     }: ColumnShareQueryType): string {
 
         const columnName = overridePhysicalName != "" ? overridePhysicalName : this.physicalName;
@@ -72,7 +69,7 @@ export default class ColumnShareModel {
                 precision: this.precision,
                 scale: this.scale,
                 onNotNull: notNull,
-                defaultValue: this.defaultValue,
+                defaultValue: defaultValue,
                 onUnsigned: this.unsigned,
                 onAutoIncrement: autoIncrement,
                 inChildRelation
@@ -108,7 +105,6 @@ export default class ColumnShareModel {
             precision: this.precision,
             scale: this.scale,
             unsigned: this.unsigned,
-            defaultValue: this.defaultValue,
             description: this.description,
             createdAt: this.createdAt
         };
@@ -136,9 +132,6 @@ export default class ColumnShareModel {
         if (!("unsigned" in obj)) {
             throw new PropertyNotExistsError("unsigned", obj);
         }
-        if (!("defaultValue" in obj)) {
-            throw new PropertyNotExistsError("defaultValue", obj);
-        }
         if (!("description" in obj)) {
             throw new PropertyNotExistsError("description", obj);
         }
@@ -151,7 +144,6 @@ export default class ColumnShareModel {
             precision: obj.precision as string,
             scale: obj.scale as string,
             unsigned: obj.unsigned as boolean,
-            defaultValue: obj.defaultValue as string,
             description: obj.description as string,
             createdAt: ("createdAt" in obj) ? toDateTime(obj.createdAt) : new Date()
         });

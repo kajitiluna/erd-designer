@@ -10,7 +10,8 @@ type ColumnModelOptions = {
     primaryKey?: boolean,
     notNull?: boolean,
     unique?: boolean,
-    autoIncrement?: boolean
+    autoIncrement?: boolean,
+    defaultValue?: string
 }
 
 export default class ColumnModel {
@@ -23,6 +24,7 @@ export default class ColumnModel {
     public readonly notNull: boolean;
     public readonly unique: boolean;
     public readonly autoIncrement: boolean;
+    public readonly defaultValue: string;
 
     constructor({
         columnModelId = "",
@@ -32,8 +34,9 @@ export default class ColumnModel {
         primaryKey = false,
         notNull = false,
         unique = false,
-        autoIncrement = false }: ColumnModelOptions
-    ) {
+        autoIncrement = false,
+        defaultValue = ""
+    }: ColumnModelOptions) {
         this.columnModelId = columnModelId ? columnModelId : uuidV4();
         this.columnShareModelId = columnShareModelId;
         this.physicalName = physicalName.trim();
@@ -42,6 +45,7 @@ export default class ColumnModel {
         this.notNull = notNull;
         this.unique = unique;
         this.autoIncrement = autoIncrement;
+        this.defaultValue = defaultValue.trim();
     }
 
     public toJSON(): Record<string, unknown> {
@@ -62,6 +66,7 @@ export default class ColumnModel {
         const notNull = ("notNull" in obj) ? obj.notNull as boolean : false;
         const unique = ("unique" in obj) ? obj.unique as boolean : false;
         const autoIncrement = ("autoIncrement" in obj) ? obj.autoIncrement as boolean : false;
+        const defaultValue = ("defaultValue" in obj) ? obj.defaultValue as string : "";
 
         return new ColumnModel({
             columnModelId: obj.columnModelId as string,
@@ -71,7 +76,8 @@ export default class ColumnModel {
             primaryKey: primaryKey,
             notNull: notNull,
             unique: unique,
-            autoIncrement: autoIncrement
+            autoIncrement: autoIncrement,
+            defaultValue: defaultValue
         });
     }
 }
