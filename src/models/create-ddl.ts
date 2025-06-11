@@ -131,21 +131,25 @@ const createIndexDdl = (erViewModel: ErdDocument, option: DdlOption, database: D
     const tableViewModels = erViewModel.getTableViewModels();
     const queries = tableViewModels.flatMap(tableViewModel => {
         const tableModel: TableModel = tableViewModel.tableModel;
+
         return tableModel.tableIndexModels.map(indexModel => {
             const indexTypeQuery = indexModel.indexType ? ` USING ${indexModel.indexType}` : "";
             const columnQueries = indexModel.indexColumnModels.map(indexColumn => {
                 const columnModel = erViewModel.findColumnModel(indexColumn.columnModelId) as ColumnModel;
                 const columnShareModel = erViewModel.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
 
-                const columnName = database.escape(columnShareModel.physicalName);
+                const overrideName = overrideColumnName(columnModel, columnShareModel);
+                const columnName = database.escape(overrideName.physicalName);
                 const sortQuery = indexColumn.querySort();
+
                 return columnName + (sortQuery ? ` ${sortQuery}` : "");
             });
 
+            const indexOption = indexModel.indexOption ? `${indexModel.indexOption} ` : ""
             const indexName = database.escape(indexModel.physicalName);
             const tableName = database.escape(tableModel.physicalName);
 
-            return `CREATE ${indexModel.indexOption} INDEX ${indexName}${indexTypeQuery}`
+            return `CREATE ${indexOption}INDEX ${indexName}${indexTypeQuery}`
                 + ` ON ${tableName} (${columnQueries.join(", ")});`;
         });
     });
@@ -175,9 +179,12 @@ const createForeignKeyDdl = (erViewModel: ErdDocument, option: DdlOption, databa
             const parentColumnShareModel = (parentColumnModel.columnShareModelId === childColumnModel.columnShareModelId)
                 ? childColumnShareModel : erViewModel.findColumnShareModel(parentColumnModel.columnShareModelId) as ColumnShareModel;
 
+            const parentColumnName = overrideColumnName(parentColumnModel, parentColumnShareModel);
+            const childColumnName = overrideColumnName(childColumnModel, childColumnShareModel);
+
             return {
-                parent: database.escape(parentColumnShareModel.physicalName),
-                child: database.escape(childColumnShareModel.physicalName)
+                parent: database.escape(parentColumnName.physicalName),
+                child: database.escape(childColumnName.physicalName)
             };
         });
 
@@ -190,6 +197,7 @@ const createForeignKeyDdl = (erViewModel: ErdDocument, option: DdlOption, databa
         ];
 
         const childTableName = database.escape(childTableModel.physicalName);
+
         return `ALTER TABLE ${childTableName}\n    ${alterQueries.join("\n    ")};\n`;
     });
 
@@ -213,16 +221,17 @@ const createCommentDdl = (erdDocument: ErdDocument, option: DdlOption, database:
                 }
 
                 const tableName = database.escape(tableModel.physicalName);
-                const columnName = database.escape(columnShareModel.physicalName);
+                const overrideName = overrideColumnName(columnModel, columnShareModel);
+                const columnName = database.escape(overrideName.physicalName);
 
                 return `COMMENT ON COLUMN ${tableName}.${columnName}`
-                    + ` IS '${escapeComment(columnShareModel.logicalName)}'`;
+                    + ` IS '${escapeComment(overrideName.logicalName)}';`;
             })
             .filter((comment): comment is string => (comment != null));
 
         if (tableModel.logicalName !== tableModel.physicalName) {
             const tableName = database.escape(tableModel.physicalName);
-            commentQueries.unshift(`COMMENT ON TABLE ${tableName} IS '${escapeComment(tableModel.logicalName)}'`);
+            commentQueries.unshift(`COMMENT ON TABLE ${tableName} IS '${escapeComment(tableModel.logicalName)}';`);
         }
 
         if (commentQueries.length > 0) {
