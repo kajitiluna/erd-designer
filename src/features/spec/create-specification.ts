@@ -66,7 +66,7 @@ const initExportColumnGenerator = (erdDocument: ErdDocument, tableModel: TableMo
             notNull: columnModel.notNull ? "✓" : "",
             unique: columnModel.unique ? "✓" : "",
             autoIncrement: columnModel.autoIncrement ? "✓" : "",
-            defaultValue: columnShareModel.defaultValue,
+            defaultValue: columnModel.defaultValue,
             foreignRelation: initForeignRelation(erdDocument, parentRelation),
             description: columnShareModel.description,
         };
