@@ -1,4 +1,4 @@
-import { findDatabaseColumns } from "~/models/database/columns";
+import { findDatabaseColumns, migrateColumns } from "~/models/database/columns";
 import ColumnType from "~/models/database/ColumnType";
 import { DatabaseType } from "~/models/database/DatabaseType";
 import { PropertyNotExistsError } from "~/models/exceptions";
@@ -7,46 +7,43 @@ import { toObjects } from "~/models/util";
 type DatabaseSettingModelType = {
     databaseType: DatabaseType,
     columnTypes: readonly ColumnType[],
+    version: number
 };
+
+const CURRENT_VERSION = 20250612;
 
 export default class DatabaseSettingModel {
 
     public readonly databaseType: DatabaseType;
     public readonly columnTypes: readonly ColumnType[];
+    public readonly version: number;
 
-    constructor({ databaseType, columnTypes }: DatabaseSettingModelType) {
+    constructor({ databaseType, columnTypes, version }: DatabaseSettingModelType) {
         this.databaseType = databaseType;
         this.columnTypes = columnTypes;
+        this.version = version;
     }
 
     public static create(databaseType: DatabaseType): DatabaseSettingModel {
         const columnTypes = findDatabaseColumns(databaseType);
-        return new DatabaseSettingModel({ databaseType, columnTypes });
+        return new DatabaseSettingModel({ databaseType, columnTypes, version: CURRENT_VERSION });
     }
 
     public initToColumnTypeMapping(): ((columnTypeId: number) => ColumnType) {
-        const mapping = new Map<number, ColumnType>(this.columnTypes.map((columnType) => [columnType.id, columnType]));
+        const mapping = new Map(this.columnTypes.map(columnType => [columnType.id, columnType]));
 
         return (columnTypeId: number) => mapping.get(columnTypeId) ?? ColumnType.EMPTY;
     }
 
-    // TODO 上記と統合する
     public findColumnType(columnTypeId: number): ColumnType | null {
-        const filteredColumns = this.columnTypes.filter(
-            (columnType) => columnType.id === columnTypeId
-        );
-
-        if (filteredColumns.length <= 0) {
-            return null;
-        }
-
-        return filteredColumns[0];
+        return this.columnTypes.find(columnType => (columnType.id === columnTypeId)) ?? null;
     }
 
     public toJSON(): Record<string, unknown> {
         return {
             databaseType: this.databaseType,
-            columnTypes: this.columnTypes.map((columnType) => columnType.toJSON()),
+            columnTypes: this.columnTypes.map(columnType => columnType.toJSON()),
+            version: this.version
         };
     }
 
@@ -58,11 +55,16 @@ export default class DatabaseSettingModel {
             throw new PropertyNotExistsError("columnTypes", obj);
         }
 
-        const columnTypes = toObjects(obj.columnTypes, "columnTypes", (value) => ColumnType.toObject(value));
+        const databaseType = obj.databaseType as DatabaseType;
+        const orgColumnTypes = toObjects(obj.columnTypes, "columnTypes", (value) => ColumnType.toObject(value));
+        const orgVersion = ("version" in obj) ? (obj.version as number) : 0;
+
+        const columnTypes = migrateColumns(databaseType, orgColumnTypes, orgVersion);
 
         return new DatabaseSettingModel({
-            databaseType: obj.databaseType as DatabaseType,
-            columnTypes: columnTypes
+            databaseType: databaseType,
+            columnTypes: columnTypes,
+            version: CURRENT_VERSION
         });
     }
 }

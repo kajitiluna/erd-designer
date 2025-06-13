@@ -15,7 +15,8 @@ type ColumnTypeOptions = {
     withScale?: boolean,
     withUnsigned?: boolean,
     withAuthIncrement?: boolean,
-    foreignColumn?: ColumnType | null
+    foreignColumn?: ColumnType | null,
+    defaultValueCandidates?: string[]
 }
 
 export default class ColumnType {
@@ -33,6 +34,7 @@ export default class ColumnType {
     public readonly withUnsigned: boolean;
     public readonly withAuthIncrement: boolean;
     public readonly foreignColumn: ColumnType | null;
+    public readonly defaultValueCandidates: string[];
 
     /**
      * コンストラクタ。
@@ -45,12 +47,14 @@ export default class ColumnType {
      * @param withScale scale の設定が可能な型か
      * @param withUnsigned unsigned の設定が可能な型か
      * @param withAuthIncrement auto_increment の設定が可能な型か
+     * @param foreignColumn 外部キー参照時の型 (null の場合は元の型と同じ)
+     * @param defaultValueCandidates デフォルト値候補
      */
     constructor({
         id, name, description, baseQuery,
         withPrecision = false, withScale = false,
         withUnsigned = false, withAuthIncrement = false,
-        foreignColumn = null
+        foreignColumn = null, defaultValueCandidates = []
     }: ColumnTypeOptions) {
         this.id = id;
         this.name = name;
@@ -61,6 +65,7 @@ export default class ColumnType {
         this.withUnsigned = withUnsigned;
         this.withAuthIncrement = withAuthIncrement;
         this.foreignColumn = (foreignColumn != null) ? foreignColumn : null;
+        this.defaultValueCandidates = defaultValueCandidates;
     }
 
     query({
@@ -131,6 +136,8 @@ export default class ColumnType {
 
         const foreignColumn = (("foreignColumn" in obj) && (obj.foreignColumn != null))
             ? ColumnType.toObject(obj.foreignColumn as object) : null;
+        const defaultValueCandidates = ("defaultValueCandidates" in obj)
+            ? (obj.defaultValueCandidates as string[]) : [];
 
         return new ColumnType({
             id: obj.id as number,
@@ -141,7 +148,8 @@ export default class ColumnType {
             withScale: obj.withScale as boolean,
             withUnsigned: obj.withUnsigned as boolean,
             withAuthIncrement: obj.withAuthIncrement as boolean,
-            foreignColumn: foreignColumn
+            foreignColumn: foreignColumn,
+            defaultValueCandidates: defaultValueCandidates
         });
     }
 }

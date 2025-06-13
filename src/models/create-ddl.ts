@@ -84,6 +84,7 @@ const columnQueryWithoutComment: ColumnQuery = (
         overridePhysicalName: columnModel.physicalName,
         notNull: columnModel.notNull,
         autoIncrement: columnModel.autoIncrement,
+        defaultValue: columnModel.defaultValue,
         inChildRelation
     });
 };

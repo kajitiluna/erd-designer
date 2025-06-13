@@ -51,7 +51,8 @@ describe('ColumnModel', () => {
                 primaryKey: false,
                 notNull: false,
                 unique: false,
-                autoIncrement: false
+                autoIncrement: false,
+                defaultValue: '',
             });
         });
     });

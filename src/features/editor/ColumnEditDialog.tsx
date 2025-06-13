@@ -3,6 +3,7 @@ import React, { ChangeEvent, MouseEvent, useState } from "react";
 import {
     Accordion, AccordionDetails, AccordionSummary, Autocomplete, Box, Button, Checkbox,
     Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
+    Divider,
     FormControlLabel, IconButton, Paper, Stack, TextField, Tooltip, Typography
 } from "@mui/material";
 import Grid from '@mui/material/Grid2';
@@ -54,6 +55,7 @@ const ColumnEditDialog = ({
         = useState<boolean>(columnShareModel ? columnShareModel.columnType.withAuthIncrement : false);
     const [overriddenPhysicalName, setOverriddenPhysicalName] = useState<string>(columnModel.physicalName);
     const [overriddenLogicalName, setOverriddenLogicalName] = useState<string>(columnModel.logicalName);
+    const [defaultValue, setDefaultValue] = useState<string>(columnModel.defaultValue);
 
     const [columnShareModelId, setColumnShareModelId]
         = useState<string>(columnShareModel ? columnShareModel.columnShareModelId : "");
@@ -125,7 +127,8 @@ const ColumnEditDialog = ({
             primaryKey: checkedPrimaryKey,
             notNull: checkedNotNull,
             unique: checkedUnique,
-            autoIncrement: columnTypeAttribute.columnType.withAuthIncrement ? checkAutoIncrement : false
+            autoIncrement: columnTypeAttribute.columnType.withAuthIncrement ? checkAutoIncrement : false,
+            defaultValue: defaultValue
         });
 
         onUpdateWrapColumnModels(previousColumnModels => {
@@ -230,19 +233,29 @@ const ColumnEditDialog = ({
                     updateColumnType={updateColumnType} />
                 <TextField variant="outlined" id="description" label="Description"
                     multiline rows={3} slotProps={{ input: { style: { resize: 'vertical' } } }}
-                    value={description} onChange={(event) => setDescription(event.target.value)} />
+                    value={description} onChange={event => setDescription(event.target.value)} />
             </Stack>
         </Paper>
     );
+
+    const defaultValueCandidates = (columnTypeAttribute != null)
+        ? columnTypeAttribute.columnType.defaultValueCandidates : [];
 
     return (
         <Dialog fullWidth maxWidth="md" sx={{ userSelect: "none" }} open={isOpen} onClose={onClose}>
             <DialogTitle>Edit table column</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>
+                    <Divider />
                     {constraintPanel}
                     {overriddenPanel}
                     {attributePanel}
+                    <Autocomplete freeSolo options={defaultValueCandidates} value={defaultValue}
+                        onInputChange={(_, newValue) => setDefaultValue(newValue ?? "")}
+                        onChange={(_, newValue) => setDefaultValue(newValue ?? "")}
+                        renderInput={params =>
+                            <TextField {...params} id="defaultValue" label="Default Value"
+                                variant="outlined" fullWidth />} />
                 </Stack>
             </DialogContent>
             <DialogActions>
@@ -434,8 +447,8 @@ const ColumnTypeEditPanel = ({ columnTypeAttribute, disabled = false, updateColu
         <Grid container spacing={1}>
             <Grid size={{ xs: 12, md: 5 }}>
                 <Autocomplete id="columnType" disableClearable disabled={disabled}
-                    renderInput={(params) => <TextField  {...params} label="Column Type" />}
-                    options={databaseSetting.columnTypes.map((columnType) => {
+                    renderInput={params => <TextField  {...params} label="Column Type" />}
+                    options={databaseSetting.columnTypes.map(columnType => {
                         return { label: columnType.name, id: columnType.id }
                     })}
                     value={columnType ? { label: columnType.name, id: columnType.id } : { label: "", id: 0 }}
