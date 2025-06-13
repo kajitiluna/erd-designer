@@ -238,6 +238,9 @@ const ColumnEditDialog = ({
         </Paper>
     );
 
+    const defaultValueCandidates = (columnTypeAttribute != null)
+        ? columnTypeAttribute.columnType.defaultValueCandidates : [];
+
     return (
         <Dialog fullWidth maxWidth="md" sx={{ userSelect: "none" }} open={isOpen} onClose={onClose}>
             <DialogTitle>Edit table column</DialogTitle>
@@ -247,9 +250,12 @@ const ColumnEditDialog = ({
                     {constraintPanel}
                     {overriddenPanel}
                     {attributePanel}
-                    <TextField id="defaultValue" label="Default Value"
-                        variant="outlined" fullWidth value={defaultValue}
-                        onChange={event => setDefaultValue(event.target.value)} />
+                    <Autocomplete freeSolo options={defaultValueCandidates} value={defaultValue}
+                        onInputChange={(_, newValue) => setDefaultValue(newValue ?? "")}
+                        onChange={(_, newValue) => setDefaultValue(newValue ?? "")}
+                        renderInput={params =>
+                            <TextField {...params} id="defaultValue" label="Default Value"
+                                variant="outlined" fullWidth />} />
                 </Stack>
             </DialogContent>
             <DialogActions>
@@ -442,7 +448,7 @@ const ColumnTypeEditPanel = ({ columnTypeAttribute, disabled = false, updateColu
             <Grid size={{ xs: 12, md: 5 }}>
                 <Autocomplete id="columnType" disableClearable disabled={disabled}
                     renderInput={params => <TextField  {...params} label="Column Type" />}
-                    options={databaseSetting.columnTypes.map((columnType) => {
+                    options={databaseSetting.columnTypes.map(columnType => {
                         return { label: columnType.name, id: columnType.id }
                     })}
                     value={columnType ? { label: columnType.name, id: columnType.id } : { label: "", id: 0 }}

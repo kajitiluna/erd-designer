@@ -24,15 +24,15 @@ const databaseColumns: ReadonlyMap<DatabaseType, readonly ColumnType[]> = new Ma
         new ColumnType({ id: 33, name: 'double precision', description: '倍精度浮動小数点 (8バイト)', baseQuery: 'DOUBLE PRECISION', withPrecision: false, withScale: false }),
         new ColumnType({ id: 35, name: 'numeric', description: '精度の選択可能な高精度数値', baseQuery: 'NUMERIC', withPrecision: false, withScale: false }),
         new ColumnType({ id: 45, name: 'numeric (p, s)', description: '精度の選択可能な高精度数値', baseQuery: 'NUMERIC[[PARAM]]', withPrecision: true, withScale: true }),
-        new ColumnType({ id: 101, name: 'date', description: '暦の日付 (年月日)', baseQuery: 'DATE', withPrecision: false, withScale: false }),
-        new ColumnType({ id: 131, name: 'time without time zone', description: '時刻 (時間帯なし)', baseQuery: 'TIME WITHOUT TIME ZONE', withPrecision: false, withScale: false }),
-        new ColumnType({ id: 132, name: 'time with time zone', description: '時間帯付き時刻', baseQuery: 'TIME WITH TIME ZONE', withPrecision: false, withScale: false }),
-        new ColumnType({ id: 141, name: 'time (p) without time zone', description: '時刻 (時間帯なし)', baseQuery: 'TIME[[PARAM]] WITHOUT TIME ZONE', withPrecision: true, withScale: false }),
-        new ColumnType({ id: 142, name: 'time (p) with time zone', description: '時間帯付き時刻', baseQuery: 'TIME[[PARAM]] WITH TIME ZONE', withPrecision: true, withScale: false }),
-        new ColumnType({ id: 111, name: 'timestamp without time zone', description: '日付と時刻 (時間帯なし)', baseQuery: 'TIMESTAMP WITHOUT TIME ZONE', withPrecision: false, withScale: false }),
-        new ColumnType({ id: 112, name: 'timestamp with time zone', description: '時間帯付き日付と時刻', baseQuery: 'TIMESTAMP WITH TIME ZONE', withPrecision: false, withScale: false }),
-        new ColumnType({ id: 121, name: 'timestamp (p) without time zone', description: '日付と時刻 (時間帯なし)', baseQuery: 'TIMESTAMP[[PARAM]] WITHOUT TIME ZONE', withPrecision: true, withScale: false }),
-        new ColumnType({ id: 122, name: 'timestamp (p) with time zone', description: '時間帯付き日付と時刻', baseQuery: 'TIMESTAMP[[PARAM]] WITH TIME ZONE', withPrecision: true, withScale: false }),
+        new ColumnType({ id: 101, name: 'date', description: '暦の日付 (年月日)', baseQuery: 'DATE', withPrecision: false, withScale: false, defaultValueCandidates: ["CURRENT_DATE"] }),
+        new ColumnType({ id: 131, name: 'time without time zone', description: '時刻 (時間帯なし)', baseQuery: 'TIME WITHOUT TIME ZONE', withPrecision: false, withScale: false, defaultValueCandidates: ["CURRENT_TIME"] }),
+        new ColumnType({ id: 132, name: 'time with time zone', description: '時間帯付き時刻', baseQuery: 'TIME WITH TIME ZONE', withPrecision: false, withScale: false, defaultValueCandidates: ["CURRENT_TIME"] }),
+        new ColumnType({ id: 141, name: 'time (p) without time zone', description: '時刻 (時間帯なし)', baseQuery: 'TIME[[PARAM]] WITHOUT TIME ZONE', withPrecision: true, withScale: false, defaultValueCandidates: ["CURRENT_TIME"] }),
+        new ColumnType({ id: 142, name: 'time (p) with time zone', description: '時間帯付き時刻', baseQuery: 'TIME[[PARAM]] WITH TIME ZONE', withPrecision: true, withScale: false, defaultValueCandidates: ["CURRENT_TIME"] }),
+        new ColumnType({ id: 111, name: 'timestamp without time zone', description: '日付と時刻 (時間帯なし)', baseQuery: 'TIMESTAMP WITHOUT TIME ZONE', withPrecision: false, withScale: false, defaultValueCandidates: ["CURRENT_TIMESTAMP"] }),
+        new ColumnType({ id: 112, name: 'timestamp with time zone', description: '時間帯付き日付と時刻', baseQuery: 'TIMESTAMP WITH TIME ZONE', withPrecision: false, withScale: false, defaultValueCandidates: ["CURRENT_TIMESTAMP"] }),
+        new ColumnType({ id: 121, name: 'timestamp (p) without time zone', description: '日付と時刻 (時間帯なし)', baseQuery: 'TIMESTAMP[[PARAM]] WITHOUT TIME ZONE', withPrecision: true, withScale: false, defaultValueCandidates: ["CURRENT_TIMESTAMP"] }),
+        new ColumnType({ id: 122, name: 'timestamp (p) with time zone', description: '時間帯付き日付と時刻', baseQuery: 'TIMESTAMP[[PARAM]] WITH TIME ZONE', withPrecision: true, withScale: false, defaultValueCandidates: ["CURRENT_TIMESTAMP"] }),
         new ColumnType({ id: 301, name: 'char', description: '固定長文字列', baseQuery: 'CHAR', withPrecision: false, withScale: false }),
         new ColumnType({ id: 302, name: 'varchar', description: '可変長文字列', baseQuery: 'VARCHAR', withPrecision: false, withScale: false }),
         new ColumnType({ id: 311, name: 'char (n)', description: '固定長文字列', baseQuery: 'CHAR[[PARAM]]', withPrecision: true, withScale: false }),
@@ -83,13 +83,13 @@ const databaseColumns: ReadonlyMap<DatabaseType, readonly ColumnType[]> = new Ma
         new ColumnType({ id: 42, name: 'float (p)', description: '浮動小数点数です。p は精度をビットで表現します。', baseQuery: 'FLOAT[[PARAM]]', withPrecision: true, withScale: false, withUnsigned: false, withAuthIncrement: false }),
         new ColumnType({ id: 43, name: 'double (m, d)', description: '普通サイズ (倍精度) の浮動小数点数。 許可されている値は、-1.7976931348623157E+308 から -2.2250738585072014E-308、0、および 2.2250738585072014E-308 から 1.7976931348623157E+308 です。', baseQuery: 'DOUBLE[[PARAM]]', withPrecision: true, withScale: true, withUnsigned: false, withAuthIncrement: false }),
         new ColumnType({ id: 45, name: 'decimal (m, d)', description: '固定小数点数。 M は桁数の合計 (精度) で、D は小数点以下の桁数 (スケール) です。', baseQuery: 'DECIMAL[[PARAM]]', withPrecision: true, withScale: true, withUnsigned: false, withAuthIncrement: false }),
-        new ColumnType({ id: 101, name: 'date', description: '日付です。 サポートしている範囲は "1000-01-01" から "9999-12-31" です。', baseQuery: 'DATE', withPrecision: false, withScale: false, withUnsigned: false, withAuthIncrement: false }),
-        new ColumnType({ id: 131, name: 'time', description: '時間です。 範囲は、"-838:59:59.000000" から "838:59:59.000000" です。', baseQuery: 'TIME', withPrecision: false, withScale: false, withUnsigned: false, withAuthIncrement: false }),
-        new ColumnType({ id: 141, name: 'time (p)', description: '時間です。 範囲は、"-838:59:59.000000" から "838:59:59.000000" です。', baseQuery: 'TIME[[PARAM]]', withPrecision: true, withScale: false, withUnsigned: false, withAuthIncrement: false }),
-        new ColumnType({ id: 112, name: 'datetime', description: '日付と時間の組み合わせです。 サポートしている範囲は "1000-01-01 00:00:00.000000" から "9999-12-31 23:59:59.999999" です。', baseQuery: 'DATETIME', withPrecision: false, withScale: false, withUnsigned: false, withAuthIncrement: false }),
-        new ColumnType({ id: 115, name: 'timestamp', description: 'タイムスタンプです。 範囲は "1970-01-01 00:00:01.000000" UTC から "2038-01-19 03:14:07.999999" UTC です。', baseQuery: 'TIMESTAMP', withPrecision: false, withScale: false, withUnsigned: false, withAuthIncrement: false }),
-        new ColumnType({ id: 122, name: 'datetime (p)', description: '日付と時間の組み合わせです。 サポートしている範囲は "1000-01-01 00:00:00.000000" から "9999-12-31 23:59:59.999999" です。', baseQuery: 'DATETIME[[PARAM]]', withPrecision: true, withScale: false, withUnsigned: false, withAuthIncrement: false }),
-        new ColumnType({ id: 125, name: 'timestamp (p)', description: 'タイムスタンプです。 範囲は "1970-01-01 00:00:01.000000" UTC から "2038-01-19 03:14:07.999999" UTC です。', baseQuery: 'TIMESTAMP[[PARAM]]', withPrecision: true, withScale: false, withUnsigned: false, withAuthIncrement: false }),
+        new ColumnType({ id: 101, name: 'date', description: '日付です。 サポートしている範囲は "1000-01-01" から "9999-12-31" です。', baseQuery: 'DATE', withPrecision: false, withScale: false, withUnsigned: false, withAuthIncrement: false, defaultValueCandidates: ["CURRENT_DATE", "CURRENT_DATE ON UPDATE CURRENT_DATE"] }),
+        new ColumnType({ id: 131, name: 'time', description: '時間です。 範囲は、"-838:59:59.000000" から "838:59:59.000000" です。', baseQuery: 'TIME', withPrecision: false, withScale: false, withUnsigned: false, withAuthIncrement: false, defaultValueCandidates: ["CURRENT_TIME", "CURRENT_TIME ON UPDATE CURRENT_TIME"] }),
+        new ColumnType({ id: 141, name: 'time (p)', description: '時間です。 範囲は、"-838:59:59.000000" から "838:59:59.000000" です。', baseQuery: 'TIME[[PARAM]]', withPrecision: true, withScale: false, withUnsigned: false, withAuthIncrement: false, defaultValueCandidates: ["CURRENT_TIME", "CURRENT_TIME ON UPDATE CURRENT_TIME"] }),
+        new ColumnType({ id: 112, name: 'datetime', description: '日付と時間の組み合わせです。 サポートしている範囲は "1000-01-01 00:00:00.000000" から "9999-12-31 23:59:59.999999" です。', baseQuery: 'DATETIME', withPrecision: false, withScale: false, withUnsigned: false, withAuthIncrement: false, defaultValueCandidates: ["CURRENT_TIMESTAMP", "CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"] }),
+        new ColumnType({ id: 115, name: 'timestamp', description: 'タイムスタンプです。 範囲は "1970-01-01 00:00:01.000000" UTC から "2038-01-19 03:14:07.999999" UTC です。', baseQuery: 'TIMESTAMP', withPrecision: false, withScale: false, withUnsigned: false, withAuthIncrement: false, defaultValueCandidates: ["CURRENT_TIMESTAMP", "CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"] }),
+        new ColumnType({ id: 122, name: 'datetime (p)', description: '日付と時間の組み合わせです。 サポートしている範囲は "1000-01-01 00:00:00.000000" から "9999-12-31 23:59:59.999999" です。', baseQuery: 'DATETIME[[PARAM]]', withPrecision: true, withScale: false, withUnsigned: false, withAuthIncrement: false, defaultValueCandidates: ["CURRENT_TIMESTAMP", "CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"] }),
+        new ColumnType({ id: 125, name: 'timestamp (p)', description: 'タイムスタンプです。 範囲は "1970-01-01 00:00:01.000000" UTC から "2038-01-19 03:14:07.999999" UTC です。', baseQuery: 'TIMESTAMP[[PARAM]]', withPrecision: true, withScale: false, withUnsigned: false, withAuthIncrement: false, defaultValueCandidates: ["CURRENT_TIMESTAMP", "CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"] }),
         new ColumnType({ id: 151, name: 'year', description: '4 桁形式の年。', baseQuery: 'YEAR', withPrecision: false, withScale: false, withUnsigned: false, withAuthIncrement: false }),
         new ColumnType({ id: 301, name: 'char', description: '格納時に必ず、指定された長さになるように右側がスペースで埋められる固定長文字列です。', baseQuery: 'CHAR', withPrecision: false, withScale: false, withUnsigned: false, withAuthIncrement: false }),
         new ColumnType({ id: 311, name: 'char (m)', description: '格納時に必ず、指定された長さになるように右側がスペースで埋められる固定長文字列です。', baseQuery: 'CHAR[[PARAM]]', withPrecision: true, withScale: false, withUnsigned: false, withAuthIncrement: false }),
@@ -121,3 +121,34 @@ const databaseColumns: ReadonlyMap<DatabaseType, readonly ColumnType[]> = new Ma
 ]);
 
 export const findDatabaseColumns = (databaseType: DatabaseType) => databaseColumns.get(databaseType) ?? [];
+
+export const migrateColumns = (databaseType: DatabaseType, columnTypes: ColumnType[], version: number) => {
+    const baseColumnTypeMap = new Map(
+        findDatabaseColumns(databaseType).map(columnType => [columnType.id, columnType])
+    );
+
+    let nextColumnTypes = columnTypes;
+
+    // ColumnType に defaultValueCandidates プロパティを追加
+    if (version < 20250612) {
+        nextColumnTypes = nextColumnTypes.map(columnType => {
+            const baseColumnType = baseColumnTypeMap.get(columnType.id);
+            if (baseColumnType == null) {
+                return columnType;
+            }
+            if (columnType.name !== baseColumnType.name) {
+                return columnType;
+            }
+            if (baseColumnType.defaultValueCandidates.length === 0) {
+                return columnType;
+            }
+
+            return new ColumnType({
+                ...columnType,
+                defaultValueCandidates: [...baseColumnType.defaultValueCandidates]
+            });
+        });
+    }
+
+    return nextColumnTypes;
+};
