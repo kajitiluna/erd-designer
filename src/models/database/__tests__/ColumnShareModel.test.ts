@@ -42,7 +42,6 @@ describe('ColumnShareModel', () => {
             expect(model.precision).toBe('');
             expect(model.scale).toBe('');
             expect(model.unsigned).toBe(false);
-            expect(model.defaultValue).toBe('');
             expect(model.description).toBe('');
         });
 
@@ -56,7 +55,6 @@ describe('ColumnShareModel', () => {
                 precision: '10',
                 scale: '2',
                 unsigned: true,
-                defaultValue: '0',
                 description: 'test description',
                 createdAt: now
             });
@@ -64,7 +62,6 @@ describe('ColumnShareModel', () => {
             expect(model.precision).toBe('10');
             expect(model.scale).toBe('2');
             expect(model.unsigned).toBe(false);
-            expect(model.defaultValue).toBe('0');
             expect(model.description).toBe('test description');
         });
 
@@ -78,7 +75,6 @@ describe('ColumnShareModel', () => {
                 precision: '10',
                 scale: '2',
                 unsigned: true,
-                defaultValue: '0',
                 description: 'test description',
                 createdAt: now
             });
@@ -86,7 +82,6 @@ describe('ColumnShareModel', () => {
             expect(model.precision).toBe('10');
             expect(model.scale).toBe('2');
             expect(model.unsigned).toBe(true);
-            expect(model.defaultValue).toBe('0');
             expect(model.description).toBe('test description');
         });
     });
