@@ -3,11 +3,13 @@ import ColorValue from "~/models/ColorValue";
 import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import ColumnModel from "~/models/database/ColumnModel";
+import ColumnShareModel from "~/models/database/ColumnShareModel";
 import RelationModel from "~/models/database/RelationModel";
 import ErdDocument from "~/models/ErdDocument";
 import ErdSettingModel from "~/models/ErdSettingModel";
 import LineViewModel from "~/models/LineViewModel";
 import MemoViewModel from "~/models/MemoViewModel";
+import RelationViewModel from "~/models/RelationViewModel";
 import TableViewModel from "~/models/TableViewModel";
 
 export class ErdDocumentsHolder {
@@ -333,12 +335,34 @@ export class ErdDocumentsHolder {
 
         this.doUpdate(next);
     }
+
+    /**
+     * インポートした DDL を反映する。
+     * 
+     * @param params インポート内容
+     */
+    public importDdl(params: ImportDdlArgs) {
+        const previous: ErdDocument = this.current();
+        const next: ErdDocument = previous.importDdl(params);
+        if (previous === next) {
+            return;
+        }
+
+        this.doUpdate(next);
+    }
 }
 
 type UpdateRelationEdgeArgs = {
     edgeType: "real" | "virtual",
     edgeId: number,
     point: { x: number, y: number }
+};
+
+type ImportDdlArgs = {
+    tableViewModels: TableViewModel[],
+    columnModels: ColumnModel[],
+    columnShareModels: ColumnShareModel[],
+    relationViewModels: RelationViewModel[]
 };
 
 export const ErdDocumentsHolderContext = React.createContext<ErdDocumentsHolder>({} as ErdDocumentsHolder);

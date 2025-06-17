@@ -18,7 +18,7 @@ describe('ColumnType', () => {
             expect(type.withPrecision).toBe(false);
             expect(type.withScale).toBe(false);
             expect(type.withUnsigned).toBe(false);
-            expect(type.withAuthIncrement).toBe(false);
+            expect(type.withAutoIncrement).toBe(false);
             expect(type.foreignColumn).toBe(null);
         });
 
@@ -37,14 +37,14 @@ describe('ColumnType', () => {
                 withPrecision: true,
                 withScale: true,
                 withUnsigned: true,
-                withAuthIncrement: true,
+                withAutoIncrement: true,
                 foreignColumn: foreign
             });
 
             expect(type.withPrecision).toBe(true);
             expect(type.withScale).toBe(true);
             expect(type.withUnsigned).toBe(true);
-            expect(type.withAuthIncrement).toBe(true);
+            expect(type.withAutoIncrement).toBe(true);
             expect(type.foreignColumn).toBe(foreign);
         });
     });
@@ -157,7 +157,7 @@ describe('ColumnType', () => {
                 withPrecision: true,
                 withScale: true,
                 withUnsigned: true,
-                withAuthIncrement: true,
+                withAutoIncrement: true,
                 foreignColumn: foreign
             });
 

@@ -24,6 +24,7 @@
     "exceljs": "^4.4.0",
     "google-auth-library": "^9.15.1",
     "html2canvas": "^1.4.1",
+    "node-sql-parser": "^5.3.10",
     "react": "^19",
     "react-dom": "^19",
     "react-markdown": "^10.1.0",

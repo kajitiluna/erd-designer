@@ -18,9 +18,10 @@ type ColumnShareModelOptions = {
 type ColumnShareQueryType = {
     database: Database,
     overridePhysicalName?: string,
-    notNull?: boolean
-    autoIncrement?: boolean,
+    notNull?: boolean,
+    unique?: boolean,
     defaultValue?: string,
+    autoIncrement?: boolean,
     inChildRelation?: boolean
 };
 
@@ -59,8 +60,9 @@ export default class ColumnShareModel {
     }
 
     public query({
-        database, overridePhysicalName="",
-        notNull = false, autoIncrement = false, defaultValue = "", inChildRelation = false
+        database, overridePhysicalName = "",
+        notNull = false, unique = false, defaultValue = "",
+        autoIncrement = false, inChildRelation = false
     }: ColumnShareQueryType): string {
 
         const columnName = overridePhysicalName != "" ? overridePhysicalName : this.physicalName;
@@ -69,6 +71,7 @@ export default class ColumnShareModel {
                 precision: this.precision,
                 scale: this.scale,
                 onNotNull: notNull,
+                onUnique: unique,
                 defaultValue: defaultValue,
                 onUnsigned: this.unsigned,
                 onAutoIncrement: autoIncrement,
