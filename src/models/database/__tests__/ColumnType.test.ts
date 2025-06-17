@@ -75,7 +75,9 @@ describe('ColumnType', () => {
                 id: 1,
                 name: "INTEGER",
                 description: "Integer type",
-                baseQuery: "INTEGER[[PARAM]]"
+                baseQuery: "INTEGER[[PARAM]]",
+                withPrecision: true,
+                withScale: true
             });
 
             expect(type.specifiedType({ precision: "10", scale: "2" })).toBe("INTEGER(10, 2)");
