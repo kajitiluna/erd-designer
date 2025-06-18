@@ -84,6 +84,7 @@ export const initHandleEnterKeyDown = (onEnterAction: () => void) => {
         }
 
         if (event.key === "Enter") {
+            event.preventDefault();
             onEnterAction();
         }
     };
