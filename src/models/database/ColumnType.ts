@@ -2,7 +2,8 @@ import { instanceToPlain } from 'class-transformer';
 import { PropertyNotExistsError } from '~/models/exceptions';
 
 type QueryOptions = {
-    precision?: string, scale?: string, onNotNull?: boolean, defaultValue?: string,
+    precision?: string, scale?: string,
+    onNotNull?: boolean, onUnique?: boolean, defaultValue?: string,
     onUnsigned?: boolean, onAutoIncrement?: boolean, inChildRelation?: boolean
 }
 
@@ -14,7 +15,7 @@ type ColumnTypeOptions = {
     withPrecision?: boolean,
     withScale?: boolean,
     withUnsigned?: boolean,
-    withAuthIncrement?: boolean,
+    withAutoIncrement?: boolean,
     foreignColumn?: ColumnType | null,
     defaultValueCandidates?: string[]
 }
@@ -32,7 +33,7 @@ export default class ColumnType {
     public readonly withPrecision: boolean;
     public readonly withScale: boolean;
     public readonly withUnsigned: boolean;
-    public readonly withAuthIncrement: boolean;
+    public readonly withAutoIncrement: boolean;
     public readonly foreignColumn: ColumnType | null;
     public readonly defaultValueCandidates: string[];
 
@@ -46,14 +47,14 @@ export default class ColumnType {
      * @param withPrecision precision の設定が可能な型か
      * @param withScale scale の設定が可能な型か
      * @param withUnsigned unsigned の設定が可能な型か
-     * @param withAuthIncrement auto_increment の設定が可能な型か
+     * @param withAutoIncrement auto_increment の設定が可能な型か
      * @param foreignColumn 外部キー参照時の型 (null の場合は元の型と同じ)
      * @param defaultValueCandidates デフォルト値候補
      */
     constructor({
         id, name, description, baseQuery,
         withPrecision = false, withScale = false,
-        withUnsigned = false, withAuthIncrement = false,
+        withUnsigned = false, withAutoIncrement = false,
         foreignColumn = null, defaultValueCandidates = []
     }: ColumnTypeOptions) {
         this.id = id;
@@ -63,29 +64,32 @@ export default class ColumnType {
         this.withPrecision = withPrecision;
         this.withScale = withScale;
         this.withUnsigned = withUnsigned;
-        this.withAuthIncrement = withAuthIncrement;
+        this.withAutoIncrement = withAutoIncrement;
         this.foreignColumn = (foreignColumn != null) ? foreignColumn : null;
         this.defaultValueCandidates = defaultValueCandidates;
     }
 
     query({
-        precision = "", scale = "", onNotNull = false, defaultValue = "",
+        precision = "", scale = "", onNotNull = false, onUnique = false, defaultValue = "",
         onUnsigned = false, onAutoIncrement = false, inChildRelation = false
     }: QueryOptions): string {
 
         let query = this.specifiedType({ precision, scale, inChildRelation });
 
-        if (onUnsigned) {
+        if (onUnsigned && this.withUnsigned) {
             query = query + " UNSIGNED";
         }
         if (onNotNull) {
             query = query + " NOT NULL";
         }
-        if (onAutoIncrement) {
-            query = query + " AUTO_INCREMENT";
+        if (onUnique) {
+            query = query + " UNIQUE";
         }
         if (defaultValue) {
             query = query + " DEFAULT " + defaultValue;
+        }
+        if (onAutoIncrement && this.withAutoIncrement) {
+            query = query + " AUTO_INCREMENT";
         }
 
         return query;
@@ -100,7 +104,10 @@ export default class ColumnType {
             return this.baseQuery;
         }
 
-        const param = scale ? `(${precision}, ${scale})` : (precision ? `(${precision})` : "");
+        const param = (scale && this.withScale)
+            ? `(${precision}, ${scale})`
+            : ((precision && this.withPrecision) ? `(${precision})` : "");
+
         return this.baseQuery.replace("[[PARAM]]", param);
     }
 
@@ -130,9 +137,11 @@ export default class ColumnType {
         if (!("withUnsigned" in obj)) {
             throw new PropertyNotExistsError("withUnsigned", obj);
         }
-        if (!("withAuthIncrement" in obj)) {
-            throw new PropertyNotExistsError("withAuthIncrement", obj);
-        }
+
+        // 過去バージョンに typo があったので、互換性のために以下のように処理する
+        const withAutoIncrement = ("withAutoIncrement" in obj)
+            ? (obj.withAutoIncrement as boolean)
+            : (("withAuthIncrement" in obj) ? (obj.withAuthIncrement as boolean) : false);
 
         const foreignColumn = (("foreignColumn" in obj) && (obj.foreignColumn != null))
             ? ColumnType.toObject(obj.foreignColumn as object) : null;
@@ -147,7 +156,7 @@ export default class ColumnType {
             withPrecision: obj.withPrecision as boolean,
             withScale: obj.withScale as boolean,
             withUnsigned: obj.withUnsigned as boolean,
-            withAuthIncrement: obj.withAuthIncrement as boolean,
+            withAutoIncrement: withAutoIncrement,
             foreignColumn: foreignColumn,
             defaultValueCandidates: defaultValueCandidates
         });

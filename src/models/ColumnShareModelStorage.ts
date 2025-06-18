@@ -49,14 +49,21 @@ export default class ColumnShareModelStorage {
         return model;
     }
 
-    addModel(columnShareModel: ColumnShareModel) {
-        this.columnShareModelMap.set(columnShareModel.columnShareModelId, columnShareModel);
+    addModel(...columnShareModels: ColumnShareModel[]): ColumnShareModelStorage {
+        const nextShareModelMap = new Map(this.columnShareModelMap);
+        columnShareModels.forEach(model =>
+            nextShareModelMap.set(model.columnShareModelId, model));
+
+        return new ColumnShareModelStorage(nextShareModelMap);
     }
 
-    deleteModels(columnShareModelIds: string[]) {
+    deleteModels(columnShareModelIds: string[]): ColumnShareModelStorage {
+        const nextShareModelMap = new Map(this.columnShareModelMap);
         columnShareModelIds.forEach(
-            columnShareModelId => this.columnShareModelMap.delete(columnShareModelId)
+            columnShareModelId => nextShareModelMap.delete(columnShareModelId)
         );
+
+        return new ColumnShareModelStorage(nextShareModelMap);
     }
 
     copy(): ColumnShareModelStorage {

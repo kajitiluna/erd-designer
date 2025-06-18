@@ -8,13 +8,16 @@ import { DatabaseType } from "~/models/database";
 import PostgreSQLIcon from "~/components/icons/PostgreSQLIcon";
 import MySQLIcon from "~/components/icons/MySQLIcon";
 import ColumnGroupView from "~/features/editor/ColumnGroupView";
+import ImportFromDdlView from "~/features/editor/ImportFromDdlView";
+
+type SettingMenuType = "column_group" | "import_ddl" | "";
 
 const TitlePanel = () => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const erdDocument: ErdDocument = documentsHolder.current();
     const [title, setTitle] = React.useState<string>(erdDocument.documentName);
-    const [settingElement, setSettingElement] = React.useState<null | HTMLElement>(null);
-    const [selectedMenu, setSelectedMenu] = React.useState<"column_group" | "">("");
+    const [settingElement, setSettingElement] = React.useState<HTMLElement | null>(null);
+    const [selectedMenu, setSelectedMenu] = React.useState<SettingMenuType>("");
 
     const databaseType: DatabaseType = erdDocument.databaseSettingModel.databaseType;
     const databaseIcon = initDatabaseTypeIcon(databaseType);
@@ -29,11 +32,17 @@ const TitlePanel = () => {
         setSettingElement(null);
     };
 
-    const handleSelectColumnGroup = (event: MouseEvent) => {
-        event.stopPropagation();
-        setSelectedMenu("column_group");
-        handleClosePreference();
+    const initHandleMenu = (menuType: SettingMenuType) => {
+        return (event: MouseEvent) => {
+            event.stopPropagation();
+
+            setSelectedMenu(menuType);
+            handleClosePreference();
+        };
     };
+
+    const handleSelectColumnGroup = initHandleMenu("column_group");
+    const handleSelectImportDdl = initHandleMenu("import_ddl");
 
     return (
         <Stack direction="row" spacing={1} sx={panelStyle}>
@@ -50,11 +59,17 @@ const TitlePanel = () => {
             </IconButton>
             <Menu anchorEl={settingElement} open={isSettingOpen} onClose={handleClosePreference}>
                 <MenuItem onClick={handleSelectColumnGroup}>Column Group</MenuItem>
+                <MenuItem onClick={handleSelectImportDdl}>Import from DDL</MenuItem>
             </Menu>
             {(selectedMenu === "column_group") && (
                 <ColumnGroupView
                     isOpen={selectedMenu === "column_group"}
                     viewMode="edit"
+                    onClose={() => setSelectedMenu("")} />
+            )}
+            {(selectedMenu === "import_ddl") && (
+                <ImportFromDdlView
+                    isOpen={selectedMenu === "import_ddl"}
                     onClose={() => setSelectedMenu("")} />
             )}
         </Stack>

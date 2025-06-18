@@ -44,7 +44,7 @@ Under preparation.
 1. Install dependencies:
 
    ```sh
-   npm install
+   npm ci
    ```
 
 1. Start the development server:

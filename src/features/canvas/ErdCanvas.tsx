@@ -471,14 +471,8 @@ const createNewTable = (position: Point, localSetting: LocalSetting) => {
 
     return new TableViewModel({
         tableModel: new TableModel({}),
-        corner: {
-            left: position.x,
-            top: position.y
-        },
-        headerColor: {
-            background: color.background,
-            foreground: color.foreground
-        }
+        corner: { left: position.x, top: position.y },
+        headerColor: { background: color.background, foreground: color.foreground }
     });
 };
 
@@ -528,7 +522,7 @@ const initRectangleWithoutScale = (element: Element, displayScale: number) => {
 
 const initEffectOfMouseCursorOnCanvas = (editMode: EditMode, panningPoint: Point | null, erdCanvas: HTMLDivElement) => {
     const handleMouseIcon = () => {
-        erdCanvas.style.cursor = (panningPoint != null) ? "all-scroll" :  findMouseCursorIcon(editMode);
+        erdCanvas.style.cursor = (panningPoint != null) ? "all-scroll" : findMouseCursorIcon(editMode);
     };
 
     erdCanvas.addEventListener("mousemove", handleMouseIcon);

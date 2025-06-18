@@ -240,10 +240,9 @@ export default class ErdDocument {
             .filter(columnModel => nextExistsColumnShareModelIds.has(columnModel.columnShareModelId) === false)
             .map(columnModel => columnModel.columnShareModelId);
 
-        const nextColumnShareModelStorage = updatingColumnShareModelStorage.copy();
-        if (deletingColumnShareModelIds.length > 0) {
-            nextColumnShareModelStorage.deleteModels(deletingColumnShareModelIds);
-        }
+        const nextColumnShareModelStorage = (deletingColumnShareModelIds.length > 0)
+            ? updatingColumnShareModelStorage.deleteModels(deletingColumnShareModelIds)
+            : updatingColumnShareModelStorage.copy();
 
         return new ErdDocument(
             this.documentName,
@@ -1204,6 +1203,40 @@ export default class ErdDocument {
         );
     }
 
+    /**
+     * インポートした DDL を反映する。
+     * 
+     * @param params インポート内容
+     * @returns 操作後のモデル
+     */
+    public importDdl({ tableViewModels, columnModels, columnShareModels, relationViewModels }: ImportDdlArgs) {
+        const nextTableViewModelIds = [...this.tableViewModelIds, ...tableViewModels.map(model => model.tableId)];
+
+        const nextTableViewModelMap = new Map(this.tableViewModelMap);
+        tableViewModels.forEach(model => nextTableViewModelMap.set(model.tableId, model));
+
+        const nextColumnModelMap = new Map(this.columnModelMap);
+        columnModels.forEach(model => nextColumnModelMap.set(model.columnModelId, model));
+
+        const nextColumnShareModelStorage = this.columnShareModelStorage.addModel(...columnShareModels);
+        const nextRelationViewModelStorage = new RelationViewModelStorage(
+            [...this.relationViewModelStorage.getModels(), ...relationViewModels]
+        )
+
+        return new ErdDocument(
+            this.documentName,
+            this.erdSettingModel,
+            nextTableViewModelIds,
+            nextTableViewModelMap,
+            this.columnGroupModelMap,
+            nextColumnModelMap,
+            nextColumnShareModelStorage,
+            nextRelationViewModelStorage,
+            this.memoViewModelStorage,
+            this.databaseSettingModel
+        );
+    }
+
     public toJSON(): Record<string, unknown> {
         const tableViewModels = this.tableViewModelIds
             .map(tableId => this.tableViewModelMap.get(tableId))
@@ -1290,3 +1323,10 @@ export default class ErdDocument {
         });
     }
 }
+
+type ImportDdlArgs = {
+    tableViewModels: TableViewModel[],
+    columnModels: ColumnModel[],
+    columnShareModels: ColumnShareModel[],
+    relationViewModels: RelationViewModel[]
+};

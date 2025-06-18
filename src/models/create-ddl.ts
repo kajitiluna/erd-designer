@@ -83,8 +83,9 @@ const columnQueryWithoutComment: ColumnQuery = (
         database: database,
         overridePhysicalName: columnModel.physicalName,
         notNull: columnModel.notNull,
-        autoIncrement: columnModel.autoIncrement,
+        unique: columnModel.unique,
         defaultValue: columnModel.defaultValue,
+        autoIncrement: columnModel.autoIncrement,
         inChildRelation
     });
 };
@@ -150,8 +151,16 @@ const createIndexDdl = (erViewModel: ErdDocument, option: DdlOption, database: D
             const indexName = database.escape(indexModel.physicalName);
             const tableName = database.escape(tableModel.physicalName);
 
-            return `CREATE ${indexOption}INDEX ${indexName}${indexTypeQuery}`
-                + ` ON ${tableName} (${columnQueries.join(", ")});`;
+            switch (database.databaseType) {
+                case "mysql":
+                    return `CREATE ${indexOption}INDEX ${indexName}${indexTypeQuery}`
+                        + ` ON ${tableName} (${columnQueries.join(", ")});`;
+                case "postgres":
+                    return `CREATE ${indexOption}INDEX ${indexName} ON ${tableName}`
+                        + `${indexTypeQuery} (${columnQueries.join(", ")});`;
+            }
+
+            throw new Error(`Unsupported database type: ${database.databaseType}`);
         });
     });
 

@@ -52,7 +52,7 @@ const ColumnEditDialog = ({
     const [checkedUnique, setUnique] = useState<boolean>(columnModel.unique);
     const [checkAutoIncrement, setAutoIncrement] = useState<boolean>(columnModel.autoIncrement);
     const [editableAutoIncrement, setEditableAutoIncrement]
-        = useState<boolean>(columnShareModel ? columnShareModel.columnType.withAuthIncrement : false);
+        = useState<boolean>(columnShareModel ? columnShareModel.columnType.withAutoIncrement : false);
     const [overriddenPhysicalName, setOverriddenPhysicalName] = useState<string>(columnModel.physicalName);
     const [overriddenLogicalName, setOverriddenLogicalName] = useState<string>(columnModel.logicalName);
     const [defaultValue, setDefaultValue] = useState<string>(columnModel.defaultValue);
@@ -66,7 +66,7 @@ const ColumnEditDialog = ({
     const [description, setDescription] = useState<string>(columnShareModel ? columnShareModel.description : "");
 
     const updateColumnType = (attribute: ColumnTypeAttribute) => {
-        setEditableAutoIncrement(attribute.columnType.withAuthIncrement);
+        setEditableAutoIncrement(attribute.columnType.withAutoIncrement);
         setColumnTypeAttribute(attribute);
     };
 
@@ -117,7 +117,7 @@ const ColumnEditDialog = ({
             description: description,
             ...columnTypeAttribute
         });
-        columnShareModelStorage.addModel(updatedShareModel);
+        const nextShareModelStorage = columnShareModelStorage.addModel(updatedShareModel);
 
         const updatedModel = new ColumnModel({
             columnModelId: columnModel.columnModelId,
@@ -127,7 +127,7 @@ const ColumnEditDialog = ({
             primaryKey: checkedPrimaryKey,
             notNull: checkedNotNull,
             unique: checkedUnique,
-            autoIncrement: columnTypeAttribute.columnType.withAuthIncrement ? checkAutoIncrement : false,
+            autoIncrement: columnTypeAttribute.columnType.withAutoIncrement ? checkAutoIncrement : false,
             defaultValue: defaultValue
         });
 
@@ -148,7 +148,7 @@ const ColumnEditDialog = ({
             );
         });
 
-        updateStorage(columnShareModelStorage);
+        updateStorage(nextShareModelStorage);
         onClose();
     };
 
