@@ -13,7 +13,10 @@ import ClearIcon from '@mui/icons-material/Clear';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
-import { ColumnWrapModel, initHandleChangePhysicalName, initHandleChangeWithSyncPhysicalName } from "~/features/editor/support";
+import {
+    ColumnWrapModel, initHandleChangePhysicalName,
+    initHandleChangeWithSyncPhysicalName, initHandleEnterKeyDown
+} from "~/features/editor/support";
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
 import ColumnType from "~/models/database/ColumnType";
@@ -102,12 +105,10 @@ const ColumnEditDialog = ({
     const validatedValue = (physicalName.length > 0) && (logicalName.length > 0)
         && validateColumnTypeAttribute(columnTypeAttribute);
 
-    const handleCompleted = (event: MouseEvent) => {
+    const handleCompleted = () => {
         if ((columnTypeAttribute == null) || (validatedValue === false)) {
             return;
         }
-
-        event.stopPropagation();
 
         // ShareModel の更新
         const updatedShareModel = new ColumnShareModel({
@@ -174,6 +175,8 @@ const ColumnEditDialog = ({
         </Stack>
     );
 
+    const handleEnterDown = initHandleEnterKeyDown(handleCompleted);
+
     const initClearButton = (value: string, setValue: (value: string) => void) => {
         return value == "" ? {} : {
             input: {
@@ -202,11 +205,13 @@ const ColumnEditDialog = ({
                     <TextField id="overriddenPhysicalName" label="Physical Name"
                         fullWidth variant="outlined" size="small" value={overriddenPhysicalName}
                         slotProps={initClearButton(overriddenPhysicalName, setOverriddenPhysicalName)}
-                        onChange={initHandleChangePhysicalName(setOverriddenPhysicalName)} />
+                        onChange={initHandleChangePhysicalName(setOverriddenPhysicalName)}
+                        onKeyDown={handleEnterDown} />
                     <TextField id="overriddenLogicalName" label="Logical Name"
                         fullWidth variant="outlined" size="small" value={overriddenLogicalName}
                         slotProps={initClearButton(overriddenLogicalName, setOverriddenLogicalName)}
-                        onChange={event => setOverriddenLogicalName(event.target.value)} />
+                        onChange={event => setOverriddenLogicalName(event.target.value)}
+                        onKeyDown={handleEnterDown} />
                 </Stack>
             </AccordionDetails>
         </Accordion>
@@ -222,15 +227,15 @@ const ColumnEditDialog = ({
                 <Stack direction="row" spacing={1}>
                     <TextField id="physicalName" label="Physical Name"
                         required fullWidth variant="outlined" value={physicalName}
-                        onChange={handleChangePhysicalName} />
+                        onChange={handleChangePhysicalName} onKeyDown={handleEnterDown} />
                     <TextField id="logicalName" label="Logical Name"
                         required fullWidth variant="outlined" value={logicalName}
-                        onChange={event => setLogicalName(event.target.value)} />
+                        onChange={event => setLogicalName(event.target.value)}
+                        onKeyDown={handleEnterDown} />
                 </Stack>
                 <ColumnTypeEditPanel
-                    columnTypeAttribute={columnTypeAttribute}
-                    disabled={!editableColumnType}
-                    updateColumnType={updateColumnType} />
+                    columnTypeAttribute={columnTypeAttribute} disabled={!editableColumnType}
+                    updateColumnType={updateColumnType} onEnterAction={handleEnterDown} />
                 <TextField variant="outlined" id="description" label="Description"
                     multiline rows={3} slotProps={{ input: { style: { resize: 'vertical' } } }}
                     value={description} onChange={event => setDescription(event.target.value)} />
@@ -383,9 +388,12 @@ type ColumnTypeEditPanelProps = {
     columnTypeAttribute: ColumnTypeAttribute | null,
     disabled?: boolean,
     updateColumnType: (value: ColumnTypeAttribute) => void
+    onEnterAction?: (event: React.KeyboardEvent) => void
 };
 
-const ColumnTypeEditPanel = ({ columnTypeAttribute, disabled = false, updateColumnType }: ColumnTypeEditPanelProps) => {
+const ColumnTypeEditPanel = ({
+    columnTypeAttribute, disabled = false, updateColumnType, onEnterAction = () => { }
+}: ColumnTypeEditPanelProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const erdDocument: ErdDocument = documentsHolder.current();
     const databaseSetting: DatabaseSettingModel = erdDocument.databaseSettingModel
@@ -460,13 +468,13 @@ const ColumnTypeEditPanel = ({ columnTypeAttribute, disabled = false, updateColu
                 <TextField variant="outlined" id="precision" label="Precision" type="number"
                     disabled={!editablePrecision || disabled} required={editablePrecision}
                     error={editablePrecision && (precision === "")}
-                    value={precision} onChange={handleChangePrecision} />
+                    value={precision} onChange={handleChangePrecision} onKeyDown={onEnterAction} />
             </Grid>
             <Grid size={{ xs: 3, md: 2 }}>
                 <TextField variant="outlined" id="scale" label="Scale" type="number"
                     disabled={!editableScale || disabled} required={editableScale}
                     error={editableScale && (scale === "")}
-                    value={scale} onChange={handleChangeScale} />
+                    value={scale} onChange={handleChangeScale} onKeyDown={onEnterAction} />
             </Grid>
             {editableUnsigned && (
                 <Grid size={{ xs: 4, md: 2 }}>

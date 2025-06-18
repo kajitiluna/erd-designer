@@ -22,7 +22,7 @@ import ColumnModel from "~/models/database/ColumnModel";
 import TableIndexModel, { IndexColumnModel, NullsOrderType, SortOrderType } from "~/models/database/TableIndexModel";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import TableIndexSupport, { TableIndexOption, TableIndexType } from "~/models/database/TableIndexSupport";
-import { ColumnWrapModel, initHandleChangePhysicalName } from "~/features/editor/support";
+import { ColumnWrapModel, initHandleChangePhysicalName, initHandleEnterKeyDown } from "~/features/editor/support";
 import ColumnShareModel from '~/models/database/ColumnShareModel';
 import { overrideColumnName } from '~/models/database/support';
 import { Database } from '~/models/database';
@@ -342,6 +342,8 @@ const IndexEditDialog = ({
         onClose();
     };
 
+    const handleEnterDown = initHandleEnterKeyDown(handleCompleted);
+
     return (
         <Dialog fullWidth maxWidth="lg" sx={{ userSelect: "none" }} open={isOpen} onClose={handleClose}>
             <DialogTitle>Edit table index</DialogTitle>
@@ -359,7 +361,8 @@ const IndexEditDialog = ({
                     <Grid container justifyContent="center" alignItems="center">
                         <Grid size={{ xs: 6 }}>
                             <TextField required fullWidth variant="outlined" id="physicalName" label="Physical Name"
-                                value={physicalName} onChange={initHandleChangePhysicalName(setPhysicalName)} />
+                                value={physicalName} onChange={initHandleChangePhysicalName(setPhysicalName)}
+                                onKeyDown={handleEnterDown} />
                         </Grid>
                         <Grid size={{ xs: 6 }} sx={{ paddingLeft: 2 }}>
                             <FormControl fullWidth>

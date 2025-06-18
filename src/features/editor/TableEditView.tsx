@@ -5,7 +5,7 @@ import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorag
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ColumnViewTable from "~/features/editor/ColumnViewTable";
 import IndexViewTable from "~/features/editor/IndexViewTable";
-import { ColumnWrapModel, initHandleChangeWithSyncPhysicalName } from "~/features/editor/support";
+import { ColumnWrapModel, initHandleChangeWithSyncPhysicalName, initHandleEnterKeyDown } from "~/features/editor/support";
 import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import ColumnModel from "~/models/database/ColumnModel";
@@ -175,9 +175,10 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
                         <Divider />
                         <Stack direction="row" spacing={2}>
                             <TableNamePanel label="PhysicalName" value={physicalTableName}
-                                setValue={handleChangePhysicalName} />
+                                setValue={handleChangePhysicalName} onEnterAction={handleCompleted} />
                             <TableNamePanel label="LogicalName" value={logicalTableName}
-                                setValue={(event) => setLogicalTableName(event.target.value)} />
+                                setValue={event => setLogicalTableName(event.target.value)}
+                                onEnterAction={handleCompleted} />
                         </Stack>
                         {tabPanel}
                         <TextField variant="outlined"
@@ -221,12 +222,15 @@ type TableNamePanelProps = {
     label: string
     value: string,
     setValue: (event: React.ChangeEvent<HTMLInputElement>) => void
+    onEnterAction?: () => void
 }
 
-const TableNamePanel = ({ label, value, setValue }: TableNamePanelProps) => {
+const TableNamePanel = ({ label, value, setValue, onEnterAction = () => { } }: TableNamePanelProps) => {
+    const handleKeyDown = initHandleEnterKeyDown(onEnterAction);
+
     return (
         <TextField fullWidth required variant="outlined"
-            label={label} value={value} onChange={setValue} />
+            label={label} value={value} onChange={setValue} onKeyDown={handleKeyDown} />
     );
 };
 

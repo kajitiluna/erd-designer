@@ -31,15 +31,11 @@ const SearchColumnShareModelDialog = ({ isOpen, associateColumnModel, onClose }:
     const handleFilterAction = ({ physicalName, logicalName, type, description }: FilterCondition) => {
         const filtered = ((physicalName === "") && (logicalName === "") && (type === "") && (description === ""))
             ? columnShareModels
-            : columnShareModels.filter(
-                (model) => physicalName ? model.physicalName.includes(physicalName) : true
-            ).filter(
-                (model) => logicalName ? model.logicalName.includes(logicalName) : true
-            ).filter(
-                (model) => type ? model.specifiedColumnType().includes(type) : true
-            ).filter(
-                (model) => description ? model.description.includes(description) : true
-            );
+            : columnShareModels
+                .filter(model => physicalName ? model.physicalName.includes(physicalName) : true)
+                .filter(model => logicalName ? model.logicalName.includes(logicalName) : true)
+                .filter(model => type ? model.specifiedColumnType().includes(type) : true)
+                .filter(model => description ? model.description.includes(description) : true);
 
         setFilteredShareModels(filtered);
         setSelectedModel(null);
