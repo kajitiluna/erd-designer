@@ -513,9 +513,10 @@ const loadCreateColumnDefinition = (
             defaultValue = defaultValueObj.name.name[0].value;
         } else if (defaultValueObj.type === "single_quote_string") {
             defaultValue = `'${defaultValueObj.value}'`
+        } else if (defaultValueObj.type === "double_quote_string") {
+            defaultValue = `"${defaultValueObj.value}"`
         } else {
-            return [null, fail(`Unexpected analysis for default value at position ${index + 1}. `
-                + `create_definitions[${index}].default_val.value : ${JSON.stringify(defaultValueObj)}`)];
+            defaultValue = defaultValueObj.value;
         }
     }
 
