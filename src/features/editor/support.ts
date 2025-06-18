@@ -67,3 +67,25 @@ const validatePhysicalValue = (org: string) => {
 
     return trimmedValue;
 };
+
+/**
+ * Enter キーが押下された際の制御を作成する関数
+ * 
+ * @param onEnterAction 実際の制御内容
+ * @returns イベントハンドラ
+ */
+export const initHandleEnterKeyDown = (onEnterAction: () => void) => {
+    return (event: React.KeyboardEvent) => {
+        event.stopPropagation();
+
+        // IME変換中はイベント処理をスキップ
+        if (event.nativeEvent.isComposing) {
+            return;
+        }
+
+        if (event.key === "Enter") {
+            event.preventDefault();
+            onEnterAction();
+        }
+    };
+};

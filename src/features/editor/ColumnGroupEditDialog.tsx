@@ -4,7 +4,7 @@ import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Sta
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import ErdDocument from "~/models/ErdDocument";
-import { ColumnWrapModel } from "~/features/editor/support";
+import { ColumnWrapModel, initHandleEnterKeyDown } from "~/features/editor/support";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import ColumnViewTable from "~/features/editor/ColumnViewTable";
@@ -51,6 +51,8 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
         onClose();
     };
 
+    const handleEnterDown = initHandleEnterKeyDown(handleCompleted);
+
     return (
         <ColumnShareModelStorageContext.Provider value={{
             columnShareModelStorage: columnShareModelStorage,
@@ -62,15 +64,15 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
                     <Stack spacing={3}>
                         <Divider />
                         <TextField fullWidth required variant="outlined" label="GroupName"
-                            value={groupName} onChange={event => setGroupName(event.target.value)} />
+                            value={groupName} onChange={event => setGroupName(event.target.value)}
+                            onKeyDown={handleEnterDown} />
                         <ColumnViewTable
                             columnWrapModels={columnWrapModels}
                             availableColumnGroup={false}
                             isChildRelation={() => false}
                             isEditableColumnType={() => true}
                             onUpdateColumnWrapModels={setColumnWrapModels} />
-                        <TextField variant="outlined"
-                            id="description" label="Description" multiline rows={3}
+                        <TextField variant="outlined" id="description" label="Description" multiline rows={3}
                             sx={{ '& .MuiInputBase-root': { resize: 'vertical', overflow: 'auto' } }}
                             value={description} onChange={(event) => setDescription(event.target.value)} />
                     </Stack>

@@ -8,6 +8,7 @@ import { createDdl } from "~/models/create-ddl";
 import ErdSettingModel from "~/models/ErdSettingModel";
 import ExportDdlSettingModel from "~/models/ExportDdlSettingModel";
 import { ErdDocumentsHolder } from "~/context/ErdDocumentsHolderContext";
+import { initHandleEnterKeyDown } from "~/features/editor/support";
 
 type ExportDdlViewProps = {
     documentsHolder: ErdDocumentsHolder,
@@ -47,6 +48,8 @@ const ExportDdlView = ({ documentsHolder, isViewOpen, onClose }: ExportDdlViewPr
         onClose();
     };
 
+    const handleEnterDown = initHandleEnterKeyDown(handleExport);
+
     const optionPanel = (
         <Paper elevation={4} sx={{ p: 2 }}>
             <Typography variant="subtitle1" gutterBottom>CREATE :</Typography>
@@ -82,7 +85,8 @@ const ExportDdlView = ({ documentsHolder, isViewOpen, onClose }: ExportDdlViewPr
                 <Stack spacing={3}>
                     <Divider />
                     <TextField fullWidth required variant="outlined" label="DDL File Name"
-                        value={fileName} onChange={(event) => setFileName(event.target.value)} />
+                        value={fileName} onChange={(event) => setFileName(event.target.value)}
+                        onKeyDown={handleEnterDown} />
                     {optionPanel}
                 </Stack>
             </DialogContent>

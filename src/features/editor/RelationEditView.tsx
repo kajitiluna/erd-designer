@@ -15,7 +15,7 @@ import TableModel from "~/models/database/TableModel";
 import ErdDocument from "~/models/ErdDocument";
 import RelationViewModel from "~/models/RelationViewModel";
 import ColumnModel from "~/models/database/ColumnModel";
-import { initHandleChangePhysicalName } from '~/features/editor/support';
+import { initHandleChangePhysicalName, initHandleEnterKeyDown } from '~/features/editor/support';
 import { overrideColumnName } from '~/models/database/support';
 
 type RelationEditViewProps = {
@@ -61,12 +61,10 @@ const RelationEditView = ({ isOpen, relationViewModel, parentTableModel, childTa
     const editValueValidated = (relationPairs.length > 0)
         && relationPairs.every((pair) => pair.childColumnModelId !== "");
 
-    const handleCompleted = (event: MouseEvent) => {
+    const handleCompleted = () => {
         if (editValueValidated === false) {
             return;
         }
-
-        event.stopPropagation();
 
         const nextRelationPairs = relationPairs.map(pair => {
             if (pair.childColumnModelId !== INDICATING_FOR_NEW_COLUMN) {
@@ -100,6 +98,8 @@ const RelationEditView = ({ isOpen, relationViewModel, parentTableModel, childTa
         onClose();
     };
 
+    const handleEnterDown = initHandleEnterKeyDown(handleCompleted);
+
     return (
         <Dialog fullWidth maxWidth="md" open={isOpen} onClose={handleCloseDialog}>
             <DialogTitle>Edit Relation</DialogTitle>
@@ -107,7 +107,8 @@ const RelationEditView = ({ isOpen, relationViewModel, parentTableModel, childTa
                 <Stack direction="column" spacing={3}>
                     <Divider />
                     <TextField variant="outlined" id="relationName" label="Relation Name"
-                        value={relationName} onChange={initHandleChangePhysicalName(setRelationName)} />
+                        value={relationName} onChange={initHandleChangePhysicalName(setRelationName)}
+                        onKeyDown={handleEnterDown} />
                     <RelationReferencesPanel
                         erdDocument={erdDocument}
                         parentTableModel={parentTableModel}
