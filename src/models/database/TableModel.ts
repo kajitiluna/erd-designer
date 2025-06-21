@@ -118,4 +118,51 @@ export default class TableModel {
             description: description
         });
     }
+
+    public equals(other: TableModel): boolean {
+        if (this.tableModelId !== other.tableModelId) {
+            return false;
+        }
+        if (this.physicalName !== other.physicalName) {
+            return false;
+        }
+        if (this.logicalName !== other.logicalName) {
+            return false;
+        }
+
+        if (this.columns.length !== other.columns.length) {
+            return false;
+        }
+        for (let index = 0; index < this.columns.length; index++) {
+            const thisColumn = this.columns[index];
+            const otherColumn = other.columns[index];
+            if (thisColumn.modelType !== otherColumn.modelType) {
+                return false;
+            }
+            if ((thisColumn.modelType === "single") && (otherColumn.modelType === "single")
+                && (thisColumn.columnModelId !== otherColumn.columnModelId)) {
+                return false;
+            } else if ((thisColumn.modelType === "group") && (otherColumn.modelType === "group")
+                && (thisColumn.columnGroupId !== otherColumn.columnGroupId)) {
+                return false;
+            }
+        }
+
+        if (this.tableIndexModels.length !== other.tableIndexModels.length) {
+            return false;
+        }
+        for (let index = 0; index < this.tableIndexModels.length; index++) {
+            const thisIndexModel = this.tableIndexModels[index];
+            const otherIndexModel = other.tableIndexModels[index];
+            if (thisIndexModel.equals(otherIndexModel) === false) {
+                return false;
+            }
+        }
+
+        if (this.description !== other.description) {
+            return false;
+        }
+
+        return true;
+    }
 }

@@ -72,7 +72,7 @@ export default class MemoViewModel {
     }
 
     public updateRectangle(nextRectangle: RectangleViewModel): MemoViewModel {
-        if (nextRectangle.isEqual(this.rectangleViewModel)) {
+        if (nextRectangle.equals(this.rectangleViewModel)) {
             return this;
         }
 
@@ -83,8 +83,8 @@ export default class MemoViewModel {
         const nextBackgroundColor = background ? background : this.backgroundColor;
         const nextForegroundColor = foreground ? foreground : this.foregroundColor;
 
-        if ((this.backgroundColor.isEqual(nextBackgroundColor))
-            && (this.foregroundColor.isEqual(nextForegroundColor))) {
+        if ((this.backgroundColor.equals(nextBackgroundColor))
+            && (this.foregroundColor.equals(nextForegroundColor))) {
             return this;
         }
 
@@ -171,5 +171,37 @@ export default class MemoViewModel {
             fontSize: fontSize,
             createdAt: createdAt
         });
+    }
+
+    public equals(other: MemoViewModel): boolean {
+        if (this.memoId !== other.memoId) {
+            return false;
+        }
+        if (this.memo !== other.memo) {
+            return false;
+        }
+        if (this.rectangleViewModel.equals(other.rectangleViewModel) === false) {
+            return false;
+        }
+        if (this.backgroundColor.equals(other.backgroundColor) === false) {
+            return false;
+        }
+        if (this.foregroundColor.equals(other.foregroundColor) === false) {
+            return false;
+        }
+        if (this.verticalAlign !== other.verticalAlign) {
+            return false;
+        }
+        if (this.horizontalAlign !== other.horizontalAlign) {
+            return false;
+        }
+        if (this.fontSize !== other.fontSize) {
+            return false;
+        }
+        if (this.createdAt.getTime() !== other.createdAt.getTime()) {
+            return false;
+        }
+
+        return true;
     }
 }

@@ -120,23 +120,6 @@ export default class RectangleViewModel {
         return true;
     }
 
-    public isEqual(other: RectangleViewModel) {
-        if (this.positionX !== other.positionX) {
-            return false;
-        }
-        if (this.positionY !== other.positionY) {
-            return false;
-        }
-        if (this.width !== other.width) {
-            return false;
-        }
-        if (this.height !== other.height) {
-            return false;
-        }
-
-        return true;
-    }
-
     public static toObject(obj: object): RectangleViewModel {
         if (!("positionX" in obj)) {
             throw new PropertyNotExistsError("positionX", obj);
@@ -166,5 +149,22 @@ export default class RectangleViewModel {
             width: this.width,
             height: this.height
         };
+    }
+
+    public equals(other: RectangleViewModel): boolean {
+        if (this.positionX !== other.positionX) {
+            return false;
+        }
+        if (this.positionY !== other.positionY) {
+            return false;
+        }
+        if (this.width !== other.width) {
+            return false;
+        }
+        if (this.height !== other.height) {
+            return false;
+        }
+
+        return true;
     }
 }

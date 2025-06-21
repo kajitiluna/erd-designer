@@ -14,8 +14,8 @@ export type LocalSettingAction =
 
 export const reduceLocalSetting = (current: LocalSetting, action: LocalSettingAction) => {
     if (action.type === "defaultColor") {
-        if (current.defaultColor.background.isEqual(action.color.background)
-            && current.defaultColor.foreground.isEqual(action.color.foreground)) {
+        if (current.defaultColor.background.equals(action.color.background)
+            && current.defaultColor.foreground.equals(action.color.foreground)) {
             return current;
         }
 
