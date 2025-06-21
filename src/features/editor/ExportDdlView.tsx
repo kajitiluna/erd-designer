@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControlLabel, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControlLabel, Paper, Stack, TextField, Typography } from "@mui/material";
 import Grid from '@mui/material/Grid2';
 
 import download from "~/components/file-downloader";
@@ -27,7 +27,13 @@ const ExportDdlView = ({ documentsHolder, isViewOpen, onClose }: ExportDdlViewPr
     const [withForeignKey, setWithForeignKey] = useState<boolean>(exportSetting.withForeignKey);
     const [withComment, setWithComment] = useState<boolean>(exportSetting.withComment);
 
+    const invalidMessages = initInvalidMessages(erdDocument);
+
     const handleExport = () => {
+        if (invalidMessages.length > 0) {
+            return;
+        }
+
         const ddlQuery = createDdl(erdDocument, { withTable, withIndex, withForeignKey, withComment });
         const ddlFileName = (fileName.toLowerCase().endsWith(".sql") || fileName.toLowerCase().endsWith(".ddl"))
             ? fileName : `${fileName}.sql`;
@@ -88,14 +94,28 @@ const ExportDdlView = ({ documentsHolder, isViewOpen, onClose }: ExportDdlViewPr
                         value={fileName} onChange={(event) => setFileName(event.target.value)}
                         onKeyDown={handleEnterDown} />
                     {optionPanel}
+                    {(invalidMessages.length > 0) && (
+                        <Alert severity="error">
+                            {invalidMessages.map((message, index) => (
+                                <Typography key={`export-ddl_message-${index}`} variant="body1">{message}</Typography>
+                            ))}
+                        </Alert>
+                    )}
                 </Stack>
             </DialogContent>
             <DialogActions>
                 <Button onClick={onClose}>Cancel</Button>
-                <Button variant="contained" onClick={handleExport}>Export DDL</Button>
+                <Button variant="contained" disabled={invalidMessages.length > 0}
+                    onClick={handleExport}>Export DDL</Button>
             </DialogActions>
         </Dialog>
     );
 };
+
+const initInvalidMessages = (erdDocument: ErdDocument) => {
+    return erdDocument.getTableViewModels()
+        .filter(tableView => tableView.tableModel.columns.length === 0)
+        .map(tableView => `Table "${tableView.tableModel.physicalName}" has no columns.`);
+}
 
 export default ExportDdlView;

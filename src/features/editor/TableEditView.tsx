@@ -47,7 +47,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
     // 物理名に重複がないことをチェックする
     const validateColumnModels = (columnWrapModels: ColumnWrapModel[]) => {
         if (columnWrapModels.length === 0) {
-            return false;
+            return true;
         }
 
         const columnCount = columnWrapModels.flatMap(columnWrapModel =>
