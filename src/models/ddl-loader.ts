@@ -518,7 +518,7 @@ const loadCreateColumnDefinition = (
         } else if (defaultValueObj.type === "double_quote_string") {
             defaultValue = `"${defaultValueObj.value}"`
         } else {
-            defaultValue = String(defaultValueObj.value);
+            defaultValue = defaultValueObj.value != null ? String(defaultValueObj.value) : "";
         }
     }
 
