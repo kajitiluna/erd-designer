@@ -65,10 +65,12 @@ class DdlLoader {
             const ast: AST | AST[] = this.parser.astify(ddl, this.parseOption);
             analyzedQueries = Array.isArray(ast) ? ast : [ast];
         } catch (error) {
+            const location = ((error != null) && (typeof error === "object") && ("location" in error)) ?
+                `\nat ${JSON.stringify(error.location)}` : "";
             return {
                 summaries: [{
                     result: "failure",
-                    message: `Failed to parse DDL: ${error instanceof Error ? error.message : String(error)}`,
+                    message: `Failed to parse DDL: ${error instanceof Error ? error.message : String(error)}${location}`,
                     sql: "-"
                 }],
                 tableDefinitions: [],

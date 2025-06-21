@@ -78,7 +78,9 @@ const ImportFromDdlView = ({ isOpen, onClose }: ImportFromDdlViewProps) => {
                         <TableRow key={`import-ddl-table_${index}`}>
                             <TableCell><Alert severity={severity}>{summary.result}</Alert></TableCell>
                             <TableCell>{summary.sql}</TableCell>
-                            <TableCell>{summary.message}</TableCell>
+                            <TableCell>{summary.message.split("\n").map((text, indexText) => (
+                                <span key={`import-ddl-table_${index}_text_${indexText}`}>{text}<br /></span>
+                            ))}</TableCell>
                         </TableRow>
                     );
                 })}
@@ -130,7 +132,7 @@ const ImportFromDdlView = ({ isOpen, onClose }: ImportFromDdlViewProps) => {
     }
 
     return (
-        <Dialog fullWidth maxWidth="lg" open={isOpen && (loadResult != null)} sx={{ userSelect: "none" }} onClose={onClose}>
+        <Dialog fullWidth maxWidth="lg" open={isOpen && (loadResult != null)} onClose={onClose}>
             <DialogTitle>Import from DDL (Experimental)</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>
