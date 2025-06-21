@@ -54,6 +54,8 @@ const RelationEditView = ({ isOpen, relationViewModel, parentTableModel, childTa
 
     if (parentPrimaryColumns.length === 0) {
         // 親テーブルに primary key が存在しないので中断
+        console.warn(`No primary key columns in parent table: ${parentTableModel.physicalName}`);
+
         onClose();
         return (<></>);
     }

@@ -233,8 +233,10 @@ const ErdTableView = React.memo(function ErdTableView({ tableViewModel, onEditAc
         `${ERD_TABLE_VIEW_CLASS_NAME} ${styleClasses.selectedBox}`
         : ERD_TABLE_VIEW_CLASS_NAME;
 
-    const tableRows = erdDocument.toAllColumnModels(tableModel)
-        .map(columnModel => initTableColumn(columnModel, tableModel, erdDocument, selectState))
+    const allColumns = erdDocument.toAllColumnModels(tableModel);
+    const tableRows = (allColumns.length > 0)
+        ? allColumns.map(columnModel => initTableColumn(columnModel, tableModel, erdDocument, selectState))
+        : (<TableRow><TableCell></TableCell></TableRow>);
 
     return (
         <Box sx={tableStyle}>
