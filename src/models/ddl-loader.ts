@@ -518,7 +518,7 @@ const loadCreateColumnDefinition = (
         } else if (defaultValueObj.type === "double_quote_string") {
             defaultValue = `"${defaultValueObj.value}"`
         } else {
-            defaultValue = defaultValueObj.value;
+            defaultValue = String(defaultValueObj.value);
         }
     }
 
@@ -851,14 +851,27 @@ const loadAlterTableDdl = (query: Alter, tableDefinitions: Map<string, TableBase
     const skippedReasons: LoadFailure[] = [];
 
     for (const [index, expr] of query.expr.entries()) {
-        if (!("action" in expr) || !("create_definitions" in expr) || !("constraint_type" in expr.create_definitions)) {
+        if (!("action" in expr)) {
             return [null, fail("Unexpected analysis for alter table. "
                 + `expr[${index}] : ${JSON.stringify(expr)}`
             )];
         }
 
+        if (expr.action !== "add") {
+            const message = 'Unsupported alter table query. Only supports "ADD FOREIGN KEY". '
+                + `action : "${expr.action}"`;
+            skippedReasons.push(skip(message));
+            continue;
+        }
+
+        if (!("create_definitions" in expr) || !("constraint_type" in expr.create_definitions)) {
+            return [null, skip("Unexpected analysis for alter table. "
+                + `expr[${index}] : ${JSON.stringify(expr)}`
+            )];
+        }
+
         const createDefinition = expr.create_definitions;
-        if ((expr.action !== "add") || (createDefinition.constraint_type !== "FOREIGN KEY")) {
+        if (createDefinition.constraint_type !== "FOREIGN KEY") {
             const message = 'Unsupported alter table query. Only supports "ADD FOREIGN KEY". '
                 + `action : "${expr.action}", constraint type : "${expr.create_definitions.constraint_type}"`;
             skippedReasons.push(skip(message));
