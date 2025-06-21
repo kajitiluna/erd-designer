@@ -68,7 +68,7 @@ const initColorPanel = (
     callback: (background: ColorValue, foreground: ColorValue) => void, alpha: number = 1
 ) => {
 
-    const selected = backgroundColor.isEqual(currentColor);
+    const selected = backgroundColor.equals(currentColor);
     const handleClicked = (event: MouseEvent) => {
         event.stopPropagation();
         callback(backgroundColor, foregroundColor)

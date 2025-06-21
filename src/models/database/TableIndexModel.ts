@@ -75,6 +75,38 @@ export default class TableIndexModel {
             description: ("description" in obj) ? obj.description as string : "",
         });
     }
+
+    public equals(other: TableIndexModel): boolean {
+        if (this.tableIndexModelId !== other.tableIndexModelId) {
+            return false;
+        }
+        if (this.physicalName !== other.physicalName) {
+            return false;
+        }
+
+        if (this.indexColumnModels.length !== other.indexColumnModels.length) {
+            return false;
+        }
+        for (let index = 0; index < this.indexColumnModels.length; index++) {
+            const thisColumn = this.indexColumnModels[index];
+            const otherColumn = other.indexColumnModels[index];
+            if (thisColumn.equals(otherColumn) === false) {
+                return false;
+            }
+        }
+
+        if (this.indexOption !== other.indexOption) {
+            return false;
+        }
+        if (this.indexType !== other.indexType) {
+            return false;
+        }
+        if (this.description !== other.description) {
+            return false;
+        }
+
+        return true;
+    }
 }
 
 const parseIndexOption = (obj: object) => {
@@ -138,5 +170,19 @@ export class IndexColumnModel {
             sortOrderType: ("sortOrderType" in obj) ? obj.sortOrderType as SortOrderType : "",
             nullsOrderType: ("nullsOrderType" in obj) ? obj.nullsOrderType as NullsOrderType : ""
         });
+    }
+
+    public equals(other: IndexColumnModel): boolean {
+        if (this.columnModelId !== other.columnModelId) {
+            return false;
+        }
+        if (this.sortOrderType !== other.sortOrderType) {
+            return false;
+        }
+        if (this.nullsOrderType !== other.nullsOrderType) {
+            return false;
+        }
+
+        return true;
     }
 }

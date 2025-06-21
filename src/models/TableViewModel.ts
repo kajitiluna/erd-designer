@@ -66,4 +66,24 @@ export default class TableViewModel {
             createdAt: ("createdAt" in obj) ? toDateTime(obj.createdAt) : new Date()
         });
     }
+
+    public equals(other: TableViewModel): boolean {
+        if (this.tableModel.equals(other.tableModel) === false) {
+            return false;
+        }
+        if ((this.corner.top !== other.corner.top) || (this.corner.left !== other.corner.left)) {
+            return false;
+        }
+        if (this.headerColor.background.equals(other.headerColor.background) === false) {
+            return false;
+        }
+        if (this.headerColor.foreground.equals(other.headerColor.foreground) === false) {
+            return false;
+        }
+        if (this.createdAt.getTime() !== other.createdAt.getTime()) {
+            return false;
+        }
+
+        return true;
+    }
 }

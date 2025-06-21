@@ -40,7 +40,7 @@ type StickyNoteViewProps = {
     foreground?: boolean
 };
 
-const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: StickyNoteViewProps) => {
+const StickyMemoView = React.memo(function StickyMemoView({ memoViewModel, onDragAction, foreground = true }: StickyNoteViewProps) {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
@@ -289,7 +289,7 @@ const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: Stic
                 && <StickyControlPane memoViewModel={memoViewModel} />}
         </Box>
     );
-};
+}, (old: StickyNoteViewProps, next: StickyNoteViewProps) => old.memoViewModel.equals(next.memoViewModel));
 
 const STICKY_PADDING = 10;
 

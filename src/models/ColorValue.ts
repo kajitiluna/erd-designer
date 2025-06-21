@@ -29,7 +29,7 @@ export default class ColorValue {
         return new ColorValue({ red: reverseAverage, green: reverseAverage, blue: reverseAverage });
     }
 
-    public isEqual(other: ColorValue): boolean {
+    public equals(other: ColorValue): boolean {
         return (this.red === other.red) && (this.green === other.green) && (this.blue === other.blue);
     }
 

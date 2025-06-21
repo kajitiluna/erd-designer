@@ -43,7 +43,7 @@ type ErdTableViewProps = {
     onDragAction: (dragAction: DragAction) => void
 };
 
-const ErdTableView = ({ tableViewModel, onEditAction, onDragAction }: ErdTableViewProps) => {
+const ErdTableView = React.memo(function ErdTableView({ tableViewModel, onEditAction, onDragAction }: ErdTableViewProps) {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
@@ -286,7 +286,7 @@ const ErdTableView = ({ tableViewModel, onEditAction, onDragAction }: ErdTableVi
             </Dialog>
         </Box>
     );
-};
+}, (old: ErdTableViewProps, next: ErdTableViewProps) => old.tableViewModel.equals(next.tableViewModel));
 
 const initTableColumn = (columnModel: ColumnModel, tableModel: TableModel, erdDocument: ErdDocument, selectState: SelectState) => {
     const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
