@@ -217,15 +217,6 @@ class DdlLoader {
 
     doLoadAlterDdl(query: Alter) {
         const sql = this.parser.sqlify(query, this.parseOption);
-        if (!("keyword" in query) || (query.keyword !== "table")) {
-            this.summaries.push({
-                result: "skipped",
-                message: `Not supported alter query type "${("keyword" in query) ? query.keyword : '????'}".`,
-                sql: sql
-            });
-
-            return;
-        }
 
         const [relationResult, noSuccessResult] = loadAlterTableDdl(query, this.tableBaseDefinitions);
         if (noSuccessResult != null) {
@@ -522,7 +513,15 @@ const loadCreateColumnDefinition = (
         }
     }
 
-    const comment = (createDefinition.comment != null) ? createDefinition.comment.value : "";
+    let comment = "";
+    if (createDefinition.comment != null) {
+        const commentObj = createDefinition.comment.value;
+        if (typeof commentObj === "object") {
+            comment = (commentObj as ValueExpr<string>).value || "";
+        } else {
+            comment = String(commentObj);
+        }
+    }
 
     return [
         {
@@ -792,8 +791,8 @@ const loadCreateIndexDdl = (query: Create): (
     }
 
     const indexName = query.index || "";
-    const indexOption = query.index_using?.type.toUpperCase() || "";
-    const indexType = query.index_type?.toUpperCase() || "";
+    const indexOption = query.index_type?.toUpperCase() || "";
+    const indexType = query.index_using?.type.toUpperCase() || "";
 
     const indexDefinition: TableIndexDefinition = {
         indexName: indexName,
@@ -822,10 +821,10 @@ const loadAlterTableDdl = (query: Alter, tableDefinitions: Map<string, TableBase
     [{ relationDefinitions: DdlRelationDefinition[], skippedReasons: LoadFailure[] }, null] | [null, LoadFailure]
 ) => {
     if ((query.table == null) || (query.table.length === 0)) {
-        return [null, fail("Table name is not specified in alter table query.")];
+        return [null, skip("Table name is not specified in alter table query.")];
     }
     if (query.table.length > 1) {
-        return [null, fail("Unsupported multiple table names in alter table query.")];
+        return [null, skip("Unsupported multiple table names in alter table query.")];
     }
 
     const tableObj = query.table[0];
