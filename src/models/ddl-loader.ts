@@ -896,6 +896,9 @@ const loadAlterTableDdl = (query: Alter, tableDefinitions: Map<string, TableBase
             }
 
             childTableDefinition.tableIndexDefinitions.push(tableIndexDefinition);
+
+            // UNIQUE 制約を定義できないため、暫定的に UNIQUE 制約の代わりに UNIQUE INDEX を追加するので、
+            // warning としてメッセージを追加
             const message = `Adding unique index "${tableIndexDefinition.indexName}"`
                 + ` to table "${childTableName}" instead of unique constraint.`;
             skippedReasons.push(skip(message));
