@@ -3,7 +3,10 @@ import { Parser as PostgresParser } from "node-sql-parser/build/postgresql";
 import { Parser as MySQLParser } from "node-sql-parser/build/mysql";
 import { Alter, AST, Create, Parser, ValueExpr } from "node-sql-parser";
 
-import { DatabaseType, findDatabaseColumns, IndexColumnModel, NullsOrderType, SortOrderType, TableReferenceActionType } from "~/models/database";
+import {
+    DatabaseType, findDatabaseColumns, IndexColumnModel,
+    NullsOrderType, SortOrderType, TableReferenceActionType
+} from "~/models/database";
 import ErdDocument from "~/models/ErdDocument";
 import { TableIndexOption, TableIndexType } from "~/models/database/TableIndexSupport";
 import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
@@ -112,7 +115,7 @@ class DdlLoader {
                                 + ` in table "${tableDefinition.tableName}" : ${JSON.stringify(columnDef)}`,
                             sql: ""
                         });
-                        return;
+                        return null;
                     }
 
                     return { ...columnDef, columnShareModel } as ColumnDefinition;
@@ -772,22 +775,18 @@ const loadCreateIndexDdl = (query: Create): (
                 + `create_definitions[${index}].column.column : ${JSON.stringify(column)}`)];
         }
 
-        const orderBy = indexColumn.order_by?.toUpperCase() || "";
-        let nullsOrder: NullsOrderType = "";
+        const sortOrderType: SortOrderType = indexColumn.order_by?.toUpperCase() || "";
+        let nullsOrderType: NullsOrderType = "";
         if (("nulls" in indexColumn) && (indexColumn.nulls != null)) {
             const nullsValue = indexColumn.nulls as string;
             if (nullsValue.includes("first")) {
-                nullsOrder = "FIRST";
+                nullsOrderType = "FIRST";
             } else if (nullsValue.includes("last")) {
-                nullsOrder = "LAST";
+                nullsOrderType = "LAST";
             }
         }
 
-        indexColumns.push({
-            columnName: columnName,
-            sortOrderType: orderBy as SortOrderType,
-            nullsOrderType: nullsOrder,
-        } as IndexColumn);
+        indexColumns.push({ columnName, sortOrderType, nullsOrderType, });
     }
 
     const indexName = query.index || "";
@@ -870,117 +869,191 @@ const loadAlterTableDdl = (query: Alter, tableDefinitions: Map<string, TableBase
         }
 
         const createDefinition = expr.create_definitions;
-        if (createDefinition.constraint_type !== "FOREIGN KEY") {
-            const message = 'Unsupported alter table query. Only supports "ADD FOREIGN KEY". '
-                + `action : "${expr.action}", constraint type : "${expr.create_definitions.constraint_type}"`;
+        if (createDefinition.constraint_type.toUpperCase() === "FOREIGN KEY") {
+            const [relationDefinition, failure] =
+                doLoadAlterForeignKeyDdl(childTableName, index, createDefinition, tableDefinitions);
+            if (failure != null) {
+                if (failure.result === "failure") {
+                    return [null, failure];
+                }
+
+                skippedReasons.push(failure);
+                continue;
+            }
+
+            relationDefinitions.push(relationDefinition);
+            continue;
+        }
+        if (createDefinition.constraint_type.toUpperCase() === "UNIQUE") {
+            const [tableIndexDefinition, failure] = doLoadAlterUniqueDdl(index, createDefinition);
+            if (failure != null) {
+                if (failure.result === "failure") {
+                    return [null, failure];
+                }
+
+                skippedReasons.push(failure);
+                continue;
+            }
+
+            childTableDefinition.tableIndexDefinitions.push(tableIndexDefinition);
+            const message = `Adding unique index "${tableIndexDefinition.indexName}"`
+                + ` to table "${childTableName}" instead of unique constraint.`;
             skippedReasons.push(skip(message));
             continue;
         }
 
-        if (!("definition" in createDefinition) || (Array.isArray(createDefinition.definition) === false)
-            || !("reference_definition" in createDefinition)) {
-
-            return [null, fail("Unexpected analysis for alter table. "
-                + `expr[${index}].create_definitions : ${JSON.stringify(createDefinition)}`)];
-        }
-
-        const constraintName = (("constraint" in createDefinition) && (typeof createDefinition.constraint === "string"))
-            ? createDefinition.constraint : "";
-
-        const referenceDefinition = createDefinition.reference_definition;
-        if (!("definition" in referenceDefinition) || (Array.isArray(referenceDefinition.definition) === false)
-            || (referenceDefinition.definition.length === 0)
-            || !("table" in referenceDefinition) || (Array.isArray(referenceDefinition.table) === false)
-            || (referenceDefinition.table.length === 0)) {
-
-            return [null, fail("Unexpected analysis for alter table. "
-                + `expr[${index}].create_definitions.reference_definition : ${JSON.stringify(referenceDefinition)}`)];
-        }
-
-        const parentTableName = referenceDefinition.table[0].table as string;
-        const parentTableDefinition = tableDefinitions.get(parentTableName);
-        if (parentTableDefinition == null) {
-            skippedReasons.push(skip(`Parent table "${parentTableName}" is not defined in ddl.`));
-            continue;
-        }
-
-        const childColumnNames: string[] = [];
-        for (const definition of createDefinition.definition) {
-            if (!("type" in definition) || (definition.type !== "column_ref")) {
-                return [null, fail(`Unsupported column definition format at position ${index + 1}. `
-                    + `expr[${index}].create_definitions : ${JSON.stringify(createDefinition)}`
-                )];
-            }
-
-            const column = definition.column;
-            const columnName = (typeof column === "string") ? column : column.expr.value;
-            if (typeof columnName !== "string") {
-                return [null, fail(`Unexpected analysis for column name at position ${index + 1}. `
-                    + `expr[${index}].create_definitions : ${JSON.stringify(createDefinition)}`)];
-            }
-
-            childColumnNames.push(columnName);
-        }
-
-        if (referenceDefinition.table.length > 1) {
-            return [null, fail("Unsupported multiple table names in alter table query.")];
-        }
-
-        const parentColumnNames: string[] = [];
-        for (const definition of referenceDefinition.definition) {
-            if (!("type" in definition) || (definition.type !== "column_ref")) {
-                return [null, fail(`Unsupported column definition format at position ${index + 1}. `
-                    + `expr[${index}].create_definitions.reference_definition : ${JSON.stringify(referenceDefinition)}`
-                )];
-            }
-
-            const column = definition.column;
-            const columnName = (typeof column === "string") ? column : column.expr.value;
-            if (typeof columnName !== "string") {
-                return [null, fail(`Unexpected analysis for column name at position ${index + 1}. `
-                    + `expr[${index}].create_definitions.reference_definition : ${JSON.stringify(referenceDefinition)}`)];
-            }
-
-            parentColumnNames.push(columnName);
-        }
-
-        if (parentColumnNames.length !== childColumnNames.length) {
-            return [null, fail(`Parent and child column names are not matched at position ${index + 1}. `
-                + `parent : ${JSON.stringify(parentColumnNames)}, child : ${JSON.stringify(childColumnNames)}`)];
-        }
-
-        let onUpdateAction: TableReferenceActionType = "NO ACTION";
-        let onDeleteAction: TableReferenceActionType = "NO ACTION";
-        if (("on_action" in referenceDefinition) && (Array.isArray(referenceDefinition.on_action))) {
-            for (const onAction of referenceDefinition.on_action) {
-                if (!("type" in onAction) || !("value" in onAction) || !("value" in onAction.value)
-                    || (typeof onAction.value.value !== "string")) {
-
-                    return [null, fail(`Unexpected analysis for on update action at position ${index + 1}. `
-                        + `expr[${index}].create_definitions.reference_definition.on_action : ${JSON.stringify(onAction)}`)];
-                }
-
-                if (onAction.type === "on update") {
-                    onUpdateAction = onAction.value.value.toUpperCase() as TableReferenceActionType;
-                }
-                if (onAction.type === "on delete") {
-                    onDeleteAction = onAction.value.value.toUpperCase() as TableReferenceActionType;
-                }
-            }
-        }
-
-        relationDefinitions.push({
-            constraintName,
-            parentTableName,
-            parentColumnNames,
-            childTableName,
-            childColumnNames,
-            onUpdateAction,
-            onDeleteAction,
-        });
+        const message = 'Unsupported alter table query. Only supports "ADD FOREIGN KEY" or "ADD CONSTRAINT UNIQUE". '
+            + `action : "${expr.action}", constraint type : "${expr.create_definitions.constraint_type}"`;
+        skippedReasons.push(skip(message));
     }
 
     return [{ relationDefinitions, skippedReasons }, null]
+};
+
+const doLoadAlterForeignKeyDdl = (
+    childTableName: string, index: number, createDefinition: object, tableDefinitions: Map<string, TableBaseDefinition>
+): ([DdlRelationDefinition, null] | [null, LoadFailure]) => {
+
+    if (!("definition" in createDefinition) || (Array.isArray(createDefinition.definition) === false)
+        || !("reference_definition" in createDefinition)) {
+
+        return [null, fail("Unexpected analysis for alter table. "
+            + `expr[${index}].create_definitions : ${JSON.stringify(createDefinition)}`)];
+    }
+
+    const constraintName = (("constraint" in createDefinition) && (typeof createDefinition.constraint === "string"))
+        ? createDefinition.constraint : "";
+
+    const referenceDefinition = createDefinition.reference_definition as object;
+    if (!("definition" in referenceDefinition) || (Array.isArray(referenceDefinition.definition) === false)
+        || (referenceDefinition.definition.length === 0)
+        || !("table" in referenceDefinition) || (Array.isArray(referenceDefinition.table) === false)
+        || (referenceDefinition.table.length === 0)) {
+
+        return [null, fail("Unexpected analysis for alter table. "
+            + `expr[${index}].create_definitions.reference_definition : ${JSON.stringify(referenceDefinition)}`)];
+    }
+
+    const parentTableName = referenceDefinition.table[0].table as string;
+    const parentTableDefinition = tableDefinitions.get(parentTableName);
+    if (parentTableDefinition == null) {
+        return [null, skip(`Parent table "${parentTableName}" is not defined in ddl.`)];
+    }
+
+    const childColumnNames: string[] = [];
+    for (const definition of createDefinition.definition) {
+        if (!("type" in definition) || (definition.type !== "column_ref")) {
+            return [null, fail(`Unsupported column definition format at position ${index + 1}. `
+                + `expr[${index}].create_definitions : ${JSON.stringify(createDefinition)}`
+            )];
+        }
+
+        const column = definition.column;
+        const columnName = (typeof column === "string") ? column : column.expr.value;
+        if (typeof columnName !== "string") {
+            return [null, fail(`Unexpected analysis for column name at position ${index + 1}. `
+                + `expr[${index}].create_definitions : ${JSON.stringify(createDefinition)}`)];
+        }
+
+        childColumnNames.push(columnName);
+    }
+
+    if (referenceDefinition.table.length > 1) {
+        return [null, fail("Unsupported multiple table names in alter table query.")];
+    }
+
+    const parentColumnNames: string[] = [];
+    for (const definition of referenceDefinition.definition) {
+        if (!("type" in definition) || (definition.type !== "column_ref")) {
+            return [null, fail(`Unsupported column definition format at position ${index + 1}. `
+                + `expr[${index}].create_definitions.reference_definition : ${JSON.stringify(referenceDefinition)}`
+            )];
+        }
+
+        const column = definition.column;
+        const columnName = (typeof column === "string") ? column : column.expr.value;
+        if (typeof columnName !== "string") {
+            return [null, fail(`Unexpected analysis for column name at position ${index + 1}. `
+                + `expr[${index}].create_definitions.reference_definition : ${JSON.stringify(referenceDefinition)}`)];
+        }
+
+        parentColumnNames.push(columnName);
+    }
+
+    if (parentColumnNames.length !== childColumnNames.length) {
+        return [null, fail(`Parent and child column names are not matched at position ${index + 1}. `
+            + `parent : ${JSON.stringify(parentColumnNames)}, child : ${JSON.stringify(childColumnNames)}`)];
+    }
+
+    let onUpdateAction: TableReferenceActionType = "NO ACTION";
+    let onDeleteAction: TableReferenceActionType = "NO ACTION";
+    if (("on_action" in referenceDefinition) && (Array.isArray(referenceDefinition.on_action))) {
+        for (const onAction of referenceDefinition.on_action) {
+            if (!("type" in onAction) || !("value" in onAction) || !("value" in onAction.value)
+                || (typeof onAction.value.value !== "string")) {
+
+                return [null, fail(`Unexpected analysis for on update action at position ${index + 1}. `
+                    + `expr[${index}].create_definitions.reference_definition.on_action : ${JSON.stringify(onAction)}`)];
+            }
+
+            if (onAction.type === "on update") {
+                onUpdateAction = onAction.value.value.toUpperCase() as TableReferenceActionType;
+            }
+            if (onAction.type === "on delete") {
+                onDeleteAction = onAction.value.value.toUpperCase() as TableReferenceActionType;
+            }
+        }
+    }
+
+    return [
+        {
+            constraintName, parentTableName, parentColumnNames, childTableName, childColumnNames,
+            onUpdateAction, onDeleteAction,
+        },
+        null
+    ];
+};
+
+const doLoadAlterUniqueDdl = (index: number, createDefinition: object): ([TableIndexDefinition, null] | [null, LoadFailure]) => {
+
+    if (!("definition" in createDefinition) || (Array.isArray(createDefinition.definition) === false)) {
+        return [null, fail("Unexpected analysis for alter table. "
+            + `expr[${index}].create_definitions : ${JSON.stringify(createDefinition)}`)];
+    }
+
+    const constraintName = (("constraint" in createDefinition) && (typeof createDefinition.constraint === "string"))
+        ? createDefinition.constraint : "";
+
+    const indexColumns: IndexColumn[] = [];
+    for (const definition of createDefinition.definition) {
+        if (!("type" in definition) || (definition.type !== "column_ref")) {
+            return [null, fail(`Unsupported column definition format at position ${index + 1}. `
+                + `expr[${index}].create_definitions : ${JSON.stringify(createDefinition)}`
+            )];
+        }
+
+        const column = definition.column;
+        const columnName = (typeof column === "string") ? column : column.expr.value;
+        if (typeof columnName !== "string") {
+            return [null, fail(`Unexpected analysis for column name at position ${index + 1}. `
+                + `expr[${index}].create_definitions : ${JSON.stringify(createDefinition)}`)];
+        }
+
+        const sortOrderType: SortOrderType = (("order_by" in definition) && (typeof definition.order_by === "string"))
+            ? definition.order_by.toUpperCase() : "";
+
+        indexColumns.push({ columnName, sortOrderType, nullsOrderType: "" });
+    }
+
+    return [
+        {
+            indexName: constraintName,
+            indexColumns: indexColumns,
+            indexOption: "UNIQUE" as TableIndexOption,
+            indexType: "" as TableIndexType,
+        },
+        null
+    ];
 };
 
 type Comment = {
