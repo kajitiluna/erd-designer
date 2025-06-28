@@ -203,6 +203,16 @@ export class ErdDocumentsHolder {
     }
 
     /**
+     * リレーションの Edge の太さを更新する。
+     * 
+     * @param relationId リレーションID
+     * @param updating 更新内容
+     */
+    public updateRelationWidth(relationId: string, updating: number) {
+        this.doUpdateRelationEdge(relationId, previous => previous.updateStrokeWidth(updating));
+    }
+
+    /**
      * リレーションの Edge を削除する。
      * 
      * @param relationId リレーションID

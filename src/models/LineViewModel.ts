@@ -46,6 +46,14 @@ export default class LineViewModel {
         return new LineViewModel({ ...this, edges: nextEdges });
     }
 
+    public updateStrokeWidth(nextWidth: number): LineViewModel {
+        if ((this.strokeWidth === nextWidth) || (nextWidth <= 0)) {
+            return this;
+        }
+
+        return new LineViewModel({ ...this, strokeWidth: nextWidth });
+    }
+
     public updateColor(nextColor: ColorValue): LineViewModel {
         if (this.color.equals(nextColor)) {
             return this;
