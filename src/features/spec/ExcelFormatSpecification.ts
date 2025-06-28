@@ -16,7 +16,7 @@ const exportExcelFormatSpecification = async (erdDocument: ErdDocument, image: I
     const workbook = new ExcelJS.Workbook();
 
     // 目次シートの追加
-    addContentSheet(workbook, specs.exportTableSpecs);
+    addContentSheet(workbook, specs.exportTableSpecs, specs.findSheetName);
     // ER図のシート追加
     addDiagramSheet(workbook, image);
     // テーブル一覧のシート追加
@@ -26,7 +26,8 @@ const exportExcelFormatSpecification = async (erdDocument: ErdDocument, image: I
 
     // 各テーブル定義のシート追加
     for (const tableSpec of specs.exportTableSpecs()) {
-        addTableSpecs(workbook, databaseType, tableSpec);
+        const sheetName = specs.findSheetName(tableSpec.physicalName);
+        addTableSpecs(workbook, sheetName, databaseType, tableSpec);
     }
 
     // テキストを上寄せ
@@ -55,7 +56,10 @@ const SHEET_NAME = {
     ATTRIBUTES: "Attributes",
 } as const;
 
-const addContentSheet = (workbook: ExcelJS.Workbook, exportTableSpecs: () => TableDetailSpecGenerator) => {
+const addContentSheet = (
+    workbook: ExcelJS.Workbook, exportTableSpecs: () => TableDetailSpecGenerator,
+    findSheetName: (tableName: string) => string
+) => {
     const initCellValueWithLink = (value: string) => ({ text: value, hyperlink: `#'${value}'!A1` });
 
     const contentSheet = workbook.addWorksheet(SHEET_NAME.CONTENT);
@@ -85,9 +89,11 @@ const addContentSheet = (workbook: ExcelJS.Workbook, exportTableSpecs: () => Tab
         },
     ]);
     for (const tableSpec of exportTableSpecs()) {
+        const sheetName = findSheetName(tableSpec.physicalName);
+
         contentSheet.addRow({
             sheetType: "Table", description: tableSpec.description,
-            sheetName: initCellValueWithLink(tableSpec.physicalName)
+            sheetName: { text: tableSpec.physicalName, hyperlink: `#'${sheetName}'!A1` }
         });
     }
     // リンクの書式設定
@@ -250,9 +256,9 @@ const initColumnHeader = (databaseType: DatabaseType, withTableInfo: boolean = t
 };
 
 const addTableSpecs = (
-    workbook: ExcelJS.Workbook, databaseType: DatabaseType, tableSpec: TableDetailSpec
+    workbook: ExcelJS.Workbook, sheetName: string, databaseType: DatabaseType, tableSpec: TableDetailSpec
 ) => {
-    const tableSheet = workbook.addWorksheet(tableSpec.physicalName);
+    const tableSheet = workbook.addWorksheet(sheetName);
 
     const columnsHeader = initColumnHeader(databaseType, false);
     tableSheet.columns = columnsHeader;

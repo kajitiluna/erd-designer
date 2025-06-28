@@ -3,6 +3,9 @@ import ErdDocument from "~/models/ErdDocument";
 
 const createSpecification = (erdDocument: ErdDocument) => {
 
+    const sheetNameMapping = initSheetNameMapping(erdDocument);
+    const findSheetName = (tableName: string) => sheetNameMapping.get(tableName) ?? tableName;
+
     // テーブル一覧
     const exportTables = initExportAllTablesGenerator(erdDocument);
     // カラム一覧
@@ -10,7 +13,30 @@ const createSpecification = (erdDocument: ErdDocument) => {
     // テーブル詳細
     const exportTableSpecs = initExportTableSpecsGenerator(erdDocument);
 
-    return { exportTables, exportColumns, exportTableSpecs };
+    return { findSheetName, exportTables, exportColumns, exportTableSpecs };
+};
+
+const initSheetNameMapping = (erdDocument: ErdDocument) => {
+    const existedSheetNames = new Set<string>();
+
+    return new Map(erdDocument.getTableViewModels()
+        .map(tableView => {
+            const tableModel = tableView.tableModel;
+            const defaultSheetName = (tableModel.physicalName.length > 30)
+                ? tableModel.physicalName.substring(0, 30) : tableModel.physicalName;
+
+            let sheetName = defaultSheetName;
+            if (existedSheetNames.has(sheetName)) {
+                const currentTime = new Date().toISOString().replace(/[-:T.Z]/g, '').substring(0, 17);
+                const tempValue = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+                sheetName = `${currentTime}${tempValue}`;
+            }
+
+            existedSheetNames.add(sheetName);
+
+            return [tableModel.physicalName, sheetName];
+        })
+    );
 };
 
 /**
