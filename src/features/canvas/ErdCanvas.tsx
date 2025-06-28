@@ -5,7 +5,7 @@ import DisplayScaleContext from "~/context/DisplayScaleContext";
 import { DragActionContext, DragState, NO_DRAGGING, reduceDragAction } from "~/context/DragActionContext";
 import EditModeContext from "~/context/EditModeContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
-import { RELEASE_ACTION, SelectEntityContext, SelectState } from "~/context/SelectEntityContext";
+import { RELEASE_ACTION, SelectAction, SelectEntityContext, SelectState } from "~/context/SelectEntityContext";
 import EditAction from "~/features/canvas/EditAction";
 import ErdRelationPathView, { ErdRelationTooltipRef } from "~/features/canvas/ErdRelationPathView";
 import ErdTableView, { ERD_TABLE_VIEW_CLASS_NAME } from "~/features/canvas/ErdTableView";
@@ -295,8 +295,24 @@ const ErdCanvas = () => {
 
     // keyUp 時のイベントを window.document に登録
     useEffect(() => {
-        return initEffectOfKeyDownOnCanvas(documentsHolder, dispatchEditMode);
-    }, [dispatchEditMode, documentsHolder]);
+        // ダイアログ表示時はキー操作イベントを無効にする
+        if (editAction.editType !== "none") {
+            return;
+        }
+
+        const handlers = [
+            // ESC キーを押下した場合は SELECT モードに移行し、選択した要素を選択解除する
+            initSelectModeHandler(dispatchEditMode),
+            // `Ctrl/Command + Y` または `Ctrl/Command + Shift + Z` で Redo
+            initRedoHandler(documentsHolder),
+            // `Ctrl + Z` または `Command + Z` で Undo
+            initUndoHandler(documentsHolder),
+            // `Delete` または `Backspace` キーで、選択した要素を削除
+            initDeleteHandler(documentsHolder, selectState, dispatchSelectAction),
+        ];
+
+        return initEffectOfKeyDownOnCanvas(handlers);
+    }, [editAction.editType, selectState, dispatchSelectAction, dispatchEditMode, documentsHolder]);
 
     const canvasStyle: React.CSSProperties = {
         position: "absolute", top: 0, left: 0, // right: 0, bottom: 0,
@@ -582,44 +598,86 @@ const initEffectOfScrollOnCanvas = (displayScale: number) => {
     return () => window.removeEventListener("scroll", moveEdge);
 };
 
-const initEffectOfKeyDownOnCanvas = (
-    documentsHolder: ErdDocumentsHolder, dispatchEditMode: (action: EditMode) => void
-) => {
+type KeyEventHandler = {
+    isMatching: (event: KeyboardEvent) => boolean,
+    handle: () => void
+};
+
+const initEffectOfKeyDownOnCanvas = (handlers: KeyEventHandler[]) => {
+
     const handleKeyUpOnCanvas = (event: KeyboardEvent) => {
 
-        // ESC キーを押下した場合は SELECT モードに移行し、選択した要素を選択解除する
-        if (event.key === "Escape") {
-            dispatchEditMode(EditModeType.SELECT);
+        // ダイアログが表示されているときはキー操作を無視する
+        // DOM 要素を直接みているため、MUI のバージョン変更時には修正が必要に可能性がある
+        const dialogs = window.document.querySelectorAll('[role="dialog"]');
+        const backdrops = window.document.querySelectorAll('.MuiBackdrop-root');
+        if ((dialogs.length > 0) || (backdrops.length > 0)) {
             return;
         }
 
-        // `Ctrl/Command + Y` または `Ctrl/Command + Shift + Z` で Redo
-        if ((event.metaKey || event.ctrlKey)
-            && ((event.key === "y") || (event.key === "z") && event.shiftKey)) {
+        for (const handler of handlers) {
+            if (handler.isMatching(event) === false) {
+                continue;
+            }
 
             event.preventDefault();
             event.stopPropagation();
 
-            documentsHolder.redo();
+            handler.handle();
             return;
         }
-
-        // `Ctrl + Z` または `Command + Z` で Undo
-        if ((event.metaKey || event.ctrlKey) && (event.key === "z")) {
-            event.preventDefault();
-            event.stopPropagation();
-
-            documentsHolder.undo();
-            return;
-        }
-
-        // TODO
     };
 
     window.document.addEventListener("keydown", handleKeyUpOnCanvas, true);
 
     return () => {
         window.document.removeEventListener("keydown", handleKeyUpOnCanvas, true);
+    };
+};
+
+const initSelectModeHandler = (dispatchEditMode: (action: EditMode) => void) => {
+    return {
+        isMatching: (event: KeyboardEvent) => (event.key === "Escape"),
+        handle: () => dispatchEditMode(EditModeType.SELECT)
+    };
+};
+
+const initRedoHandler = (documentsHolder: ErdDocumentsHolder): KeyEventHandler => {
+    return {
+        isMatching: (event: KeyboardEvent) => (event.metaKey || event.ctrlKey)
+            && ((event.key === "y") || (event.key === "z") && event.shiftKey),
+        handle: () => documentsHolder.redo()
+    };
+};
+
+const initUndoHandler = (documentsHolder: ErdDocumentsHolder): KeyEventHandler => {
+    return {
+        isMatching: (event: KeyboardEvent) => (event.metaKey || event.ctrlKey)
+            && (event.key === "z"),
+        handle: () => documentsHolder.undo()
+    };
+};
+
+const initDeleteHandler = (
+    documentsHolder: ErdDocumentsHolder, selectState: SelectState,
+    dispatchSelectAction: (action: SelectAction) => void
+): KeyEventHandler => {
+    return {
+        isMatching: (event: KeyboardEvent) => (event.key === "Delete") || (event.key === "Backspace"),
+        handle: () => {
+            if (selectState.status === "none") {
+                return;
+            }
+
+            const deleteIds = {
+                tableIds: selectState.tableIds,
+                memoIds: selectState.memoIds,
+                relationId: selectState.relationId ?? null
+            };
+
+            documentsHolder.delete(deleteIds);
+            dispatchSelectAction(RELEASE_ACTION);
+        }
     };
 };
 

@@ -1,4 +1,5 @@
 import React from "react";
+
 import ColorValue from "~/models/ColorValue";
 import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
@@ -56,12 +57,44 @@ export class ErdDocumentsHolder {
         this.updateDocument(this.erdDocuments, this.cursor - 1);
     }
 
-    private doUpdate(next: ErdDocument) {
+    private doUpdate(updateFunction: (erdDocument: ErdDocument) => ErdDocument) {
+        const previous: ErdDocument = this.current();
+        const next = updateFunction(previous);
+        if (previous === next) {
+            return;
+        }
+
         const lastIndex = Math.min(this.erdDocuments.length, ErdDocumentsHolder.MAX_HISTORY - 1 + this.cursor);
         const nextHistory = this.erdDocuments.slice(this.cursor, lastIndex);
         nextHistory.unshift(next);
 
         this.updateDocument(nextHistory, 0);
+    }
+
+    /**
+     * 選択状態にある要素を削除する。
+     * 
+     * @param selectState 選択状態
+     */
+    public delete(selectState: SelectState) {
+        const doDelete = (previous: ErdDocument): ErdDocument => {
+            let next: ErdDocument = previous;
+            if (selectState.relationId) {
+                next = previous.deleteRelation(selectState.relationId);
+            }
+
+            for (const tableId of selectState.tableIds) {
+                next = next.deleteTable(tableId);
+            }
+
+            for (const memoId of selectState.memoIds) {
+                next = next.deleteMemo(memoId);
+            }
+
+            return next;
+        };
+
+        this.doUpdate(doDelete);
     }
 
     /**
@@ -77,12 +110,9 @@ export class ErdDocumentsHolder {
         updatingColumnModels: ColumnModel[],
         columnShareModelStorage: ColumnShareModelStorage
     ) {
-        const previousModel = this.current();
-        const nextModel = previousModel.updateTableViewModel(
+        this.doUpdate(previous => previous.updateTableViewModel(
             updatingModel, updatingColumnModels, columnShareModelStorage
-        );
-
-        this.doUpdate(nextModel);
+        ));
     }
 
     /**
@@ -91,13 +121,7 @@ export class ErdDocumentsHolder {
      * @param tableId 削除対象の tableId
      */
     public deleteTable(tableId: string) {
-        const previous: ErdDocument = this.current();
-        const next: ErdDocument = previous.deleteTable(tableId);
-        if (previous === next) {
-            return;
-        }
-
-        this.doUpdate(next);
+        this.doUpdate(previous => previous.deleteTable(tableId));
     }
 
     /**
@@ -108,13 +132,9 @@ export class ErdDocumentsHolder {
      * @param foreground 前景色
      */
     public updateTableViewColor(tableIds: string[], background: ColorValue, foreground: ColorValue) {
-        const previous: ErdDocument = this.current();
-        const next = previous.updateTableViewColor(tableIds, background, foreground);
-        if (previous === next) {
-            return;
-        }
-
-        this.doUpdate(next);
+        this.doUpdate(previous =>
+            previous.updateTableViewColor(tableIds, background, foreground)
+        );
     }
 
     /**
@@ -129,15 +149,10 @@ export class ErdDocumentsHolder {
         updatingColumnModels: ColumnModel[],
         columnShareModelStorage: ColumnShareModelStorage
     ) {
-        const previous: ErdDocument = this.current();
-        const next = previous.updateColumnGroup(
-            updatingModel, updatingColumnModels, columnShareModelStorage
+        this.doUpdate(previous =>
+            previous.updateColumnGroup(
+                updatingModel, updatingColumnModels, columnShareModelStorage)
         );
-        if (previous === next) {
-            return;
-        }
-
-        this.doUpdate(next);
     }
 
     /**
@@ -146,13 +161,7 @@ export class ErdDocumentsHolder {
      * @param columnGroupId 削除対象のカラムグループID
      */
     public deleteColumnGroup(columnGroupId: string) {
-        const previous: ErdDocument = this.current();
-        const next: ErdDocument = previous.deleteColumnGroup(columnGroupId);
-        if (previous === next) {
-            return;
-        }
-
-        this.doUpdate(next);
+        this.doUpdate(previous => previous.deleteColumnGroup(columnGroupId));
     }
 
     /**
@@ -161,13 +170,7 @@ export class ErdDocumentsHolder {
      * @param updatingModel 更新対象のリレーション
      */
     public updateRelationModel(updatingModel: RelationModel) {
-        const previous: ErdDocument = this.current();
-        const next = previous.updateRelationModel(updatingModel);
-        if (previous === next) {
-            return;
-        }
-
-        this.doUpdate(next);
+        this.doUpdate(previous => previous.updateRelationModel(updatingModel));
     }
 
     /**
@@ -176,13 +179,7 @@ export class ErdDocumentsHolder {
      * @param relationId 削除対象のリレーションID
      */
     public deleteRelation(relationId: string) {
-        const previous: ErdDocument = this.current();
-        const next = previous.deleteRelation(relationId);
-        if (previous === next) {
-            return;
-        }
-
-        this.doUpdate(next);
+        this.doUpdate(previous => previous.deleteRelation(relationId));
     }
 
     /**
@@ -192,7 +189,27 @@ export class ErdDocumentsHolder {
      * @param updating 更新内容
      */
     public updateRelationEdge(relationId: string, updating: UpdateRelationEdgeArgs) {
-        this.doUpdateRelationEdge(relationId, (previous) => previous.updateEdge(updating))
+        this.doUpdateRelationEdge(relationId, previous => previous.updateEdge(updating))
+    }
+
+    /**
+     * リレーションの色を更新する。
+     * 
+     * @param relationId リレーションID
+     * @param updating 更新内容
+     */
+    public updateRelationColor(relationId: string, updating: ColorValue) {
+        this.doUpdateRelationEdge(relationId, previous => previous.updateColor(updating))
+    }
+
+    /**
+     * リレーションの Edge の太さを更新する。
+     * 
+     * @param relationId リレーションID
+     * @param updating 更新内容
+     */
+    public updateRelationWidth(relationId: string, updating: number) {
+        this.doUpdateRelationEdge(relationId, previous => previous.updateStrokeWidth(updating));
     }
 
     /**
@@ -202,28 +219,26 @@ export class ErdDocumentsHolder {
      * @param edgeId 削除対象の Edge
      */
     public deleteRelationEdge(relationId: string, edgeId: number) {
-        this.doUpdateRelationEdge(relationId, (previous) => previous.deleteEdge(edgeId));
+        this.doUpdateRelationEdge(relationId, previous => previous.deleteEdge(edgeId));
     }
 
     private doUpdateRelationEdge(relationId: string, updateFunction: (previous: LineViewModel) => LineViewModel) {
-        const previous: ErdDocument = this.current();
-        const previousRelation = previous.findRelationViewModel(relationId);
-        if (previousRelation == null) {
-            return;
-        }
+        const updateRelation = (previous: ErdDocument): ErdDocument => {
+            const previousRelation = previous.findRelationViewModel(relationId);
+            if (previousRelation == null) {
+                return previous;
+            }
 
-        const previousLineView = previousRelation.lineViewModel;
-        const nextLineView = updateFunction(previousLineView);
-        if (previousLineView === nextLineView) {
-            return;
-        }
+            const previousLineView = previousRelation.lineViewModel;
+            const nextLineView = updateFunction(previousLineView);
+            if (previousLineView.equals(nextLineView)) {
+                return previous;
+            }
 
-        const next = previous.updateRelationLineModel(relationId, nextLineView);
-        if (previous === next) {
-            return;
-        }
+            return previous.updateRelationLineModel(relationId, nextLineView);
+        };
 
-        this.doUpdate(next);
+        this.doUpdate(updateRelation);
     }
 
     /**
@@ -232,13 +247,7 @@ export class ErdDocumentsHolder {
      * @param adding 追加するメモ
      */
     public addMemo(adding: MemoViewModel) {
-        const previous: ErdDocument = this.current();
-        const next = previous.addMemo(adding);
-        if (previous === next) {
-            return;
-        }
-
-        this.doUpdate(next);
+        this.doUpdate(previous => previous.addMemo(adding));
     }
 
     /**
@@ -247,13 +256,7 @@ export class ErdDocumentsHolder {
      * @param updating 更新内容
      */
     public updateMemo(updating: MemoViewModel) {
-        const previous: ErdDocument = this.current();
-        const next = previous.updateMemo(updating);
-        if (previous === next) {
-            return;
-        }
-
-        this.doUpdate(next);
+        this.doUpdate(previous => previous.updateMemo(updating));
     }
 
     /**
@@ -262,13 +265,7 @@ export class ErdDocumentsHolder {
      * @param memoId 削除対象のメモID
      */
     public deleteMemo(memoId: string) {
-        const previous: ErdDocument = this.current();
-        const next: ErdDocument = previous.deleteMemo(memoId);
-        if (previous === next) {
-            return;
-        }
-
-        this.doUpdate(next);
+        this.doUpdate(previous => previous.deleteMemo(memoId));
     }
 
     /**
@@ -279,15 +276,10 @@ export class ErdDocumentsHolder {
      * @returns 操作後のモデル
      */
     public moveRectangle(tableIds: Set<string>, memoIds: Set<string>, moving: { x: number, y: number }) {
-        const previous: ErdDocument = this.current();
-        const next: ErdDocument = previous.moveTableView(tableIds, moving)
-            .moveMemoView([...memoIds], moving);
-
-        if (previous === next) {
-            return;
-        }
-
-        this.doUpdate(next);
+        this.doUpdate(previous => previous
+            .moveTableView(tableIds, moving)
+            .moveMemoView([...memoIds], moving)
+        );
     }
 
     /**
@@ -297,13 +289,7 @@ export class ErdDocumentsHolder {
      * @param direction 変更方向
      */
     public arrangeMemo(memoId: string, direction: "front" | "back") {
-        const previous: ErdDocument = this.current();
-        const next: ErdDocument = previous.arrangeMemo(memoId, direction);
-        if (previous === next) {
-            return;
-        }
-
-        this.doUpdate(next);
+        this.doUpdate(previous => previous.arrangeMemo(memoId, direction));
     }
 
     /**
@@ -312,13 +298,7 @@ export class ErdDocumentsHolder {
      * @param updating 更新後のドキュメント名
      */
     public updateDocumentName(updating: string) {
-        const previous: ErdDocument = this.current();
-        const next: ErdDocument = previous.updateDocumentName(updating);
-        if (previous === next) {
-            return;
-        }
-
-        this.doUpdate(next);
+        this.doUpdate(previous => previous.updateDocumentName(updating));
     }
 
     /**
@@ -327,13 +307,7 @@ export class ErdDocumentsHolder {
      * @param updating 更新後の内容
      */
     public updateErdSetting(updating: ErdSettingModel): void {
-        const previous: ErdDocument = this.current();
-        const next = previous.updateErdSetting(updating);
-        if (previous === next) {
-            return;
-        }
-
-        this.doUpdate(next);
+        this.doUpdate(previous => previous.updateErdSetting(updating));
     }
 
     /**
@@ -342,15 +316,15 @@ export class ErdDocumentsHolder {
      * @param params インポート内容
      */
     public importDdl(params: ImportDdlArgs) {
-        const previous: ErdDocument = this.current();
-        const next: ErdDocument = previous.importDdl(params);
-        if (previous === next) {
-            return;
-        }
-
-        this.doUpdate(next);
+        this.doUpdate(previous => previous.importDdl(params));
     }
 }
+
+type SelectState = {
+    tableIds: Set<string>,
+    memoIds: Set<string>,
+    relationId: string | null,
+};
 
 type UpdateRelationEdgeArgs = {
     edgeType: "real" | "virtual",

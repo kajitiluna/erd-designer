@@ -1,7 +1,7 @@
 import React, { JSX, MouseEvent, useImperativeHandle } from "react";
 import {
     Button, ButtonGroup, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
-    IconButton, Tooltip
+    IconButton, Popover, Stack, Tooltip
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -20,6 +20,10 @@ import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocu
 import DisplayScaleContext from "~/context/DisplayScaleContext";
 import ErdDocument from "~/models/ErdDocument";
 import styleClasses from "./ErdCanvas.module.css";
+import ColorValue from "~/models/ColorValue";
+import ColorSelector from "~/components/ColorSelector";
+import LineSelectorIcon from "~/components/icons/LineSelectorIcon";
+import LineWidthIcon from "~/components/icons/LineWidthIcon";
 
 export type ErdRelationTooltipRef = {
     svgElements: () => JSX.Element[]
@@ -43,6 +47,7 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
     const [clickedPosition, setClickedPosition] = React.useState<{ x: number, y: number }>({ x: 0, y: 0 });
     const [deletingRelation, setDeletingRelation] = React.useState<RelationViewModel | null>(null);
     const [lineDragging, setLineDragging] = React.useState<LineDragging>({ on_dragging: false });
+    const [lineEditElement, setLineEditElement] = React.useState<HTMLElement | null>(null);
 
     const handleOpenEditDialog = (event: MouseEvent, relationView: RelationViewModel) => {
         if (editMode !== EditModeType.SELECT) {
@@ -419,9 +424,44 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         }
 
         const relationModel: RelationModel = relationView.relationModel;
+        const lineViewModel: LineViewModel = relationView.lineViewModel;
         const parentMarker = toMarkerId(relationModel.parentCardinality);
         const childMarker = toMarkerId(relationModel.childCardinality);
         const selected = (selectState.relationId === relationView.relationId);
+
+        const handleSetColor = (background: ColorValue) => {
+            documentsHolder.updateRelationColor(relationView.relationId, background);
+
+            dispatchSelectAction(RELEASE_ACTION);
+        };
+
+        const linePopover = (lineEditElement == null) ? null : (() => {
+            const widthButtons = [1, 2, 3].map((width, index) => {
+                const handleClick = () => {
+                    documentsHolder.updateRelationWidth(relationView.relationId, width);
+
+                    setLineEditElement(null);
+                    dispatchSelectAction(RELEASE_ACTION);
+                };
+
+                return (
+                    <IconButton key={`relation-line-width_${index}`}
+                        color={(lineViewModel.strokeWidth === width) ? "primary" : "default"}
+                        onClick={handleClick}>
+                        <LineWidthIcon width={width * 1.5} />
+                    </IconButton>
+                );
+            });
+
+            return (
+                <Popover open={Boolean(lineEditElement)} anchorEl={lineEditElement}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                    transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+                    onClose={() => setLineEditElement(null)}>
+                    <Stack direction="row" alignItems="center">{widthButtons}</Stack>
+                </Popover>
+            );
+        })();
 
         const tooltip = (
             !selected || (editMode !== EditModeType.SELECT) || (dragState.status === "on_dragging")
@@ -430,10 +470,18 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
                 onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}
                 sx={{
                     position: "absolute",
-                    left: clickedPosition.x + 15 + DRAWABLE_AREA.width / 2,
-                    top: clickedPosition.y - 45 + DRAWABLE_AREA.height / 2,
+                    left: clickedPosition.x * displayScale + 15 + DRAWABLE_AREA.width / 2,
+                    top: clickedPosition.y * displayScale - 45 + DRAWABLE_AREA.height / 2,
                     backgroundColor: "#FFFFFF"
                 }}>
+                <ColorSelector key={`relation-color-selector_${relationView.relationId}`}
+                    color={relationView.lineViewModel.color}
+                    callback={handleSetColor} />
+                <Tooltip title="Edit style" placement="top-end">
+                    <IconButton onClick={event => setLineEditElement(event.currentTarget)}>
+                        <LineSelectorIcon />
+                    </IconButton>
+                </Tooltip>
                 <Tooltip title="Edit relation" placement="top-end">
                     <IconButton onClick={event => handleOpenEditDialog(event, relationView)}>
                         <EditIcon />
@@ -444,14 +492,16 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
                         <DeleteIcon />
                     </IconButton>
                 </Tooltip>
+                {linePopover}
             </ButtonGroup >
         );
 
         return {
             svgElement: (
                 <g key={`relation-line_${relationView.relationId}`}>
-                    <path d={lineSegment.drawingPath} stroke="black" fill="none"
-                        strokeWidth={relationView.lineViewModel.strokeWidth}
+                    <path d={lineSegment.drawingPath} fill="none"
+                        stroke={lineViewModel.color.toHex()}
+                        strokeWidth={lineViewModel.strokeWidth}
                         markerStart={parentMarker} markerEnd={childMarker}
                         className={initPathCss(relationView, selected)} />
                     {lineSegment.svgPaths}

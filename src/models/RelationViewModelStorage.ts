@@ -142,7 +142,7 @@ export default class RelationViewModelStorage {
             return this;
         }
 
-        if (current.lineViewModel.isEquals(nextLineViewModel)) {
+        if (current.lineViewModel.equals(nextLineViewModel)) {
             return this;
         }
 

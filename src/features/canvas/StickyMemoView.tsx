@@ -466,32 +466,39 @@ const StickyControlPane = ({ memoViewModel }: StickyControlPaneProps) => {
     };
 
     const alignPanel = !showAlignPanel ? null : (
-        <Stack direction="row" justifyContent="flex-end">
+        <div style={{
+            position: "absolute", top: "100%", left: "50%",
+            transform: "translateX(-50%)", marginTop: "5px"
+        }}>
             <div style={controlStyle}>
-                <ButtonGroup variant="outlined">
-                    <IconButton color={colorForVerticalAlign("start")} onClick={initHandleVerticalAlign("start")}>
-                        <VerticalAlignTopIcon />
-                    </IconButton>
-                    <IconButton color={colorForVerticalAlign("center")} onClick={initHandleVerticalAlign("center")}>
-                        <VerticalAlignCenterIcon />
-                    </IconButton>
-                    <IconButton color={colorForVerticalAlign("end")} onClick={initHandleVerticalAlign("end")}>
-                        <VerticalAlignBottomIcon />
-                    </IconButton>
-                </ButtonGroup>
-                <ButtonGroup variant="outlined">
-                    <IconButton color={colorForHorizontalAlign("start")} onClick={initHandleHorizontalAlign("start")}>
-                        <FormatAlignLeftIcon />
-                    </IconButton>
-                    <IconButton color={colorForHorizontalAlign("center")} onClick={initHandleHorizontalAlign("center")}>
-                        <FormatAlignCenterIcon />
-                    </IconButton>
-                    <IconButton color={colorForHorizontalAlign("end")} onClick={initHandleHorizontalAlign("end")}>
-                        <FormatAlignRightIcon />
-                    </IconButton>
-                </ButtonGroup>
+                <Stack direction="row">
+                    <ButtonGroup variant="outlined">
+                        <IconButton color={colorForVerticalAlign("start")} onClick={initHandleVerticalAlign("start")}>
+                            <VerticalAlignTopIcon />
+                        </IconButton>
+                        <IconButton color={colorForVerticalAlign("center")} onClick={initHandleVerticalAlign("center")}>
+                            <VerticalAlignCenterIcon />
+                        </IconButton>
+                        <IconButton color={colorForVerticalAlign("end")} onClick={initHandleVerticalAlign("end")}>
+                            <VerticalAlignBottomIcon />
+                        </IconButton>
+                    </ButtonGroup>
+                </Stack>
+                <Stack direction="row">
+                    <ButtonGroup variant="outlined">
+                        <IconButton color={colorForHorizontalAlign("start")} onClick={initHandleHorizontalAlign("start")}>
+                            <FormatAlignLeftIcon />
+                        </IconButton>
+                        <IconButton color={colorForHorizontalAlign("center")} onClick={initHandleHorizontalAlign("center")}>
+                            <FormatAlignCenterIcon />
+                        </IconButton>
+                        <IconButton color={colorForHorizontalAlign("end")} onClick={initHandleHorizontalAlign("end")}>
+                            <FormatAlignRightIcon />
+                        </IconButton>
+                    </ButtonGroup>
+                </Stack>
             </div>
-        </Stack>
+        </div>
     );
 
     const handleCloseConfirmationDialog = (event: MouseEvent) => {
@@ -522,42 +529,42 @@ const StickyControlPane = ({ memoViewModel }: StickyControlPaneProps) => {
 
     return (
         <>
-            <Stack direction="column" justifyContent="flex-start" sx={{ marginTop: "10px" }}
+            <Stack direction="row" alignItems="flex-start" justifyContent="flex-end" sx={{ marginTop: "10px" }}
                 onClick={handlePreventMouseEvent} onMouseDown={handlePreventMouseEvent}>
-                <Stack direction="row" justifyContent="flex-end">
-                    <div style={controlStyle}>
-                        <ColorSelector key={`memo-color-selector_${memoViewModel.memoId}`}
-                            color={memoViewModel.backgroundColor} callback={handleSetColor} />
-                        <FormControl size="small">
-                            <Select value={memoViewModel.fontSize} label="size" defaultValue={9}
-                                onChange={handleChangeFontSize}>
-                                {FONT_SIZES.map(fontSize => <MenuItem
-                                    key={`select-fontsize_${memoViewModel.memoId}_${fontSize}`}
-                                    value={fontSize}>
-                                    {fontSize}
-                                </MenuItem>)}
-                            </Select>
-                        </FormControl>
+                <div style={controlStyle}>
+                    <ColorSelector key={`memo-color-selector_${memoViewModel.memoId}`}
+                        color={memoViewModel.backgroundColor} callback={handleSetColor} />
+                    <FormControl size="small">
+                        <Select value={memoViewModel.fontSize} defaultValue={9}
+                            onChange={handleChangeFontSize}>
+                            {FONT_SIZES.map(fontSize => <MenuItem
+                                key={`select-fontsize_${memoViewModel.memoId}_${fontSize}`}
+                                value={fontSize}>
+                                {fontSize}
+                            </MenuItem>)}
+                        </Select>
+                    </FormControl>
+                    <div style={{ position: "relative", display: "inline-block" }}>
                         <Tooltip title="Set align" placement="top-end">
                             <ToggleButton size="small" selected={showAlignPanel} value="check"
                                 onChange={() => setShowAlignPanel(!showAlignPanel)}>
                                 <FormatAlignJustifyIcon />
                             </ToggleButton>
                         </Tooltip>
-                        <Tooltip title="To back" placement="top-end">
-                            <IconButton onClick={handleBackPosition}><FlipToBackIcon /></IconButton>
-                        </Tooltip>
-                        <Tooltip title="To front" placement="top-end">
-                            <IconButton onClick={handleFrontPosition}><FlipToFrontIcon /></IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete" placement="top-end">
-                            <IconButton onMouseDown={() => setOpenDeleteDialog(true)}>
-                                <DeleteIcon />
-                            </IconButton>
-                        </Tooltip>
+                        {alignPanel}
                     </div>
-                </Stack>
-                {alignPanel}
+                    <Tooltip title="To back" placement="top-end">
+                        <IconButton onClick={handleBackPosition}><FlipToBackIcon /></IconButton>
+                    </Tooltip>
+                    <Tooltip title="To front" placement="top-end">
+                        <IconButton onClick={handleFrontPosition}><FlipToFrontIcon /></IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete" placement="top-end">
+                        <IconButton onMouseDown={() => setOpenDeleteDialog(true)}>
+                            <DeleteIcon />
+                        </IconButton>
+                    </Tooltip>
+                </div>
             </Stack>
             {deleteDialog}
         </>
