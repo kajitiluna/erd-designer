@@ -430,8 +430,8 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
                 onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}
                 sx={{
                     position: "absolute",
-                    left: clickedPosition.x + 15 + DRAWABLE_AREA.width / 2,
-                    top: clickedPosition.y - 45 + DRAWABLE_AREA.height / 2,
+                    left: clickedPosition.x * displayScale + 15 + DRAWABLE_AREA.width / 2,
+                    top: clickedPosition.y * displayScale - 45 + DRAWABLE_AREA.height / 2,
                     backgroundColor: "#FFFFFF"
                 }}>
                 <Tooltip title="Edit relation" placement="top-end">
