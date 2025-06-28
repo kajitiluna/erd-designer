@@ -458,7 +458,7 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
                     anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
                     transformOrigin={{ vertical: 'top', horizontal: 'center' }}
                     onClose={() => setLineEditElement(null)}>
-                    <Stack direction="row" alignItems="center">{...widthButtons}</Stack>
+                    <Stack direction="row" alignItems="center">{widthButtons}</Stack>
                 </Popover>
             );
         })();
