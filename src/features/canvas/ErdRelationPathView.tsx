@@ -20,6 +20,8 @@ import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocu
 import DisplayScaleContext from "~/context/DisplayScaleContext";
 import ErdDocument from "~/models/ErdDocument";
 import styleClasses from "./ErdCanvas.module.css";
+import ColorValue from "~/models/ColorValue";
+import ColorSelector from "~/components/ColorSelector";
 
 export type ErdRelationTooltipRef = {
     svgElements: () => JSX.Element[]
@@ -423,6 +425,11 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         const childMarker = toMarkerId(relationModel.childCardinality);
         const selected = (selectState.relationId === relationView.relationId);
 
+
+        const handleSetColor = (background: ColorValue) => {
+            documentsHolder.updateRelationColor(relationView.relationId, background);
+        };
+
         const tooltip = (
             !selected || (editMode !== EditModeType.SELECT) || (dragState.status === "on_dragging")
         ) ? null : (
@@ -434,6 +441,9 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
                     top: clickedPosition.y * displayScale - 45 + DRAWABLE_AREA.height / 2,
                     backgroundColor: "#FFFFFF"
                 }}>
+                <ColorSelector key={`relation-color-selector_${relationView.relationId}`}
+                    color={relationView.lineViewModel.color}
+                    callback={handleSetColor} />
                 <Tooltip title="Edit relation" placement="top-end">
                     <IconButton onClick={event => handleOpenEditDialog(event, relationView)}>
                         <EditIcon />
@@ -450,7 +460,8 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         return {
             svgElement: (
                 <g key={`relation-line_${relationView.relationId}`}>
-                    <path d={lineSegment.drawingPath} stroke="black" fill="none"
+                    <path d={lineSegment.drawingPath} fill="none"
+                        stroke={relationView.lineViewModel.color.toHex()}
                         strokeWidth={relationView.lineViewModel.strokeWidth}
                         markerStart={parentMarker} markerEnd={childMarker}
                         className={initPathCss(relationView, selected)} />

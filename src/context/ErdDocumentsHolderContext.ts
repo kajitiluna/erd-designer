@@ -193,6 +193,16 @@ export class ErdDocumentsHolder {
     }
 
     /**
+     * リレーションの色を更新する。
+     * 
+     * @param relationId リレーションID
+     * @param updating 更新内容
+     */
+    public updateRelationColor(relationId: string, updating: ColorValue) {
+        this.doUpdateRelationEdge(relationId, previous => previous.updateColor(updating))
+    }
+
+    /**
      * リレーションの Edge を削除する。
      * 
      * @param relationId リレーションID
@@ -211,7 +221,7 @@ export class ErdDocumentsHolder {
 
             const previousLineView = previousRelation.lineViewModel;
             const nextLineView = updateFunction(previousLineView);
-            if (previousLineView === nextLineView) {
+            if (previousLineView.equals(nextLineView)) {
                 return previous;
             }
 
