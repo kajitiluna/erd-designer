@@ -219,7 +219,6 @@ describe('MemoViewModel', () => {
 
     describe('equals', () => {
         test('should return true for memos with identical properties', () => {
-            const date = new Date();
             const memo1 = MemoViewModel.create(testRectangle, testColors);
             // Create memo2 with same properties by using toObject/toJSON
             const json = memo1.toJSON();

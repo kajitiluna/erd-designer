@@ -1,4 +1,4 @@
-import { Database, databases, DatabaseType } from '../DatabaseType';
+import { Database, databases } from '../DatabaseType';
 import TableIndexSupport from '../TableIndexSupport';
 
 describe('Database', () => {
