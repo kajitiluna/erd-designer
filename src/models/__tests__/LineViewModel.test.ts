@@ -41,8 +41,9 @@ describe('LineViewModel', () => {
 
             originalEdges.push({ x: 200, y: 200 });
 
-            expect(line.edges).toHaveLength(2);
-            expect(line.edges).not.toBe(originalEdges);
+            expect(line.edges).toHaveLength(2); // Ensure immutability
+            expect(line.edges).not.toBe(originalEdges); // Ensure deep copy
+            expect(line.edges).toEqual([{ x: 0, y: 0 }, { x: 100, y: 100 }]); // Verify content
         });
     });
 
