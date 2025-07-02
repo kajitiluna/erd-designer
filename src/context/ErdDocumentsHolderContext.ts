@@ -8,7 +8,7 @@ import ColumnShareModel from "~/models/database/ColumnShareModel";
 import RelationModel from "~/models/database/RelationModel";
 import ErdDocument from "~/models/ErdDocument";
 import ErdSettingModel from "~/models/ErdSettingModel";
-import LineViewModel from "~/models/LineViewModel";
+import LineViewModel, { OrthogonalDirection } from "~/models/LineViewModel";
 import MemoViewModel from "~/models/MemoViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
 import TableViewModel from "~/models/TableViewModel";
@@ -189,7 +189,24 @@ export class ErdDocumentsHolder {
      * @param updating 更新内容
      */
     public updateRelationEdge(relationId: string, updating: UpdateRelationEdgeArgs) {
-        this.doUpdateRelationEdge(relationId, previous => previous.updateEdge(updating))
+        this.doUpdateRelationEdge({ relationId, updateFunction: (previous => previous.updateEdge(updating)) })
+    }
+
+    /**
+     * リレーションの線分の直交線を更新する。
+     * 
+     * @param relationId リレーションID
+     * @param orthogonalLines 直交線の情報
+     */
+    public updateRelationOrthogonal(args: { relationId: string, orthogonalLines: OrthogonalDirection[] }[]) {
+        const updateArgs = args.map(({ relationId, orthogonalLines }) => (
+            {
+                relationId,
+                updateFunction: ((previous: LineViewModel) => previous.updateOrthogonalLines(orthogonalLines))
+            }
+        ));
+
+        this.doUpdateRelationEdge(...updateArgs);
     }
 
     /**
@@ -199,7 +216,7 @@ export class ErdDocumentsHolder {
      * @param updating 更新内容
      */
     public updateRelationColor(relationId: string, updating: ColorValue) {
-        this.doUpdateRelationEdge(relationId, previous => previous.updateColor(updating))
+        this.doUpdateRelationEdge({ relationId, updateFunction: (previous => previous.updateColor(updating)) })
     }
 
     /**
@@ -209,7 +226,7 @@ export class ErdDocumentsHolder {
      * @param updating 更新内容
      */
     public updateRelationWidth(relationId: string, updating: number) {
-        this.doUpdateRelationEdge(relationId, previous => previous.updateStrokeWidth(updating));
+        this.doUpdateRelationEdge({ relationId, updateFunction: (previous => previous.updateStrokeWidth(updating)) });
     }
 
     /**
@@ -219,23 +236,25 @@ export class ErdDocumentsHolder {
      * @param edgeId 削除対象の Edge
      */
     public deleteRelationEdge(relationId: string, edgeId: number) {
-        this.doUpdateRelationEdge(relationId, previous => previous.deleteEdge(edgeId));
+        this.doUpdateRelationEdge({ relationId, updateFunction: (previous => previous.deleteEdge(edgeId)) });
     }
 
-    private doUpdateRelationEdge(relationId: string, updateFunction: (previous: LineViewModel) => LineViewModel) {
+    private doUpdateRelationEdge(...args: DoUpdateRelationEdgeArgs[]) {
         const updateRelation = (previous: ErdDocument): ErdDocument => {
-            const previousRelation = previous.findRelationViewModel(relationId);
-            if (previousRelation == null) {
-                return previous;
-            }
+            return args.reduce((erdDocument, { relationId, updateFunction }) => {
+                const previousRelation = erdDocument.findRelationViewModel(relationId);
+                if (previousRelation == null) {
+                    return erdDocument;
+                }
 
-            const previousLineView = previousRelation.lineViewModel;
-            const nextLineView = updateFunction(previousLineView);
-            if (previousLineView.equals(nextLineView)) {
-                return previous;
-            }
+                const previousLineView = previousRelation.lineViewModel;
+                const nextLineView = updateFunction(previousLineView);
+                if (previousLineView.equals(nextLineView)) {
+                    return erdDocument;
+                }
 
-            return previous.updateRelationLineModel(relationId, nextLineView);
+                return erdDocument.updateRelationLineModel(relationId, nextLineView);
+            }, previous);
         };
 
         this.doUpdate(updateRelation);
@@ -275,9 +294,13 @@ export class ErdDocumentsHolder {
      * @param moving 移動距離
      * @returns 操作後のモデル
      */
-    public moveRectangle(tableIds: Set<string>, memoIds: Set<string>, moving: { x: number, y: number }) {
+    public moveRectangle(
+        tableIds: Set<string>, memoIds: Set<string>,
+        moving: { x: number, y: number },
+        nextOrthogonalObjects: { relationId: string, orthogonalLines: OrthogonalDirection[] }[]
+    ) {
         this.doUpdate(previous => previous
-            .moveTableView(tableIds, moving)
+            .moveTableView(tableIds, moving, nextOrthogonalObjects)
             .moveMemoView([...memoIds], moving)
         );
     }
@@ -337,6 +360,11 @@ type ImportDdlArgs = {
     columnModels: ColumnModel[],
     columnShareModels: ColumnShareModel[],
     relationViewModels: RelationViewModel[]
+};
+
+type DoUpdateRelationEdgeArgs = {
+    relationId: string,
+    updateFunction: (previous: LineViewModel) => LineViewModel
 };
 
 export const ErdDocumentsHolderContext = React.createContext<ErdDocumentsHolder>({} as ErdDocumentsHolder);

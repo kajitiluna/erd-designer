@@ -11,7 +11,7 @@ import ErdRelationPathView, { ErdRelationTooltipRef } from "~/features/canvas/Er
 import ErdTableView, { ERD_TABLE_VIEW_CLASS_NAME } from "~/features/canvas/ErdTableView";
 import {
     CANVAS_AREA, CARDINALITY_MARKER, DRAWABLE_AREA,
-    getLogicalMousePosition, withMultiSelectKey
+    getLogicalMousePosition, toNextOrthogonalLines, withMultiSelectKey
 } from "~/features/canvas/support";
 import RelationEditView from "~/features/editor/RelationEditView";
 import TableEditView from "~/features/editor/TableEditView";
@@ -219,12 +219,35 @@ const ErdCanvas = () => {
                 return;
             }
 
-            documentsHolder.moveRectangle(selectState.tableIds, selectState.memoIds, offset);
+            const relationViews = erdDocument
+                .fetchRelationsByTableIds(Array.from(selectState.tableIds))
+                .filter(relationView => relationView.lineViewModel.lineType === "orthogonal");
+            const nextArgs = toNextOrthogonalLines({
+                relationViews, tableRectangles: rectangleArea.tableRectangles, selectState, dragState
+            });
+
+            documentsHolder.moveRectangle(selectState.tableIds, selectState.memoIds, offset, nextArgs);
             return;
         }
 
         if (selectState.relationId && (selectState.edgeId != null)) {
             if (!selectState.edgeType) {
+                return;
+            }
+
+            const relationView = erdDocument.findRelationViewModel(selectState.relationId);
+            if (relationView == null) {
+                return;
+            }
+            if (relationView.lineViewModel.lineType === "orthogonal") {
+                const nextArgs = toNextOrthogonalLines({
+                    relationViews: [relationView],
+                    tableRectangles: rectangleArea.tableRectangles,
+                    selectState,
+                    dragState
+                });
+
+                documentsHolder.updateRelationOrthogonal(nextArgs);
                 return;
             }
 

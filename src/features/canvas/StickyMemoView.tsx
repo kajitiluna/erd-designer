@@ -1,7 +1,7 @@
 import React, { MouseEvent, useEffect, useState } from "react";
 import {
     Box, Button, ButtonGroup, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
-    FormControl, IconButton, MenuItem, Select, SelectChangeEvent, Stack, ToggleButton, Tooltip
+    Divider, FormControl, IconButton, MenuItem, Select, SelectChangeEvent, Stack, ToggleButton, Tooltip
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import FormatAlignJustifyIcon from "@mui/icons-material/FormatAlignJustify";
@@ -484,6 +484,7 @@ const StickyControlPane = ({ memoViewModel }: StickyControlPaneProps) => {
                         </IconButton>
                     </ButtonGroup>
                 </Stack>
+                <Divider />
                 <Stack direction="row">
                     <ButtonGroup variant="outlined">
                         <IconButton color={colorForHorizontalAlign("start")} onClick={initHandleHorizontalAlign("start")}>
