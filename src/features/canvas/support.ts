@@ -427,6 +427,6 @@ export const toNextOrthogonalLines = (
         return {
             relationId: relationView.relationId,
             orthogonalLines: nextOrthogonalLines
-        }
+        };
     }).filter(item => (item != null));
 };

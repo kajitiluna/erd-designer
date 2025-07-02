@@ -834,7 +834,7 @@ const calculateRectangleEdge = (rectangle: RectangleViewModel, dualPoint: Point)
     // x 座標が同一の場合 (直線の傾きがx軸に垂直になる場合は特別な演算を行う)
     if (center.x === dualPoint.x) {
         if (center.y === dualPoint.y) {
-            return { edge: center, location: "center" };
+            return { edge: center, position: "center" };
         }
 
         const edge = { x: center.x, y: ((center.y > dualPoint.y) ? rectangle.top : rectangle.bottom) };
