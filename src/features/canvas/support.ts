@@ -212,8 +212,8 @@ export const toDraggedOrthogonalPoints = ({
                             const endX = (point.x < draggingChildTable.left)
                                 ? draggingChildTable.left : draggingChildTable.right;
                             return [
-                                { x: endX, y: draggingChildTable.center.y },
-                                { x: point.x, y: draggingChildTable.center.y }
+                                { x: point.x, y: draggingChildTable.center.y },
+                                { x: endX, y: draggingChildTable.center.y }
                             ];
                         }
 
