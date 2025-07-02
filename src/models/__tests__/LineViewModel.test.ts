@@ -240,6 +240,7 @@ describe('LineViewModel', () => {
             expect(json).toEqual({
                 strokeWidth: 3,
                 edges: edges,
+                orthogonalLines: [],
                 color: color.toJSON()
             });
         });
