@@ -14,7 +14,7 @@ import TableModel, { ColumnModelType } from '~/models/database/TableModel';
 import DatabaseSettingModel from '~/models/DatabaseSettingModel';
 import ErdSettingModel from '~/models/ErdSettingModel';
 import { PropertyNotExistsError } from '~/models/exceptions';
-import LineViewModel from '~/models/LineViewModel';
+import LineViewModel, { OrthogonalDirection } from '~/models/LineViewModel';
 import MemoViewModel from '~/models/MemoViewModel';
 import MemoViewModelStorage from '~/models/MemoViewModelStorage';
 import RelationViewModel from '~/models/RelationViewModel';
@@ -161,6 +161,14 @@ export default class ErdDocument {
 
     public findRelationViewModel(relationId: string): RelationViewModel | null {
         return this.relationViewModelStorage.findByRelationId(relationId);
+    }
+
+    public fetchRelationsByTableIds(tableIds: string[]): RelationViewModel[] {
+        if (tableIds.length === 0) {
+            return [];
+        }
+
+        return this.relationViewModelStorage.fetchRelationsByTableIds(tableIds);
     }
 
     public getRelationViewModels(): RelationViewModel[] {
@@ -1010,7 +1018,10 @@ export default class ErdDocument {
      * @param moving 移動距離
      * @returns 操作後のモデル
      */
-    public moveTableView(tableIds: Set<string>, moving: { x: number, y: number }): ErdDocument {
+    public moveTableView(
+        tableIds: Set<string>, moving: { x: number, y: number },
+        nextOrthogonalObjects: { relationId: string, orthogonalLines: OrthogonalDirection[] }[]
+    ): ErdDocument {
         if (tableIds.size === 0) {
             return this;
         }
@@ -1023,7 +1034,21 @@ export default class ErdDocument {
             }
         });
 
-        const nextRelationViewStorage = this.relationViewModelStorage.moveRelation(tableIds, moving);
+        const nextRelationViewStorage = nextOrthogonalObjects
+            .reduce((previousStorage, { relationId, orthogonalLines }) => {
+                const previousRelation = previousStorage.findByRelationId(relationId);
+                if (previousRelation == null) {
+                    return previousStorage;
+                }
+
+                const previousLineView = previousRelation.lineViewModel;
+                const nextLineView = previousLineView.updateOrthogonalLines(orthogonalLines);
+                if (previousLineView.equals(nextLineView)) {
+                    return previousStorage;
+                }
+
+                return previousStorage.updateLineViewModel(relationId, nextLineView);
+            }, this.relationViewModelStorage.moveRelation(tableIds, moving));
 
         return this.doUpdateTableRectangle([...tableIds], doMoveTableView, nextRelationViewStorage);
     }

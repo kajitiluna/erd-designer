@@ -75,6 +75,22 @@ export default class RelationViewModelStorage {
         return models ? models : [];
     }
 
+    public fetchRelationsByTableIds(tableIds: string[]): RelationViewModel[] {
+        const parentModelIds = tableIds
+            .flatMap(tableId => this.parentTableModelIdMap.get(tableId) || [])
+            .map(model => model.relationId);
+        const childModelIds = tableIds
+            .flatMap(tableId => this.childTableModelIdMap.get(tableId) || [])
+            .map(model => model.relationId);
+
+        const allRelationIds = new Set([...parentModelIds, ...childModelIds]);
+        if (allRelationIds.size === 0) {
+            return [];
+        }
+
+        return [...allRelationIds].flatMap(relationId => this.relationIdMap.get(relationId) || []);
+    }
+
     public inChildRelation(tableModelId: string, columnModelId: string): boolean {
         return this.childColumnModelIdMap.has(`${tableModelId}:${columnModelId}`);
     }
