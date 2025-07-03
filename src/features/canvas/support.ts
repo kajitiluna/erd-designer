@@ -368,7 +368,7 @@ export const toDraggedOrthogonalPoints = ({
             const direction = (point.x === nextPoint.x) ? "vertical" : "horizontal";
             const delta = (direction === "vertical") ? nextPoint.y - point.y : nextPoint.x - point.x;
             // 前後の線分と同じ位置にある場合は無視するので、isReducedLine を true にする
-            if (Math.abs(delta) < 15) {
+            if (Math.abs(delta) < ORTHOGONAL_THRESHOLD) {
                 isReducedLine = true;
             }
 
@@ -385,6 +385,8 @@ type ToNextOrthogonalLinesArgs = {
     selectState: SelectState,
     dragState: DragState
 };
+
+export const ORTHOGONAL_THRESHOLD = 15; // 線分の前後の位置が同じ場合に無視する距離
 
 export const toNextOrthogonalLines = (
     { relationViews, tableRectangles, selectState, dragState }: ToNextOrthogonalLinesArgs
@@ -413,7 +415,7 @@ export const toNextOrthogonalLines = (
                 if ((index > 0) && (index < draggedPairs.length - 1)) {
                     const delta = (direction === "vertical") ? pair[1].y - pair[0].y : pair[1].x - pair[0].x;
                     // 前後の線分と同じ位置にある場合は、無視する
-                    if (Math.abs(delta) < 15) {
+                    if (Math.abs(delta) < ORTHOGONAL_THRESHOLD) {
                         return null;
                     }
                 }
