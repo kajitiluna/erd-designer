@@ -437,7 +437,7 @@ const loadCreateTableDdl = (query: Create): ([TableBaseDefinition, null] | [null
     let comment = "";
     if (("table_options" in query) && (query.table_options != null) && Array.isArray(query.table_options)) {
         const commentOption = query.table_options
-            .find(option => ("keyword" in query) && (option.keyword === "comment") && ("value" in option));
+            .find(option => ("keyword" in option) && (option.keyword === "comment") && ("value" in option));
         if (commentOption != null) {
             comment = commentOption.value || "";
             if (comment.startsWith("'") && (comment.endsWith("'")) && (comment.length > 1)) {
