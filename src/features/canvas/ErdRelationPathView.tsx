@@ -7,8 +7,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 
 import {
-    DRAWABLE_AREA, getLogicalMousePosition, handlePreventMouseEvent, toDraggedOrthogonalPoints,
-    toMarkerId, toOrthogonalPoints
+    DRAWABLE_AREA, getLogicalMousePosition, handlePreventMouseEvent, ORTHOGONAL_THRESHOLD,
+    toDraggedOrthogonalPoints, toMarkerId, toOrthogonalPoints
 } from "~/features/canvas/support";
 import RelationModel from "~/models/database/RelationModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
@@ -679,6 +679,11 @@ const initOrthogonalLine = (
     // 親->子 の方向が 横->縦->横 の場合
     if (((parentPosition === "left") || (parentPosition === "right"))
         && ((childPosition === "left") || (childPosition === "right"))) {
+
+        if (Math.abs(parentCenter.y - childCenter.y) < ORTHOGONAL_THRESHOLD) {
+            return [{ direction: "horizontal", position: parentCenter.y }];
+        }
+
         return [
             { direction: "horizontal", position: parentCenter.y },
             { direction: "vertical", position: (parentEdge.x + childEdge.x) / 2 },
@@ -689,6 +694,11 @@ const initOrthogonalLine = (
     // 親->子 の方向が 縦->横->縦 の場合
     if (((parentPosition === "top") || (parentPosition === "bottom"))
         && ((childPosition === "top") || (childPosition === "bottom"))) {
+
+        if (Math.abs(parentCenter.x - childCenter.x) < ORTHOGONAL_THRESHOLD) {
+            return [{ direction: "vertical", position: parentCenter.x }];
+        }
+
         return [
             { direction: "vertical", position: parentCenter.x },
             { direction: "horizontal", position: (parentEdge.y + childEdge.y) / 2 },
