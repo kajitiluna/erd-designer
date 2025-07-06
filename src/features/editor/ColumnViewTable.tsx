@@ -201,22 +201,24 @@ const ColumnViewTable = ({
     };
 
     return (
-        <TableContainer>
-            <Table stickyHeader size="small" aria-label="column view table" style={{ tableLayout: "fixed" }}>
-                {tableHeader}
-                <TableBody>
-                    {(columnWrapModels.length > 0)
-                        ? columnWrapModels.map((columnWrapModel: ColumnWrapModel, index: number) =>
-                            initColumnModelRow(columnWrapModel, index))
-                        : (
-                            <TableRow>
-                                <TableCell colSpan={8} align="center" sx={{ p: 2 }}>
-                                    (No columns)
-                                </TableCell>
-                            </TableRow>
-                        )}
-                </TableBody>
-            </Table>
+        <>
+            <TableContainer sx={{ maxHeight: 475 }}>
+                <Table stickyHeader size="small" aria-label="column view table" style={{ tableLayout: "fixed" }}>
+                    {tableHeader}
+                    <TableBody>
+                        {(columnWrapModels.length > 0)
+                            ? columnWrapModels.map((columnWrapModel: ColumnWrapModel, index: number) =>
+                                initColumnModelRow(columnWrapModel, index))
+                            : (
+                                <TableRow>
+                                    <TableCell colSpan={8} align="center" sx={{ p: 2 }}>
+                                        (No columns)
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                    </TableBody>
+                </Table>
+            </TableContainer>
             <Box sx={{ margin: 1, marginLeft: 1, marginBottom: 0.5 }}>
                 <Stack direction="row" spacing={5} justifyContent="flex-start" alignItems="center">
                     <EdgedIconButton tooltip="Add column" withText onClick={handleAddColumn}>
@@ -237,14 +239,14 @@ const ColumnViewTable = ({
                     onUpdateWrapColumnModels={onUpdateColumnWrapModels}
                     onClose={() => setEditingColumnModel(null)} />
             )}
-            {(editingColumnGroupIndex != null && (
+            {(editingColumnGroupIndex != null) && (
                 <ColumnGroupView
                     isOpen={editingColumnGroupIndex !== null}
                     viewMode="select"
                     onSelect={handleUpdateColumnGroup}
                     onClose={() => setEditingColumnGroupIndex(null)} />
-            ))}
-        </TableContainer>
+            )}
+        </>
     );
 };
 

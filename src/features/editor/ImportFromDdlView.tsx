@@ -1,9 +1,10 @@
 import React from "react";
 import {
-    Alert,
-    Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
-    Divider, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField
+    Alert, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
+    Divider, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField,
+    Typography
 } from "@mui/material";
+import Grid from '@mui/material/Grid2';
 
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ErdDocument from "~/models/ErdDocument";
@@ -24,6 +25,7 @@ const ImportFromDdlView = ({ isOpen, onClose }: ImportFromDdlViewProps) => {
     const { localSetting } = React.useContext(LocalSettingContext);
 
     const [ddl, setDdl] = React.useState<string>("");
+    const [commentSeparator, setCommentSeparator] = React.useState<string>("");
     const [loadResult, setLoadResult] = React.useState<DdlLoadResult | null>(null);
 
     const handleCheckingDdl = (event: React.MouseEvent) => {
@@ -33,7 +35,7 @@ const ImportFromDdlView = ({ isOpen, onClose }: ImportFromDdlViewProps) => {
             return;
         }
 
-        const ddlLoadResult: DdlLoadResult = loadDdl(erdDocument, ddl);
+        const ddlLoadResult: DdlLoadResult = loadDdl(erdDocument, ddl, commentSeparator);
         setLoadResult(ddlLoadResult);
     };
 
@@ -47,6 +49,23 @@ const ImportFromDdlView = ({ isOpen, onClose }: ImportFromDdlViewProps) => {
                         <DialogContentText>Input DDL to import tables, columns and relations.</DialogContentText>
                         <TextField label="DDL" variant="outlined" fullWidth multiline rows="10"
                             value={ddl} onChange={event => setDdl(event.target.value)} />
+                        <Grid container spacing={1} alignItems="center" sx={{ paddingLeft: 1 }}>
+                            <Grid size={{ xs: 9 }}>
+                                <Typography variant="subtitle2">
+                                    If the string specified as the Comment Separator is found in a comment,
+                                    the comment will be split at the first occurrence.
+                                    The part before the separator is assigned to the logical name,
+                                    and the part after is assigned to the description.
+                                </Typography>
+                            </Grid>
+                            <Grid size={{ xs: 2 }} sx={{ textAlign: "right" }}>
+                                <Typography variant="body2">Comment separator :</Typography>
+                            </Grid>
+                            <Grid size={{ xs: 1 }}>
+                                <TextField variant="outlined" size="small" fullWidth
+                                    value={commentSeparator} onChange={event => setCommentSeparator(event.target.value)} />
+                            </Grid>
+                        </Grid>
                     </Stack>
                 </DialogContent>
                 <DialogActions>
@@ -101,7 +120,7 @@ const ImportFromDdlView = ({ isOpen, onClose }: ImportFromDdlViewProps) => {
             return;
         }
 
-        const { tableModels, columnModels, columnShareModels, relationModels } = importDdl(loadResult);
+        const { tableModels, columnModels, columnShareModels, relationModels } = importDdl(loadResult, commentSeparator);
 
         const arrangeCount = Math.ceil(Math.sqrt(tableModels.length));
         const tableViewModels = tableModels.map((tableModel, index) => {

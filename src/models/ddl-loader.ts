@@ -17,8 +17,8 @@ import TableModel, { ColumnModelType } from '~/models/database/TableModel';
 import RelationPair from '~/models/database/RelationPair';
 import RelationModel from '~/models/database/RelationModel';
 
-export const loadDdl = (erdDocument: ErdDocument, ddl: string): DdlLoadResult => {
-    const ddlLoader = new DdlLoader(erdDocument);
+export const loadDdl = (erdDocument: ErdDocument, ddl: string, separator: string = ""): DdlLoadResult => {
+    const ddlLoader = new DdlLoader(erdDocument, separator);
     return ddlLoader.load(ddl);
 };
 
@@ -35,17 +35,17 @@ const dispatchInitParser: { [key in DatabaseType]: () => Parser } = {
 
 class DdlLoader {
 
-    private parser: Parser;
-    private existedTableNames: Set<string>;
-    private parseOption;
-    private resolver: ColumnTypeResolver;
+    private readonly parser: Parser;
+    private readonly existedTableNames: Set<string>;
+    private readonly parseOption;
+    private readonly resolver: ColumnTypeResolver;
 
     private tableNames: string[];
     private tableBaseDefinitions: Map<string, TableBaseDefinition>;
     private relationDefinitions: DdlRelationDefinition[];
     private summaries: DdlLoadSummary[];
 
-    constructor(erdDocument: ErdDocument) {
+    constructor(erdDocument: ErdDocument, separator: string = "") {
         const databaseType = erdDocument.databaseSettingModel.databaseType;
 
         this.parser = dispatchInitParser[databaseType]();
@@ -54,7 +54,7 @@ class DdlLoader {
         this.parseOption = {
             database: (databaseType === "mysql") ? "MySQL" : "PostgreSQL",
         };
-        this.resolver = new ColumnTypeResolver(databaseType, erdDocument.getColumnShareModelStorage());
+        this.resolver = new ColumnTypeResolver(databaseType, erdDocument.getColumnShareModelStorage(), separator);
 
         this.tableNames = [];
         this.tableBaseDefinitions = new Map<string, TableBaseDefinition>();
@@ -1088,12 +1088,14 @@ type Comment = {
 
 class ColumnTypeResolver {
 
-    private databaseType: DatabaseType;
-    private columnNameToColumnShare: Map<string, ColumnShareModel[]>;
+    private readonly databaseType: DatabaseType;
+    private readonly columnNameToColumnShare: Map<string, ColumnShareModel[]>;
+    private readonly separator: string;
 
-    constructor(databaseType: DatabaseType, columnModelShareStorage: ColumnShareModelStorage) {
+    constructor(databaseType: DatabaseType, columnModelShareStorage: ColumnShareModelStorage, separator: string) {
         this.databaseType = databaseType;
         this.columnNameToColumnShare = ColumnTypeResolver.initMapping(columnModelShareStorage);
+        this.separator = separator;
     }
 
     private static initMapping(columnModelShareStorage: ColumnShareModelStorage) {
@@ -1113,7 +1115,8 @@ class ColumnTypeResolver {
 
     public resolve(columnDefinition: ColumnBaseDefinition): ColumnShareModel | null {
         const physicalColumnName = columnDefinition.columnName;
-        const logicalColumnName = (columnDefinition.comment !== "") ? columnDefinition.comment : physicalColumnName;
+        const [logicalName, description] = parseComment(columnDefinition.comment, this.separator);
+        const logicalColumnName = (logicalName !== "") ? logicalName : physicalColumnName;
 
         const columnTypeParam = ((columnDefinition.precision != null) && (columnDefinition.scale != null))
             ? ` (${columnDefinition.precision}, ${columnDefinition.scale})`
@@ -1128,6 +1131,10 @@ class ColumnTypeResolver {
             if (target.logicalName !== logicalColumnName) {
                 continue;
             }
+            if (target.description !== description) {
+                continue;
+            }
+
             const specifiedColumnType = target.specifiedColumnType().toUpperCase();
             if (specifiedColumnType !== columnType) {
                 continue;
@@ -1168,6 +1175,7 @@ class ColumnTypeResolver {
             precision: columnDefinition.precision?.toString() || "",
             scale: columnDefinition.scale?.toString() || "",
             unsigned: columnDefinition.unsigned,
+            description: description,
         });
 
         columnShareModels.push(columnShareModel);
@@ -1177,10 +1185,26 @@ class ColumnTypeResolver {
     }
 }
 
-export const importDdl = (loadResult: DdlLoadResult) => {
+const parseComment = (comment: string, separator: string): [string, string] => {
+    if ((separator === "") || (comment === "")) {
+        return [comment, ""];
+    }
+
+    const indexOfSeparator = comment.indexOf(separator);
+    if (indexOfSeparator <= 0) {
+        return [comment, ""];
+    }
+
+    return [
+        comment.substring(0, indexOfSeparator).trim(),
+        comment.substring(indexOfSeparator + separator.length).trim()
+    ];
+}
+
+export const importDdl = (loadResult: DdlLoadResult, separator: string = "") => {
     const { tableDefinitions, relationDefinitions } = loadResult;
 
-    const { tableModels, columnShareModels, nameToColumnModels } = doInitTableModels(tableDefinitions);
+    const { tableModels, columnShareModels, nameToColumnModels } = doInitTableModels(tableDefinitions, separator);
 
     const nameToTableModelIds = new Map<string, string>(
         tableModels.map(tableModel => [tableModel.physicalName, tableModel.tableModelId])
@@ -1217,12 +1241,14 @@ export const importDdl = (loadResult: DdlLoadResult) => {
     return { tableModels, columnModels, columnShareModels, relationModels };
 };
 
-const doInitTableModels = (tableDefinitions: DdlTableDefinition[]) => {
+const doInitTableModels = (tableDefinitions: DdlTableDefinition[], separator: string) => {
     const columnShareModels: ColumnShareModel[] = [];
     const nameToColumnModels = new Map<string, ColumnModel>();
 
     const tableModels = tableDefinitions.map(tableDefinition => {
         const physicalTableName = tableDefinition.tableName;
+        const [logicalName, description] = parseComment(tableDefinition.comment, separator);
+        const logicalTableName = (logicalName !== "") ? logicalName : physicalTableName;
 
         const columnModelTypes = tableDefinition.columnDefinitions.map(columnDefinition => {
             const columnShareModel = columnDefinition.columnShareModel;
@@ -1268,9 +1294,10 @@ const doInitTableModels = (tableDefinitions: DdlTableDefinition[]) => {
         return new TableModel({
             tableModelId: uuidV4(),
             physicalName: physicalTableName,
-            logicalName: (tableDefinition.comment !== "") ? tableDefinition.comment : physicalTableName,
+            logicalName: logicalTableName,
             columns: columnModelTypes,
             tableIndexModels: tableIndexModels,
+            description: description,
         });
     });
 
