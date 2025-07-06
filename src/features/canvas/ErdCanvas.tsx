@@ -337,17 +337,7 @@ const ErdCanvas = () => {
         return initEffectOfKeyDownOnCanvas(handlers);
     }, [editAction.editType, selectState, dispatchSelectAction, dispatchEditMode, documentsHolder]);
 
-    const canvasStyle: React.CSSProperties = {
-        position: "absolute", top: 0, left: 0, // right: 0, bottom: 0,
-        width: DRAWABLE_AREA.width, height: DRAWABLE_AREA.height,
-        overflow: "auto", display: "flex", flexDirection: "column", alignItems: "center",
-        // overscrollBehavior: "none", scrollbarWidth: "none", msOverflowStyle: "none",
-        backgroundColor: "white", backgroundImage: linerGradient([0, 90]),
-        backgroundSize: `${25 * displayScale}px ${25 * displayScale}px`,
-        backgroundPosition: `0 0, ${25 * displayScale}px ${25 * displayScale}px`,
-        backgroundAttachment: "local",
-        transform: `scale(${displayScale})`, transformOrigin: "center center"
-    };
+    const canvasStyle = initCanvasStyle(displayScale);
     const svgStyle: React.CSSProperties = {
         position: "absolute", top: 0, left: 0,
         width: `${DRAWABLE_AREA.width}px`,
@@ -394,6 +384,27 @@ const ErdCanvas = () => {
             )}
         </DragActionContext.Provider>
     );
+};
+
+const initCanvasStyle = (displayScale: number): React.CSSProperties => {
+    const baseCanvasStyle: React.CSSProperties = {
+        position: "absolute", top: 0, left: 0, // right: 0, bottom: 0,
+        width: DRAWABLE_AREA.width, height: DRAWABLE_AREA.height,
+        overflow: "auto", display: "flex", flexDirection: "column", alignItems: "center",
+        // overscrollBehavior: "none", scrollbarWidth: "none", msOverflowStyle: "none",
+        backgroundColor: "white", backgroundAttachment: "local",
+        transform: `scale(${displayScale})`, transformOrigin: "center center"
+    };
+
+    const gridStyle: React.CSSProperties = (displayScale >= 0.5) ? {
+        backgroundImage: linerGradient([0, 90]),
+        backgroundSize: `${25 * displayScale}px ${25 * displayScale}px`,
+        backgroundPosition: `0 0, ${25 * displayScale}px ${25 * displayScale}px`
+    } : {};
+
+    return {
+        ...baseCanvasStyle, ...gridStyle,
+    };
 };
 
 type CreateRelationLineArgs = {
