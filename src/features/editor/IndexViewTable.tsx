@@ -262,7 +262,6 @@ const IndexViewTable = ({
                                 {tableIndexModels.map((_, index) => (
                                     <TableCell key={index} sx={{ width: "60px" }}></TableCell>
                                 ))}
-                                <TableCell></TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
