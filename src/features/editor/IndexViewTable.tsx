@@ -1,10 +1,9 @@
 import { v4 as uuidV4 } from 'uuid';
 import React, { MouseEvent, useState } from "react";
 import {
-    Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
+    Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
     FormControl, FormControlLabel, InputLabel, MenuItem, Paper, Select, SelectChangeEvent, Stack,
-    Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField,
-    Typography
+    Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography
 } from "@mui/material";
 import Grid from '@mui/material/Grid2';
 import AddIcon from '@mui/icons-material/Add';
@@ -26,7 +25,6 @@ import { ColumnWrapModel, initHandleChangePhysicalName, initHandleEnterKeyDown }
 import ColumnShareModel from '~/models/database/ColumnShareModel';
 import { overrideColumnName } from '~/models/database/support';
 import { Database } from '~/models/database';
-
 
 type IndexViewTableProps = {
     database: Database,
@@ -50,6 +48,12 @@ const IndexViewTable = ({
     const [isOpenEditDialog, setOpenEditDialog] = useState<boolean>(false);
     const [targetIndexModel, setTargetIndexModel] = useState<TableIndexModel | null>(null);
 
+    // スクロール連動のためのref
+    const mainTableRef = React.useRef<HTMLDivElement | null>(null);
+    const footerTableRef = React.useRef<HTMLDivElement | null>(null);
+    // 無限ループを防ぐためのフラグ
+    const isScrollingRef = React.useRef<boolean>(false);
+
     const columnIdToOrders = tableIndexModels.map(indexModel =>
         new Map<string, string>(indexModel.indexColumnModels
             .filter(indexColumnModel => existedColumnModelIds.has(indexColumnModel.columnModelId))
@@ -59,7 +63,7 @@ const IndexViewTable = ({
 
     const cellStyle = { '&:nth-of-type(odd)': { backgroundColor: 'action.hover' } };
 
-    const initColumnTitleRow = (columnModel: ColumnModel, rowIndex: number) => {
+    const initColumnIndexRow = (columnModel: ColumnModel, rowIndex: number) => {
         const columnShareModel = columnShareModelStorage.find(columnModel.columnShareModelId);
         if (columnShareModel == null) {
             console.warn(`ColumnShareModel not found for columnModelId: ${columnModel.columnModelId}`);
@@ -74,17 +78,56 @@ const IndexViewTable = ({
                 <TableCell align="center" sx={cellStyle}>{columnModel.primaryKey && <PrimaryKeyIcon />}</TableCell>
                 <TableCell align="center">{inChildRelation && <ForeignKeyIcon />}</TableCell>
                 <TableCell sx={cellStyle}>{overrideName.physicalName}</TableCell>
-            </TableRow>
-        );
-    };
-
-    const indexModeRow = (rowIndex: number) => {
-        return (
-            <TableRow key={rowIndex} sx={{ height: "43px" }} style={{ cursor: 'pointer' }}>
                 {tableIndexModels.map((_, indexIndex) => initOrderCell(rowIndex, indexIndex))}
             </TableRow>
         );
     };
+
+    const widthStyle = { width: "60px", minWidth: "60px" };
+    const initOperationRow = () => (
+        <TableRow>
+            <TableCell colSpan={3} sx={{ width: "284px" }}>
+                <EdgedIconButton tooltip="Add index" withText onClick={handleAddIndex}>
+                    <AddIcon />
+                </EdgedIconButton>
+            </TableCell>
+            {tableIndexModels.map((_, indexIndex) => {
+                const baseCellStyle = getCurrentCellStyle(indexIndex);
+                const cellStyle = { ...baseCellStyle, ...widthStyle };
+
+                return (
+                    <TableCell key={`index-view-column-operation-${indexIndex}`} align="center" sx={cellStyle}>
+                        <Grid container direction="row" spacing={0.5} columnSpacing={2}>
+                            <Grid size={{ xs: 12 }}>
+                                <EdgedIconButton tooltip="Edit index" onClick={arrayOfHandleEditIndex[indexIndex]}>
+                                    <EditIcon fontSize="small" />
+                                </EdgedIconButton>
+                            </Grid>
+                            <Grid size={{ xs: 6 }}>
+                                <EdgedIconButton tooltip="Move forward"
+                                    disabled={indexIndex === 0}
+                                    onClick={initHandleShiftColumn(indexIndex, -1)}>
+                                    <ArrowBackIcon fontSize="small" />
+                                </EdgedIconButton>
+                            </Grid>
+                            <Grid size={{ xs: 6 }}>
+                                <EdgedIconButton tooltip="Move backward"
+                                    disabled={indexIndex === tableIndexModels.length - 1}
+                                    onClick={initHandleShiftColumn(indexIndex, 1)}>
+                                    <ArrowForwardIcon fontSize="small" />
+                                </EdgedIconButton>
+                            </Grid>
+                            <Grid size={{ xs: 12 }}>
+                                <EdgedIconButton tooltip="Remove index" onClick={initHandleRemoveIndex(indexIndex)}>
+                                    <DeleteIcon fontSize="small" />
+                                </EdgedIconButton>
+                            </Grid>
+                        </Grid>
+                    </TableCell>
+                );
+            })}
+        </TableRow>
+    );
 
     const arrayOfHandleSelect = tableIndexModels.map(indexModel => {
         return () => {
@@ -120,51 +163,6 @@ const IndexViewTable = ({
         );
     };
 
-    const initEditRows = () => {
-        if (tableIndexModels.length === 0) {
-            return (<></>);
-        }
-
-        return (
-            <TableRow key={columnModels.length}>
-                {tableIndexModels.map((_, indexIndex) => (
-                    <TableCell key={`edit_${indexIndex}`} align="center" sx={getCurrentCellStyle(indexIndex)}>
-                        <EdgedIconButton tooltip="Edit index" onClick={arrayOfHandleEditIndex[indexIndex]}>
-                            <EditIcon fontSize="small" />
-                        </EdgedIconButton>
-                    </TableCell>
-                ))}
-            </TableRow>
-        );
-    };
-
-    const initShiftRows = () => {
-        if (tableIndexModels.length === 0) {
-            return (<></>);
-        }
-
-        return (
-            <TableRow key={columnModels.length + 1}>
-                {tableIndexModels.map((_, indexIndex) => (
-                    <TableCell key={`move_${indexIndex}`} align="center" sx={getCurrentCellStyle(indexIndex)}>
-                        <Stack direction="row" alignItems="center" justifyContent="space-evenly" spacing={1}>
-                            <EdgedIconButton tooltip="Move forward"
-                                disabled={indexIndex === 0}
-                                onClick={initHandleShiftColumn(indexIndex, -1)}>
-                                <ArrowBackIcon fontSize="small" />
-                            </EdgedIconButton>
-                            <EdgedIconButton tooltip="Move backward"
-                                disabled={indexIndex === tableIndexModels.length - 1}
-                                onClick={initHandleShiftColumn(indexIndex, 1)}>
-                                <ArrowForwardIcon fontSize="small" />
-                            </EdgedIconButton>
-                        </Stack>
-                    </TableCell>
-                ))}
-            </TableRow>
-        );
-    };
-
     const initHandleShiftColumn = (indexIndex: number, shift: (1 | -1)) => {
         return () => {
             if ((indexIndex + shift < 0) || (indexIndex + shift >= tableIndexModels.length)) {
@@ -181,24 +179,6 @@ const IndexViewTable = ({
         }
     };
 
-    const initRemoveRows = () => {
-        if (tableIndexModels.length === 0) {
-            return (<></>);
-        }
-
-        return (
-            <TableRow key={columnModels.length + 2}>
-                {tableIndexModels.map((_, indexIndex) => (
-                    <TableCell key={`remove_${indexIndex}`} align="center" sx={getCurrentCellStyle(indexIndex)}>
-                        <EdgedIconButton tooltip="Remove index" onClick={initHandleRemoveIndex(indexIndex)}>
-                            <DeleteIcon fontSize="small" />
-                        </EdgedIconButton>
-                    </TableCell>
-                ))}
-            </TableRow>
-        );
-    };
-
     const initHandleRemoveIndex = (targetIndex: number) => {
         return () => onUpdateTableIndexModels(
             (previousModels: TableIndexModel[]) =>
@@ -211,53 +191,96 @@ const IndexViewTable = ({
         setOpenEditDialog(true);
     };
 
+    // ホイールイベントのハンドリング（横スクロール連動用）
+    const handleWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+        // 横方向のスクロールのみ処理
+        if (Math.abs(event.deltaX) <= 0) {
+            return;
+        }
+
+        if ((!mainTableRef.current) || (!footerTableRef.current)) {
+            return;
+        }
+
+        event.preventDefault();
+        isScrollingRef.current = true;
+
+        const newScrollLeft = Math.max(0, footerTableRef.current.scrollLeft + event.deltaX);
+
+        mainTableRef.current.scrollLeft = newScrollLeft;
+        footerTableRef.current.scrollLeft = newScrollLeft;
+
+        requestAnimationFrame(() => {
+            isScrollingRef.current = false;
+        });
+    };
+
+    // スクロール連動の処理
+    const initHandleScroll = (targetRef: React.RefObject<HTMLDivElement | null>) => {
+        return (event: React.UIEvent<HTMLDivElement>) => {
+            if (isScrollingRef.current) {
+                return
+            };
+
+            if (!targetRef.current) {
+                return;
+            }
+
+            const scrollLeft = event.currentTarget.scrollLeft;
+
+            isScrollingRef.current = true;
+            targetRef.current.scrollLeft = scrollLeft;
+
+            // 次のフレームでフラグをリセット
+            requestAnimationFrame(() => {
+                isScrollingRef.current = false;
+            });
+        };
+    };
+
+    const handleMainScroll = initHandleScroll(footerTableRef);
+    const handleFooterScroll = initHandleScroll(mainTableRef);
+
+    const indexTableStyle: React.CSSProperties = {
+        width: `${220 + 60 * tableIndexModels.length}px`,
+        tableLayout: "fixed",
+        userSelect: "none"
+    };
+
     return (
-        <Grid container direction="row" alignItems="flex-start">
-            <Grid size={{ xs: 3 }}>
-                <TableContainer>
-                    <Table stickyHeader size="small" aria-label="index view table" style={{ tableLayout: "fixed" }}>
+        <>
+            <div style={{ height: 509, display: 'flex', flexDirection: 'column' }}>
+                <TableContainer ref={mainTableRef}
+                    style={{ flex: 1, overflow: 'auto', overflowX: 'hidden' }}
+                    onWheel={handleWheel} onScroll={handleMainScroll}>
+                    <Table stickyHeader size="small" aria-label="index view table" style={indexTableStyle}>
                         <TableHead>
                             <TableRow>
                                 <TableCell sx={{ width: "10px" }} align="center">PK</TableCell>
                                 <TableCell sx={{ width: "10px" }} align="center">FK</TableCell>
-                                <TableCell>Physical Name</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {columnModels.map((columnModel, index) => initColumnTitleRow(columnModel, index))}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
-                <Box sx={{ p: "5px" }}>
-                    <EdgedIconButton tooltip="Add index" withText onClick={handleAddIndex}>
-                        <AddIcon />
-                    </EdgedIconButton>
-                </Box>
-            </Grid>
-            <Grid size={{ xs: 9 }}>
-                <TableContainer>
-                    <Table stickyHeader size="small" aria-label="index view table"
-                        style={{
-                            width: `${60 * tableIndexModels.length}px`,
-                            tableLayout: "fixed",
-                            userSelect: "none"
-                        }}>
-                        <TableHead>
-                            <TableRow sx={{ height: "37px" }}>
+                                <TableCell sx={{ width: "200px" }} >Physical Name</TableCell>
                                 {tableIndexModels.map((_, index) => (
                                     <TableCell key={index} sx={{ width: "60px" }}></TableCell>
                                 ))}
+                                <TableCell></TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {columnModels.map((_, index) => indexModeRow(index))}
-                            {initEditRows()}
-                            {initShiftRows()}
-                            {initRemoveRows()}
+                            {columnModels.map((columnModel, index) => initColumnIndexRow(columnModel, index))}
                         </TableBody>
                     </Table>
                 </TableContainer>
-            </Grid>
+
+                <TableContainer ref={footerTableRef}
+                    style={{ flexShrink: 0, overflow: 'hidden', overflowX: 'auto' }}
+                    onWheel={handleWheel} onScroll={handleFooterScroll}>
+                    <Table size="small" aria-label="index view table footer" style={indexTableStyle}>
+                        <TableBody>
+                            {initOperationRow()}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
+            </div>
             {isOpenEditDialog && <IndexEditDialog
                 isOpen={isOpenEditDialog}
                 database={database}
@@ -267,7 +290,7 @@ const IndexViewTable = ({
                 onUpdateTableIndexModels={onUpdateTableIndexModels}
                 onClose={() => setOpenEditDialog(false)}
             />}
-        </Grid>
+        </>
     );
 };
 
