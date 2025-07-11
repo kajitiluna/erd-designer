@@ -354,6 +354,11 @@ const ErdCanvas = () => {
                 {backMemoViews}
 
                 <svg style={svgStyle}>
+                    <rect x={CANVAS_AREA.width / 2} y={CANVAS_AREA.height / 2}
+                        width={CANVAS_AREA.width} height={CANVAS_AREA.height}
+                        fill="transparent" stroke="#878787" strokeWidth="50" />
+
+                    {/* リレーションの線の定義 */}
                     {initRelationCardinalityDefinitions()}
                     {svgPaths}
                     {activeLine}
