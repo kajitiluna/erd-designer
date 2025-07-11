@@ -1,5 +1,6 @@
 import TableModel from "~/models/database/TableModel";
 import ErdDocument from "~/models/ErdDocument";
+import TableViewModel from "~/models/TableViewModel";
 
 const createSpecification = (erdDocument: ErdDocument) => {
 
@@ -39,6 +40,11 @@ const initSheetNameMapping = (erdDocument: ErdDocument) => {
     );
 };
 
+const sortTableViews = (tableViews: TableViewModel[]) => {
+    return tableViews.sort((first, second) => 
+        first.tableModel.physicalName.localeCompare(second.tableModel.physicalName));
+}
+
 /**
  * テーブル一覧を出力するジェネレータを作成する。
  * 
@@ -46,8 +52,10 @@ const initSheetNameMapping = (erdDocument: ErdDocument) => {
  * @returns 
  */
 const initExportAllTablesGenerator = (erdDocument: ErdDocument) => function* () {
-    for (const tableView of erdDocument.getTableViewModels()) {
+    const tableViews = sortTableViews(erdDocument.getTableViewModels());
+    for (const tableView of tableViews) {
         const tableModel = tableView.tableModel;
+
         yield {
             physicalName: tableModel.physicalName,
             logicalName: tableModel.logicalName,
@@ -63,7 +71,8 @@ const initExportAllTablesGenerator = (erdDocument: ErdDocument) => function* () 
  * @returns 
  */
 const initExportAllColumnsGenerator = (erdDocument: ErdDocument) => function* () {
-    for (const tableView of erdDocument.getTableViewModels()) {
+    const tableViews = sortTableViews(erdDocument.getTableViewModels());
+    for (const tableView of tableViews) {
         const exportColumns = initExportColumnGenerator(erdDocument, tableView.tableModel)
 
         yield* exportColumns();
@@ -129,7 +138,8 @@ const initForeignRelation = (erdDocument: ErdDocument, parentRelation: ParentRel
  * @returns 
  */
 const initExportTableSpecsGenerator = (erdDocument: ErdDocument) => function* () {
-    for (const tableView of erdDocument.getTableViewModels()) {
+    const tableViews = sortTableViews(erdDocument.getTableViewModels());
+    for (const tableView of tableViews) {
         const tableModel = tableView.tableModel;
         const exportColumns = initExportColumnGenerator(erdDocument, tableModel)
         const exportTableIndexes = initExportTableIndexesGenerator(erdDocument, tableModel);
