@@ -41,7 +41,7 @@ const initSheetNameMapping = (erdDocument: ErdDocument) => {
 };
 
 const sortTableViews = (tableViews: TableViewModel[]) => {
-    return tableViews.sort((first, second) => 
+    return [...tableViews].sort((first, second) => 
         first.tableModel.physicalName.localeCompare(second.tableModel.physicalName));
 }
 

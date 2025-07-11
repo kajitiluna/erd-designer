@@ -404,7 +404,7 @@ const initCanvasStyle = (displayScale: number): React.CSSProperties => {
     const gridStyle: React.CSSProperties = (displayScale >= 0.5) ? {
         backgroundImage: linerGradient([0, 90]),
         backgroundSize: "25px 25px",
-        backgroundPosition: "0 0, 25px $25px"
+        backgroundPosition: "0 0, 25px 25px"
     } : {};
 
     return {
