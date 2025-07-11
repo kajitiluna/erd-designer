@@ -6,6 +6,7 @@ import {
 
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
+import { SELECTED_CELL_COLOR } from "~/features/editor/support";
 
 type SearchColumnShareModelDialogProps = {
     isOpen: boolean,
@@ -52,6 +53,7 @@ const SearchColumnShareModelDialog = ({ isOpen, associateColumnModel, onClose }:
     const initRow = (columnShareModel: ColumnShareModel) => {
         const rowSelected = (selectedModel != null)
             && (columnShareModel.columnShareModelId === selectedModel.columnShareModelId);
+
         const handleClickRow = () => {
             if ((selectedModel != null)
                 && (columnShareModel.columnShareModelId === selectedModel.columnShareModelId)) {
@@ -62,14 +64,16 @@ const SearchColumnShareModelDialog = ({ isOpen, associateColumnModel, onClose }:
             setSelectedModel(columnShareModel);
         };
 
-        const handleDoubleClickRow = (event: MouseEvent) => {
-            setSelectedModel(columnShareModel);
-            handleSubmit(event);
+        const handleDoubleClickRow = () => {
+            associateColumnModel(columnShareModel);
+            onClose();
         };
 
+        const rowStyle = rowSelected ? { backgroundColor: SELECTED_CELL_COLOR } : baseRowStyle;
+
         return (
-            <TableRow key={columnShareModel.columnShareModelId} style={{ cursor: 'pointer' }}
-                selected={rowSelected} onClick={handleClickRow} onDoubleClick={handleDoubleClickRow} >
+            <TableRow key={columnShareModel.columnShareModelId} sx={rowStyle} style={{ cursor: 'pointer' }}
+                onClick={handleClickRow} onDoubleClick={handleDoubleClickRow} >
                 <TableCell>{columnShareModel.physicalName}</TableCell>
                 <TableCell>{columnShareModel.logicalName}</TableCell>
                 <TableCell>{columnShareModel.specifiedColumnType()}</TableCell>
@@ -137,6 +141,8 @@ const SearchColumnShareModelDialog = ({ isOpen, associateColumnModel, onClose }:
         </Dialog>
     );
 };
+
+const baseRowStyle = { '&:nth-of-type(odd)': { backgroundColor: 'action.hover' } };
 
 type DelayActionTextFieldProp = {
     filterType: FilterType,

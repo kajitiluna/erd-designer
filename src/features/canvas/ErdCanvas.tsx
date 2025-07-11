@@ -354,6 +354,11 @@ const ErdCanvas = () => {
                 {backMemoViews}
 
                 <svg style={svgStyle}>
+                    <rect x={CANVAS_AREA.width / 2} y={CANVAS_AREA.height / 2}
+                        width={CANVAS_AREA.width} height={CANVAS_AREA.height}
+                        fill="transparent" stroke="#878787" strokeWidth="50" />
+
+                    {/* リレーションの線の定義 */}
                     {initRelationCardinalityDefinitions()}
                     {svgPaths}
                     {activeLine}
@@ -398,8 +403,8 @@ const initCanvasStyle = (displayScale: number): React.CSSProperties => {
 
     const gridStyle: React.CSSProperties = (displayScale >= 0.5) ? {
         backgroundImage: linerGradient([0, 90]),
-        backgroundSize: `${25 * displayScale}px ${25 * displayScale}px`,
-        backgroundPosition: `0 0, ${25 * displayScale}px ${25 * displayScale}px`
+        backgroundSize: "25px 25px",
+        backgroundPosition: "0 0, 25px 25px"
     } : {};
 
     return {
@@ -477,7 +482,7 @@ const doFindRectangleSelected = (selectedArea: RectangleViewModel, rectangles: M
 const NO_EDIT_ACTION: EditAction = { editType: "none" } as const
 
 const linerGradient = (degrees: number[]) =>
-    degrees.map((degree) =>
+    degrees.map(degree =>
         `linear-gradient(${degree}deg, #EFEFEF 0%, #EFEFEF 5%, rgba(255,255,255,0) 5%, rgba(255,255,255,0) 100%)`
     ).join(", ");
 
