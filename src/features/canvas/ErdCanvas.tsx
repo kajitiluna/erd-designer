@@ -398,8 +398,8 @@ const initCanvasStyle = (displayScale: number): React.CSSProperties => {
 
     const gridStyle: React.CSSProperties = (displayScale >= 0.5) ? {
         backgroundImage: linerGradient([0, 90]),
-        backgroundSize: `${25 * displayScale}px ${25 * displayScale}px`,
-        backgroundPosition: `0 0, ${25 * displayScale}px ${25 * displayScale}px`
+        backgroundSize: "25px 25px",
+        backgroundPosition: "0 0, 25px $25px"
     } : {};
 
     return {
@@ -477,7 +477,7 @@ const doFindRectangleSelected = (selectedArea: RectangleViewModel, rectangles: M
 const NO_EDIT_ACTION: EditAction = { editType: "none" } as const
 
 const linerGradient = (degrees: number[]) =>
-    degrees.map((degree) =>
+    degrees.map(degree =>
         `linear-gradient(${degree}deg, #EFEFEF 0%, #EFEFEF 5%, rgba(255,255,255,0) 5%, rgba(255,255,255,0) 100%)`
     ).join(", ");
 
