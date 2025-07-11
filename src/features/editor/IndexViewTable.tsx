@@ -249,7 +249,7 @@ const IndexViewTable = ({
 
     return (
         <>
-            <div style={{ height: 509, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ maxHeight: 509, display: 'flex', flexDirection: 'column' }}>
                 <TableContainer ref={mainTableRef}
                     style={{ flex: 1, overflow: 'auto', overflowX: 'hidden' }}
                     onWheel={handleWheel} onScroll={handleMainScroll}>
