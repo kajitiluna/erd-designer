@@ -16,7 +16,7 @@ import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import { overrideColumnName } from "~/models/database/support";
 import ColumnEditDialog from "~/features/editor/ColumnEditDialog";
-import { ColumnWrapModel } from "~/features/editor/support";
+import { ColumnWrapModel, SELECTED_CELL_COLOR } from "~/features/editor/support";
 import ColumnGroupView from "~/features/editor/ColumnGroupView";
 
 type ColumnViewTableProps = {
@@ -105,10 +105,13 @@ const ColumnViewTable = ({
             </Stack>
         );
 
+        const rowStyle = (selectedIndex === targetIndex)
+            ? { backgroundColor: SELECTED_CELL_COLOR } : baseRowStyle;
+
         return (
-            <TableRow key={`column-view-${targetIndex}`} selected={selectedIndex === targetIndex}
+            <TableRow key={`column-view-${targetIndex}`}
                 onClick={handleRowClicked} onDoubleClick={handleEditColumn}
-                sx={{ '&:nth-of-type(odd)': { backgroundColor: 'action.hover' } }} style={{ cursor: 'pointer' }}>
+                sx={rowStyle} style={{ cursor: 'pointer' }}>
                 {cells}
                 <TableCell>{buttonPanel}</TableCell>
             </TableRow>
@@ -249,5 +252,7 @@ const ColumnViewTable = ({
         </>
     );
 };
+
+const baseRowStyle = { '&:nth-of-type(odd)': { backgroundColor: 'action.hover' } };
 
 export default ColumnViewTable;

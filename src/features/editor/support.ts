@@ -3,6 +3,8 @@ import { ChangeEvent } from "react";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import ColumnModel from "~/models/database/ColumnModel";
 
+export const SELECTED_CELL_COLOR = "rgba(25, 118, 210, 0.22)";
+
 export type ColumnWrapModel = {
     modelType: "single",
     columnModel: ColumnModel

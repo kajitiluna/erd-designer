@@ -21,7 +21,7 @@ import ColumnModel from "~/models/database/ColumnModel";
 import TableIndexModel, { IndexColumnModel, NullsOrderType, SortOrderType } from "~/models/database/TableIndexModel";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import TableIndexSupport, { TableIndexOption, TableIndexType } from "~/models/database/TableIndexSupport";
-import { ColumnWrapModel, initHandleChangePhysicalName, initHandleEnterKeyDown } from "~/features/editor/support";
+import { ColumnWrapModel, initHandleChangePhysicalName, initHandleEnterKeyDown, SELECTED_CELL_COLOR } from "~/features/editor/support";
 import ColumnShareModel from '~/models/database/ColumnShareModel';
 import { overrideColumnName } from '~/models/database/support';
 import { Database } from '~/models/database';
@@ -144,7 +144,7 @@ const IndexViewTable = ({
     const getCurrentCellStyle = (indexIndex: number) => {
         const isSelected = (targetIndexModel == null) ? false
             : (tableIndexModels[indexIndex].tableIndexModelId === targetIndexModel.tableIndexModelId);
-        return isSelected ? { backgroundColor: "rgba(25, 118, 210, 0.12)" } : cellStyle;
+        return isSelected ? { backgroundColor: SELECTED_CELL_COLOR } : cellStyle;
     };
 
     const initOrderCell = (rowIndex: number, indexIndex: number) => {
