@@ -1,5 +1,5 @@
 import { v4 as uuidV4 } from 'uuid';
-import React, { MouseEvent, useState } from "react";
+import React from "react";
 import {
     Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
     FormControl, FormControlLabel, InputLabel, MenuItem, Paper, Select, SelectChangeEvent, Stack,
@@ -45,14 +45,8 @@ const IndexViewTable = ({
 
     const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
 
-    const [isOpenEditDialog, setOpenEditDialog] = useState<boolean>(false);
-    const [targetIndexModel, setTargetIndexModel] = useState<TableIndexModel | null>(null);
-
-    // スクロール連動のためのref
-    const mainTableRef = React.useRef<HTMLDivElement | null>(null);
-    const footerTableRef = React.useRef<HTMLDivElement | null>(null);
-    // 無限ループを防ぐためのフラグ
-    const isScrollingRef = React.useRef<boolean>(false);
+    const [isOpenEditDialog, setOpenEditDialog] = React.useState<boolean>(false);
+    const [targetIndexModel, setTargetIndexModel] = React.useState<TableIndexModel | null>(null);
 
     const columnIdToOrders = tableIndexModels.map(indexModel =>
         new Map<string, string>(indexModel.indexColumnModels
@@ -83,107 +77,40 @@ const IndexViewTable = ({
         );
     };
 
-    const widthStyle = { width: "60px", minWidth: "60px" };
-    const initOperationRow = () => (
-        <TableRow>
-            <TableCell colSpan={3} sx={{ width: "284px" }}>
-                <EdgedIconButton tooltip="Add index" withText onClick={handleAddIndex}>
-                    <AddIcon />
-                </EdgedIconButton>
-            </TableCell>
-            {tableIndexModels.map((_, indexIndex) => {
-                const baseCellStyle = getCurrentCellStyle(indexIndex);
-                const cellStyle = { ...baseCellStyle, ...widthStyle };
-
-                return (
-                    <TableCell key={`index-view-column-operation-${indexIndex}`} align="center" sx={cellStyle}>
-                        <Grid container direction="row" spacing={0.5} columnSpacing={2}>
-                            <Grid size={{ xs: 12 }}>
-                                <EdgedIconButton tooltip="Edit index" onClick={arrayOfHandleEditIndex[indexIndex]}>
-                                    <EditIcon fontSize="small" />
-                                </EdgedIconButton>
-                            </Grid>
-                            <Grid size={{ xs: 6 }}>
-                                <EdgedIconButton tooltip="Move forward"
-                                    disabled={indexIndex === 0}
-                                    onClick={initHandleShiftColumn(indexIndex, -1)}>
-                                    <ArrowBackIcon fontSize="small" />
-                                </EdgedIconButton>
-                            </Grid>
-                            <Grid size={{ xs: 6 }}>
-                                <EdgedIconButton tooltip="Move backward"
-                                    disabled={indexIndex === tableIndexModels.length - 1}
-                                    onClick={initHandleShiftColumn(indexIndex, 1)}>
-                                    <ArrowForwardIcon fontSize="small" />
-                                </EdgedIconButton>
-                            </Grid>
-                            <Grid size={{ xs: 12 }}>
-                                <EdgedIconButton tooltip="Remove index" onClick={initHandleRemoveIndex(indexIndex)}>
-                                    <DeleteIcon fontSize="small" />
-                                </EdgedIconButton>
-                            </Grid>
-                        </Grid>
-                    </TableCell>
-                );
-            })}
-        </TableRow>
-    );
-
-    const arrayOfHandleSelect = tableIndexModels.map(indexModel => {
-        return () => {
-            setTargetIndexModel(indexModel);
-        }
-    });
-    const arrayOfHandleEditIndex = tableIndexModels.map(indexModel => {
-        return () => {
-            setTargetIndexModel(indexModel);
-            setOpenEditDialog(true);
-        };
-    });
-
     const getCurrentCellStyle = (indexIndex: number) => {
         const isSelected = (targetIndexModel == null) ? false
             : (tableIndexModels[indexIndex].tableIndexModelId === targetIndexModel.tableIndexModelId);
+
         return isSelected ? { backgroundColor: SELECTED_CELL_COLOR } : cellStyle;
     };
 
     const initOrderCell = (rowIndex: number, indexIndex: number) => {
+        if ((indexIndex < 0) || (indexIndex >= tableIndexModels.length)) {
+            return (<></>);
+        }
+
+        const indexModel = tableIndexModels[indexIndex];
+
         const columnModelId = columnModels[rowIndex].columnModelId;
         const columnIdToOrder = columnIdToOrders[indexIndex];
         const order = columnIdToOrder.get(columnModelId);
-        const handleSelect = arrayOfHandleSelect[indexIndex];
-        const handleEditIndex = arrayOfHandleEditIndex[indexIndex];
+
+        const handleSelect = () => {
+            setTargetIndexModel(indexModel);
+        };
+
+        const handleEditIndex = () => {
+            setTargetIndexModel(indexModel);
+            setOpenEditDialog(true);
+        };
 
         return (
             <TableCell key={`column_${rowIndex}-${indexIndex}`} align="center"
-                sx={getCurrentCellStyle(indexIndex)}
+                sx={getCurrentCellStyle(indexIndex)} style={{ cursor: 'pointer' }}
                 onClick={handleSelect} onDoubleClick={handleEditIndex}>
                 {order ? order : ""}
             </TableCell>
         );
-    };
-
-    const initHandleShiftColumn = (indexIndex: number, shift: (1 | -1)) => {
-        return () => {
-            if ((indexIndex + shift < 0) || (indexIndex + shift >= tableIndexModels.length)) {
-                return;
-            }
-
-            onUpdateTableIndexModels(previous => {
-                const nextTableIndexModels = [...previous]
-                nextTableIndexModels[indexIndex] = tableIndexModels[indexIndex + shift];
-                nextTableIndexModels[indexIndex + shift] = tableIndexModels[indexIndex];
-
-                return nextTableIndexModels;
-            });
-        }
-    };
-
-    const initHandleRemoveIndex = (targetIndex: number) => {
-        return () => onUpdateTableIndexModels(
-            (previousModels: TableIndexModel[]) =>
-                previousModels.filter((_, indexIndex) => targetIndex !== indexIndex)
-        )
     };
 
     const handleAddIndex = () => {
@@ -191,55 +118,50 @@ const IndexViewTable = ({
         setOpenEditDialog(true);
     };
 
-    // ホイールイベントのハンドリング（横スクロール連動用）
-    const handleWheel = (event: React.WheelEvent<HTMLDivElement>) => {
-        // 横方向のスクロールのみ処理
-        if (Math.abs(event.deltaX) <= 0) {
-            return;
-        }
+    const selectedIndex = (targetIndexModel == null) ? -1
+        : tableIndexModels.findIndex(target => (target.tableIndexModelId === targetIndexModel.tableIndexModelId));
 
-        if ((!mainTableRef.current) || (!footerTableRef.current)) {
-            return;
-        }
-
-        event.preventDefault();
-        isScrollingRef.current = true;
-
-        const newScrollLeft = Math.max(0, footerTableRef.current.scrollLeft + event.deltaX);
-
-        mainTableRef.current.scrollLeft = newScrollLeft;
-        footerTableRef.current.scrollLeft = newScrollLeft;
-
-        requestAnimationFrame(() => {
-            isScrollingRef.current = false;
-        });
-    };
-
-    // スクロール連動の処理
-    const initHandleScroll = (targetRef: React.RefObject<HTMLDivElement | null>) => {
-        return (event: React.UIEvent<HTMLDivElement>) => {
-            if (isScrollingRef.current) {
-                return
-            };
-
-            if (!targetRef.current) {
+    const initHandleShiftColumn = (shift: (1 | -1)) => {
+        return () => {
+            if ((selectedIndex + shift < 0) || (selectedIndex + shift >= tableIndexModels.length)) {
                 return;
             }
 
-            const scrollLeft = event.currentTarget.scrollLeft;
+            onUpdateTableIndexModels(previous => {
+                const nextTableIndexModels = [...previous]
+                nextTableIndexModels[selectedIndex] = tableIndexModels[selectedIndex + shift];
+                nextTableIndexModels[selectedIndex + shift] = tableIndexModels[selectedIndex];
 
-            isScrollingRef.current = true;
-            targetRef.current.scrollLeft = scrollLeft;
-
-            // 次のフレームでフラグをリセット
-            requestAnimationFrame(() => {
-                isScrollingRef.current = false;
+                return nextTableIndexModels;
             });
         };
     };
 
-    const handleMainScroll = initHandleScroll(footerTableRef);
-    const handleFooterScroll = initHandleScroll(mainTableRef);
+    const handleRemoveIndex = () => onUpdateTableIndexModels(
+        previousModels => previousModels.filter((_, indexIndex) => (selectedIndex !== indexIndex))
+    );
+
+    const editButtonPanel = (
+        <Stack justifyContent="flex-end" direction="row" spacing={2}>
+            <EdgedIconButton tooltip="Edit index" disabled={selectedIndex < 0}
+                onClick={() => setOpenEditDialog(true)}>
+                <EditIcon fontSize="small" />
+            </EdgedIconButton>
+            <EdgedIconButton tooltip="Move forward" disabled={selectedIndex <= 0}
+                onClick={initHandleShiftColumn(-1)}>
+                <ArrowBackIcon fontSize="small" />
+            </EdgedIconButton>
+            <EdgedIconButton tooltip="Move backward"
+                disabled={(selectedIndex < 0) || (selectedIndex >= tableIndexModels.length - 1)}
+                onClick={initHandleShiftColumn(1)}>
+                <ArrowForwardIcon fontSize="small" />
+            </EdgedIconButton>
+            <EdgedIconButton tooltip="Remove index" disabled={selectedIndex < 0}
+                onClick={handleRemoveIndex}>
+                <DeleteIcon fontSize="small" />
+            </EdgedIconButton>
+        </Stack>
+    );
 
     const indexTableStyle: React.CSSProperties = {
         width: `${220 + 60 * tableIndexModels.length}px`,
@@ -249,37 +171,31 @@ const IndexViewTable = ({
 
     return (
         <>
-            <div style={{ maxHeight: 509, display: 'flex', flexDirection: 'column' }}>
-                <TableContainer ref={mainTableRef}
-                    style={{ flex: 1, overflow: 'auto', overflowX: 'hidden' }}
-                    onWheel={handleWheel} onScroll={handleMainScroll}>
-                    <Table stickyHeader size="small" aria-label="index view table" style={indexTableStyle}>
-                        <TableHead>
-                            <TableRow>
-                                <TableCell sx={{ width: "10px" }} align="center">PK</TableCell>
-                                <TableCell sx={{ width: "10px" }} align="center">FK</TableCell>
-                                <TableCell sx={{ width: "200px" }} >Physical Name</TableCell>
-                                {tableIndexModels.map((_, index) => (
-                                    <TableCell key={index} sx={{ width: "60px" }}></TableCell>
-                                ))}
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {columnModels.map((columnModel, index) => initColumnIndexRow(columnModel, index))}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
-
-                <TableContainer ref={footerTableRef}
-                    style={{ flexShrink: 0, overflow: 'hidden', overflowX: 'auto' }}
-                    onWheel={handleWheel} onScroll={handleFooterScroll}>
-                    <Table size="small" aria-label="index view table footer" style={indexTableStyle}>
-                        <TableBody>
-                            {initOperationRow()}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
-            </div>
+            <TableContainer sx={{ maxHeight: 475 }}>
+                <Table stickyHeader size="small" aria-label="index view table" style={indexTableStyle}>
+                    <TableHead>
+                        <TableRow>
+                            <TableCell sx={{ width: "10px" }} align="center">PK</TableCell>
+                            <TableCell sx={{ width: "10px" }} align="center">FK</TableCell>
+                            <TableCell sx={{ width: "200px" }} >Physical Name</TableCell>
+                            {tableIndexModels.map((_, index) => (
+                                <TableCell key={`table-index_header-${index}`} align="center" sx={{ width: "60px" }}>
+                                    {(selectedIndex === index) && "✔"}
+                                </TableCell>
+                            ))}
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {columnModels.map((columnModel, index) => initColumnIndexRow(columnModel, index))}
+                    </TableBody>
+                </Table>
+            </TableContainer>
+            <Stack direction="row" justifyContent="space-between" sx={{ margin: 1, marginBottom: 0.5 }}>
+                <EdgedIconButton tooltip="Add index" withText onClick={handleAddIndex}>
+                    <AddIcon />
+                </EdgedIconButton>
+                {editButtonPanel}
+            </Stack>
             {isOpenEditDialog && <IndexEditDialog
                 isOpen={isOpenEditDialog}
                 database={database}
@@ -313,15 +229,15 @@ const IndexEditDialog = ({
     isOpen, database, tableIndexModel, columnModels, isChildRelation, onUpdateTableIndexModels, onClose
 }: IndexEditDialogProps) => {
 
-    const [indexOption, setIndexOption] = useState<TableIndexOption>(tableIndexModel ? tableIndexModel.indexOption : "");
-    const [indexType, setIndexType] = useState<TableIndexType>(tableIndexModel ? tableIndexModel.indexType : "");
-    const [physicalName, setPhysicalName] = useState<string>(tableIndexModel ? tableIndexModel.physicalName : "");
-    const [indexedColumns, setIndexedColumns] = useState<IndexModelAttribute[]>(tableIndexModel
+    const [indexOption, setIndexOption] = React.useState<TableIndexOption>(tableIndexModel ? tableIndexModel.indexOption : "");
+    const [indexType, setIndexType] = React.useState<TableIndexType>(tableIndexModel ? tableIndexModel.indexType : "");
+    const [physicalName, setPhysicalName] = React.useState<string>(tableIndexModel ? tableIndexModel.physicalName : "");
+    const [indexedColumns, setIndexedColumns] = React.useState<IndexModelAttribute[]>(tableIndexModel
         ? tableIndexModel.indexColumnModels
             .filter(model => columnModels.some(columnModel => (columnModel.columnModelId === model.columnModelId)))
             .map(model => { return { ...model } })
         : []);
-    const [description, setDescription] = useState<string>(tableIndexModel ? tableIndexModel.description : "");
+    const [description, setDescription] = React.useState<string>(tableIndexModel ? tableIndexModel.description : "");
 
     const tableIndexSupport: TableIndexSupport = database.tableIndexSupport;
 
@@ -359,15 +275,10 @@ const IndexEditDialog = ({
         onClose();
     };
 
-    const handleClose = (event: MouseEvent) => {
-        event.stopPropagation();
-        onClose();
-    };
-
     const handleEnterDown = initHandleEnterKeyDown(handleCompleted);
 
     return (
-        <Dialog fullWidth maxWidth="lg" sx={{ userSelect: "none" }} open={isOpen} onClose={handleClose}>
+        <Dialog fullWidth maxWidth="lg" sx={{ userSelect: "none" }} open={isOpen} onClose={() => onClose()}>
             <DialogTitle>Edit table index</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>
@@ -412,7 +323,7 @@ const IndexEditDialog = ({
                 </Stack>
             </DialogContent>
             <DialogActions>
-                <Button onClick={handleClose}>Cancel</Button>
+                <Button onClick={() => onClose()}>Cancel</Button>
                 <Button variant="contained" disabled={!editValueValidated} onClick={handleCompleted}>OK</Button>
             </DialogActions>
         </Dialog>
@@ -437,8 +348,8 @@ const IndexColumnTransferPanel = ({
 }: IndexColumnTransferPanelProps) => {
     const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
 
-    const [selectedFromId, setSelectedFromId] = useState<string | null>(null);
-    const [selectedIndexedId, setSelectedIndexedId] = useState<string | null>(null);
+    const [selectedFromId, setSelectedFromId] = React.useState<string | null>(null);
+    const [selectedIndexedId, setSelectedIndexedId] = React.useState<string | null>(null);
 
     const columnModelMap: Map<string, ColumnModelDetail> = new Map(
         columnModels
@@ -463,13 +374,12 @@ const IndexColumnTransferPanel = ({
             const columnName = overrideColumnName(pair.columnModel, pair.columnShareModel);
             const inChildRelation = isChildRelation(columnModelId);
 
-            const handleSelect = (event: MouseEvent) => {
-                event.stopPropagation();
+            const handleSelect = () => {
                 setSelectedFromId((selectedFromId !== columnModelId) ? columnModelId : null);
             };
 
             return (
-                <TableRow key={columnModelId} style={{ cursor: 'pointer' }}
+                <TableRow key={`from-column-panel_index-${columnModelId}`} style={{ cursor: 'pointer' }}
                     selected={columnModelId === selectedFromId} onClick={handleSelect}>
                     <TableCell>{columnName.physicalName}</TableCell>
                     <TableCell>{pair.columnShareModel.specifiedColumnType(inChildRelation)}</TableCell>
@@ -542,8 +452,7 @@ const IndexColumnTransferPanel = ({
             const columnName = overrideColumnName(pair.columnModel, pair.columnShareModel);
             const inChildRelation = isChildRelation(columnModelId);
 
-            const handleSelect = (event: MouseEvent) => {
-                event.stopPropagation();
+            const handleSelect = () => {
                 setSelectedIndexedId((selectedIndexedId !== columnModelId) ? columnModelId : null);
             };
 
@@ -571,7 +480,7 @@ const IndexColumnTransferPanel = ({
             };
 
             return (
-                <TableRow key={columnModelId} style={{ cursor: 'pointer' }}
+                <TableRow key={`indexed-column-panel_index-${columnModelId}`} style={{ cursor: 'pointer' }}
                     selected={columnModelId === selectedIndexedId} onClick={handleSelect}>
                     <TableCell align="right" sx={{ width: 10 }}>{arrayIndex + 1}</TableCell>
                     <TableCell>{columnName.physicalName}</TableCell>
@@ -607,7 +516,7 @@ const IndexColumnTransferPanel = ({
             return () => { };
         }
 
-        return (event: MouseEvent) => {
+        return () => {
             let selectedIndex = -2;
             for (let index = 0; index < indexedColumns.length; index++) {
                 if (indexedColumns[index].columnModelId === selectedIndexedId) {
@@ -619,8 +528,6 @@ const IndexColumnTransferPanel = ({
             if ((selectedIndex + shift < 0) || (selectedIndex + shift >= indexedColumns.length)) {
                 return;
             }
-
-            event.stopPropagation();
 
             onUpdateIndexedColumns((previousColumns) => {
                 const nextIndexedColumns = [...previousColumns];
