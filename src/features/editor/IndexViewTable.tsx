@@ -171,7 +171,7 @@ const IndexViewTable = ({
 
     return (
         <>
-            <TableContainer sx={{ maxHeight: 475 }}>
+            <TableContainer sx={{ maxHeight: window.innerHeight - 550 }}>
                 <Table stickyHeader size="small" aria-label="index view table" style={indexTableStyle}>
                     <TableHead>
                         <TableRow>

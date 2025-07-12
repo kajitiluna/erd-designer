@@ -232,7 +232,7 @@ const ColumnViewTable = ({
 
     return (
         <>
-            <TableContainer sx={{ maxHeight: 475 }}>
+            <TableContainer sx={{ maxHeight: window.innerHeight - 550 }}>
                 <Table stickyHeader size="small" aria-label="column view table" style={{ tableLayout: "fixed" }}>
                     {tableHeader}
                     <TableBody>
