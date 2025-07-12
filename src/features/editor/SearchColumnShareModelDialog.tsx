@@ -74,6 +74,7 @@ const SearchColumnShareModelDialog = ({ isOpen, associateColumnModel, onClose }:
         return (
             <TableRow key={columnShareModel.columnShareModelId} sx={rowStyle} style={{ cursor: 'pointer' }}
                 onClick={handleClickRow} onDoubleClick={handleDoubleClickRow} >
+                <TableCell align="center">{rowSelected && "✔"}</TableCell>
                 <TableCell>{columnShareModel.physicalName}</TableCell>
                 <TableCell>{columnShareModel.logicalName}</TableCell>
                 <TableCell>{columnShareModel.specifiedColumnType()}</TableCell>
@@ -106,12 +107,14 @@ const SearchColumnShareModelDialog = ({ isOpen, associateColumnModel, onClose }:
                     <Table stickyHeader size="small" aria-label="column model table">
                         <TableHead>
                             <TableRow>
+                                <TableCell sx={{ width: "12px" }} align="center"></TableCell>
                                 <TableCell>Physical Name</TableCell>
                                 <TableCell>Logical Name</TableCell>
                                 <TableCell>Type</TableCell>
                                 <TableCell>Description</TableCell>
                             </TableRow>
                             <TableRow>
+                                <TableCell></TableCell>
                                 <TableCell>{initFilterField("physicalName", filterCondition, setFilterCondition)}</TableCell>
                                 <TableCell>{initFilterField("logicalName", filterCondition, setFilterCondition)}</TableCell>
                                 <TableCell>{initFilterField("type", filterCondition, setFilterCondition)}</TableCell>

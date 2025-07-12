@@ -2,7 +2,7 @@ import React from "react";
 import {
     Alert,
     Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider,
-    List, ListItemButton, ListItemText, Paper, Stack,
+    List, ListItemButton, ListItemIcon, ListItemText, Paper, Stack,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography
 } from "@mui/material";
 import Grid from '@mui/material/Grid2';
@@ -18,7 +18,7 @@ import PrimaryKeyIcon from "~/components/icons/PrimaryKeyIcon";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import { handlePreventMouseEvent } from "~/features/canvas/support";
 import ColumnGroupEditDialog from "~/features/editor/ColumnGroupEditDialog";
-import { ColumnWrapModel } from "~/features/editor/support";
+import { ColumnWrapModel, SELECTED_CELL_COLOR } from "~/features/editor/support";
 
 type ColumnGroupViewProps = {
     isOpen: boolean,
@@ -104,6 +104,24 @@ const ColumnGroupView = ({ isOpen, viewMode, onSelect = () => { }, onClose }: Co
         );
     };
 
+    const initGroupRow = (columnGroup: ColumnGroupModel) => {
+        const selected = (columnGroup.columnGroupId === selectedColumnGroup?.columnGroupId);
+        const listStyle = selected ? {
+            backgroundColor: SELECTED_CELL_COLOR,
+            '&:hover': { backgroundColor: SELECTED_CELL_COLOR }
+        } : {};
+
+        return (
+            <ListItemButton key={`column-group-${columnGroup.columnGroupId}`}
+                sx={listStyle}
+                onClick={initHandleSelectGroup(columnGroup)}
+                onDoubleClick={initHandleDoubleClickGroup(columnGroup, viewMode)}>
+                <ListItemIcon sx={{ width: "22px", minWidth: "22px" }}>{selected && "✔"}</ListItemIcon>
+                <ListItemText primary={columnGroup.groupName} />
+            </ListItemButton>
+        );
+    };
+
     const columnGroupModels = erdDocument.getColumnGroupModels();
     const columnGroupPanel = (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -111,14 +129,7 @@ const ColumnGroupView = ({ isOpen, viewMode, onSelect = () => { }, onClose }: Co
                 {(columnGroupModels.length === 0)
                     ? (<Box sx={{ p: 1, textAlign: "center" }}>(No items)</Box>)
                     : (<List component="nav">
-                        {columnGroupModels.map(columnGroup => (
-                            <ListItemButton key={`column-group-${columnGroup.columnGroupId}`}
-                                selected={columnGroup.columnGroupId === selectedColumnGroup?.columnGroupId}
-                                onClick={initHandleSelectGroup(columnGroup)}
-                                onDoubleClick={initHandleDoubleClickGroup(columnGroup, viewMode)}>
-                                <ListItemText primary={columnGroup.groupName} />
-                            </ListItemButton>
-                        ))}
+                        {columnGroupModels.map(columnGroup => initGroupRow(columnGroup))}
                     </List>)}
             </Box>
             {initGroupActionPanel(viewMode)}
@@ -165,7 +176,9 @@ const ColumnGroupView = ({ isOpen, viewMode, onSelect = () => { }, onClose }: Co
 
             return (
                 <TableRow key={`column-view-${targetIndex}`}>
-                    <TableCell align="center">{columnModel.primaryKey && <PrimaryKeyIcon />}</TableCell>
+                    <TableCell align="center" sx={{ height: "26px" }}>
+                        {columnModel.primaryKey && <PrimaryKeyIcon />}
+                    </TableCell>
                     <TableCell>{overrideName.physicalName}</TableCell>
                     <TableCell>{overrideName.logicalName}</TableCell>
                     <TableCell>{columnShareModel.specifiedColumnType()}</TableCell>
