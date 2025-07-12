@@ -26,7 +26,7 @@ const EdgedIconButton = ({
         </IconButton>
     );
 
-    if (!tooltip || disabled) {
+    if (!tooltip) {
         return (
             <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}>
                 {iconButton}
@@ -34,10 +34,11 @@ const EdgedIconButton = ({
         );
     }
 
-    if (withText === false) {
+    if (disabled) {
         return (
-            <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}>
-                <TopLeftTooltip title={tooltip}>{iconButton}</TopLeftTooltip>
+            <Stack direction="row" alignItems="center" spacing={1}>
+                {iconButton}
+                {withText && <Typography variant="body2">{tooltip}</Typography>}
             </Stack>
         );
     }
