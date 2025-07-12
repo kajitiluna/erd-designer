@@ -1,5 +1,5 @@
-import React, { MouseEvent, useState } from "react";
-import { Box, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
+import React from "react";
+import { Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -33,23 +33,20 @@ const ColumnViewTable = ({
 
     const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
 
-    const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-    const [editingColumnModel, setEditingColumnModel] = useState<ColumnModel | null>(null);
-    const [editingColumnGroupIndex, setEditingColumnGroupIndex] = useState<number | "ADD" | null>(null);
+    const [selectedIndex, setSelectedIndex] = React.useState<number | null>(null);
+    const [editingColumnModel, setEditingColumnModel] = React.useState<ColumnModel | null>(null);
+    const [editingColumnGroupIndex, setEditingColumnGroupIndex] = React.useState<number | "ADD" | null>(null);
 
     const initColumnModelRow = (columnWrapModel: ColumnWrapModel, targetIndex: number) => {
-        const { cells, inChildRelation } = (columnWrapModel.modelType === "single")
+        const cells = (columnWrapModel.modelType === "single")
             ? doInitSingleColumnRow(columnWrapModel.columnModel)
             : doInitGroupColumnRow(columnWrapModel.columnGroupModel);
 
-        const handleRowClicked = (event: MouseEvent) => {
-            event.stopPropagation();
-
+        const handleRowClicked = () => {
             setSelectedIndex((selectedIndex !== targetIndex) ? targetIndex : null);
         };
 
-        const handleEditColumn = (event: MouseEvent) => {
-            event.stopPropagation();
+        const handleEditColumn = () => {
             setSelectedIndex(null);
 
             if (columnWrapModel.modelType === "single") {
@@ -59,61 +56,15 @@ const ColumnViewTable = ({
             }
         };
 
-        const initHandleShiftColumn = (shift: (1 | -1)) => {
-            return (event: MouseEvent) => {
-                if ((targetIndex + shift < 0) || (targetIndex + shift >= columnWrapModels.length)) {
-                    return;
-                }
-
-                event.stopPropagation();
-
-                setSelectedIndex(null);
-                onUpdateColumnWrapModels(previous => {
-                    const nextColumnWrapModels = [...previous];
-                    nextColumnWrapModels[targetIndex] = previous[targetIndex + shift];
-                    nextColumnWrapModels[targetIndex + shift] = previous[targetIndex];
-
-                    return nextColumnWrapModels
-                });
-            }
-        };
-
-        const handleRemoveColumn = (event: MouseEvent) => {
-            event.stopPropagation();
-
-            setSelectedIndex(null);
-            onUpdateColumnWrapModels(previous => previous.filter((_, index) => targetIndex !== index))
-        }
-
-        const buttonPanel = (
-            <Stack justifyContent="flex-end" direction="row" spacing={2}>
-                <EdgedIconButton tooltip="Edit column" onClick={handleEditColumn}>
-                    <EditIcon fontSize="small" />
-                </EdgedIconButton>
-                <EdgedIconButton tooltip="Move up" disabled={targetIndex === 0}
-                    onClick={initHandleShiftColumn(-1)}>
-                    <ArrowUpwardIcon fontSize="small" />
-                </EdgedIconButton>
-                <EdgedIconButton tooltip="Move down" disabled={targetIndex === columnWrapModels.length - 1}
-                    onClick={initHandleShiftColumn(1)}>
-                    <ArrowDownwardIcon fontSize="small" />
-                </EdgedIconButton>
-                <EdgedIconButton tooltip="Remove column" disabled={inChildRelation}
-                    onClick={handleRemoveColumn}>
-                    <DeleteIcon fontSize="small" />
-                </EdgedIconButton>
-            </Stack>
-        );
-
         const rowStyle = (selectedIndex === targetIndex)
-            ? { backgroundColor: SELECTED_CELL_COLOR } : baseRowStyle;
+            ? { backgroundColor: SELECTED_CELL_COLOR, height: "43px" } : baseRowStyle;
 
         return (
             <TableRow key={`column-view-${targetIndex}`}
                 onClick={handleRowClicked} onDoubleClick={handleEditColumn}
                 sx={rowStyle} style={{ cursor: 'pointer' }}>
+                <TableCell align="center">{(selectedIndex === targetIndex) && "✔"}</TableCell>
                 {cells}
-                <TableCell>{buttonPanel}</TableCell>
             </TableRow>
         );
     };
@@ -122,40 +73,35 @@ const ColumnViewTable = ({
         const columnShareModel = columnShareModelStorage.find(columnModel.columnShareModelId);
         if (columnShareModel == null) {
             console.warn(`ColumnShareModel not found for columnModelId: ${columnModel.columnModelId}`);
-            return { cells: (<></>), inChildRelation: true };
+            return (<></>);
         }
 
         const overrideName = overrideColumnName(columnModel, columnShareModel);
         const inChildRelation = isChildRelation(columnModel.columnModelId);
 
-        return {
-            cells: (<>
-                <TableCell align="center">{columnModel.primaryKey && <PrimaryKeyIcon />}</TableCell>
-                <TableCell align="center">{inChildRelation && <ForeignKeyIcon />}</TableCell>
-                <TableCell>{overrideName.physicalName}</TableCell>
-                <TableCell>{overrideName.logicalName}</TableCell>
-                <TableCell>{columnShareModel.specifiedColumnType(inChildRelation)}</TableCell>
-                <TableCell align="center">{columnModel.notNull && <CheckIcon fontSize="small" />}</TableCell>
-                <TableCell align="center">{columnModel.unique && <CheckIcon fontSize="small" />}</TableCell>
-            </>),
-            inChildRelation: inChildRelation
-        };
+        return (<>
+            <TableCell align="center">{columnModel.primaryKey && <PrimaryKeyIcon />}</TableCell>
+            <TableCell align="center">{inChildRelation && <ForeignKeyIcon />}</TableCell>
+            <TableCell>{overrideName.physicalName}</TableCell>
+            <TableCell>{overrideName.logicalName}</TableCell>
+            <TableCell>{columnShareModel.specifiedColumnType(inChildRelation)}</TableCell>
+            <TableCell align="center">{columnModel.notNull && <CheckIcon fontSize="small" />}</TableCell>
+            <TableCell align="center">{columnModel.unique && <CheckIcon fontSize="small" />}</TableCell>
+        </>);
     };
 
     const doInitGroupColumnRow = (columnGroupModel: ColumnGroupModel) => {
-        return {
-            cells: (<>
-                <TableCell align="center"></TableCell>
-                <TableCell align="center"></TableCell>
-                <TableCell colSpan={5}>{columnGroupModel.groupName}</TableCell>
-            </>),
-            inChildRelation: false
-        };
+        return (<>
+            <TableCell align="center"></TableCell>
+            <TableCell align="center"></TableCell>
+            <TableCell colSpan={5}>{columnGroupModel.groupName}</TableCell>
+        </>);
     }
 
     const tableHeader = (
         <TableHead>
             <TableRow>
+                <TableCell sx={{ width: "5px", paddingRight: "8px" }} align="center"></TableCell>
                 <TableCell sx={{ width: "10px" }} align="center">PK</TableCell>
                 <TableCell sx={{ width: "10px" }} align="center">FK</TableCell>
                 <TableCell>Physical Name</TableCell>
@@ -163,23 +109,104 @@ const ColumnViewTable = ({
                 <TableCell>Type</TableCell>
                 <TableCell sx={{ width: "50px" }} align="center">NotNull</TableCell>
                 <TableCell sx={{ width: "50px" }} align="center">Unique</TableCell>
-                <TableCell></TableCell>
             </TableRow>
         </TableHead>
     );
 
-    const handleAddColumn = (event: MouseEvent) => {
-        event.stopPropagation();
-
+    const handleAddColumn = () => {
         const columnModel = new ColumnModel({});
         setEditingColumnModel(columnModel);
     };
 
-    const handleAddColumnGroup = (event: MouseEvent) => {
-        event.stopPropagation();
-
+    const handleAddColumnGroup = () => {
         setEditingColumnGroupIndex("ADD");
     };
+
+    const addButtonPanel = (
+        <Stack direction="row" spacing={5} justifyContent="flex-start" alignItems="center">
+            <EdgedIconButton tooltip="Add column" withText onClick={handleAddColumn}>
+                <AddIcon />
+            </EdgedIconButton>
+            {availableColumnGroup && (
+                <EdgedIconButton tooltip="Add group column" withText onClick={handleAddColumnGroup}>
+                    <PlaylistAddIcon />
+                </EdgedIconButton>
+            )}
+        </Stack>
+    );
+
+    const handleEditColumn = () => {
+        if (selectedIndex == null) {
+            return;
+        }
+
+        setSelectedIndex(null);
+
+        const columnWrapModel = columnWrapModels[selectedIndex];
+        if (columnWrapModel.modelType === "single") {
+            setEditingColumnModel(columnWrapModel.columnModel);
+        } else {
+            setEditingColumnGroupIndex(selectedIndex);
+        }
+    };
+
+    const initHandleShiftColumn = (shift: (1 | -1)) => {
+        return () => {
+            if ((selectedIndex == null) || (selectedIndex + shift < 0)
+                || (selectedIndex + shift >= columnWrapModels.length)) {
+                return;
+            }
+
+            setSelectedIndex(selectedIndex + shift);
+
+            onUpdateColumnWrapModels(previous => {
+                const nextColumnWrapModels = [...previous];
+                nextColumnWrapModels[selectedIndex] = previous[selectedIndex + shift];
+                nextColumnWrapModels[selectedIndex + shift] = previous[selectedIndex];
+
+                return nextColumnWrapModels
+            });
+        }
+    };
+
+    const checkInChildRelation = (targetIndex: number) => {
+        const columnWrapModel = columnWrapModels[targetIndex];
+        if (columnWrapModel.modelType === "group") {
+            return false; // TODO
+        }
+
+        return isChildRelation(columnWrapModel.columnModel.columnModelId);
+    };
+
+    const handleRemoveColumn = () => {
+        if (selectedIndex == null) {
+            return;
+        }
+
+        setSelectedIndex(null);
+        onUpdateColumnWrapModels(previous => previous.filter((_, index) => (selectedIndex !== index)))
+    }
+
+    const editButtonPanel = (
+        <Stack justifyContent="flex-end" direction="row" spacing={2}>
+            <EdgedIconButton tooltip="Edit column" disabled={selectedIndex == null}
+                onClick={handleEditColumn}>
+                <EditIcon fontSize="small" />
+            </EdgedIconButton>
+            <EdgedIconButton tooltip="Move up" disabled={(selectedIndex == null) || (selectedIndex === 0)}
+                onClick={initHandleShiftColumn(-1)}>
+                <ArrowUpwardIcon fontSize="small" />
+            </EdgedIconButton>
+            <EdgedIconButton tooltip="Move down" disabled={(selectedIndex == null) || (selectedIndex === columnWrapModels.length - 1)}
+                onClick={initHandleShiftColumn(1)}>
+                <ArrowDownwardIcon fontSize="small" />
+            </EdgedIconButton>
+            <EdgedIconButton tooltip="Remove column" disabled={(selectedIndex == null) || checkInChildRelation(selectedIndex)}
+                onClick={handleRemoveColumn}>
+                <DeleteIcon fontSize="small" />
+            </EdgedIconButton>
+        </Stack>
+    );
 
     const handleUpdateColumnGroup = (columnWrapModel: ColumnWrapModel) => {
         if (editingColumnGroupIndex == null) {
@@ -222,18 +249,10 @@ const ColumnViewTable = ({
                     </TableBody>
                 </Table>
             </TableContainer>
-            <Box sx={{ margin: 1, marginLeft: 1, marginBottom: 0.5 }}>
-                <Stack direction="row" spacing={5} justifyContent="flex-start" alignItems="center">
-                    <EdgedIconButton tooltip="Add column" withText onClick={handleAddColumn}>
-                        <AddIcon />
-                    </EdgedIconButton>
-                    {availableColumnGroup && (
-                        <EdgedIconButton tooltip="Add group column" withText onClick={handleAddColumnGroup}>
-                            <PlaylistAddIcon />
-                        </EdgedIconButton>
-                    )}
-                </Stack>
-            </Box>
+            <Stack direction="row" justifyContent="space-between" sx={{ margin: 1, marginBottom: 0.5 }}>
+                {addButtonPanel}
+                {editButtonPanel}
+            </Stack>
             {(editingColumnModel != null) && (
                 <ColumnEditDialog
                     isOpen={editingColumnModel != null}
@@ -253,6 +272,6 @@ const ColumnViewTable = ({
     );
 };
 
-const baseRowStyle = { '&:nth-of-type(odd)': { backgroundColor: 'action.hover' } };
+const baseRowStyle = { height: "43px", '&:nth-of-type(odd)': { backgroundColor: 'action.hover' } };
 
 export default ColumnViewTable;
