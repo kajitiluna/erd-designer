@@ -37,6 +37,9 @@ const ColumnViewTable = ({
     const [editingColumnModel, setEditingColumnModel] = React.useState<ColumnModel | null>(null);
     const [editingColumnGroupIndex, setEditingColumnGroupIndex] = React.useState<number | "ADD" | null>(null);
 
+    const [draggingStartIndex, setDraggingStartIndex] = React.useState<number | null>(null);
+    const [draggingOverIndex, setDraggingOverIndex] = React.useState<number | null>(null);
+
     const initColumnModelRow = (columnWrapModel: ColumnWrapModel, targetIndex: number) => {
         const cells = (columnWrapModel.modelType === "single")
             ? doInitSingleColumnRow(columnWrapModel.columnModel)
@@ -56,13 +59,71 @@ const ColumnViewTable = ({
             }
         };
 
-        const rowStyle = (selectedIndex === targetIndex)
-            ? { backgroundColor: SELECTED_CELL_COLOR, height: "43px" } : baseRowStyle;
+        // ドラッグ開始の制御
+        const handleDragStart = (event: React.DragEvent) => {
+            setDraggingStartIndex(targetIndex);
+            event.dataTransfer.effectAllowed = "move";
+        };
+
+        // 他の要素をドラッグしているものが、該当コンポーネントの上にドラッグオーバーしている時の制御
+        const handleDragOver = (event: React.DragEvent) => {
+            event.preventDefault();
+
+            setDraggingOverIndex(previous => {
+                if (previous === targetIndex) {
+                    return previous; // 同じ行でのドラッグオーバーは無視
+                }
+
+                event.dataTransfer.dropEffect = "move";
+                return targetIndex;
+            });
+        };
+
+        const handleDrop = (event: React.DragEvent) => {
+            event.preventDefault();
+
+            if ((draggingStartIndex == null) || (draggingStartIndex === targetIndex)) {
+                return; // ドラッグ開始位置が未設定、または同じ行でのドロップは無視
+            }
+
+            onUpdateColumnWrapModels(previous => {
+                const nextColumnWrapModels = [...previous];
+
+                nextColumnWrapModels.splice(draggingStartIndex, 1); // 元の位置から削除
+                nextColumnWrapModels.splice(targetIndex, 0, previous[draggingStartIndex]);
+
+                return nextColumnWrapModels
+            });
+        };
+
+        const handleDragEnd = () => {
+            setDraggingStartIndex(null);
+            setDraggingOverIndex(null);
+        };
+
+        const initRowStyle = () => {
+            const rowStyle = (selectedIndex === targetIndex)
+                ? { backgroundColor: SELECTED_CELL_COLOR, height: "43px" } : baseRowStyle;
+
+            // ドラッグ中の行は半透明にする
+            if (draggingStartIndex === targetIndex) {
+                return { ...rowStyle, opacity: 0.2 };
+            }
+            // ドラッグオーバー中の行は色を変える
+            if (draggingOverIndex === targetIndex) {
+                return { height: "43px", backgroundColor: 'lightblue' };
+            }
+
+            return rowStyle;
+        };
 
         return (
             <TableRow key={`column-view-${targetIndex}`}
-                onClick={handleRowClicked} onDoubleClick={handleEditColumn}
-                sx={rowStyle} style={{ cursor: 'pointer' }}>
+                draggable sx={initRowStyle()} style={{ cursor: 'pointer' }}
+                onDragStart={handleDragStart} onDragOver={handleDragOver}
+                onDragLeave={() => setDraggingOverIndex(null)}
+                onDrop={handleDrop} onDragEnd={handleDragEnd}
+                onClick={handleRowClicked} onDoubleClick={handleEditColumn}>
                 <TableCell align="center">{(selectedIndex === targetIndex) && "✔"}</TableCell>
                 {cells}
             </TableRow>
