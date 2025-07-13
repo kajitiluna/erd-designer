@@ -1,9 +1,9 @@
 import { v4 as uuidV4 } from 'uuid';
 import React from "react";
 import {
-    Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
+    Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
     FormControl, FormControlLabel, InputLabel, MenuItem, Paper, Select, SelectChangeEvent, Stack,
-    Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography
+    Table, TableBody, TableCell, TableContainer, TableRow, TextField, Typography
 } from "@mui/material";
 import Grid from '@mui/material/Grid2';
 import AddIcon from '@mui/icons-material/Add';
@@ -38,15 +38,21 @@ const IndexViewTable = ({
     database, columnWrapModels, tableIndexModels, isChildRelation, onUpdateTableIndexModels
 }: IndexViewTableProps) => {
 
-    const columnModels: ColumnModel[] = columnWrapModels.flatMap(model =>
-        (model.modelType === "single") ? [model.columnModel] : model.columnModels
-    );
-    const existedColumnModelIds = new Set(columnModels.map(columnModel => columnModel.columnModelId));
-
     const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
 
     const [isOpenEditDialog, setOpenEditDialog] = React.useState<boolean>(false);
     const [targetIndexModel, setTargetIndexModel] = React.useState<TableIndexModel | null>(null);
+
+    const [draggingStartIndex, setDraggingStartIndex] = React.useState<number | null>(null);
+    const [draggingOverIndex, setDraggingOverIndex] = React.useState<number | null>(null);
+    // スクロール連動のためのref
+    const headerScrollRef = React.useRef<HTMLDivElement>(null);
+    const columnScrollRef = React.useRef<HTMLDivElement>(null);
+
+    const columnModels: ColumnModel[] = columnWrapModels.flatMap(model =>
+        (model.modelType === "single") ? [model.columnModel] : model.columnModels
+    );
+    const existedColumnModelIds = new Set(columnModels.map(columnModel => columnModel.columnModelId));
 
     const columnIdToOrders = tableIndexModels.map(indexModel =>
         new Map<string, string>(indexModel.indexColumnModels
@@ -55,45 +61,167 @@ const IndexViewTable = ({
         )
     );
 
-    const cellStyle = { '&:nth-of-type(odd)': { backgroundColor: 'action.hover' } };
+    const selectedIndex = (targetIndexModel == null) ? -1
+        : tableIndexModels.findIndex(target => (target.tableIndexModelId === targetIndexModel.tableIndexModelId));
 
-    const initColumnIndexRow = (columnModel: ColumnModel, rowIndex: number) => {
-        const columnShareModel = columnShareModelStorage.find(columnModel.columnShareModelId);
-        if (columnShareModel == null) {
-            console.warn(`ColumnShareModel not found for columnModelId: ${columnModel.columnModelId}`);
-            return (<></>)
-        }
+    // ヘッダーセルのドラッグイベント
+    const initHeaderDragEvents = (indexIndex: number) => {
+        const handleDragStart = (event: React.DragEvent) => {
+            setDraggingStartIndex(indexIndex);
+            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData('text/html', '');
+        };
 
-        const overrideName = overrideColumnName(columnModel, columnShareModel);
-        const inChildRelation = isChildRelation(columnModel.columnModelId);
+        const handleDragOver = (event: React.DragEvent) => {
+            event.preventDefault();
 
-        return (
-            <TableRow key={`index-view-column-title-${rowIndex}`} sx={{ height: "43px" }}>
-                <TableCell align="center" sx={cellStyle}>{columnModel.primaryKey && <PrimaryKeyIcon />}</TableCell>
-                <TableCell align="center">{inChildRelation && <ForeignKeyIcon />}</TableCell>
-                <TableCell sx={cellStyle}>{overrideName.physicalName}</TableCell>
-                {tableIndexModels.map((_, indexIndex) => initOrderCell(rowIndex, indexIndex))}
-            </TableRow>
-        );
+            setDraggingOverIndex(previous => {
+                if (previous === indexIndex) {
+                    return previous;
+                }
+
+                event.dataTransfer.dropEffect = "move";
+                return indexIndex;
+            });
+        };
+
+        const handleDrop = (event: React.DragEvent) => {
+            event.preventDefault();
+
+            if ((draggingStartIndex == null) || (draggingStartIndex === indexIndex)) {
+                return;
+            }
+
+            onUpdateTableIndexModels(previous => {
+                const nextTableIndexModels = [...previous];
+                nextTableIndexModels.splice(draggingStartIndex, 1);
+                nextTableIndexModels.splice(indexIndex, 0, previous[draggingStartIndex]);
+                return nextTableIndexModels;
+            });
+        };
+
+        const handleDragEnd = () => {
+            setDraggingStartIndex(null);
+            setDraggingOverIndex(null);
+        };
+
+        return {
+            onDragStart: handleDragStart,
+            onDragOver: handleDragOver,
+            onDragLeave: () => setDraggingOverIndex(null),
+            onDrop: handleDrop,
+            onDragEnd: handleDragEnd
+        };
     };
 
-    const getCurrentCellStyle = (indexIndex: number) => {
+    const initHeaderCellStyle = (indexIndex: number) => {
+        const style: React.CSSProperties = { width: "60px", cursor: 'grab' };
+
+        if (draggingStartIndex === indexIndex) {
+            return { ...style, opacity: 0.5, cursor: 'grabbing' };
+        }
+        if (draggingOverIndex === indexIndex && draggingStartIndex !== null) {
+            return { ...style, backgroundColor: 'lightblue' };
+        }
+
+        return style;
+    };
+
+    const initCurrentCellStyle = (indexIndex: number) => {
+        if (draggingOverIndex === indexIndex) {
+            return { backgroundColor: 'lightblue' };
+        }
+
         const isSelected = (targetIndexModel == null) ? false
             : (tableIndexModels[indexIndex].tableIndexModelId === targetIndexModel.tableIndexModelId);
+        const baseStyle = isSelected ? { backgroundColor: SELECTED_CELL_COLOR }
+            : ((indexIndex % 2 === 1) ? { backgroundColor: 'action.hover' } : {});
 
-        return isSelected ? { backgroundColor: SELECTED_CELL_COLOR } : cellStyle;
-    };
-
-    const initOrderCell = (rowIndex: number, indexIndex: number) => {
-        if ((indexIndex < 0) || (indexIndex >= tableIndexModels.length)) {
-            return (<></>);
+        if (draggingStartIndex === indexIndex) {
+            return { ...baseStyle, opacity: 0.5 };
         }
 
-        const indexModel = tableIndexModels[indexIndex];
+        return baseStyle;
+    };
 
-        const columnModelId = columnModels[rowIndex].columnModelId;
-        const columnIdToOrder = columnIdToOrders[indexIndex];
-        const order = columnIdToOrder.get(columnModelId);
+    const boxHeader = (
+        <Stack direction="row" alignItems="center" justifyContent="flex-start">
+            <Box sx={{ ...BASE_CELL_STYLE, minWidth: "10px", maxWidth: "10px", minHeight: "24px" }}>PK</Box>
+            <Box sx={{ ...BASE_CELL_STYLE, minWidth: "10px", maxWidth: "10px", minHeight: "24px" }}>FK</Box>
+            <Box sx={{ ...BASE_CELL_STYLE, minWidth: "200px", maxWidth: "200px", minHeight: "24px" }}>Physical Name</Box>
+            <Box ref={headerScrollRef} sx={{ overflow: "hidden", pointerEvents: "none" }}>
+                <Stack direction="row" alignItems="center" justifyContent="flex-start">
+                    {tableIndexModels.map((_, index) => (
+                        <Box key={`index-table_header-${index}`} sx={{
+                            ...BASE_CELL_STYLE,
+                            ...initHeaderCellStyle(index),
+                            textAlign: "center",
+                            minWidth: "60px", maxWidth: "60px", minHeight: "24px"
+                        }}>
+                            {(selectedIndex === index) && "✔"}
+                        </Box>
+                    ))}
+                </Stack>
+            </Box>
+        </Stack>
+    );
+
+    const titleHeaders = (
+        <Stack direction="row" alignItems="center" justifyContent="flex-start" style={{ minWidth: "220px" }}>
+            <Stack direction="column" alignItems="center" justifyContent="center">
+                {columnModels.map(columnModel => (
+                    <Box key={`index-table_title0-${columnModel.columnModelId}`}
+                        sx={{ ...BASE_CELL_STYLE, minWidth: "10px", maxWidth: "10px", backgroundColor: 'action.hover' }}>
+                        {columnModel.primaryKey && <PrimaryKeyIcon />}
+                    </Box>
+                ))}
+            </Stack>
+            <Stack direction="column" alignItems="center" justifyContent="center">
+                {columnModels.map(columnModel => {
+                    const inChildRelation = isChildRelation(columnModel.columnModelId);
+                    return (
+                        <Box key={`index-table_title1-${columnModel.columnModelId}`}
+                            sx={{ ...BASE_CELL_STYLE, minWidth: "10px", maxWidth: "10px" }}>
+                            {inChildRelation && <ForeignKeyIcon />}
+                        </Box>
+                    );
+                })}
+            </Stack>
+            <Stack direction="column" alignItems="center" justifyContent="center">
+                {columnModels.map(columnModel => {
+                    const columnShareModel = columnShareModelStorage.find(columnModel.columnShareModelId);
+                    if (columnShareModel == null) {
+                        console.warn(`ColumnShareModel not found for columnModelId: ${columnModel.columnModelId}`);
+                        return (<></>)
+                    }
+
+                    const overrideName = overrideColumnName(columnModel, columnShareModel);
+
+                    return (
+                        <Box key={`index-table_title2-${columnModel.columnModelId}`}
+                            sx={{
+                                ...BASE_CELL_STYLE,
+                                minWidth: "200px", maxWidth: "200px",
+                                backgroundColor: 'action.hover'
+                            }}>
+                            {overrideName.physicalName}
+                        </Box>
+                    );
+                })}
+            </Stack>
+        </Stack>
+    );
+
+    const doInitIndexColumn = (indexIndex: number) => {
+        const cellStyle: React.CSSProperties = {
+            ...BASE_CELL_STYLE,
+            ...initCurrentCellStyle(indexIndex),
+            textAlign: "center",
+            minWidth: "60px",
+            maxWidth: "60px",
+        };
+
+        const indexModel = tableIndexModels[indexIndex];
 
         const handleSelect = () => {
             setTargetIndexModel(indexModel);
@@ -104,12 +232,25 @@ const IndexViewTable = ({
             setOpenEditDialog(true);
         };
 
+        const cells = columnModels.map((columnModel, rowIndex) => {
+            const columnIdToOrder = columnIdToOrders[indexIndex];
+            const order = columnIdToOrder.get(columnModel.columnModelId);
+
+            return (
+                <Box key={`index-table_cell-${columnModel.columnModelId}-${rowIndex}`}
+                    sx={cellStyle} style={{ cursor: 'pointer' }}
+                    onClick={handleSelect} onDoubleClick={handleEditIndex}>
+                    {order ? order : ""}
+                </Box>
+            );
+        });
+
         return (
-            <TableCell key={`column_${rowIndex}-${indexIndex}`} align="center"
-                sx={getCurrentCellStyle(indexIndex)} style={{ cursor: 'pointer' }}
-                onClick={handleSelect} onDoubleClick={handleEditIndex}>
-                {order ? order : ""}
-            </TableCell>
+            <Stack direction="column" alignItems="center" justifyContent="center"
+                draggable={tableIndexModels.length > 1}
+                {...initHeaderDragEvents(indexIndex)}>
+                {cells}
+            </Stack>
         );
     };
 
@@ -117,9 +258,6 @@ const IndexViewTable = ({
         setTargetIndexModel(null);
         setOpenEditDialog(true);
     };
-
-    const selectedIndex = (targetIndexModel == null) ? -1
-        : tableIndexModels.findIndex(target => (target.tableIndexModelId === targetIndexModel.tableIndexModelId));
 
     const initHandleShiftColumn = (shift: (1 | -1)) => {
         return () => {
@@ -163,33 +301,31 @@ const IndexViewTable = ({
         </Stack>
     );
 
-    const indexTableStyle: React.CSSProperties = {
-        width: `${220 + 60 * tableIndexModels.length}px`,
-        tableLayout: "fixed",
-        userSelect: "none"
+    const handleScroll = () => {
+        if (!headerScrollRef.current || !columnScrollRef.current) {
+            return;
+        }
+
+        headerScrollRef.current.scrollLeft = columnScrollRef.current.scrollLeft;
     };
 
     return (
         <>
-            <TableContainer sx={{ maxHeight: window.innerHeight - 550 }}>
-                <Table stickyHeader size="small" aria-label="index view table" style={indexTableStyle}>
-                    <TableHead>
-                        <TableRow>
-                            <TableCell sx={{ width: "10px" }} align="center">PK</TableCell>
-                            <TableCell sx={{ width: "10px" }} align="center">FK</TableCell>
-                            <TableCell sx={{ width: "200px" }} >Physical Name</TableCell>
-                            {tableIndexModels.map((_, index) => (
-                                <TableCell key={`table-index_header-${index}`} align="center" sx={{ width: "60px" }}>
-                                    {(selectedIndex === index) && "✔"}
-                                </TableCell>
-                            ))}
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {columnModels.map((columnModel, index) => initColumnIndexRow(columnModel, index))}
-                    </TableBody>
-                </Table>
-            </TableContainer>
+            <Stack direction="column" sx={{ overflow: 'hidden' }}>
+                {boxHeader}
+                <Box sx={{ maxHeight: window.innerHeight - 587, ...SCROLL_STYLE }}>
+                    <Stack direction="row" alignItems="flex-start" justifyContent="flex-start">
+                        <Box sx={{ position: 'sticky', left: 0, zIndex: 1, borderRight: '1px solid #e0e0e0' }}>
+                            {titleHeaders}
+                        </Box>
+                        <Box ref={columnScrollRef} onScroll={handleScroll} sx={{ overflow: 'auto' }}>
+                            <Stack direction="row" alignItems="flex-start" justifyContent="flex-start">
+                                {tableIndexModels.map((_, index) => doInitIndexColumn(index))}
+                            </Stack>
+                        </Box>
+                    </Stack>
+                </Box>
+            </Stack>
             <Stack direction="row" justifyContent="space-between" sx={{ margin: 1, marginBottom: 0.5 }}>
                 <EdgedIconButton tooltip="Add index" withText onClick={handleAddIndex}>
                     <AddIcon />
@@ -207,6 +343,34 @@ const IndexViewTable = ({
             />}
         </>
     );
+};
+
+const BASE_CELL_STYLE: React.CSSProperties = {
+    borderBottomColor: "#e0e0e0",
+    borderBottomStyle: "solid",
+    borderBottomWidth: "1px",
+    borderCollapse: "separate",
+    colorScheme: "lightDark",
+    paddingTop: "6px",
+    paddingBottom: "6px",
+    paddingLeft: "16px",
+    paddingRight: "16px",
+    textAlign: "left",
+    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+    fontSize: "0.875rem",
+    fontWeight: 400,
+    lineHeight: 1.43,
+    letterSpacing: "0.01071em",
+    minHeight: "30px",
+    cursor: "grab"
+};
+
+const SCROLL_STYLE = {
+    overflow: 'auto',
+    '&::-webkit-scrollbar': { width: '8px', },
+    '&::-webkit-scrollbar-track': { background: '#f1f1f1', },
+    '&::-webkit-scrollbar-thumb': { background: '#c1c1c1', borderRadius: '4px', },
+    '&::-webkit-scrollbar-thumb:hover': { background: '#a8a8a8', }
 };
 
 type IndexEditDialogProps = {
@@ -234,7 +398,11 @@ const IndexEditDialog = ({
     const [physicalName, setPhysicalName] = React.useState<string>(tableIndexModel ? tableIndexModel.physicalName : "");
     const [indexedColumns, setIndexedColumns] = React.useState<IndexModelAttribute[]>(tableIndexModel
         ? tableIndexModel.indexColumnModels
-            .filter(model => columnModels.some(columnModel => (columnModel.columnModelId === model.columnModelId)))
+            .filter(model =>
+                columnModels.some(columnModel =>
+                    (columnModel.columnModelId === model.columnModelId)
+                )
+            )
             .map(model => { return { ...model } })
         : []);
     const [description, setDescription] = React.useState<string>(tableIndexModel ? tableIndexModel.description : "");
@@ -262,14 +430,15 @@ const IndexEditDialog = ({
             description: description
         });
 
-        onUpdateTableIndexModels((previousModels) => {
+        onUpdateTableIndexModels(previousModels => {
             if (tableIndexModel == null) {
                 return [...previousModels, nextTableIndexModel];
             }
 
-            return previousModels.map(
-                (previous) => (previous.tableIndexModelId === targetId)
-                    ? nextTableIndexModel : previous);
+            return previousModels.map(previous =>
+                (previous.tableIndexModelId === targetId)
+                    ? nextTableIndexModel : previous
+            );
         });
 
         onClose();
@@ -353,7 +522,7 @@ const IndexColumnTransferPanel = ({
 
     const columnModelMap: Map<string, ColumnModelDetail> = new Map(
         columnModels
-            .map((model) => {
+            .map(model => {
                 return {
                     columnModel: model,
                     columnShareModel: columnShareModelStorage.find(model.columnShareModelId)
@@ -378,9 +547,14 @@ const IndexColumnTransferPanel = ({
                 setSelectedFromId((selectedFromId !== columnModelId) ? columnModelId : null);
             };
 
+            const handleMove = () => {
+                doAddColumnToIndex(columnModelId);
+            };
+
             return (
                 <TableRow key={`from-column-panel_index-${columnModelId}`} style={{ cursor: 'pointer' }}
-                    selected={columnModelId === selectedFromId} onClick={handleSelect}>
+                    selected={columnModelId === selectedFromId}
+                    onClick={handleSelect} onDoubleClick={handleMove}>
                     <TableCell>{columnName.physicalName}</TableCell>
                     <TableCell>{pair.columnShareModel.specifiedColumnType(inChildRelation)}</TableCell>
                 </TableRow>
@@ -392,9 +566,13 @@ const IndexColumnTransferPanel = ({
             return;
         }
 
-        onUpdateIndexedColumns((previousColumns) => {
+        doAddColumnToIndex(selectedFromId);
+    };
+
+    const doAddColumnToIndex = (fromId: string) => {
+        onUpdateIndexedColumns(previousColumns => {
             const newAttribute: IndexModelAttribute = {
-                columnModelId: selectedFromId,
+                columnModelId: fromId,
                 sortOrderType: "",
                 nullsOrderType: ""
             };
@@ -411,9 +589,13 @@ const IndexColumnTransferPanel = ({
             return;
         }
 
-        onUpdateIndexedColumns((previousColumns) =>
-            previousColumns.filter(
-                (column) => (column.columnModelId !== selectedIndexedId)
+        doRemoveIndexedColumn(selectedIndexedId);
+    };
+
+    const doRemoveIndexedColumn = (removeId: string) => {
+        onUpdateIndexedColumns(previousColumns =>
+            previousColumns.filter(column =>
+                (column.columnModelId !== removeId)
             )
         );
 
@@ -455,16 +637,21 @@ const IndexColumnTransferPanel = ({
             const handleSelect = () => {
                 setSelectedIndexedId((selectedIndexedId !== columnModelId) ? columnModelId : null);
             };
+            const handleMove = () => {
+                doRemoveIndexedColumn(columnModelId);
+            };
 
             const handleChangeSortOrder = (event: SelectChangeEvent) => {
                 const nextSortOrderType = event.target.value as SortOrderType;
-                onUpdateIndexedColumns((previousColumns) => previousColumns.map(
-                    (previous) => (previous.columnModelId !== columnModelId) ? previous : {
-                        columnModelId: previous.columnModelId,
-                        sortOrderType: nextSortOrderType,
-                        nullsOrderType: previous.nullsOrderType
-                    }
-                ));
+                onUpdateIndexedColumns(previousColumns =>
+                    previousColumns.map(previous =>
+                        (previous.columnModelId !== columnModelId) ? previous : {
+                            columnModelId: previous.columnModelId,
+                            sortOrderType: nextSortOrderType,
+                            nullsOrderType: previous.nullsOrderType
+                        }
+                    )
+                );
             };
             const handleChangeNullsOrder = (event: SelectChangeEvent) => {
                 const nextNullsOrderType = event.target.value as NullsOrderType;
@@ -481,7 +668,8 @@ const IndexColumnTransferPanel = ({
 
             return (
                 <TableRow key={`indexed-column-panel_index-${columnModelId}`} style={{ cursor: 'pointer' }}
-                    selected={columnModelId === selectedIndexedId} onClick={handleSelect}>
+                    selected={columnModelId === selectedIndexedId}
+                    onClick={handleSelect} onDoubleClick={handleMove}>
                     <TableCell align="right" sx={{ width: 10 }}>{arrayIndex + 1}</TableCell>
                     <TableCell>{columnName.physicalName}</TableCell>
                     <TableCell>{pair.columnShareModel.specifiedColumnType(inChildRelation)}</TableCell>
@@ -529,7 +717,7 @@ const IndexColumnTransferPanel = ({
                 return;
             }
 
-            onUpdateIndexedColumns((previousColumns) => {
+            onUpdateIndexedColumns(previousColumns => {
                 const nextIndexedColumns = [...previousColumns];
                 const target = nextIndexedColumns[selectedIndex];
                 nextIndexedColumns[selectedIndex] = nextIndexedColumns[selectedIndex + shift];

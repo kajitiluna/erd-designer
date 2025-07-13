@@ -137,7 +137,8 @@ const ColumnViewTable = ({
 
         return (
             <TableRow key={`column-view-${targetIndex}`}
-                draggable sx={initRowStyle()} style={{ cursor: 'pointer' }}
+                sx={initRowStyle()} style={{ cursor: 'pointer' }}
+                draggable={columnWrapModels.length > 1}
                 onDragStart={handleDragStart} onDragOver={handleDragOver}
                 onDragLeave={() => setDraggingOverIndex(null)}
                 onDrop={handleDrop} onDragEnd={handleDragEnd}
