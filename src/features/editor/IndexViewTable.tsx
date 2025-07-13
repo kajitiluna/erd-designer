@@ -52,20 +52,23 @@ const IndexViewTable = ({
     const columnModels: ColumnModel[] = columnWrapModels.flatMap(model =>
         (model.modelType === "single") ? [model.columnModel] : model.columnModels
     );
-    const existedColumnModelIds = new Set(columnModels.map(columnModel => columnModel.columnModelId));
 
-    const columnIdToOrders = tableIndexModels.map(indexModel =>
-        new Map<string, string>(indexModel.indexColumnModels
-            .filter(indexColumnModel => existedColumnModelIds.has(indexColumnModel.columnModelId))
-            .map((indexColumnModel, index) => [indexColumnModel.columnModelId, `${index + 1}`])
-        )
-    );
+    const columnIdToOrders = React.useMemo(() => {
+        const existedColumnModelIds = new Set(columnModels.map(columnModel => columnModel.columnModelId));
+
+        return tableIndexModels.map(indexModel =>
+            new Map<string, string>(indexModel.indexColumnModels
+                .filter(indexColumnModel => existedColumnModelIds.has(indexColumnModel.columnModelId))
+                .map((indexColumnModel, index) => [indexColumnModel.columnModelId, `${index + 1}`])
+            )
+        );
+    }, [columnModels, tableIndexModels]);
+
 
     const selectedIndex = (targetIndexModel == null) ? -1
         : tableIndexModels.findIndex(target => (target.tableIndexModelId === targetIndexModel.tableIndexModelId));
 
-    // ヘッダーセルのドラッグイベント
-    const initHeaderDragEvents = (indexIndex: number) => {
+    const initDragEventHandler = (indexIndex: number) => {
         const handleDragStart = (event: React.DragEvent) => {
             setDraggingStartIndex(indexIndex);
             event.dataTransfer.effectAllowed = "move";
@@ -212,7 +215,7 @@ const IndexViewTable = ({
         </Stack>
     );
 
-    const doInitIndexColumn = (indexIndex: number) => {
+    const initIndexColumn = (indexIndex: number) => {
         const cellStyle: React.CSSProperties = {
             ...BASE_CELL_STYLE,
             ...initCurrentCellStyle(indexIndex),
@@ -248,7 +251,7 @@ const IndexViewTable = ({
         return (
             <Stack direction="column" alignItems="center" justifyContent="center"
                 draggable={tableIndexModels.length > 1}
-                {...initHeaderDragEvents(indexIndex)}>
+                {...initDragEventHandler(indexIndex)}>
                 {cells}
             </Stack>
         );
@@ -320,7 +323,7 @@ const IndexViewTable = ({
                         </Box>
                         <Box ref={columnScrollRef} onScroll={handleScroll} sx={{ overflow: 'auto' }}>
                             <Stack direction="row" alignItems="flex-start" justifyContent="flex-start">
-                                {tableIndexModels.map((_, index) => doInitIndexColumn(index))}
+                                {tableIndexModels.map((_, index) => initIndexColumn(index))}
                             </Stack>
                         </Box>
                     </Stack>
