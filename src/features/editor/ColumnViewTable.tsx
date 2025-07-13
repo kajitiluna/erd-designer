@@ -33,9 +33,30 @@ const ColumnViewTable = ({
 
     const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
 
-    const [selectedIndex, setSelectedIndex] = React.useState<number | null>(null);
-    const [editingColumnModel, setEditingColumnModel] = React.useState<ColumnModel | null>(null);
-    const [editingColumnGroupIndex, setEditingColumnGroupIndex] = React.useState<number | "ADD" | null>(null);
+    const [selectedWrappedModel, setSelectedWrappedModel] = React.useState<ColumnWrapModel | null>(null);
+    const [editMode, setEditMode] = React.useState<"column" | "add_group" | "edit_group" | "">("");
+
+    const [draggingStartIndex, setDraggingStartIndex] = React.useState<number | null>(null);
+    const [draggingOverIndex, setDraggingOverIndex] = React.useState<number | null>(null);
+
+    const selectedIndex: number = (selectedWrappedModel == null) ? -1
+        : columnWrapModels.findIndex(wrappedModel => {
+            if (wrappedModel.modelType !== selectedWrappedModel.modelType) {
+                return false;
+            }
+
+            if ((wrappedModel.modelType === "single") && (selectedWrappedModel.modelType === "single")
+                && (wrappedModel.columnModel.columnModelId === selectedWrappedModel.columnModel.columnModelId)) {
+                return true;
+            }
+
+            if ((wrappedModel.modelType === "group") && (selectedWrappedModel.modelType === "group")
+                && (wrappedModel.columnGroupModel.columnGroupId === selectedWrappedModel.columnGroupModel.columnGroupId)) {
+                return true;
+            }
+
+            return false;
+        });
 
     const initColumnModelRow = (columnWrapModel: ColumnWrapModel, targetIndex: number) => {
         const cells = (columnWrapModel.modelType === "single")
@@ -43,26 +64,85 @@ const ColumnViewTable = ({
             : doInitGroupColumnRow(columnWrapModel.columnGroupModel);
 
         const handleRowClicked = () => {
-            setSelectedIndex((selectedIndex !== targetIndex) ? targetIndex : null);
+            setSelectedWrappedModel((selectedWrappedModel !== columnWrapModel) ? columnWrapModel : null);
         };
 
         const handleEditColumn = () => {
-            setSelectedIndex(null);
+            setSelectedWrappedModel(columnWrapModel);
 
             if (columnWrapModel.modelType === "single") {
-                setEditingColumnModel(columnWrapModel.columnModel);
+                setEditMode("column");
             } else {
-                setEditingColumnGroupIndex(targetIndex);
+                setEditMode("edit_group");
             }
         };
 
-        const rowStyle = (selectedIndex === targetIndex)
-            ? { backgroundColor: SELECTED_CELL_COLOR, height: "43px" } : baseRowStyle;
+        // ドラッグ開始の制御
+        const handleDragStart = (event: React.DragEvent) => {
+            setDraggingStartIndex(targetIndex);
+            event.dataTransfer.effectAllowed = "move";
+        };
+
+        // 他の要素をドラッグしているものが、該当コンポーネントの上にドラッグオーバーしている時の制御
+        const handleDragOver = (event: React.DragEvent) => {
+            event.preventDefault();
+
+            setDraggingOverIndex(previous => {
+                if (previous === targetIndex) {
+                    return previous; // 同じ行でのドラッグオーバーは無視
+                }
+
+                event.dataTransfer.dropEffect = "move";
+                return targetIndex;
+            });
+        };
+
+        const handleDrop = (event: React.DragEvent) => {
+            event.preventDefault();
+
+            if ((draggingStartIndex == null) || (draggingStartIndex === targetIndex)) {
+                return; // ドラッグ開始位置が未設定、または同じ行でのドロップは無視
+            }
+
+            onUpdateColumnWrapModels(previous => {
+                const nextColumnWrapModels = [...previous];
+
+                nextColumnWrapModels.splice(draggingStartIndex, 1); // 元の位置から削除
+                nextColumnWrapModels.splice(targetIndex, 0, previous[draggingStartIndex]);
+
+                return nextColumnWrapModels
+            });
+        };
+
+        const handleDragEnd = () => {
+            setDraggingStartIndex(null);
+            setDraggingOverIndex(null);
+        };
+
+        const initRowStyle = () => {
+            const rowStyle = (selectedIndex === targetIndex)
+                ? { backgroundColor: SELECTED_CELL_COLOR, height: "43px" } : baseRowStyle;
+
+            // ドラッグ中の行は半透明にする
+            if (draggingStartIndex === targetIndex) {
+                return { ...rowStyle, opacity: 0.2 };
+            }
+            // ドラッグオーバー中の行は色を変える
+            if (draggingOverIndex === targetIndex) {
+                return { height: "43px", backgroundColor: 'lightblue' };
+            }
+
+            return rowStyle;
+        };
 
         return (
             <TableRow key={`column-view-${targetIndex}`}
-                onClick={handleRowClicked} onDoubleClick={handleEditColumn}
-                sx={rowStyle} style={{ cursor: 'pointer' }}>
+                sx={initRowStyle()} style={{ cursor: 'pointer' }}
+                draggable={columnWrapModels.length > 1}
+                onDragStart={handleDragStart} onDragOver={handleDragOver}
+                onDragLeave={() => setDraggingOverIndex(null)}
+                onDrop={handleDrop} onDragEnd={handleDragEnd}
+                onClick={handleRowClicked} onDoubleClick={handleEditColumn}>
                 <TableCell align="center">{(selectedIndex === targetIndex) && "✔"}</TableCell>
                 {cells}
             </TableRow>
@@ -115,11 +195,12 @@ const ColumnViewTable = ({
 
     const handleAddColumn = () => {
         const columnModel = new ColumnModel({});
-        setEditingColumnModel(columnModel);
+        setSelectedWrappedModel({ modelType: "single", columnModel });
+        setEditMode("column");
     };
 
     const handleAddColumnGroup = () => {
-        setEditingColumnGroupIndex("ADD");
+        setEditMode("add_group");
     };
 
     const addButtonPanel = (
@@ -136,28 +217,23 @@ const ColumnViewTable = ({
     );
 
     const handleEditColumn = () => {
-        if (selectedIndex == null) {
+        if (selectedWrappedModel == null) {
             return;
         }
 
-        setSelectedIndex(null);
-
-        const columnWrapModel = columnWrapModels[selectedIndex];
-        if (columnWrapModel.modelType === "single") {
-            setEditingColumnModel(columnWrapModel.columnModel);
+        if (selectedWrappedModel.modelType === "single") {
+            setEditMode("column");
         } else {
-            setEditingColumnGroupIndex(selectedIndex);
+            setEditMode("edit_group");
         }
     };
 
     const initHandleShiftColumn = (shift: (1 | -1)) => {
         return () => {
-            if ((selectedIndex == null) || (selectedIndex + shift < 0)
+            if ((selectedIndex < 0) || (selectedIndex + shift < 0)
                 || (selectedIndex + shift >= columnWrapModels.length)) {
                 return;
             }
-
-            setSelectedIndex(selectedIndex + shift);
 
             onUpdateColumnWrapModels(previous => {
                 const nextColumnWrapModels = [...previous];
@@ -169,13 +245,15 @@ const ColumnViewTable = ({
         }
     };
 
-    const checkInChildRelation = (targetIndex: number) => {
+    const checkRemovable = (targetIndex: number) => {
         const columnWrapModel = columnWrapModels[targetIndex];
-        if (columnWrapModel.modelType === "group") {
-            return false; // TODO
+        if (columnWrapModel.modelType === "single") {
+            return isChildRelation(columnWrapModel.columnModel.columnModelId);
+
         }
 
-        return isChildRelation(columnWrapModel.columnModel.columnModelId);
+        return columnWrapModel.columnModels
+            .some(columnModel => isChildRelation(columnModel.columnModelId));
     };
 
     const handleRemoveColumn = () => {
@@ -183,25 +261,25 @@ const ColumnViewTable = ({
             return;
         }
 
-        setSelectedIndex(null);
+        setSelectedWrappedModel(null);
         onUpdateColumnWrapModels(previous => previous.filter((_, index) => (selectedIndex !== index)))
     }
 
     const editButtonPanel = (
         <Stack justifyContent="flex-end" direction="row" spacing={2}>
-            <EdgedIconButton tooltip="Edit column" disabled={selectedIndex == null}
+            <EdgedIconButton tooltip="Edit column" disabled={selectedIndex < 0}
                 onClick={handleEditColumn}>
                 <EditIcon fontSize="small" />
             </EdgedIconButton>
-            <EdgedIconButton tooltip="Move up" disabled={(selectedIndex == null) || (selectedIndex === 0)}
+            <EdgedIconButton tooltip="Move up" disabled={(selectedIndex < 0) || (selectedIndex === 0)}
                 onClick={initHandleShiftColumn(-1)}>
                 <ArrowUpwardIcon fontSize="small" />
             </EdgedIconButton>
-            <EdgedIconButton tooltip="Move down" disabled={(selectedIndex == null) || (selectedIndex === columnWrapModels.length - 1)}
+            <EdgedIconButton tooltip="Move down" disabled={(selectedIndex < 0) || (selectedIndex === columnWrapModels.length - 1)}
                 onClick={initHandleShiftColumn(1)}>
                 <ArrowDownwardIcon fontSize="small" />
             </EdgedIconButton>
-            <EdgedIconButton tooltip="Remove column" disabled={(selectedIndex == null) || checkInChildRelation(selectedIndex)}
+            <EdgedIconButton tooltip="Remove column" disabled={(selectedIndex < 0) || checkRemovable(selectedIndex)}
                 onClick={handleRemoveColumn}>
                 <DeleteIcon fontSize="small" />
             </EdgedIconButton>
@@ -209,22 +287,24 @@ const ColumnViewTable = ({
     );
 
     const handleUpdateColumnGroup = (columnWrapModel: ColumnWrapModel) => {
-        if (editingColumnGroupIndex == null) {
+        setSelectedWrappedModel(null);
+
+        if (editMode == "") {
             return;
         }
 
-        if (editingColumnGroupIndex === "ADD") {
+        if (editMode === "add_group") {
             onUpdateColumnWrapModels(previous => [...previous, columnWrapModel]);
             return;
         }
 
         onUpdateColumnWrapModels(previous => {
-            if ((editingColumnGroupIndex < 0) || (editingColumnGroupIndex >= previous.length)) {
+            if ((selectedIndex < 0) || (selectedIndex >= previous.length)) {
                 return previous;
             }
 
             const nextColumnWrapModels = [...previous];
-            nextColumnWrapModels[editingColumnGroupIndex] = columnWrapModel;
+            nextColumnWrapModels[selectedIndex] = columnWrapModel;
 
             return nextColumnWrapModels;
         });
@@ -253,20 +333,21 @@ const ColumnViewTable = ({
                 {addButtonPanel}
                 {editButtonPanel}
             </Stack>
-            {(editingColumnModel != null) && (
+            {(editMode === "column") && (selectedWrappedModel?.modelType === "single") && (
                 <ColumnEditDialog
-                    isOpen={editingColumnModel != null}
-                    columnModel={editingColumnModel}
+                    isOpen={(editMode === "column") && (selectedWrappedModel?.modelType === "single")}
+                    columnModel={selectedWrappedModel.columnModel}
                     isEditableColumnType={isEditableColumnType}
                     onUpdateWrapColumnModels={onUpdateColumnWrapModels}
-                    onClose={() => setEditingColumnModel(null)} />
+                    onClose={() => setEditMode("")} />
             )}
-            {(editingColumnGroupIndex != null) && (
+            {((editMode === "add_group") || (editMode === "edit_group")) && (selectedWrappedModel?.modelType === "group") && (
                 <ColumnGroupView
-                    isOpen={editingColumnGroupIndex !== null}
+                    isOpen={((editMode === "add_group") || (editMode === "edit_group"))
+                        && (selectedWrappedModel?.modelType === "group")}
                     viewMode="select"
                     onSelect={handleUpdateColumnGroup}
-                    onClose={() => setEditingColumnGroupIndex(null)} />
+                    onClose={() => setEditMode("")} />
             )}
         </>
     );
