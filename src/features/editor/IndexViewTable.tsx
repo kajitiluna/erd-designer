@@ -118,12 +118,12 @@ const IndexViewTable = ({
     };
 
     const initHeaderCellStyle = (indexIndex: number) => {
-        const style: React.CSSProperties = { width: "60px", cursor: 'grab' };
+        const style: React.CSSProperties = { width: "60px" };
 
         if (draggingStartIndex === indexIndex) {
-            return { ...style, opacity: 0.5, cursor: 'grabbing' };
+            return { ...style, opacity: 0.5 };
         }
-        if (draggingOverIndex === indexIndex && draggingStartIndex !== null) {
+        if ((draggingOverIndex === indexIndex) && (draggingStartIndex !== null)) {
             return { ...style, backgroundColor: 'lightblue' };
         }
 
@@ -138,7 +138,7 @@ const IndexViewTable = ({
         const isSelected = (targetIndexModel == null) ? false
             : (tableIndexModels[indexIndex].tableIndexModelId === targetIndexModel.tableIndexModelId);
         const baseStyle = isSelected ? { backgroundColor: SELECTED_CELL_COLOR }
-            : ((indexIndex % 2 === 1) ? { backgroundColor: 'action.hover' } : {});
+            : ((indexIndex % 2 === 1) ? { backgroundColor: "action.hover" } : {});
 
         if (draggingStartIndex === indexIndex) {
             return { ...baseStyle, opacity: 0.5 };
@@ -147,11 +147,12 @@ const IndexViewTable = ({
         return baseStyle;
     };
 
+    const keyIconHeaderStyle = initHeaderStyle(10);
     const boxHeader = (
         <Stack direction="row" alignItems="center" justifyContent="flex-start">
-            <Box sx={{ ...BASE_CELL_STYLE, minWidth: "10px", maxWidth: "10px", minHeight: "24px" }}>PK</Box>
-            <Box sx={{ ...BASE_CELL_STYLE, minWidth: "10px", maxWidth: "10px", minHeight: "24px" }}>FK</Box>
-            <Box sx={{ ...BASE_CELL_STYLE, minWidth: "200px", maxWidth: "200px", minHeight: "24px" }}>Physical Name</Box>
+            <Box sx={keyIconHeaderStyle}>PK</Box>
+            <Box sx={keyIconHeaderStyle}>FK</Box>
+            <Box sx={initHeaderStyle(200)}>Physical Name</Box>
             <Box ref={headerScrollRef} sx={{ overflow: "hidden", pointerEvents: "none" }}>
                 <Stack direction="row" alignItems="center" justifyContent="flex-start">
                     {tableIndexModels.map((_, index) => (
@@ -159,7 +160,9 @@ const IndexViewTable = ({
                             ...BASE_CELL_STYLE,
                             ...initHeaderCellStyle(index),
                             textAlign: "center",
-                            minWidth: "60px", maxWidth: "60px", minHeight: "24px"
+                            minWidth: "60px",
+                            maxWidth: "60px",
+                            minHeight: "24px"
                         }}>
                             {(selectedIndex === index) && "✔"}
                         </Box>
@@ -174,7 +177,7 @@ const IndexViewTable = ({
             <Stack direction="column" alignItems="center" justifyContent="center">
                 {columnModels.map(columnModel => (
                     <Box key={`index-table_title0-${columnModel.columnModelId}`}
-                        sx={{ ...BASE_CELL_STYLE, minWidth: "10px", maxWidth: "10px", backgroundColor: 'action.hover' }}>
+                        sx={initTitleStyle(10, true)}>
                         {columnModel.primaryKey && <PrimaryKeyIcon />}
                     </Box>
                 ))}
@@ -184,7 +187,7 @@ const IndexViewTable = ({
                     const inChildRelation = isChildRelation(columnModel.columnModelId);
                     return (
                         <Box key={`index-table_title1-${columnModel.columnModelId}`}
-                            sx={{ ...BASE_CELL_STYLE, minWidth: "10px", maxWidth: "10px" }}>
+                            sx={initTitleStyle(10)}>
                             {inChildRelation && <ForeignKeyIcon />}
                         </Box>
                     );
@@ -202,11 +205,7 @@ const IndexViewTable = ({
 
                     return (
                         <Box key={`index-table_title2-${columnModel.columnModelId}`}
-                            sx={{
-                                ...BASE_CELL_STYLE,
-                                minWidth: "200px", maxWidth: "200px",
-                                backgroundColor: 'action.hover'
-                            }}>
+                            sx={initTitleStyle(200, true)}>
                             {overrideName.physicalName}
                         </Box>
                     );
@@ -222,6 +221,7 @@ const IndexViewTable = ({
             textAlign: "center",
             minWidth: "60px",
             maxWidth: "60px",
+            cursor: "pointer"
         };
 
         const indexModel = tableIndexModels[indexIndex];
@@ -241,8 +241,7 @@ const IndexViewTable = ({
 
             return (
                 <Box key={`index-table_cell-${columnModel.columnModelId}-${rowIndex}`}
-                    sx={cellStyle} style={{ cursor: 'pointer' }}
-                    onClick={handleSelect} onDoubleClick={handleEditIndex}>
+                    sx={cellStyle} onClick={handleSelect} onDoubleClick={handleEditIndex}>
                     {order ? order : ""}
                 </Box>
             );
@@ -348,6 +347,24 @@ const IndexViewTable = ({
     );
 };
 
+const initHeaderStyle = (width: number): React.CSSProperties => {
+    return {
+        ...BASE_CELL_STYLE,
+        minWidth: `${width}px`,
+        maxWidth: `${width}px`,
+        minHeight: "24px"
+    };
+};
+
+const initTitleStyle = (width: number, withBackgroundColor: boolean = false): React.CSSProperties => {
+    return {
+        ...BASE_CELL_STYLE,
+        minWidth: `${width}px`,
+        maxWidth: `${width}px`,
+        backgroundColor: withBackgroundColor ? "action.hover" : ""
+    };
+};
+
 const BASE_CELL_STYLE: React.CSSProperties = {
     borderBottomColor: "#e0e0e0",
     borderBottomStyle: "solid",
@@ -364,8 +381,7 @@ const BASE_CELL_STYLE: React.CSSProperties = {
     fontWeight: 400,
     lineHeight: 1.43,
     letterSpacing: "0.01071em",
-    minHeight: "30px",
-    cursor: "grab"
+    minHeight: "30px"
 };
 
 const SCROLL_STYLE = {
@@ -555,7 +571,7 @@ const IndexColumnTransferPanel = ({
             };
 
             return (
-                <TableRow key={`from-column-panel_index-${columnModelId}`} style={{ cursor: 'pointer' }}
+                <TableRow key={`from-column-panel_index-${columnModelId}`} style={{ cursor: "pointer" }}
                     selected={columnModelId === selectedFromId}
                     onClick={handleSelect} onDoubleClick={handleMove}>
                     <TableCell>{columnName.physicalName}</TableCell>
