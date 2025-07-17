@@ -48,8 +48,10 @@ const ErdCanvas = () => {
     const [editAction, setEditAction] = useState<EditAction>(NO_EDIT_ACTION);
     // リレーション作成にて親テーブルが指定されているときに、論理的なマウス位置を保持する
     const [relationEdge, setRelationEdge] = useState<Point | null>(null);
-    // 中クリックにより Canvas 移動の起点となる位置を保持する
-    const [panningPoint, setPanningPoint] = useState<Point | null>(null);
+    // grabbing 操作による Canvas 移動の起点となる位置を保持する
+    const [grabbingPoint, setGrabbingPoint] = useState<Point | null>(null);
+    // grabbing 用の ref を追加
+    const grabbingAnimationRef = React.useRef<number | null>(null);
     // FireFox の場合、ドラッグ完了後に click イベントが発生するため、ドラッグ距離を保持して、ドラッグ後のイベントを制御する
     const [dragDistance, setDragDistance] = useState<number>(0);
 
@@ -124,9 +126,9 @@ const ErdCanvas = () => {
         setDragDistance(0);
         const mousePosition = getLogicalMousePosition(event, displayScale);
 
-        // 中クリックの場合は、キャンバスを移動する
-        if (event.button === 1) {
-            doHandleMiddleClickOnCanvas(mousePosition);
+        // 右クリックもしくは中クリックの場合は、キャンバスを移動する
+        if ((event.button === 1) || (event.button === 2)) {
+            setGrabbingPoint(mousePosition);
             return;
         }
 
@@ -152,33 +154,11 @@ const ErdCanvas = () => {
         dispatchDragAction({ type: "start_dragging", start: mousePosition });
     };
 
-    const doHandleMiddleClickOnCanvas = (mousePosition: Point) => {
-        if (panningPoint != null) {
-            setPanningPoint(null);
-
-            // カーソルを元に戻す
-            if (erdCanvasRef.current) {
-                erdCanvasRef.current.style.cursor = findMouseCursorIcon(editMode);
-            }
-
-            return;
-        }
-
-        setPanningPoint(mousePosition);
-
-        if (erdCanvasRef.current) {
-            erdCanvasRef.current.style.cursor = "all-scroll";
-        }
-    };
-
     const handleMoveMouseOnCanvas = (event: MouseEvent) => {
         const mousePosition = getLogicalMousePosition(event, displayScale);
 
-        if (panningPoint != null) {
-            // スクロール位置を更新
-            window.scrollBy((mousePosition.x - panningPoint.x) / 1.2, (mousePosition.y - panningPoint.y) / 1.2);
-            setPanningPoint(mousePosition);
-
+        if (grabbingPoint != null) {
+            doHandleGrabbing(mousePosition, displayScale);
             return;
         }
 
@@ -196,7 +176,38 @@ const ErdCanvas = () => {
         dispatchDragAction({ type: "on_dragging", current: mousePosition });
     };
 
+    const doHandleGrabbing = (mousePosition: Point, displayScale: number) => {
+        if (grabbingPoint == null) {
+            return;
+        }
+
+        // 前回のアニメーションをキャンセル
+        if (grabbingAnimationRef.current) {
+            cancelAnimationFrame(grabbingAnimationRef.current);
+        }
+
+        grabbingAnimationRef.current = requestAnimationFrame(() => {
+            // Canvas の表示サイズに合わせて、スクロール位置を調整する
+            const deltaX = (grabbingPoint.x - mousePosition.x) * displayScale;
+            const deltaY = (grabbingPoint.y - mousePosition.y) * displayScale;
+
+            // 閾値以下の移動は無視
+            if (deltaX **2 + deltaY ** 2 < 5) {
+                grabbingAnimationRef.current = null;
+                return;
+            }
+
+            window.scrollBy({ left: deltaX , top: deltaY, behavior: 'instant' });
+            grabbingAnimationRef.current = null;
+        });
+    };
+
     const handleDragEnd = (event: MouseEvent) => {
+        if (grabbingPoint != null) {
+            setGrabbingPoint(null);
+            return;
+        }
+
         // 左クリック以外は無視
         if (event.button !== 0) {
             return;
@@ -301,8 +312,8 @@ const ErdCanvas = () => {
             return;
         }
 
-        return initEffectOfMouseCursorOnCanvas(editMode, panningPoint, erdCanvas);
-    }, [editMode, panningPoint]);
+        return initEffectOfMouseCursorOnCanvas(editMode, grabbingPoint, erdCanvas);
+    }, [editMode, grabbingPoint]);
 
     // 初回表示時に Canvas の中央にスクロール
     useLayoutEffect(() => {
@@ -575,9 +586,9 @@ const initRectangleWithoutScale = (element: Element, displayScale: number) => {
     });
 };
 
-const initEffectOfMouseCursorOnCanvas = (editMode: EditMode, panningPoint: Point | null, erdCanvas: HTMLDivElement) => {
+const initEffectOfMouseCursorOnCanvas = (editMode: EditMode, grabbingPoint: Point | null, erdCanvas: HTMLDivElement) => {
     const handleMouseIcon = () => {
-        erdCanvas.style.cursor = (panningPoint != null) ? "all-scroll" : findMouseCursorIcon(editMode);
+        erdCanvas.style.cursor = findMouseCursorIcon(editMode, grabbingPoint);
     };
 
     erdCanvas.addEventListener("mousemove", handleMouseIcon);
@@ -587,9 +598,12 @@ const initEffectOfMouseCursorOnCanvas = (editMode: EditMode, panningPoint: Point
     };
 };
 
-const findMouseCursorIcon = (editMode: EditMode) => {
+const findMouseCursorIcon = (editMode: EditMode, grabbingPoint: Point | null) => {
+    if (grabbingPoint != null) {
+        return "grabbing";
+    }
+
     if (((editMode === EditModeType.CREATE_TABLE) || (editMode === EditModeType.CREATE_MEMO))) {
-        // erCanvas.style.cursor = `url('/icon/icon_add-table.png'), auto`;
         return "copy";
     }
 
