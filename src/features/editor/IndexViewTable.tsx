@@ -249,7 +249,8 @@ const IndexViewTable = ({
         });
 
         return (
-            <Stack direction="column" alignItems="center" justifyContent="center"
+            <Stack key={`index-column_${indexModel.tableIndexModelId}`}
+                direction="column" alignItems="center" justifyContent="center"
                 draggable={tableIndexModels.length > 1}
                 {...initDragEventHandler(indexIndex)}>
                 {cells}

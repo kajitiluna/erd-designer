@@ -58,7 +58,7 @@ const databaseColumns: ReadonlyMap<DatabaseType, readonly ColumnType[]> = new Ma
         new ColumnType({ id: 1122, name: 'macaddr8', description: 'MAC (Media Access Control) アドレス (EUI-64 形式)', baseQuery: 'MACADDR8', withPrecision: false, withScale: false }),
         new ColumnType({ id: 9101, name: 'pg_lsn', description: 'PostgreSQLログシーケンス番号', baseQuery: 'PG_LSN', withPrecision: false, withScale: false }),
         new ColumnType({ id: 9102, name: 'pg_snapshot', description: 'ユーザレベルのトランザクションIDスナップショット', baseQuery: 'PG_SNAPSHOT', withPrecision: false, withScale: false }),
-        new ColumnType({ id: 9103, name: 'oid', description: 'オブジェクト識別子データ', baseQuery: 'OID', withPrecision: false, withScale: false}),
+        new ColumnType({ id: 9103, name: 'oid', description: 'オブジェクト識別子データ', baseQuery: 'OID', withPrecision: false, withScale: false }),
         ColumnType.EMPTY
     ]],
 
@@ -152,6 +152,15 @@ export const migrateColumns = (databaseType: DatabaseType, columnTypes: ColumnTy
                 defaultValueCandidates: [...baseColumnType.defaultValueCandidates]
             });
         });
+    }
+
+    // PostgreSQL の場合、OID カラムを追加
+    if ((version < 20250718) && (databaseType === "postgres")) {
+        const oidColumnType = baseColumnTypeMap.get(9103);
+        if ((oidColumnType != null)
+            && nextColumnTypes.every(columnType => columnType.id !== 9103)) {
+            nextColumnTypes.push(oidColumnType);
+        }
     }
 
     return nextColumnTypes;
