@@ -1,5 +1,6 @@
 export const EditModeType = {
     SELECT: "SELECT",
+    GRAB: "GRAB",
     CREATE_TABLE: "CREATE_TABLE",
     CREATE_RELATION: "CREATE_RELATION",
     CREATE_MEMO: "CREATE_MEMO",

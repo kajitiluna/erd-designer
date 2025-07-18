@@ -11,7 +11,7 @@ import ErdRelationPathView, { ErdRelationTooltipRef } from "~/features/canvas/Er
 import ErdTableView, { ERD_TABLE_VIEW_CLASS_NAME } from "~/features/canvas/ErdTableView";
 import {
     CANVAS_AREA, CARDINALITY_MARKER, DRAWABLE_AREA,
-    getLogicalMousePosition, toNextOrthogonalLines, withMultiSelectKey
+    getLogicalMousePosition, handlePreventMouseEvent, toNextOrthogonalLines, withMultiSelectKey
 } from "~/features/canvas/support";
 import RelationEditView from "~/features/editor/RelationEditView";
 import TableEditView from "~/features/editor/TableEditView";
@@ -192,12 +192,12 @@ const ErdCanvas = () => {
             const deltaY = (grabbingPoint.y - mousePosition.y) * displayScale;
 
             // 閾値以下の移動は無視
-            if (deltaX **2 + deltaY ** 2 < 5) {
+            if (deltaX ** 2 + deltaY ** 2 < 5) {
                 grabbingAnimationRef.current = null;
                 return;
             }
 
-            window.scrollBy({ left: deltaX , top: deltaY, behavior: 'instant' });
+            window.scrollBy({ left: deltaX, top: deltaY, behavior: 'instant' });
             grabbingAnimationRef.current = null;
         });
     };
@@ -282,6 +282,45 @@ const ErdCanvas = () => {
     };
 
     const handleCloseEditDialog = () => setEditAction(NO_EDIT_ACTION);
+
+    const initGrabbingPanel = () => {
+        if (editMode !== EditModeType.GRAB) {
+            return (<></>);
+        }
+
+        const handleDragStart = (event: MouseEvent) => {
+            event.stopPropagation();
+
+            const mousePosition = getLogicalMousePosition(event, displayScale);
+            setGrabbingPoint(mousePosition);
+        };
+
+        const handleDragging = (event: MouseEvent) => {
+            event.stopPropagation();
+
+            const mousePosition = getLogicalMousePosition(event, displayScale);
+            doHandleGrabbing(mousePosition, displayScale);
+        };
+
+        const handleDragEnd = (event: MouseEvent) => {
+            event.stopPropagation();
+
+            setGrabbingPoint(null);
+        };
+
+        const grabPanelStyle: React.CSSProperties = {
+            position: "absolute", top: 0, left: 0,
+            width: `${DRAWABLE_AREA.width}px`,
+            height: `${DRAWABLE_AREA.height}px`,
+            cursor: (grabbingPoint != null) ? "grabbing" : "grab"
+        };
+
+        return (
+            <div style={grabPanelStyle}
+                onMouseDown={handleDragStart} onMouseMove={handleDragging} onMouseUp={handleDragEnd}
+                onClick={handlePreventMouseEvent} onDoubleClick={handlePreventMouseEvent} />
+        );
+    };
 
     // Canvas に描画されている短形の情報を取得
     useLayoutEffect(() => {
@@ -380,6 +419,7 @@ const ErdCanvas = () => {
 
                 <ActiveDraggingArea editMode={editMode} dragState={dragState} selectState={selectState} />
             </div>
+            {initGrabbingPanel()}
 
             <ErdRelationPathView ref={relationRef}
                 relationViews={erdDocument.getRelationViewModels()}
