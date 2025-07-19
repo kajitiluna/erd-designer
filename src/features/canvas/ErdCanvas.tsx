@@ -1,4 +1,4 @@
-import React, { JSX, MouseEvent, useEffect, useLayoutEffect, useState } from "react";
+import React from "react";
 import { Box } from "@mui/material";
 
 import DisplayScaleContext from "~/context/DisplayScaleContext";
@@ -39,19 +39,21 @@ const ErdCanvas = () => {
     const displayScale = React.useContext(DisplayScaleContext);
 
     // Canvas に描画されている短形の情報を保持する
-    const [rectangleArea, setRectangleArea] = useState<RectangleArea>({ tableRectangles: new Map(), memoRectangles: new Map() });
+    const [rectangleArea, setRectangleArea] = React.useState<RectangleArea>(
+        { tableRectangles: new Map(), memoRectangles: new Map() }
+    );
     // 画面に表示している Relation に関する svg 要素への参照を保持する
     const relationRef = React.useRef<ErdRelationTooltipRef>(null);
     // リレーション等の線情報を保持する
-    const [svgPaths, setSvgPaths] = useState<JSX.Element[]>([]);
+    const [svgPaths, setSvgPaths] = React.useState<React.JSX.Element[]>([]);
     // 編集中の対象
-    const [editAction, setEditAction] = useState<EditAction>(NO_EDIT_ACTION);
+    const [editAction, setEditAction] = React.useState<EditAction>(NO_EDIT_ACTION);
     // リレーション作成にて親テーブルが指定されているときに、論理的なマウス位置を保持する
-    const [relationEdge, setRelationEdge] = useState<Point | null>(null);
-    // 中クリックにより Canvas 移動の起点となる位置を保持する
-    const [panningPoint, setPanningPoint] = useState<Point | null>(null);
+    const [relationEdge, setRelationEdge] = React.useState<Point | null>(null);
     // FireFox の場合、ドラッグ完了後に click イベントが発生するため、ドラッグ距離を保持して、ドラッグ後のイベントを制御する
-    const [dragDistance, setDragDistance] = useState<number>(0);
+    const [dragDistance, setDragDistance] = React.useState<number>(0);
+    // Grab 操作に関する制御
+    const { grabbingPanel, startGrabbing } = useGrabbing(editMode, displayScale);
 
     const erdDocument = documentsHolder.current();
 
@@ -77,11 +79,12 @@ const ErdCanvas = () => {
 
     // リレーション作成にて、親テーブル指定後、子テーブルを指定する際に動的に表示するライン
     const activeLine = initCreatingRelationLine({
-        editMode, relationEdge, selectState: selectState, tableRectangles: rectangleArea.tableRectangles
+        editMode, relationEdge, selectState: selectState,
+        tableRectangles: rectangleArea.tableRectangles
     });
 
     // キャンバスがクリックされた時の制御を定義
-    const handleClickOnCanvas = (event: MouseEvent) => {
+    const handleClickOnCanvas = (event: React.MouseEvent) => {
         // 左クリック以外は無視
         if (event.button !== 0) {
             return;
@@ -120,13 +123,13 @@ const ErdCanvas = () => {
     };
 
     // ドラッグが開始されたときの制御
-    const handleDragStart = (event: MouseEvent) => {
+    const handleDragStart = (event: React.MouseEvent) => {
         setDragDistance(0);
         const mousePosition = getLogicalMousePosition(event, displayScale);
 
-        // 中クリックの場合は、キャンバスを移動する
-        if (event.button === 1) {
-            doHandleMiddleClickOnCanvas(mousePosition);
+        // 右クリックもしくは中クリックの場合は、grab 操作を開始する
+        if ((event.button === 1) || (event.button === 2)) {
+            startGrabbing(mousePosition);
             return;
         }
 
@@ -152,35 +155,8 @@ const ErdCanvas = () => {
         dispatchDragAction({ type: "start_dragging", start: mousePosition });
     };
 
-    const doHandleMiddleClickOnCanvas = (mousePosition: Point) => {
-        if (panningPoint != null) {
-            setPanningPoint(null);
-
-            // カーソルを元に戻す
-            if (erdCanvasRef.current) {
-                erdCanvasRef.current.style.cursor = findMouseCursorIcon(editMode);
-            }
-
-            return;
-        }
-
-        setPanningPoint(mousePosition);
-
-        if (erdCanvasRef.current) {
-            erdCanvasRef.current.style.cursor = "all-scroll";
-        }
-    };
-
-    const handleMoveMouseOnCanvas = (event: MouseEvent) => {
+    const handleMoveMouseOnCanvas = (event: React.MouseEvent) => {
         const mousePosition = getLogicalMousePosition(event, displayScale);
-
-        if (panningPoint != null) {
-            // スクロール位置を更新
-            window.scrollBy((mousePosition.x - panningPoint.x) / 1.2, (mousePosition.y - panningPoint.y) / 1.2);
-            setPanningPoint(mousePosition);
-
-            return;
-        }
 
         if (editMode === EditModeType.CREATE_RELATION) {
             setRelationEdge((selectState.tableIds.size === 1) ? mousePosition : null);
@@ -196,7 +172,7 @@ const ErdCanvas = () => {
         dispatchDragAction({ type: "on_dragging", current: mousePosition });
     };
 
-    const handleDragEnd = (event: MouseEvent) => {
+    const handleDragEnd = (event: React.MouseEvent) => {
         // 左クリック以外は無視
         if (event.button !== 0) {
             return;
@@ -273,7 +249,7 @@ const ErdCanvas = () => {
     const handleCloseEditDialog = () => setEditAction(NO_EDIT_ACTION);
 
     // Canvas に描画されている短形の情報を取得
-    useLayoutEffect(() => {
+    React.useLayoutEffect(() => {
         const erdCanvas = erdCanvasRef.current;
         if (!erdCanvas) {
             return;
@@ -285,7 +261,7 @@ const ErdCanvas = () => {
     }, [displayScale, dragState.status, erdDocument.erdSettingModel.displayStyle]);
 
     // // リレーションの線情報を更新
-    useLayoutEffect(() => {
+    React.useLayoutEffect(() => {
         if (relationRef.current == null) {
             return;
         }
@@ -295,29 +271,29 @@ const ErdCanvas = () => {
     }, [selectState, dragState, rectangleArea, erdDocument]);
 
     // マウスカーソルのアイコン設定
-    useLayoutEffect(() => {
+    React.useLayoutEffect(() => {
         const erdCanvas = erdCanvasRef.current;
         if (!erdCanvas) {
             return;
         }
 
-        return initEffectOfMouseCursorOnCanvas(editMode, panningPoint, erdCanvas);
-    }, [editMode, panningPoint]);
+        return initEffectOfMouseCursorOnCanvas(editMode, erdCanvas);
+    }, [editMode]);
 
     // 初回表示時に Canvas の中央にスクロール
-    useLayoutEffect(() => {
+    React.useLayoutEffect(() => {
         window.scrollTo(
             (DRAWABLE_AREA.width - window.innerWidth) / 2,
             (DRAWABLE_AREA.height - window.innerHeight) / 2);
     }, []);
 
     // スクロール可能領域の制御を window に登録
-    useLayoutEffect(() => {
+    React.useLayoutEffect(() => {
         return initEffectOfScrollOnCanvas(displayScale);
     }, [displayScale]);
 
     // keyUp 時のイベントを window.document に登録
-    useEffect(() => {
+    React.useEffect(() => {
         // ダイアログ表示時はキー操作イベントを無効にする
         if (editAction.editType !== "none") {
             return;
@@ -325,7 +301,7 @@ const ErdCanvas = () => {
 
         const handlers = [
             // ESC キーを押下した場合は SELECT モードに移行し、選択した要素を選択解除する
-            initSelectModeHandler(dispatchEditMode),
+            initSelectModeHandler(dispatchEditMode, erdCanvasRef),
             // `Ctrl/Command + Y` または `Ctrl/Command + Shift + Z` で Redo
             initRedoHandler(documentsHolder),
             // `Ctrl + Z` または `Command + Z` で Undo
@@ -370,6 +346,8 @@ const ErdCanvas = () => {
                 <ActiveDraggingArea editMode={editMode} dragState={dragState} selectState={selectState} />
             </div>
 
+            {grabbingPanel}
+
             <ErdRelationPathView ref={relationRef}
                 relationViews={erdDocument.getRelationViewModels()}
                 rectangleMap={rectangleArea.tableRectangles}
@@ -389,6 +367,124 @@ const ErdCanvas = () => {
             )}
         </DragActionContext.Provider>
     );
+};
+
+const useGrabbing = (editMode: EditMode, displayScale: number) => {
+    const grabbingPanelRef = React.useRef<HTMLDivElement>(null);
+    const [availableGrabbing, setAvailableGrabbing] = React.useState<boolean>(false);
+
+    // grabbing 操作による Canvas 移動の起点となる位置を保持する
+    const [isGrabbing, setGrabbing] = React.useState<boolean>(false);
+    const grabbingAnimationRef = React.useRef<number | null>(null);
+
+    const handleDragStart = React.useCallback((event: React.MouseEvent) => {
+        if (grabbingPanelRef.current == null) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const startPosition = getLogicalMousePosition(event, displayScale);
+        setGrabbing(true);
+
+        performGrabbing({
+            grabbingPanelRef, grabbingAnimationRef, startPosition, displayScale,
+            onGrabEnd: () => {
+                setGrabbing(false);
+            }
+        });
+    }, [displayScale]);
+
+
+    const grabPanelStyle: React.CSSProperties = {
+        position: "absolute", top: 0, left: 0,
+        width: ((editMode === EditModeType.GRAB) || availableGrabbing) ? `${DRAWABLE_AREA.width}px` : "0px",
+        height: ((editMode === EditModeType.GRAB) || availableGrabbing) ? `${DRAWABLE_AREA.height}px` : "0px",
+        cursor: isGrabbing ? "grabbing" : "grab"
+    };
+
+    const grabbingPanel = (<div ref={grabbingPanelRef} style={grabPanelStyle} onMouseDown={handleDragStart} />);
+
+    const startGrabbing = (position: Point) => {
+        if (editMode === EditModeType.GRAB) {
+            return;
+        }
+
+        setGrabbing(true);
+        setAvailableGrabbing(true);
+
+        performGrabbing({
+            grabbingPanelRef, grabbingAnimationRef, startPosition: position, displayScale,
+            onGrabEnd: () => {
+                setGrabbing(false);
+                setAvailableGrabbing(false);
+            }
+        });
+    };
+
+    return { grabbingPanel, startGrabbing };
+};
+
+type PerformGrabbingArgs = {
+    grabbingPanelRef: React.RefObject<HTMLDivElement | null>,
+    grabbingAnimationRef: React.RefObject<number | null>,
+    startPosition: Point, displayScale: number,
+    onGrabEnd: () => void
+};
+
+const performGrabbing = ({
+    grabbingPanelRef, grabbingAnimationRef,
+    startPosition, displayScale, onGrabEnd
+}: PerformGrabbingArgs) => {
+
+    if (grabbingPanelRef.current == null) {
+        return;
+    }
+
+    const handleMouseMove = (event: MouseEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        // 前回のアニメーションをキャンセル
+        if (grabbingAnimationRef.current) {
+            cancelAnimationFrame(grabbingAnimationRef.current);
+        }
+
+        const mousePosition = getLogicalMousePosition(event, displayScale);
+
+        grabbingAnimationRef.current = requestAnimationFrame(() => {
+            // Canvas の表示サイズに合わせて、スクロール位置を調整する
+            const deltaX = (startPosition.x - mousePosition.x) * displayScale;
+            const deltaY = (startPosition.y - mousePosition.y) * displayScale;
+
+            // 閾値以下の移動は無視
+            if (Math.abs(deltaX) + Math.abs(deltaY) < 3) {
+                grabbingAnimationRef.current = null;
+                return;
+            }
+
+            window.scrollBy({ left: deltaX, top: deltaY, behavior: "instant" });
+            grabbingAnimationRef.current = null;
+        });
+    };
+
+    const handleDragEnd = (event: MouseEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        onGrabEnd();
+
+        if (grabbingPanelRef.current == null) {
+            return;
+        }
+
+        grabbingPanelRef.current.removeEventListener("mousemove", handleMouseMove);
+        grabbingPanelRef.current.removeEventListener("mouseup", handleDragEnd);
+    };
+
+    grabbingPanelRef.current.addEventListener("mouseup", handleDragEnd);
+    grabbingPanelRef.current.addEventListener("mousemove", handleMouseMove);
 };
 
 const initCanvasStyle = (displayScale: number): React.CSSProperties => {
@@ -419,7 +515,9 @@ type CreateRelationLineArgs = {
     tableRectangles: Map<string, RectangleViewModel>
 };
 
-const initCreatingRelationLine = ({ editMode, relationEdge, selectState, tableRectangles }: CreateRelationLineArgs) => {
+const initCreatingRelationLine = ({
+    editMode, relationEdge, selectState, tableRectangles
+}: CreateRelationLineArgs) => {
     if (editMode !== EditModeType.CREATE_RELATION) {
         return (<></>);
     }
@@ -575,9 +673,14 @@ const initRectangleWithoutScale = (element: Element, displayScale: number) => {
     });
 };
 
-const initEffectOfMouseCursorOnCanvas = (editMode: EditMode, panningPoint: Point | null, erdCanvas: HTMLDivElement) => {
+const initEffectOfMouseCursorOnCanvas = (editMode: EditMode, erdCanvas: HTMLDivElement) => {
+    // Grab モードの場合は、別のコンポーネントでマウスカーソルを制御しているので、ここでは何もしない
+    if (editMode === EditModeType.GRAB) {
+        return;
+    }
+
     const handleMouseIcon = () => {
-        erdCanvas.style.cursor = (panningPoint != null) ? "all-scroll" : findMouseCursorIcon(editMode);
+        erdCanvas.style.cursor = findMouseCursorIcon(editMode);
     };
 
     erdCanvas.addEventListener("mousemove", handleMouseIcon);
@@ -589,7 +692,6 @@ const initEffectOfMouseCursorOnCanvas = (editMode: EditMode, panningPoint: Point
 
 const findMouseCursorIcon = (editMode: EditMode) => {
     if (((editMode === EditModeType.CREATE_TABLE) || (editMode === EditModeType.CREATE_MEMO))) {
-        // erCanvas.style.cursor = `url('/icon/icon_add-table.png'), auto`;
         return "copy";
     }
 
@@ -674,10 +776,18 @@ const initEffectOfKeyDownOnCanvas = (handlers: KeyEventHandler[]) => {
     };
 };
 
-const initSelectModeHandler = (dispatchEditMode: (action: EditMode) => void) => {
+const initSelectModeHandler = (
+    dispatchEditMode: (action: EditMode) => void, erdCanvasRef: React.RefObject<HTMLDivElement | null>
+) => {
     return {
         isMatching: (event: KeyboardEvent) => (event.key === "Escape"),
-        handle: () => dispatchEditMode(EditModeType.SELECT)
+        handle: () => {
+            dispatchEditMode(EditModeType.SELECT);
+
+            if (erdCanvasRef.current) {
+                erdCanvasRef.current.style.cursor = "default";
+            }
+        }
     };
 };
 

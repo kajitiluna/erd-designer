@@ -1,4 +1,3 @@
-import { MouseEvent } from "react";
 import { DragState } from "~/context/DragActionContext";
 import { SelectState } from "~/context/SelectEntityContext";
 
@@ -19,7 +18,7 @@ export const DRAWABLE_AREA = { width: CANVAS_AREA.width * 2, height: CANVAS_AREA
  * @param displayScale 表示拡大率
  * @returns 
  */
-export const getLogicalMousePosition = (event: MouseEvent, displayScale: number) => {
+export const getLogicalMousePosition = (event: React.MouseEvent | MouseEvent, displayScale: number) => {
     const logicalPosition = {
         x: (event.clientX + window.scrollX - DRAWABLE_AREA.width / 2) / displayScale,
         y: (event.clientY + window.scrollY - DRAWABLE_AREA.height / 2) / displayScale

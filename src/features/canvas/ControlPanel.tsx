@@ -1,14 +1,16 @@
-import React, { useState } from "react";
+import React from "react";
 import {
     Box, Button, ButtonGroup, FormControl, InputLabel,
     Menu, MenuItem, Select, SelectChangeEvent, ToggleButton, ToggleButtonGroup, Tooltip
 } from "@mui/material";
 import HighlightAltIcon from '@mui/icons-material/HighlightAlt';
+import PanToolIcon from '@mui/icons-material/PanTool';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import PolylineIcon from '@mui/icons-material/Polyline';
 import StickyNote2Icon from '@mui/icons-material/StickyNote2';
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
+import html2canvas from "html2canvas";
 
 import EditMode, { EditModeType } from "~/models/EditMode";
 import EditModeContext from "~/context/EditModeContext";
@@ -19,7 +21,6 @@ import ColorSelector from "~/components/ColorSelector";
 import DisplayStyle from "~/models/database/DisplayStyle";
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import ExportDdlView from "~/features/editor/ExportDdlView";
-import html2canvas from "html2canvas";
 import download from "~/components/file-downloader";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { ERD_TABLE_VIEW_CLASS_NAME } from "~/features/canvas/ErdTableView";
@@ -76,6 +77,12 @@ const EditModePanel = () => {
                     <HighlightAltIcon />
                 </Tooltip>
                 Select
+            </ToggleButton>
+            <ToggleButton value={EditModeType.GRAB}>
+                <Tooltip title={<h2>Grab</h2>} placement="top">
+                    <PanToolIcon />
+                </Tooltip>
+                Grab
             </ToggleButton>
             <ToggleButton value={EditModeType.CREATE_TABLE}>
                 <Tooltip title={<h2>Create table</h2>} placement="top">
@@ -164,8 +171,8 @@ type SubMenuButtonProps = {
 
 const SubMenuButton = ({ erdExportable }: SubMenuButtonProps) => {
     const { dispatchSelectAction } = React.useContext(SelectEntityContext);
-    const [configureElement, setConfigureElement] = useState<HTMLElement | null>();
-    const [selectedMenu, setSelectedMenu] = useState<"export_ddl" | "">("");
+    const [configureElement, setConfigureElement] = React.useState<HTMLElement | null>();
+    const [selectedMenu, setSelectedMenu] = React.useState<"export_ddl" | "">("");
     const { exportSpecification } = React.useContext(ExportSpecificationContext);
 
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
