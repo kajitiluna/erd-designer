@@ -1,12 +1,6 @@
 import { instanceToPlain } from 'class-transformer';
 import { PropertyNotExistsError } from '~/models/exceptions';
 
-type QueryOptions = {
-    precision?: string, scale?: string,
-    onNotNull?: boolean, onUnique?: boolean, defaultValue?: string,
-    onUnsigned?: boolean, onAutoIncrement?: boolean, inChildRelation?: boolean
-}
-
 type ColumnTypeOptions = {
     id: number,
     name: string,
@@ -67,32 +61,6 @@ export default class ColumnType {
         this.withAutoIncrement = withAutoIncrement;
         this.foreignColumn = (foreignColumn != null) ? foreignColumn : null;
         this.defaultValueCandidates = defaultValueCandidates;
-    }
-
-    query({
-        precision = "", scale = "", onNotNull = false, onUnique = false, defaultValue = "",
-        onUnsigned = false, onAutoIncrement = false, inChildRelation = false
-    }: QueryOptions): string {
-
-        let query = this.specifiedType({ precision, scale, inChildRelation });
-
-        if (onUnsigned && this.withUnsigned) {
-            query = query + " UNSIGNED";
-        }
-        if (onNotNull) {
-            query = query + " NOT NULL";
-        }
-        if (onUnique) {
-            query = query + " UNIQUE";
-        }
-        if (defaultValue) {
-            query = query + " DEFAULT " + defaultValue;
-        }
-        if (onAutoIncrement && this.withAutoIncrement) {
-            query = query + " AUTO_INCREMENT";
-        }
-
-        return query;
     }
 
     public specifiedType({ precision = "", scale = "", inChildRelation = false }): string {

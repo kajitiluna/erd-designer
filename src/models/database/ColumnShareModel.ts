@@ -1,5 +1,4 @@
 import ColumnType from "~/models/database/ColumnType";
-import { Database } from "~/models/database/DatabaseType";
 import { PropertyNotExistsError } from "~/models/exceptions";
 import { toDateTime } from "~/models/util";
 
@@ -15,16 +14,6 @@ type ColumnShareModelOptions = {
     createdAt?: Date | null
 }
 
-type ColumnShareQueryType = {
-    database: Database,
-    overridePhysicalName?: string,
-    notNull?: boolean,
-    unique?: boolean,
-    defaultValue?: string,
-    autoIncrement?: boolean,
-    inChildRelation?: boolean
-};
-
 export default class ColumnShareModel {
 
     public readonly columnShareModelId: string;
@@ -38,16 +27,11 @@ export default class ColumnShareModel {
     private readonly createdAt: Date;
 
     constructor({
-        columnShareModelId,
-        physicalName,
-        logicalName,
-        columnType,
-        precision = "",
-        scale = "",
-        unsigned = false,
-        description = "",
-        createdAt = null }: ColumnShareModelOptions
-    ) {
+        columnShareModelId, physicalName, logicalName,
+        columnType, precision = "", scale = "", unsigned = false,
+        description = "", createdAt = null
+    }: ColumnShareModelOptions) {
+
         this.columnShareModelId = columnShareModelId;
         this.physicalName = physicalName;
         this.logicalName = logicalName;
@@ -57,27 +41,6 @@ export default class ColumnShareModel {
         this.unsigned = columnType.withUnsigned ? unsigned : false;
         this.description = description;
         this.createdAt = createdAt ? createdAt : new Date();
-    }
-
-    public query({
-        database, overridePhysicalName = "",
-        notNull = false, unique = false, defaultValue = "",
-        autoIncrement = false, inChildRelation = false
-    }: ColumnShareQueryType): string {
-
-        const columnName = overridePhysicalName != "" ? overridePhysicalName : this.physicalName;
-        return `${database.escape(columnName)} ` + this.columnType.query(
-            {
-                precision: this.precision,
-                scale: this.scale,
-                onNotNull: notNull,
-                onUnique: unique,
-                defaultValue: defaultValue,
-                onUnsigned: this.unsigned,
-                onAutoIncrement: autoIncrement,
-                inChildRelation
-            }
-        );
     }
 
     public specifiedColumnType(inChildRelation: boolean = false): string {
@@ -97,7 +60,6 @@ export default class ColumnShareModel {
 
         return true;
     }
-
 
     public toJSON(): Record<string, unknown> {
         return {
