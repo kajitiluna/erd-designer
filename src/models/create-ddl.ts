@@ -432,7 +432,7 @@ const commentQueryForPostgres = (
         return commentQueries;
     });
 
-    return ["/* create comments. */", ...queries, ""];
+    return (queries.length > 0) ? ["/* create comments. */", ...queries, ""] : [];
 };
 
 const escapeComment = (comment: string) => {

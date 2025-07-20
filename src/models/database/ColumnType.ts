@@ -63,20 +63,22 @@ export default class ColumnType {
         this.defaultValueCandidates = defaultValueCandidates;
     }
 
-    public specifiedType({ precision = "", scale = "", inChildRelation = false }): string {
+    public specifiedType({
+        precision = "", scale = "", isArray = false, inChildRelation = false
+    }): string {
         if (this.foreignColumn && inChildRelation) {
-            return this.foreignColumn.specifiedType({ precision, scale });
+            return this.foreignColumn.specifiedType({ precision, scale, isArray });
         }
 
         if (this.baseQuery.indexOf("[[PARAM]]") < 0) {
-            return this.baseQuery;
+            return this.baseQuery + (isArray ? "[]" : "");
         }
 
         const param = (scale && this.withScale)
             ? `(${precision}, ${scale})`
             : ((precision && this.withPrecision) ? `(${precision})` : "");
 
-        return this.baseQuery.replace("[[PARAM]]", param);
+        return this.baseQuery.replace("[[PARAM]]", param) + (isArray ? "[]" : "");
     }
 
     public toJSON(): Record<string, unknown> {

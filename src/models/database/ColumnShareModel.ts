@@ -10,6 +10,7 @@ type ColumnShareModelOptions = {
     precision?: string,
     scale?: string,
     unsigned?: boolean,
+    isArray?: boolean,
     description?: string,
     createdAt?: Date | null
 }
@@ -23,12 +24,13 @@ export default class ColumnShareModel {
     public readonly precision: string;
     public readonly scale: string;
     public readonly unsigned: boolean;
+    public readonly isArray: boolean;
     public readonly description: string;
     private readonly createdAt: Date;
 
     constructor({
         columnShareModelId, physicalName, logicalName,
-        columnType, precision = "", scale = "", unsigned = false,
+        columnType, precision = "", scale = "", unsigned = false, isArray = false,
         description = "", createdAt = null
     }: ColumnShareModelOptions) {
 
@@ -39,12 +41,16 @@ export default class ColumnShareModel {
         this.precision = columnType.withPrecision ? precision : "";
         this.scale = columnType.withScale ? scale : "";
         this.unsigned = columnType.withUnsigned ? unsigned : false;
+        this.isArray = isArray;
         this.description = description;
         this.createdAt = createdAt ? createdAt : new Date();
     }
 
     public specifiedColumnType(inChildRelation: boolean = false): string {
-        return this.columnType.specifiedType({ precision: this.precision, scale: this.scale, inChildRelation });
+        return this.columnType.specifiedType({
+            precision: this.precision, scale: this.scale,
+            isArray: this.isArray, inChildRelation
+        });
     }
 
     public matchForReferenceType(parent: ColumnShareModel): boolean {
@@ -70,6 +76,7 @@ export default class ColumnShareModel {
             precision: this.precision,
             scale: this.scale,
             unsigned: this.unsigned,
+            isArray: this.isArray,
             description: this.description,
             createdAt: this.createdAt
         };
@@ -109,6 +116,7 @@ export default class ColumnShareModel {
             precision: obj.precision as string,
             scale: obj.scale as string,
             unsigned: obj.unsigned as boolean,
+            isArray: ("isArray" in obj) ? (obj.isArray as boolean) : false,
             description: obj.description as string,
             createdAt: ("createdAt" in obj) ? toDateTime(obj.createdAt) : new Date()
         });

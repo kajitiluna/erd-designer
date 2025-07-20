@@ -2,7 +2,7 @@ import { v4 as uuidV4 } from 'uuid';
 
 import ColorValue from '~/models/ColorValue';
 import ColumnShareModelStorage from '~/models/ColumnShareModelStorage';
-import { Database, databases } from '~/models/database';
+import { Database } from '~/models/database';
 import ColumnGroupModel from '~/models/database/ColumnGroupModel';
 import ColumnModel from '~/models/database/ColumnModel';
 import ColumnShareModel from '~/models/database/ColumnShareModel';
@@ -93,7 +93,7 @@ export default class ErdDocument {
     }
 
     public getDatabase(): Database {
-        return databases[this.databaseSettingModel.databaseType];
+        return this.databaseSettingModel.getDatabase();
     }
 
     public getDisplayStyle(): DisplayStyle {

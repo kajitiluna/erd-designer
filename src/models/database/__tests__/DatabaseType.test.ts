@@ -1,11 +1,11 @@
-import { Database, databases } from '../DatabaseType';
+import { Database } from '../DatabaseType';
 import TableIndexSupport from '../TableIndexSupport';
 
 describe('Database', () => {
     describe('constructor', () => {
         test('should create with all required properties', () => {
             const indexSupport = new TableIndexSupport(['UNIQUE'], ['BTREE']);
-            const database = new Database('postgres', 'PostgreSQL', indexSupport);
+            const database = new Database('postgres', 'PostgreSQL', indexSupport, true);
 
             expect(database.databaseType).toBe('postgres');
             expect(database.name).toBe('PostgreSQL');
@@ -16,7 +16,7 @@ describe('Database', () => {
 
 describe('databases constant', () => {
     test('should contain postgres database configuration', () => {
-        const postgres = databases.postgres;
+        const postgres = Database.get("postgres");
 
         expect(postgres.databaseType).toBe('postgres');
         expect(postgres.name).toBe('PostgreSQL');
@@ -24,7 +24,7 @@ describe('databases constant', () => {
     });
 
     test('should contain mysql database configuration', () => {
-        const mysql = databases.mysql;
+        const mysql = Database.get("mysql");
 
         expect(mysql.databaseType).toBe('mysql');
         expect(mysql.name).toBe('MySQL');
@@ -32,7 +32,7 @@ describe('databases constant', () => {
     });
 
     test('postgres should support expected index options and types', () => {
-        const postgres = databases.postgres;
+        const postgres = Database.get("postgres");
 
         expect(postgres.tableIndexSupport.indexOptions).toContain('UNIQUE');
         expect(postgres.tableIndexSupport.indexTypes).toContain('BTREE');
@@ -42,7 +42,7 @@ describe('databases constant', () => {
     });
 
     test('mysql should support expected index options and types', () => {
-        const mysql = databases.mysql;
+        const mysql = Database.get("mysql");
 
         expect(mysql.tableIndexSupport.indexOptions).toContain('UNIQUE');
         expect(mysql.tableIndexSupport.indexOptions).toContain('FULLTEXT');
