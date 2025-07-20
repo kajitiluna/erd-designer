@@ -313,6 +313,7 @@ type ColumnBaseDefinition = {
     notNull: boolean;
     unique: boolean;
     autoIncrement: boolean;
+    isArray: boolean;
     defaultValue: string;
     comment: string;
 };
@@ -483,7 +484,9 @@ const loadCreateColumnDefinition = (
     }
 
     const dataType = createDefinition.definition;
-    const columnType = dataType.dataType;
+    const { columnType, isArray } = dataType.dataType.endsWith("[]")
+        ? { columnType: dataType.dataType.slice(0, -2), isArray: true }
+        : { columnType: dataType.dataType, isArray: false };
     const timezone = (dataType.suffix && (dataType.suffix.length === 3)
         && (dataType.suffix[1] === "TIME") && (dataType.suffix[2] === "ZONE"))
         ? ((dataType.suffix[0] === "WITH") ? "with time zone" : "without time zone")
@@ -533,7 +536,7 @@ const loadCreateColumnDefinition = (
     return [
         {
             columnName, columnType, timezone, unsigned, zeroFill, precision, scale,
-            primaryKey: false, notNull, unique, autoIncrement, defaultValue, comment
+            primaryKey: false, notNull, unique, autoIncrement, isArray, defaultValue, comment
         }, null
     ];
 };
@@ -1142,6 +1145,9 @@ class ColumnTypeResolver {
             if (target.unsigned !== columnDefinition.unsigned) {
                 continue;
             }
+            if (target.isArray !== columnDefinition.isArray) {
+                continue;
+            }
 
             return target;
         }
@@ -1175,6 +1181,7 @@ class ColumnTypeResolver {
             precision: columnDefinition.precision?.toString() || "",
             scale: columnDefinition.scale?.toString() || "",
             unsigned: columnDefinition.unsigned,
+            isArray: columnDefinition.isArray,
             description: description,
         });
 

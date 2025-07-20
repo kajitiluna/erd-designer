@@ -1,5 +1,4 @@
 import ColumnType from "~/models/database/ColumnType";
-import { Database } from "~/models/database/DatabaseType";
 import { PropertyNotExistsError } from "~/models/exceptions";
 import { toDateTime } from "~/models/util";
 
@@ -11,19 +10,10 @@ type ColumnShareModelOptions = {
     precision?: string,
     scale?: string,
     unsigned?: boolean,
+    isArray?: boolean,
     description?: string,
     createdAt?: Date | null
 }
-
-type ColumnShareQueryType = {
-    database: Database,
-    overridePhysicalName?: string,
-    notNull?: boolean,
-    unique?: boolean,
-    defaultValue?: string,
-    autoIncrement?: boolean,
-    inChildRelation?: boolean
-};
 
 export default class ColumnShareModel {
 
@@ -34,20 +24,16 @@ export default class ColumnShareModel {
     public readonly precision: string;
     public readonly scale: string;
     public readonly unsigned: boolean;
+    public readonly isArray: boolean;
     public readonly description: string;
     private readonly createdAt: Date;
 
     constructor({
-        columnShareModelId,
-        physicalName,
-        logicalName,
-        columnType,
-        precision = "",
-        scale = "",
-        unsigned = false,
-        description = "",
-        createdAt = null }: ColumnShareModelOptions
-    ) {
+        columnShareModelId, physicalName, logicalName,
+        columnType, precision = "", scale = "", unsigned = false, isArray = false,
+        description = "", createdAt = null
+    }: ColumnShareModelOptions) {
+
         this.columnShareModelId = columnShareModelId;
         this.physicalName = physicalName;
         this.logicalName = logicalName;
@@ -55,33 +41,16 @@ export default class ColumnShareModel {
         this.precision = columnType.withPrecision ? precision : "";
         this.scale = columnType.withScale ? scale : "";
         this.unsigned = columnType.withUnsigned ? unsigned : false;
+        this.isArray = isArray;
         this.description = description;
         this.createdAt = createdAt ? createdAt : new Date();
     }
 
-    public query({
-        database, overridePhysicalName = "",
-        notNull = false, unique = false, defaultValue = "",
-        autoIncrement = false, inChildRelation = false
-    }: ColumnShareQueryType): string {
-
-        const columnName = overridePhysicalName != "" ? overridePhysicalName : this.physicalName;
-        return `${database.escape(columnName)} ` + this.columnType.query(
-            {
-                precision: this.precision,
-                scale: this.scale,
-                onNotNull: notNull,
-                onUnique: unique,
-                defaultValue: defaultValue,
-                onUnsigned: this.unsigned,
-                onAutoIncrement: autoIncrement,
-                inChildRelation
-            }
-        );
-    }
-
     public specifiedColumnType(inChildRelation: boolean = false): string {
-        return this.columnType.specifiedType({ precision: this.precision, scale: this.scale, inChildRelation });
+        return this.columnType.specifiedType({
+            precision: this.precision, scale: this.scale,
+            isArray: this.isArray, inChildRelation
+        });
     }
 
     public matchForReferenceType(parent: ColumnShareModel): boolean {
@@ -98,7 +67,6 @@ export default class ColumnShareModel {
         return true;
     }
 
-
     public toJSON(): Record<string, unknown> {
         return {
             columnShareModelId: this.columnShareModelId,
@@ -108,6 +76,7 @@ export default class ColumnShareModel {
             precision: this.precision,
             scale: this.scale,
             unsigned: this.unsigned,
+            isArray: this.isArray,
             description: this.description,
             createdAt: this.createdAt
         };
@@ -147,6 +116,7 @@ export default class ColumnShareModel {
             precision: obj.precision as string,
             scale: obj.scale as string,
             unsigned: obj.unsigned as boolean,
+            isArray: ("isArray" in obj) ? (obj.isArray as boolean) : false,
             description: obj.description as string,
             createdAt: ("createdAt" in obj) ? toDateTime(obj.createdAt) : new Date()
         });

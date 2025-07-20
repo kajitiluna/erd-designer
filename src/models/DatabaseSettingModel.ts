@@ -1,6 +1,6 @@
 import { findDatabaseColumns, migrateColumns } from "~/models/database/columns";
 import ColumnType from "~/models/database/ColumnType";
-import { DatabaseType } from "~/models/database/DatabaseType";
+import { Database, DatabaseType } from "~/models/database/DatabaseType";
 import { PropertyNotExistsError } from "~/models/exceptions";
 import { toObjects } from "~/models/util";
 
@@ -27,6 +27,10 @@ export default class DatabaseSettingModel {
     public static create(databaseType: DatabaseType): DatabaseSettingModel {
         const columnTypes = findDatabaseColumns(databaseType);
         return new DatabaseSettingModel({ databaseType, columnTypes, version: CURRENT_VERSION });
+    }
+
+    public getDatabase(): Database {
+        return Database.get(this.databaseType);
     }
 
     public initToColumnTypeMapping(): ((columnTypeId: number) => ColumnType) {

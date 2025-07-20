@@ -1,9 +1,8 @@
 import { v4 as uuidV4 } from 'uuid';
-import React, { ChangeEvent, MouseEvent, useState } from "react";
+import React from "react";
 import {
     Accordion, AccordionDetails, AccordionSummary, Autocomplete, Box, Button, Checkbox,
-    Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
-    Divider,
+    Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider,
     FormControlLabel, IconButton, Paper, Stack, TextField, Tooltip, Typography
 } from "@mui/material";
 import Grid from '@mui/material/Grid2';
@@ -39,7 +38,8 @@ type ColumnTypeAttribute = {
     columnType: ColumnType,
     precision: string,
     scale: string,
-    unsigned: boolean
+    unsigned: boolean,
+    isArray: boolean
 }
 
 const ColumnEditDialog = ({
@@ -50,23 +50,24 @@ const ColumnEditDialog = ({
 
     const columnShareModel: ColumnShareModel | null = columnShareModelStorage.find(columnModel.columnShareModelId);
 
-    const [checkedPrimaryKey, setPrimaryKey] = useState<boolean>(columnModel.primaryKey);
-    const [checkedNotNull, setNotNull] = useState<boolean>(columnModel.notNull);
-    const [checkedUnique, setUnique] = useState<boolean>(columnModel.unique);
-    const [checkAutoIncrement, setAutoIncrement] = useState<boolean>(columnModel.autoIncrement);
-    const [editableAutoIncrement, setEditableAutoIncrement]
-        = useState<boolean>(columnShareModel ? columnShareModel.columnType.withAutoIncrement : false);
-    const [overriddenPhysicalName, setOverriddenPhysicalName] = useState<string>(columnModel.physicalName);
-    const [overriddenLogicalName, setOverriddenLogicalName] = useState<string>(columnModel.logicalName);
-    const [defaultValue, setDefaultValue] = useState<string>(columnModel.defaultValue);
+    const [checkedPrimaryKey, setPrimaryKey] = React.useState<boolean>(columnModel.primaryKey);
+    const [checkedNotNull, setNotNull] = React.useState<boolean>(columnModel.notNull);
+    const [checkedUnique, setUnique] = React.useState<boolean>(columnModel.unique);
+    const [checkAutoIncrement, setAutoIncrement] = React.useState<boolean>(columnModel.autoIncrement);
+    const [editableAutoIncrement, setEditableAutoIncrement] =
+        React.useState<boolean>(columnShareModel ? columnShareModel.columnType.withAutoIncrement : false);
+    const [overriddenPhysicalName, setOverriddenPhysicalName] = React.useState<string>(columnModel.physicalName);
+    const [overriddenLogicalName, setOverriddenLogicalName] = React.useState<string>(columnModel.logicalName);
+    const [defaultValue, setDefaultValue] = React.useState<string>(columnModel.defaultValue);
 
-    const [columnShareModelId, setColumnShareModelId]
-        = useState<string>(columnShareModel ? columnShareModel.columnShareModelId : "");
-    const [physicalName, setPhysicalName] = useState<string>(columnShareModel ? columnShareModel.physicalName : "");
-    const [logicalName, setLogicalName] = useState<string>(columnShareModel ? columnShareModel.logicalName : "");
-    const [columnTypeAttribute, setColumnTypeAttribute]
-        = useState<ColumnTypeAttribute | null>(columnShareModel ? toColumnTypeAttribute(columnShareModel) : null);
-    const [description, setDescription] = useState<string>(columnShareModel ? columnShareModel.description : "");
+    const [columnShareModelId, setColumnShareModelId] =
+        React.useState<string>(columnShareModel ? columnShareModel.columnShareModelId : "");
+    const [physicalName, setPhysicalName] =
+        React.useState<string>(columnShareModel ? columnShareModel.physicalName : "");
+    const [logicalName, setLogicalName] = React.useState<string>(columnShareModel ? columnShareModel.logicalName : "");
+    const [columnTypeAttribute, setColumnTypeAttribute] =
+        React.useState<ColumnTypeAttribute | null>(columnShareModel ? toColumnTypeAttribute(columnShareModel) : null);
+    const [description, setDescription] = React.useState<string>(columnShareModel ? columnShareModel.description : "");
 
     const updateColumnType = (attribute: ColumnTypeAttribute) => {
         setEditableAutoIncrement(attribute.columnType.withAutoIncrement);
@@ -84,7 +85,7 @@ const ColumnEditDialog = ({
     };
 
     // 論理名が物理名と合致もしくは論理名が空の場合は、論理名に物理名の値を設定する
-    const handleChangePhysicalName: ((event: ChangeEvent<HTMLInputElement>) => void)
+    const handleChangePhysicalName: ((event: React.ChangeEvent<HTMLInputElement>) => void)
         = initHandleChangeWithSyncPhysicalName({
             physicalName: physicalName, setPhysicalName: setPhysicalName,
             logicalName: logicalName, setLogicalName: setLogicalName
@@ -153,7 +154,7 @@ const ColumnEditDialog = ({
         onClose();
     };
 
-    const handleCloseDialog = (event: MouseEvent) => {
+    const handleCloseDialog = (event: React.MouseEvent) => {
         event.stopPropagation();
         onClose();
     };
@@ -280,7 +281,8 @@ const toColumnTypeAttribute = (columnShareModel: ColumnShareModel) => {
         columnType: columnShareModel.columnType,
         precision: columnShareModel.precision,
         scale: columnShareModel.scale,
-        unsigned: columnShareModel.unsigned
+        unsigned: columnShareModel.unsigned,
+        isArray: columnShareModel.isArray
     };
 }
 
@@ -316,8 +318,8 @@ const ColumnModelPanel = ({ columnShareModelId, associateColumnModel, unlinkColu
     const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
     const columnShareModel = columnShareModelId ? columnShareModelStorage.find(columnShareModelId) : null;
 
-    const [isOpenSearchDialog, setOpenSearchDialog] = useState<boolean>(false);
-    const [isOpenUnlinkDialog, setOpenUnlinkDialog] = useState<boolean>(false);
+    const [isOpenSearchDialog, setOpenSearchDialog] = React.useState<boolean>(false);
+    const [isOpenUnlinkDialog, setOpenUnlinkDialog] = React.useState<boolean>(false);
 
     const searchButton = (
         <>
@@ -344,11 +346,11 @@ const ColumnModelPanel = ({ columnShareModelId, associateColumnModel, unlinkColu
         );
     }
 
-    const handleOpenUnlinkDialog = (event: MouseEvent) => {
+    const handleOpenUnlinkDialog = (event: React.MouseEvent) => {
         event.stopPropagation();
         setOpenUnlinkDialog(true);
     };
-    const handleCloseUnlinkDialog = (event: MouseEvent) => {
+    const handleCloseUnlinkDialog = (event: React.MouseEvent) => {
         event.stopPropagation();
         setOpenUnlinkDialog(false)
     };
@@ -397,11 +399,15 @@ const ColumnTypeEditPanel = ({
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const erdDocument: ErdDocument = documentsHolder.current();
     const databaseSetting: DatabaseSettingModel = erdDocument.databaseSettingModel
+    const database = databaseSetting.getDatabase();
+
+    const editableArray = database.supportsArrayType;
 
     const columnType = columnTypeAttribute ? columnTypeAttribute.columnType : null;
     const precision = columnTypeAttribute ? columnTypeAttribute.precision : "";
     const scale = columnTypeAttribute ? columnTypeAttribute.scale : "";
     const unsigned = columnTypeAttribute ? columnTypeAttribute.unsigned : false;
+    const isArray = columnTypeAttribute ? columnTypeAttribute.isArray && editableArray : false;
 
     const editablePrecision = columnType ? columnType.withPrecision : false;
     const editableScale = columnType ? columnType.withScale : false
@@ -413,7 +419,8 @@ const ColumnTypeEditPanel = ({
             columnType: nextColumnType,
             precision: precision,
             scale: scale,
-            unsigned: unsigned
+            unsigned: unsigned,
+            isArray: isArray
         });
     };
 
@@ -425,7 +432,8 @@ const ColumnTypeEditPanel = ({
             columnType: columnType as ColumnType,
             precision: updatedValue,
             scale: scale,
-            unsigned: unsigned
+            unsigned: unsigned,
+            isArray: isArray
         });
     };
 
@@ -437,7 +445,8 @@ const ColumnTypeEditPanel = ({
             columnType: columnType as ColumnType,
             precision: precision,
             scale: updatedValue,
-            unsigned: unsigned
+            unsigned: unsigned,
+            isArray: isArray
         });
     };
 
@@ -447,7 +456,19 @@ const ColumnTypeEditPanel = ({
             columnType: columnType as ColumnType,
             precision: precision,
             scale: scale,
-            unsigned: checked
+            unsigned: checked,
+            isArray: isArray
+        });
+    };
+
+    const handleChangeArray = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const checked = event.target.checked;
+        updateColumnType({
+            columnType: columnType as ColumnType,
+            precision: precision,
+            scale: scale,
+            unsigned: unsigned,
+            isArray: checked
         });
     };
 
@@ -481,6 +502,15 @@ const ColumnTypeEditPanel = ({
                     <Box display="flex" alignItems="center" height="100%" sx={{ pl: 1 }}>
                         <FormControlLabel label="unsigned" control={
                             <Checkbox disabled={disabled} checked={unsigned} onChange={handleChangeUnsigned} />
+                        } />
+                    </Box>
+                </Grid>
+            )}
+            {editableArray && (
+                <Grid size={{ xs: 4, md: 2 }}>
+                    <Box display="flex" alignItems="center" height="100%" sx={{ pl: 1 }}>
+                        <FormControlLabel label="isArray" control={
+                            <Checkbox disabled={disabled} checked={isArray} onChange={handleChangeArray} />
                         } />
                     </Box>
                 </Grid>

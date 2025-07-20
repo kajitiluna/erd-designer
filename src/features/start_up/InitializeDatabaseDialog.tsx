@@ -1,10 +1,10 @@
-import { ChangeEvent, useState } from "react";
+import React from "react";
 import {
-    Button, Dialog, DialogActions, DialogContent, DialogTitle,
-    Divider, FormControl, InputLabel, MenuItem, Select, SelectChangeEvent,
-    Stack, TextField, Typography
+    Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
+    FormControl, InputLabel, MenuItem, Select, SelectChangeEvent, Stack, TextField, Typography
 } from "@mui/material";
-import { databases, DatabaseType } from "~/models/database";
+
+import { Database, DatabaseType } from "~/models/database";
 import ErdDocument from "~/models/ErdDocument";
 import DatabaseSettingModel from "~/models/DatabaseSettingModel";
 import ErdSettingModel from "~/models/ErdSettingModel";
@@ -16,10 +16,10 @@ type InitializeDatabaseDialogProps = {
 };
 
 const InitializeDatabaseDialog = ({ isOpen, onCreate, onClose }: InitializeDatabaseDialogProps) => {
-    const [documentName, setDocumentName] = useState<string>("");
-    const [databaseType, setDatabaseType] = useState<DatabaseType | "">("");
+    const [documentName, setDocumentName] = React.useState<string>("");
+    const [databaseType, setDatabaseType] = React.useState<DatabaseType | "">("");
 
-    const handleChangeDocumentName = (event: ChangeEvent<HTMLInputElement>) => {
+    const handleChangeDocumentName = (event: React.ChangeEvent<HTMLInputElement>) => {
         const updating = event.target.value;
         setDocumentName(updating);
     }
@@ -64,9 +64,9 @@ const InitializeDatabaseDialog = ({ isOpen, onCreate, onClose }: InitializeDatab
                             <InputLabel id="label-select-database">Database</InputLabel>
                             <Select labelId="label-select-database" label="Database" value={databaseType}
                                 onChange={handleChangeDatabaseType} >
-                                {Object.keys(databases).map((key) => (
+                                {Database.allDatabaseTypes().map(key => (
                                     <MenuItem key={key} value={key}>
-                                        {databases[key as DatabaseType].name}
+                                        {Database.get(key).name}
                                     </MenuItem>
                                 ))}
                             </Select>
