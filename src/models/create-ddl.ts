@@ -454,8 +454,8 @@ const exportConfigs: { [key in DatabaseType]: DatabaseDdlCreator } = {
         tableQueryForMySql,
         columnQueryForMySql,
         (args: IndexQueryArgs) =>
-            `CREATE ${args.indexOption}INDEX ${args.indexName} ON ${args.tableName}`
-            + `${args.indexTypeQuery} (${args.columnQueries.join(", ")});`,
+            `CREATE ${args.indexOption}INDEX ${args.indexName}${args.indexTypeQuery}`
+            + ` ON ${args.tableName} (${args.columnQueries.join(", ")});`,
         () => [],
         [...commonReservedWords, ...mysqlReservedWords],
         '`' // MySQL uses backticks as escape character
