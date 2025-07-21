@@ -258,7 +258,7 @@ const ErdCanvas = () => {
         // Canvas 描画領域の初期化
         const rectangleArea = initRectangleArea(erdCanvas, displayScale);
         setRectangleArea(rectangleArea);
-    }, [displayScale, dragState.status, erdDocument.erdSettingModel.displayStyle]);
+    }, [erdDocument.lastUpdatedAt, displayScale, dragState.status]);
 
     // // リレーションの線情報を更新
     React.useLayoutEffect(() => {
