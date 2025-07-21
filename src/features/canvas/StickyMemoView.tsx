@@ -65,6 +65,9 @@ const StickyMemoView = React.memo(function StickyMemoView({ memoViewModel, onDra
         event.stopPropagation();
 
         setTextEdit(true);
+        // テキスト編集モードの場合は選択状態を解除する
+        // (選択状態でテキスト編集した際に backspace/delete キー押下すると、選択されたものが削除されるため)
+        dispatchSelectAction({ type: "none" });
     };
 
     const currentRectangle = (

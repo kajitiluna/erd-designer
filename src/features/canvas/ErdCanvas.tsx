@@ -741,7 +741,7 @@ const initEffectOfScrollOnCanvas = (displayScale: number) => {
 
 type KeyEventHandler = {
     isMatching: (event: KeyboardEvent) => boolean,
-    handle: () => void
+    handle: () => boolean
 };
 
 const initEffectOfKeyDownOnCanvas = (handlers: KeyEventHandler[]) => {
@@ -761,10 +761,13 @@ const initEffectOfKeyDownOnCanvas = (handlers: KeyEventHandler[]) => {
                 continue;
             }
 
+            const result = handler.handle();
+            if (result === false) {
+                return;
+            }
+
             event.preventDefault();
             event.stopPropagation();
-
-            handler.handle();
             return;
         }
     };
@@ -787,6 +790,8 @@ const initSelectModeHandler = (
             if (erdCanvasRef.current) {
                 erdCanvasRef.current.style.cursor = "default";
             }
+
+            return true; // イベントの伝播を止める
         }
     };
 };
@@ -795,7 +800,10 @@ const initRedoHandler = (documentsHolder: ErdDocumentsHolder): KeyEventHandler =
     return {
         isMatching: (event: KeyboardEvent) => (event.metaKey || event.ctrlKey)
             && ((event.key === "y") || (event.key === "z") && event.shiftKey),
-        handle: () => documentsHolder.redo()
+        handle: () => {
+            documentsHolder.redo();
+            return true; // イベントの伝播を止める
+        }
     };
 };
 
@@ -803,7 +811,10 @@ const initUndoHandler = (documentsHolder: ErdDocumentsHolder): KeyEventHandler =
     return {
         isMatching: (event: KeyboardEvent) => (event.metaKey || event.ctrlKey)
             && (event.key === "z"),
-        handle: () => documentsHolder.undo()
+        handle: () => {
+            documentsHolder.undo();
+            return true; // イベントの伝播を止める
+        }
     };
 };
 
@@ -815,7 +826,7 @@ const initDeleteHandler = (
         isMatching: (event: KeyboardEvent) => (event.key === "Delete") || (event.key === "Backspace"),
         handle: () => {
             if (selectState.status === "none") {
-                return;
+                return false; // イベントの伝播を止めない
             }
 
             const deleteIds = {
@@ -826,6 +837,8 @@ const initDeleteHandler = (
 
             documentsHolder.delete(deleteIds);
             dispatchSelectAction(RELEASE_ACTION);
+
+            return true; // イベントの伝播を止める
         }
     };
 };
