@@ -741,6 +741,12 @@ const initEffectOfScrollOnCanvas = (displayScale: number) => {
 
 type KeyEventHandler = {
     isMatching: (event: KeyboardEvent) => boolean,
+    /**
+     * Handles the keyboard event. 
+     * 
+     * @returns {boolean} - Return `true` to prevent event propagation (e.g., calling `event.preventDefault()` and `event.stopPropagation()`).
+     *                     Return `false` to allow the event to propagate further.
+     */
     handle: () => boolean
 };
 
@@ -761,8 +767,8 @@ const initEffectOfKeyDownOnCanvas = (handlers: KeyEventHandler[]) => {
                 continue;
             }
 
-            const result = handler.handle();
-            if (result === false) {
+            const shouldPreventDefault = handler.handle();
+            if (shouldPreventDefault === false) {
                 return;
             }
 
