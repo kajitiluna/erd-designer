@@ -258,7 +258,7 @@ const ErdCanvas = () => {
         // Canvas 描画領域の初期化
         const rectangleArea = initRectangleArea(erdCanvas, displayScale);
         setRectangleArea(rectangleArea);
-    }, [displayScale, dragState.status, erdDocument.erdSettingModel.displayStyle]);
+    }, [erdDocument.lastUpdatedAt, displayScale, dragState.status]);
 
     // // リレーションの線情報を更新
     React.useLayoutEffect(() => {
@@ -741,7 +741,13 @@ const initEffectOfScrollOnCanvas = (displayScale: number) => {
 
 type KeyEventHandler = {
     isMatching: (event: KeyboardEvent) => boolean,
-    handle: () => void
+    /**
+     * Handles the keyboard event. 
+     * 
+     * @returns {boolean} - Return `true` to prevent event propagation (e.g., calling `event.preventDefault()` and `event.stopPropagation()`).
+     *                     Return `false` to allow the event to propagate further.
+     */
+    handle: () => boolean
 };
 
 const initEffectOfKeyDownOnCanvas = (handlers: KeyEventHandler[]) => {
@@ -761,10 +767,13 @@ const initEffectOfKeyDownOnCanvas = (handlers: KeyEventHandler[]) => {
                 continue;
             }
 
+            const shouldPreventDefault = handler.handle();
+            if (shouldPreventDefault === false) {
+                return;
+            }
+
             event.preventDefault();
             event.stopPropagation();
-
-            handler.handle();
             return;
         }
     };
@@ -787,6 +796,8 @@ const initSelectModeHandler = (
             if (erdCanvasRef.current) {
                 erdCanvasRef.current.style.cursor = "default";
             }
+
+            return true; // イベントの伝播を止める
         }
     };
 };
@@ -795,7 +806,10 @@ const initRedoHandler = (documentsHolder: ErdDocumentsHolder): KeyEventHandler =
     return {
         isMatching: (event: KeyboardEvent) => (event.metaKey || event.ctrlKey)
             && ((event.key === "y") || (event.key === "z") && event.shiftKey),
-        handle: () => documentsHolder.redo()
+        handle: () => {
+            documentsHolder.redo();
+            return true; // イベントの伝播を止める
+        }
     };
 };
 
@@ -803,7 +817,10 @@ const initUndoHandler = (documentsHolder: ErdDocumentsHolder): KeyEventHandler =
     return {
         isMatching: (event: KeyboardEvent) => (event.metaKey || event.ctrlKey)
             && (event.key === "z"),
-        handle: () => documentsHolder.undo()
+        handle: () => {
+            documentsHolder.undo();
+            return true; // イベントの伝播を止める
+        }
     };
 };
 
@@ -815,7 +832,7 @@ const initDeleteHandler = (
         isMatching: (event: KeyboardEvent) => (event.key === "Delete") || (event.key === "Backspace"),
         handle: () => {
             if (selectState.status === "none") {
-                return;
+                return false; // イベントの伝播を止めない
             }
 
             const deleteIds = {
@@ -826,6 +843,8 @@ const initDeleteHandler = (
 
             documentsHolder.delete(deleteIds);
             dispatchSelectAction(RELEASE_ACTION);
+
+            return true; // イベントの伝播を止める
         }
     };
 };
