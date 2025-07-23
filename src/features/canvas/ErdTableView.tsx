@@ -259,7 +259,7 @@ type InnerErdTableViewProps = {
     tableViewModel: TableViewModel,
     onEditAction: (editAction: EditAction) => void,
     onDragAction: (dragAction: DragAction) => void,
-    tableContentCache: React.JSX.Element
+    tableContentCache: React.JSX.Element,
     selected: boolean,
     isOpenDeletingDialog: boolean,
     onOpenDeleteDialog: (open: boolean) => void
