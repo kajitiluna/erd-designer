@@ -1,6 +1,7 @@
 import React from "react";
 
 class OnDraggingState {
+
     public readonly status = "on_dragging" as const;
     public readonly start: Point;
     public readonly current: Point;
