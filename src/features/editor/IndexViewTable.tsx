@@ -428,6 +428,7 @@ const IndexEditDialog = ({
     const [description, setDescription] = React.useState<string>(tableIndexModel ? tableIndexModel.description : "");
 
     const tableIndexSupport: TableIndexSupport = database.tableIndexSupport;
+    const availableIndexTypes = tableIndexSupport.indexTypes.length > 0;
 
     const handleChangeIndexType = (event: SelectChangeEvent) => {
         const nextIndexType = event.target.value as TableIndexType;
@@ -481,24 +482,26 @@ const IndexEditDialog = ({
                         ))}
                     </Stack>
                     <Grid container justifyContent="center" alignItems="center">
-                        <Grid size={{ xs: 6 }}>
+                        <Grid size={{ xs: availableIndexTypes ? 6 : 12 }}>
                             <TextField required fullWidth variant="outlined" id="physicalName" label="Physical Name"
                                 value={physicalName} onChange={initHandleChangePhysicalName(setPhysicalName)}
                                 onKeyDown={handleEnterDown} />
                         </Grid>
-                        <Grid size={{ xs: 6 }} sx={{ paddingLeft: 2 }}>
-                            <FormControl fullWidth>
-                                <InputLabel id="index-type">Index Type</InputLabel>
-                                <Select label="Index Type" labelId="index-type"
-                                    value={indexType} onChange={handleChangeIndexType}>
-                                    <MenuItem value="">(Default)</MenuItem>
-                                    {tableIndexSupport.indexTypes.map((targetIndexType) => (
-                                        <MenuItem key={`index_type/${targetIndexType}`}
-                                            value={targetIndexType}>{targetIndexType}</MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                        </Grid>
+                        {availableIndexTypes && (
+                            <Grid size={{ xs: 6 }} sx={{ paddingLeft: 2 }}>
+                                <FormControl fullWidth>
+                                    <InputLabel id="index-type">Index Type</InputLabel>
+                                    <Select label="Index Type" labelId="index-type"
+                                        value={indexType} onChange={handleChangeIndexType}>
+                                        <MenuItem value="">(Default)</MenuItem>
+                                        {tableIndexSupport.indexTypes.map((targetIndexType) => (
+                                            <MenuItem key={`index_type/${targetIndexType}`}
+                                                value={targetIndexType}>{targetIndexType}</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            </Grid>
+                        )}
                     </Grid>
                     <IndexColumnTransferPanel
                         database={database}

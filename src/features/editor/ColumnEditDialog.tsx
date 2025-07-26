@@ -45,7 +45,7 @@ type ColumnTypeAttribute = {
 const ColumnEditDialog = ({
     isOpen, columnModel, isEditableColumnType, onUpdateWrapColumnModels, onClose
 }: ColumnEditDialogProps) => {
-
+    const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { columnShareModelStorage, updateStorage } = React.useContext(ColumnShareModelStorageContext);
 
     const columnShareModel: ColumnShareModel | null = columnShareModelStorage.find(columnModel.columnShareModelId);
@@ -159,6 +159,10 @@ const ColumnEditDialog = ({
         onClose();
     };
 
+    const erdDocument: ErdDocument = documentsHolder.current();
+    const databaseSetting: DatabaseSettingModel = erdDocument.databaseSettingModel
+    const database = databaseSetting.getDatabase();
+
     const constraintPanel = (
         <Stack direction="row" spacing={2}>
             <FormControlLabel label="Primary Key" control={
@@ -169,7 +173,7 @@ const ColumnEditDialog = ({
             <FormControlLabel label="Unique" control={
                 <Checkbox checked={checkedUnique} onChange={(event) => setUnique(event.target.checked)} />} />
             {editableAutoIncrement &&
-                <FormControlLabel label="Auto Increment" control={
+                <FormControlLabel label={database.autoIncrementLabel()} control={
                     <Checkbox checked={checkAutoIncrement}
                         onChange={(event) => setAutoIncrement(event.target.checked)} />} />
             }

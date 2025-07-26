@@ -40,22 +40,25 @@ class DatabaseDdlCreator {
     private readonly columnQueryWithOption: (query: string, overrideName: OverrideName, option: DdlOption) => string;
     private readonly indexQuery: (args: IndexQueryArgs) => string;
     private readonly commentQuery: (erdDocument: ErdDocument, option: DdlOption, escape: (value: string) => string) => string[];
+    private readonly autoIncrementKeyword: string;
     private readonly reservedWords: Set<string>;
-    private readonly escapeChar: string;
+    private readonly escapeString: (value: string) => string;
 
     constructor(
         tableQueryWithOption: (query: string, tableModel: TableModel, option: DdlOption) => string,
         columnQueryWithOption: (query: string, overrideName: OverrideName, option: DdlOption) => string,
         indexQuery: (args: IndexQueryArgs) => string,
         commentQuery: (erdDocument: ErdDocument, option: DdlOption, escape: (value: string) => string) => string[],
-        reservedWords: string[], escapeChar: string
+        autoIncrementKeyword: string,
+        reservedWords: string[], escapeString: (value: string) => string
     ) {
         this.tableQueryWithOption = tableQueryWithOption;
         this.columnQueryWithOption = columnQueryWithOption;
         this.indexQuery = indexQuery;
         this.commentQuery = commentQuery;
+        this.autoIncrementKeyword = autoIncrementKeyword;
         this.reservedWords = new Set(reservedWords);
-        this.escapeChar = escapeChar;
+        this.escapeString = escapeString;
     }
 
     public create(erdDocument: ErdDocument, option: DdlOption) {
@@ -124,6 +127,9 @@ class DatabaseDdlCreator {
         if (columnShareModel.unsigned && columnShareModel.columnType.withUnsigned) {
             attributes.push("UNSIGNED");
         }
+        if (columnModel.autoIncrement && columnShareModel.columnType.withAutoIncrement) {
+            attributes.push(this.autoIncrementKeyword);
+        }
         if (columnModel.notNull) {
             attributes.push("NOT NULL");
         }
@@ -132,9 +138,6 @@ class DatabaseDdlCreator {
         }
         if (columnModel.defaultValue) {
             attributes.push("DEFAULT " + columnModel.defaultValue);
-        }
-        if (columnModel.autoIncrement && columnShareModel.columnType.withAutoIncrement) {
-            attributes.push("AUTO_INCREMENT");
         }
 
         const query = `${this.escape(overrideName.physicalName)} ` + attributes.join(" ")
@@ -232,7 +235,7 @@ class DatabaseDdlCreator {
             return org;
         }
 
-        return `${this.escapeChar}${org}${this.escapeChar}`;
+        return this.escapeString(org);
     }
 }
 
@@ -371,6 +374,30 @@ const mysqlReservedWords = [
     "X509", "XA", "XID", "XML", "XOR", "YEAR", "YEAR_MONTH", "ZEROFILL"
 ];
 
+const msSqlServerReservedWords = [
+    "ADD", "EXTERNAL", "PROCEDURE", "ALL", "FETCH", "PUBLIC", "ALTER", "FILE", "RAISERROR", "AND", 
+    "FILLFACTOR", "READ", "ANY", "FOR", "READTEXT", "AS", "FOREIGN", "RECONFIGURE", "ASC", "FREETEXT", 
+    "REFERENCES", "AUTHORIZATION", "FREETEXTTABLE", "REPLICATION", "BACKUP", "FROM", "RESTORE", 
+    "BEGIN", "FULL", "RESTRICT", "BETWEEN", "FUNCTION", "RETURN", "BREAK", "GOTO", "REVERT", "BROWSE", 
+    "GRANT", "REVOKE", "BULK", "GROUP", "RIGHT", "BY", "HAVING", "ROLLBACK", "CASCADE", "HOLDLOCK", 
+    "ROWCOUNT", "CASE", "IDENTITY", "ROWGUIDCOL", "CHECK", "IDENTITY_INSERT", "RULE", "CHECKPOINT", 
+    "IDENTITYCOL", "SAVE", "CLOSE", "IF", "SCHEMA", "CLUSTERED", "IN", "SECURITYAUDIT", "COALESCE", 
+    "INDEX", "SELECT", "COLLATE", "INNER", "SEMANTICKEYPHRASETABLE", "COLUMN", "INSERT", 
+    "SEMANTICSIMILARITYDETAILSTABLE", "COMMIT", "INTERSECT", "SEMANTICSIMILARITYTABLE", "COMPUTE", 
+    "INTO", "SESSION_USER", "CONSTRAINT", "IS", "SET", "CONTAINS", "JOIN", "SETUSER", "CONTAINSTABLE", 
+    "KEY", "SHUTDOWN", "CONTINUE", "KILL", "SOME", "CONVERT", "LEFT", "STATISTICS", "CREATE", "LIKE", 
+    "SYSTEM_USER", "CROSS", "LINENO", "TABLE", "CURRENT", "LOAD", "TABLESAMPLE", "CURRENT_DATE", 
+    "MERGE", "TEXTSIZE", "CURRENT_TIME", "NATIONAL", "THEN", "CURRENT_TIMESTAMP", "NOCHECK", "TO", 
+    "CURRENT_USER", "NONCLUSTERED", "TOP", "CURSOR", "NOT", "TRAN", "DATABASE", "NULL", "TRANSACTION", 
+    "DBCC", "NULLIF", "TRIGGER", "DEALLOCATE", "OF", "TRUNCATE", "DECLARE", "OFF", "TRY_CONVERT", 
+    "DEFAULT", "OFFSETS", "TSEQUAL", "DELETE", "ON", "UNION", "DENY", "OPEN", "UNIQUE", "DESC", 
+    "OPENDATASOURCE", "UNPIVOT", "DISK", "OPENQUERY", "UPDATE", "DISTINCT", "OPENROWSET", "UPDATETEXT", 
+    "DISTRIBUTED", "OPENXML", "USE", "DOUBLE", "OPTION", "USER", "DROP", "OR", "VALUES", "DUMP", 
+    "ORDER", "VARYING", "ELSE", "OUTER", "VIEW", "END", "OVER", "WAITFOR", "ERRLVL", "PERCENT", 
+    "WHEN", "ESCAPE", "PIVOT", "WHERE", "EXCEPT", "PLAN", "WHILE", "EXEC", "PRECISION", "WITH", 
+    "EXECUTE", "PRIMARY", "WITHIN GROUP", "EXISTS", "PRINT", "WRITETEXT", "EXIT", "PROC"
+];
+
 // cSpell:enable
 
 const tableQueryForMySql = (query: string, tableModel: TableModel, option: DdlOption) => {
@@ -447,8 +474,9 @@ const exportConfigs: { [key in DatabaseType]: DatabaseDdlCreator } = {
             `CREATE ${args.indexOption}INDEX ${args.indexName} ON ${args.tableName}`
             + `${args.indexTypeQuery} (${args.columnQueries.join(", ")});`,
         commentQueryForPostgres,
+        "",
         [...commonReservedWords, ...postgresReservedWords],
-        '"' // PostgreSQL uses double quotes as escape character
+        (value: string) => `"${value}"` // PostgreSQL uses double quotes as escape character
     ),
     "mysql": new DatabaseDdlCreator(
         tableQueryForMySql,
@@ -457,7 +485,19 @@ const exportConfigs: { [key in DatabaseType]: DatabaseDdlCreator } = {
             `CREATE ${args.indexOption}INDEX ${args.indexName}${args.indexTypeQuery}`
             + ` ON ${args.tableName} (${args.columnQueries.join(", ")});`,
         () => [],
+        "AUTO_INCREMENT",
         [...commonReservedWords, ...mysqlReservedWords],
-        '`' // MySQL uses backticks as escape character
+        (value: string) => '`' + value + '`' // MySQL uses backticks as escape character
+    ),
+    "ms_sqlserver": new DatabaseDdlCreator(
+        (query: string) => query,
+        (query: string) => query,
+        (args: IndexQueryArgs) =>
+            `CREATE ${args.indexOption}INDEX ${args.indexName} ON ${args.tableName}`
+            + ` (${args.columnQueries.join(", ")});`,
+        () => [],
+        "IDENTITY",
+        [...commonReservedWords, ...msSqlServerReservedWords],
+        (value: string) => `[${value}]` // MS SQL Server uses square brackets as escape character
     )
 };

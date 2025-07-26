@@ -1,6 +1,8 @@
 import { v4 as uuidV4 } from 'uuid';
 import { Parser as PostgresParser } from "node-sql-parser/build/postgresql";
-import { Parser as MySQLParser } from "node-sql-parser/build/mysql";
+import { Parser as MySqlParser } from "node-sql-parser/build/mysql";
+// cSpell: ignore transactsql
+import { Parser as MsSqlServerParser } from "node-sql-parser/build/transactsql";
 import { Alter, AST, Create, Parser, ValueExpr } from "node-sql-parser";
 
 import {
@@ -30,7 +32,8 @@ export type DdlLoadResult = {
 
 const dispatchInitParser: { [key in DatabaseType]: () => Parser } = {
     "postgres": () => new PostgresParser(),
-    "mysql": () => new MySQLParser(),
+    "mysql": () => new MySqlParser(),
+    "ms_sqlserver": () => new MsSqlServerParser(),
 };
 
 class DdlLoader {
@@ -51,9 +54,7 @@ class DdlLoader {
         this.parser = dispatchInitParser[databaseType]();
         this.existedTableNames = new Set(erdDocument.getTableViewModels()
             .map(tableView => tableView.tableModel.physicalName));
-        this.parseOption = {
-            database: (databaseType === "mysql") ? "MySQL" : "PostgreSQL",
-        };
+        this.parseOption = parseOptions[databaseType];
         this.resolver = new ColumnTypeResolver(databaseType, erdDocument.getColumnShareModelStorage(), separator);
 
         this.tableNames = [];
@@ -281,6 +282,12 @@ class DdlLoader {
         this.summaries.push({ result: "success", message: "", sql: sql });
     }
 }
+
+const parseOptions: { [key in DatabaseType]: { database: string } } = {
+    "postgres": { database: "PostgreSQL" },
+    "mysql": { database: "MySQL" },
+    "ms_sqlserver": { database: "TransactSQL" },
+};
 
 export type DdlLoadSummary = {
     result: "success" | "warning" | "failure" | "skipped";

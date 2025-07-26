@@ -24,7 +24,7 @@ const InitializeDatabaseDialog = ({ isOpen, onCreate, onClose }: InitializeDatab
         setDocumentName(updating);
     }
 
-    const handleChangeDatabaseType = (event: SelectChangeEvent<"postgres" | "mysql">) => {
+    const handleChangeDatabaseType = (event: SelectChangeEvent<DatabaseType>) => {
         const updating = event.target.value as DatabaseType;
         setDatabaseType(updating);
     }

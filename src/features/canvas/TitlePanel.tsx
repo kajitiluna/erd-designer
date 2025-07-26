@@ -9,6 +9,7 @@ import PostgreSQLIcon from "~/components/icons/PostgreSQLIcon";
 import MySQLIcon from "~/components/icons/MySQLIcon";
 import ColumnGroupView from "~/features/editor/ColumnGroupView";
 import ImportFromDdlView from "~/features/editor/ImportFromDdlView";
+import MsSQLServerIcon from "~/components/icons/MsSQLServerIcon";
 
 type SettingMenuType = "column_group" | "import_ddl" | "";
 
@@ -20,7 +21,7 @@ const TitlePanel = () => {
     const [selectedMenu, setSelectedMenu] = React.useState<SettingMenuType>("");
 
     const databaseType: DatabaseType = erdDocument.databaseSettingModel.databaseType;
-    const databaseIcon = initDatabaseTypeIcon(databaseType);
+    const databaseIcon = databaseTypeIcons[databaseType];
 
     const handleOnSave = () => {
         documentsHolder.updateDocumentName(title);
@@ -97,27 +98,28 @@ const inputStyle = {
     width: "300px"
 };
 
-const initDatabaseTypeIcon = (databaseType: DatabaseType) => {
-    switch (databaseType) {
-        case "postgres":
-            return (
-                <Tooltip title="PostgreSQL" placement="top">
-                    <span style={{ display: "flex", alignItems: "center" }}>
-                        <PostgreSQLIcon />
-                    </span>
-                </Tooltip>
-            );
-        case "mysql":
-            return (
-                <Tooltip title="MySQL" placement="top">
-                    <span style={{ display: "flex", alignItems: "center" }}>
-                        <MySQLIcon />
-                    </span>
-                </Tooltip>
-            );
-        default:
-            return null;
-    }
+const databaseTypeIcons: { [key in DatabaseType]: React.JSX.Element } = {
+    "postgres": (
+        <Tooltip title="PostgreSQL" placement="top">
+            <span style={{ display: "flex", alignItems: "center" }}>
+                <PostgreSQLIcon />
+            </span>
+        </Tooltip>
+    ),
+    "mysql": (
+        <Tooltip title="MySQL" placement="top">
+            <span style={{ display: "flex", alignItems: "center" }}>
+                <MySQLIcon />
+            </span>
+        </Tooltip>
+    ),
+    "ms_sqlserver": (
+        <Tooltip title="MS SQL Server" placement="top">
+            <span style={{ display: "flex", alignItems: "center" }}>
+                <MsSQLServerIcon />
+            </span>
+        </Tooltip>
+    )
 };
 
 export default TitlePanel;

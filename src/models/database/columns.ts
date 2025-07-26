@@ -5,9 +5,9 @@ const POSTGRES_SMALL_INT = new ColumnType({ id: 11, name: 'smallint', descriptio
 const POSTGRES_INTEGER = new ColumnType({ id: 15, name: 'integer', description: '4バイト符号付き整数', baseQuery: 'INTEGER', withPrecision: false, withScale: false });
 const POSTGRES_BIGINT = new ColumnType({ id: 17, name: 'bigint', description: '8バイト符号付き整数', baseQuery: 'BIGINT', withPrecision: false, withScale: false });
 
-const databaseColumns: ReadonlyMap<DatabaseType, readonly ColumnType[]> = new Map<DatabaseType, readonly ColumnType[]>([
+const databaseColumns: { [key in DatabaseType]: ColumnType[] } = {
     // cSpell: ignore bytea smallserial bigserial tsquery tsvector lseg macaddr
-    ["postgres", [
+    "postgres": [
         new ColumnType({ id: 1, name: 'bit', description: '固定長ビット列', baseQuery: 'BIT', withPrecision: false, withScale: false }),
         new ColumnType({ id: 2, name: 'bit (n)', description: '固定長ビット列', baseQuery: 'BIT[[PARAM]]', withPrecision: true, withScale: false }),
         new ColumnType({ id: 4, name: 'bit varying', description: '可変長ビット列', baseQuery: 'BIT VARYING', withPrecision: false, withScale: false }),
@@ -60,10 +60,10 @@ const databaseColumns: ReadonlyMap<DatabaseType, readonly ColumnType[]> = new Ma
         new ColumnType({ id: 9102, name: 'pg_snapshot', description: 'ユーザレベルのトランザクションIDスナップショット', baseQuery: 'PG_SNAPSHOT', withPrecision: false, withScale: false }),
         new ColumnType({ id: 9103, name: 'oid', description: 'オブジェクト識別子データ', baseQuery: 'OID', withPrecision: false, withScale: false }),
         ColumnType.EMPTY
-    ]],
+    ],
 
     // cSpell: ignore tinyint mediumint tinytext mediumtext longtext varbinary tinyblob mediumblob longblob linestring multipoint multilinestring multipolygon geometrycollection
-    ["mysql", [
+    "mysql": [
         new ColumnType({ id: 1, name: 'bit', description: 'ビット値型', baseQuery: 'BIT', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
         new ColumnType({ id: 2, name: 'bit (m)', description: 'ビット値型', baseQuery: 'BIT[[PARAM]]', withPrecision: true, withScale: false, withUnsigned: false, withAutoIncrement: false }),
         new ColumnType({ id: 6, name: 'boolean', description: 'TINYINT(1) のシノニム', baseQuery: 'BOOLEAN', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
@@ -121,10 +121,65 @@ const databaseColumns: ReadonlyMap<DatabaseType, readonly ColumnType[]> = new Ma
         new ColumnType({ id: 2101, name: 'enum', description: '文字列のリストの中から1つを選択するために使用されるデータ型。', baseQuery: 'ENUM', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
         new ColumnType({ id: 2102, name: 'set', description: 'ENUMの拡張版であり、文字列のリストから複数の選択肢を選択するために使用されるデータ型。', baseQuery: 'SET', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
         ColumnType.EMPTY
-    ]]
-]);
+    ],
 
-export const findDatabaseColumns = (databaseType: DatabaseType) => databaseColumns.get(databaseType) ?? [];
+    // cSpell: ignore smallmoney datetimeoffset smalldatetime nvarchar ntext hierarchyid SYSDATETIME SYSUTCDATETIME SYSDATETIMEOFFSET
+    "ms_sqlserver": [
+        new ColumnType({ id: 1, name: 'bit', description: '1、0、またはNULLの値を受け取ることができる整数データ型。', baseQuery: 'BIT', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 4, name: 'binary', description: '固定長の binary データです。', baseQuery: 'BINARY', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 3, name: 'binary (n)', description: 'n バイトの固定長の binary データです。ここで、n は 1 から 8,000 の値になります。', baseQuery: 'BINARY[[PARAM]]', withPrecision: true, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 5, name: 'varbinary (n)', description: '可変長 binary データ。 n には 1 ～ 8,000 の値を指定できます。', baseQuery: 'VARBINARY[[PARAM]]', withPrecision: true, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 9, name: 'varbinary (max)', description: '可変長 binary データ。', baseQuery: 'VARBINARY(MAX)', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 10, name: 'tinyint', description: '整数データを使用する実数データ型です。0 to 255 (2^0-1 to 2^8-1)', baseQuery: 'TINYINT', withPrecision: false, withScale: false, withAutoIncrement: true }),
+        new ColumnType({ id: 11, name: 'smallint', description: '整数データを使用する実数データ型です。-32,768 to 32,767 (-2^15 to 2^15-1)', baseQuery: 'SMALLINT', withPrecision: false, withScale: false, withAutoIncrement: true }),
+        new ColumnType({ id: 15, name: 'int', description: '整数データを使用する実数データ型です。-2,147,483,648 to 2,147,483,647 (-2^31 to 2^31-1)', baseQuery: 'INT', withPrecision: false, withScale: false, withAutoIncrement: true }),
+        new ColumnType({ id: 17, name: 'bigint', description: '整数データを使用する実数データ型です。-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807 (-2^63 to 2^63-1)', baseQuery: 'BIGINT', withPrecision: false, withScale: false, withAutoIncrement: true }),
+        new ColumnType({ id: 31, name: 'real', description: 'real の ISO シノニムは、 float (24) です。', baseQuery: 'REAL', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 33, name: 'float', description: '浮動小数点数値データで使用する概数型です。', baseQuery: 'FLOAT', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 35, name: 'decimal', description: '有効桁数と小数点以下桁数が固定された数値データ型です。', baseQuery: 'DECIMAL', withPrecision: false, withScale: false, withAutoIncrement: true }),
+        new ColumnType({ id: 36, name: 'numeric', description: '有効桁数と小数点以下桁数が固定された数値データ型です。decimal と numeric はシノニムであり、同じ意味で使用できます。', baseQuery: 'NUMERIC', withPrecision: false, withScale: false, withAutoIncrement: true }),
+        new ColumnType({ id: 42, name: 'float (n)', description: '浮動小数点数値データで使用する概数型です。', baseQuery: 'FLOAT[[PARAM]]', withPrecision: true, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 47, name: 'decimal (m)', description: '有効桁数と小数点以下桁数が固定された数値データ型です。', baseQuery: 'DECIMAL[[PARAM]]', withPrecision: true, withScale: false, withAutoIncrement: true }),
+        new ColumnType({ id: 48, name: 'numeric (m)', description: '有効桁数と小数点以下桁数が固定された数値データ型です。decimal と numeric はシノニムであり、同じ意味で使用できます。', baseQuery: 'NUMERIC[[PARAM]]', withPrecision: true, withScale: false, withAutoIncrement: true }),
+        new ColumnType({ id: 45, name: 'decimal (m, s)', description: '有効桁数と小数点以下桁数が固定された数値データ型です。', baseQuery: 'DECIMAL[[PARAM]]', withPrecision: true, withScale: true, withAutoIncrement: false }),
+        new ColumnType({ id: 46, name: 'numeric (m, s)', description: '有効桁数と小数点以下桁数が固定された数値データ型です。decimal と numeric はシノニムであり、同じ意味で使用できます。', baseQuery: 'NUMERIC[[PARAM]]', withPrecision: true, withScale: true, withAutoIncrement: false }),
+        new ColumnType({ id: 65, name: 'smallmoney', description: '金額値または通貨値を表すデータ型。-214,748.3648 to 214,748.3647', baseQuery: 'SMALLMONEY', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 67, name: 'money', description: '金額値または通貨値を表すデータ型。-922,337,203,685,477.5808 to 922,337,203,685,477.5807', baseQuery: 'MONEY', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 101, name: 'date', description: '日付を定義します。', baseQuery: 'DATE', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 111, name: 'datetime2', description: '24 時間形式の時刻と組み合わせた日付を定義します。', baseQuery: 'DATETIME2', withPrecision: false, withScale: false, withAutoIncrement: false, defaultValueCandidates: ['SYSDATETIME()', 'SYSUTCDATETIME()'] }),
+        new ColumnType({ id: 112, name: 'datetimeoffset', description: 'datetime2 などの 24 時間制に基づいて 1 日の時刻と組み合わされる日付を定義し、協定世界時 (UTC) に基づいてタイム ゾーン認識を追加します。', baseQuery: 'DATETIMEOFFSET', withPrecision: false, withScale: false, withAutoIncrement: false, defaultValueCandidates: ['SYSDATETIMEOFFSET()'] }),
+        new ColumnType({ id: 121, name: 'datetime2 (p)', description: '24 時間形式の時刻と組み合わせた日付を定義します。', baseQuery: 'DATETIME2[[PARAM]]', withPrecision: true, withScale: false, withAutoIncrement: false, defaultValueCandidates: ['SYSDATETIME()', 'SYSUTCDATETIME()'] }),
+        new ColumnType({ id: 122, name: 'datetimeoffset (p)', description: 'datetime2 などの 24 時間制に基づいて 1 日の時刻と組み合わされる日付を定義し、協定世界時 (UTC) に基づいてタイム ゾーン認識を追加します。', baseQuery: 'DATETIMEOFFSET[[PARAM]]', withPrecision: true, withScale: false, withAutoIncrement: false, defaultValueCandidates: ['SYSDATETIMEOFFSET()'] }),
+        new ColumnType({ id: 131, name: 'time', description: '1 日の時刻を定義します。 時刻は 24 時間形式で、タイム ゾーンは認識されません。', baseQuery: 'TIME', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 141, name: 'time (s)', description: '', baseQuery: 'TIME[[PARAM]]', withPrecision: true, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 191, name: 'smalldatetime (deprecated)', description: '(deprecated)', baseQuery: 'SMALLDATETIME', withPrecision: false, withScale: false, withAutoIncrement: false, defaultValueCandidates: ['GETDATE()', 'GETUTCDATE()'] }),
+        new ColumnType({ id: 192, name: 'datetime (deprecated)', description: '(deprecated)', baseQuery: 'DATETIME', withPrecision: false, withScale: false, withAutoIncrement: false, defaultValueCandidates: ['GETDATE()', 'GETUTCDATE()'] }),
+        new ColumnType({ id: 301, name: 'char', description: '固定サイズの文字データ型です。', baseQuery: 'CHAR', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 302, name: 'varchar', description: '可変サイズの文字データ型です。', baseQuery: 'VARCHAR', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 306, name: 'nchar', description: '固定サイズの文字列データです。', baseQuery: 'NCHAR', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 307, name: 'nvarchar', description: '可変サイズの文字列データです。 ', baseQuery: 'NVARCHAR', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 311, name: 'char (n)', description: '固定サイズの文字データ型です。', baseQuery: 'CHAR[[PARAM]]', withPrecision: true, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 312, name: 'varchar (n)', description: '可変サイズの文字データ型です。', baseQuery: 'VARCHAR[[PARAM]]', withPrecision: true, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 325, name: 'varchar (max)', description: '可変サイズの文字データ型です。', baseQuery: 'VARCHAR(MAX)', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 316, name: 'nchar (n)', description: '固定サイズの文字列データです。', baseQuery: 'NCHAR[[PARAM]]', withPrecision: true, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 317, name: 'nvarchar (n)', description: '可変サイズの文字列データです。 ', baseQuery: 'NVARCHAR[[PARAM]]', withPrecision: true, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 326, name: 'nvarchar (max)', description: '可変サイズの文字列データです。 ', baseQuery: 'NVARCHAR(MAX)', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 395, name: 'text (deprecated)', description: '(deprecated)', baseQuery: 'TEXT', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 396, name: 'ntext (deprecated)', description: '(deprecated)', baseQuery: 'NTEXT', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 397, name: 'image (deprecated)', description: '(deprecated)', baseQuery: 'IMAGE', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 422, name: 'json', description: 'The native json data type that stores JSON documents in a native binary format.', baseQuery: 'JSON', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 431, name: 'xml', description: 'XML データを格納するデータ型です。', baseQuery: 'XML', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 453, name: 'vector', description: 'vector データ型は、類似性検索や機械学習アプリケーションなどの操作用に最適化されたベクトル データを格納するように設計されています。', baseQuery: 'VECTOR', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 2001, name: 'geometry', description: '平面空間データ型の geometry は、SQL Server では共通言語ランタイム (CLR) のデータ型として実装されています。 この型は、ユークリッド (平面) 座標系のデータを表します。', baseQuery: 'GEOMETRY', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 2002, name: 'geography', description: '地理空間データ型の geography は、SQL Server では .NET 共通言語ランタイム (CLR) のデータ型として実装されています。 この型は、球体地球座標系のデータを表します。', baseQuery: 'GEOGRAPHY', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 2061, name: 'hierarchyid', description: 'hierarchyid データ型は可変長のシステム データ型です。 hierarchyid は、階層内の位置を表すために使用します。', baseQuery: 'HIERARCHYID', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 9301, name: 'uniqueidentifier', description: '16 バイトの GUID です。', baseQuery: 'UNIQUEIDENTIFIER', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        new ColumnType({ id: 9302, name: 'sql_variant', description: 'SQL Server でサポートしている各種データ型の値が格納されます。', baseQuery: 'SQL_VARIANT', withPrecision: false, withScale: false, withAutoIncrement: false }),
+        ColumnType.EMPTY
+    ]
+};
+
+export const findDatabaseColumns = (databaseType: DatabaseType): ColumnType[] => databaseColumns[databaseType];
 
 export const migrateColumns = (databaseType: DatabaseType, columnTypes: ColumnType[], version: number) => {
     const baseColumnTypeMap = new Map(
