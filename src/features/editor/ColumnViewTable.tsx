@@ -341,10 +341,9 @@ const ColumnViewTable = ({
                     onUpdateWrapColumnModels={onUpdateColumnWrapModels}
                     onClose={() => setEditMode("")} />
             )}
-            {((editMode === "add_group") || (editMode === "edit_group")) && (selectedWrappedModel?.modelType === "group") && (
+            {((editMode === "add_group") || (editMode === "edit_group")) && (
                 <ColumnGroupView
-                    isOpen={((editMode === "add_group") || (editMode === "edit_group"))
-                        && (selectedWrappedModel?.modelType === "group")}
+                    isOpen={((editMode === "add_group") || (editMode === "edit_group"))}
                     viewMode="select"
                     onSelect={handleUpdateColumnGroup}
                     onClose={() => setEditMode("")} />
