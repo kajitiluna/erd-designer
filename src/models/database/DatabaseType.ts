@@ -35,16 +35,30 @@ type ColumnOption = {
 
 // cSpell: ignore SPGIST FULLTEXT
 const databases: { [key in DatabaseType]: Database } = {
-    "postgres": new Database("postgres", "PostgreSQL",
-        new TableIndexSupport(["UNIQUE"], ["BTREE", "HASH", "GIST", "SPGIST", "GIN", "BRIN"], true),
+    "postgres": new Database(
+        "postgres", "PostgreSQL",
+        new TableIndexSupport({
+            indexOptions: ["UNIQUE"],
+            indexTypes: ["BTREE", "HASH", "GIST", "SPGIST", "GIN", "BRIN"],
+            nullsOrder: true
+        }),
         { supportArray: true }
     ),
-    "mysql": new Database("mysql", "MySQL",
-        new TableIndexSupport(["UNIQUE", "FULLTEXT", "SPATIAL"], ["BTREE", "HASH"]),
+    "mysql": new Database(
+        "mysql", "MySQL",
+        new TableIndexSupport({
+            indexOptions: ["UNIQUE", "FULLTEXT", "SPATIAL"],
+            indexTypes: ["BTREE", "HASH"]
+        }),
         { autoIncrementLabel: "Auto Increment", supportArray: false }
     ),
-    "ms_sqlserver": new Database("ms_sqlserver", "MS SQL Server",
-        new TableIndexSupport(["UNIQUE"], []),
+    "ms_sqlserver": new Database(
+        "ms_sqlserver", "MS SQL Server",
+        new TableIndexSupport({
+            indexOptions: ["UNIQUE"],
+            indexTypes: [],
+            supportsClustered: true,
+        }),
         { autoIncrementLabel: "Identity", supportArray: false }
     ),
 };

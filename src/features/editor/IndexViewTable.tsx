@@ -415,6 +415,7 @@ const IndexEditDialog = ({
 
     const [indexOption, setIndexOption] = React.useState<TableIndexOption>(tableIndexModel ? tableIndexModel.indexOption : "");
     const [indexType, setIndexType] = React.useState<TableIndexType>(tableIndexModel ? tableIndexModel.indexType : "");
+    const [clustered, setClustered] = React.useState<boolean>(tableIndexModel ? tableIndexModel.clustered : false);
     const [physicalName, setPhysicalName] = React.useState<string>(tableIndexModel ? tableIndexModel.physicalName : "");
     const [indexedColumns, setIndexedColumns] = React.useState<IndexModelAttribute[]>(tableIndexModel
         ? tableIndexModel.indexColumnModels
@@ -448,6 +449,7 @@ const IndexEditDialog = ({
             indexColumnModels: indexedColumns.map(model => new IndexColumnModel({ ...model })),
             indexOption: indexOption,
             indexType: indexType,
+            clustered: clustered,
             description: description
         });
 
@@ -474,12 +476,18 @@ const IndexEditDialog = ({
                 <Stack spacing={3}>
                     <Divider />
                     <Stack direction="row" spacing={2}>
-                        {tableIndexSupport.indexOptions.map((targetOption) => (
+                        {tableIndexSupport.indexOptions.map(targetOption => (
                             <FormControlLabel key={`index_option_${targetOption}`} label={targetOption} control={
                                 <Checkbox checked={targetOption === indexOption}
-                                    onChange={(event) => setIndexOption((event.target.checked ? targetOption : ""))} />
+                                    onChange={event => setIndexOption((event.target.checked ? targetOption : ""))} />
                             } />
                         ))}
+                        {tableIndexSupport.supportsClustered && (
+                            <FormControlLabel label="CLUSTERED" control={
+                                <Checkbox checked={clustered}
+                                    onChange={event => setClustered(event.target.checked)} />
+                            } />
+                        )}
                     </Stack>
                     <Grid container justifyContent="center" alignItems="center">
                         <Grid size={{ xs: availableIndexTypes ? 6 : 12 }}>
@@ -509,7 +517,7 @@ const IndexEditDialog = ({
                         indexedColumns={indexedColumns}
                         isChildRelation={isChildRelation}
                         onUpdateIndexedColumns={setIndexedColumns} />
-                    <TextField variant="outlined" id="description" label="Description"
+                    <TextField id="description" variant="outlined" label="Description"
                         multiline rows={3} slotProps={{ input: { style: { resize: 'vertical' } } }}
                         value={description} onChange={(event) => setDescription(event.target.value)} />
                 </Stack>
