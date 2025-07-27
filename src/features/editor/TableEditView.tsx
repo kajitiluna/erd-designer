@@ -100,13 +100,9 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             columns: columns,
             tableIndexModels: tableIndexModels
                 .map(tableIndexModel => new TableIndexModel({
-                    tableIndexModelId: tableIndexModel.tableIndexModelId,
-                    physicalName: tableIndexModel.physicalName,
+                    ...tableIndexModel,
                     indexColumnModels: tableIndexModel.indexColumnModels
-                        .filter(model => allColumnModelIds.has(model.columnModelId)),
-                    indexOption: tableIndexModel.indexOption,
-                    indexType: tableIndexModel.indexType,
-                    description: tableIndexModel.description
+                        .filter(model => allColumnModelIds.has(model.columnModelId))
                 }))
                 .filter(tableIndexModel => tableIndexModel.indexColumnModels.length > 0),
             description: description

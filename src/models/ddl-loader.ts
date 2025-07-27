@@ -1,6 +1,8 @@
 import { v4 as uuidV4 } from 'uuid';
 import { Parser as PostgresParser } from "node-sql-parser/build/postgresql";
-import { Parser as MySQLParser } from "node-sql-parser/build/mysql";
+import { Parser as MySqlParser } from "node-sql-parser/build/mysql";
+// cSpell: ignore transactsql
+import { Parser as MsSqlServerParser } from "node-sql-parser/build/transactsql";
 import { Alter, AST, Create, Parser, ValueExpr } from "node-sql-parser";
 
 import {
@@ -30,7 +32,8 @@ export type DdlLoadResult = {
 
 const dispatchInitParser: { [key in DatabaseType]: () => Parser } = {
     "postgres": () => new PostgresParser(),
-    "mysql": () => new MySQLParser(),
+    "mysql": () => new MySqlParser(),
+    "ms_sqlserver": () => new MsSqlServerParser(),
 };
 
 class DdlLoader {
@@ -51,9 +54,7 @@ class DdlLoader {
         this.parser = dispatchInitParser[databaseType]();
         this.existedTableNames = new Set(erdDocument.getTableViewModels()
             .map(tableView => tableView.tableModel.physicalName));
-        this.parseOption = {
-            database: (databaseType === "mysql") ? "MySQL" : "PostgreSQL",
-        };
+        this.parseOption = parseOptions[databaseType];
         this.resolver = new ColumnTypeResolver(databaseType, erdDocument.getColumnShareModelStorage(), separator);
 
         this.tableNames = [];
@@ -282,6 +283,12 @@ class DdlLoader {
     }
 }
 
+const parseOptions: { [key in DatabaseType]: { database: string } } = {
+    "postgres": { database: "PostgreSQL" },
+    "mysql": { database: "MySQL" },
+    "ms_sqlserver": { database: "TransactSQL" },
+};
+
 export type DdlLoadSummary = {
     result: "success" | "warning" | "failure" | "skipped";
     message: string;
@@ -345,6 +352,7 @@ type TableIndexDefinition = {
     indexColumns: IndexColumn[];
     indexOption: TableIndexOption;
     indexType: TableIndexType;
+    clustered: boolean;
 };
 
 type IndexColumn = {
@@ -643,7 +651,10 @@ const doLoadCreateUniqueKeyDefinition = (
         return [indexColumn, columnName, null]
     };
 
-    if (createDefinition.definition.length === 1) {
+    const clustered = (createDefinition.index?.toUpperCase() === "CLUSTERED") || false;
+
+    // MS SQL Server にて、クラスタインデクス定義が指定された場合は、カラム単独のユニーク制約は定義しない
+    if ((createDefinition.definition.length === 1) && (clustered === false)) {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const [indexColumn, _, noSuccessResult] = doValidateDefinition(createDefinition.definition, 0);
         if (noSuccessResult != null) {
@@ -689,6 +700,7 @@ const doLoadCreateUniqueKeyDefinition = (
             } as IndexColumn)),
             indexOption: "UNIQUE",
             indexType: indexType as TableIndexType,
+            clustered: clustered
         },
         null
     ];
@@ -731,6 +743,8 @@ const loadCreateIndexDefinition = (
     const indexOption = createDefinition.keyword?.includes("fulltext") ? "FULLTEXT" :
         (createDefinition.keyword?.includes("spatial") ? "SPATIAL" : "");
 
+    // TODO MS SQL Server の場合、本来は CREATE TABLE 内の `INDEX <index_name> CLUSTERED (...)` の構文でクラスタインデクスが定義できる。
+    // しかし node-sql-parser がパース失敗するため、クラスタインデクスの定義は未対応。
     return [
         {
             indexName: constraintName,
@@ -741,6 +755,7 @@ const loadCreateIndexDefinition = (
             } as IndexColumn)),
             indexOption: indexOption as TableIndexOption,
             indexType: indexType as TableIndexType,
+            clustered: false
         },
         null
     ];
@@ -797,14 +812,18 @@ const loadCreateIndexDdl = (query: Create): (
     }
 
     const indexName = query.index || "";
-    const indexOption = query.index_type?.toUpperCase() || "";
-    const indexType = query.index_using?.type.toUpperCase() || "";
+    const queryIndexType = query.index_type?.toUpperCase() || "";
+    const usingIndexType = query.index_using?.type.toUpperCase() || "";
+
+    const clustered = (queryIndexType === "CLUSTERED");
+    const indexOption = (clustered ? "" : queryIndexType) as TableIndexOption;
 
     const indexDefinition: TableIndexDefinition = {
         indexName: indexName,
         indexColumns: indexColumns,
-        indexOption: indexOption as TableIndexOption,
-        indexType: indexType as TableIndexType,
+        indexOption: indexOption,
+        indexType: usingIndexType as TableIndexType,
+        clustered: clustered
     }
 
     return [
@@ -1061,9 +1080,23 @@ const doLoadAlterUniqueDdl = (index: number, createDefinition: object): ([TableI
             indexColumns: indexColumns,
             indexOption: "UNIQUE" as TableIndexOption,
             indexType: "" as TableIndexType,
+            clustered: isClusteredIndexInAlterDdl(createDefinition)
         },
         null
     ];
+};
+
+// MS SQL Server の場合、 ALTER TABLE 構文にてクラスタユニーク制約が定義されているかを判定する
+const isClusteredIndexInAlterDdl = (createDefinition: object) => {
+    if (!("index" in createDefinition)) {
+        return false;
+    }
+
+    if (typeof createDefinition.index !== "string") {
+        return false;
+    }
+
+    return (createDefinition.index.toUpperCase() === "CLUSTERED");
 };
 
 type Comment = {
@@ -1295,6 +1328,7 @@ const doInitTableModels = (tableDefinitions: DdlTableDefinition[], separator: st
                 indexColumnModels: indexColumnModels,
                 indexOption: indexDefinition.indexOption,
                 indexType: indexDefinition.indexType,
+                clustered: indexDefinition.clustered,
             });
         });
 

@@ -1,5 +1,3 @@
-import { ChangeEvent } from "react";
-
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import ColumnModel from "~/models/database/ColumnModel";
 
@@ -16,7 +14,7 @@ export type ColumnWrapModel = {
 
 export const initHandleChangePhysicalName = (
     setPhysicalName: (updatingPhysicalName: string) => void
-): ((event: ChangeEvent<HTMLInputElement>) => void) => {
+): ((event: React.ChangeEvent<HTMLInputElement>) => void) => {
     return (event: React.ChangeEvent<HTMLInputElement>) => {
         const changedValue = validatePhysicalValue(event.target.value);
         if (changedValue == null) {
@@ -39,9 +37,9 @@ type InitSyncPhysicalNameHandlerArgs = {
  */
 export const initHandleChangeWithSyncPhysicalName = (
     { physicalName, setPhysicalName, logicalName, setLogicalName }: InitSyncPhysicalNameHandlerArgs
-): ((event: ChangeEvent<HTMLInputElement>) => void) => {
+): ((event: React.ChangeEvent<HTMLInputElement>) => void) => {
 
-    return (event: ChangeEvent<HTMLInputElement>) => {
+    return (event: React.ChangeEvent<HTMLInputElement>) => {
         const changedValue = validatePhysicalValue(event.target.value);
         if (changedValue == null) {
             return;

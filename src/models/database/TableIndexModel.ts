@@ -13,6 +13,7 @@ type TableIndexModelOptions = {
     indexColumnModels: IndexColumnModel[],
     indexOption?: TableIndexOption,
     indexType?: TableIndexType,
+    clustered?: boolean,
     description?: string
 };
 
@@ -23,6 +24,7 @@ export default class TableIndexModel {
     public readonly indexColumnModels: readonly IndexColumnModel[];
     public readonly indexOption: TableIndexOption;
     public readonly indexType: TableIndexType;
+    public readonly clustered: boolean;
     public readonly description: string
 
     constructor({
@@ -31,6 +33,7 @@ export default class TableIndexModel {
         indexColumnModels,
         indexOption = "",
         indexType = "",
+        clustered = false,
         description = ""
     }: TableIndexModelOptions) {
         this.tableIndexModelId = tableIndexModelId;
@@ -38,6 +41,7 @@ export default class TableIndexModel {
         this.indexColumnModels = [...indexColumnModels] as const;
         this.indexOption = indexOption;
         this.indexType = indexType;
+        this.clustered = clustered;
         this.description = description;
     }
 
@@ -45,9 +49,10 @@ export default class TableIndexModel {
         return {
             tableIndexModelId: this.tableIndexModelId,
             physicalName: this.physicalName,
-            indexColumnModels: this.indexColumnModels.map((model) => model.toJSON()),
+            indexColumnModels: this.indexColumnModels.map(model => model.toJSON()),
             indexOption: this.indexOption,
             indexType: this.indexType,
+            ...(this.clustered && { clustered: this.clustered }),
             description: this.description
         };
     }
@@ -72,6 +77,7 @@ export default class TableIndexModel {
             indexColumnModels: indexColumnModels,
             indexOption: parseIndexOption(obj),
             indexType: ("indexType" in obj) ? obj.indexType as TableIndexType : "",
+            clustered: ("clustered" in obj) ? obj.clustered as boolean : false,
             description: ("description" in obj) ? obj.description as string : "",
         });
     }
@@ -99,6 +105,9 @@ export default class TableIndexModel {
             return false;
         }
         if (this.indexType !== other.indexType) {
+            return false;
+        }
+        if (this.clustered !== other.clustered) {
             return false;
         }
         if (this.description !== other.description) {

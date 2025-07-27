@@ -41,7 +41,7 @@ const initSheetNameMapping = (erdDocument: ErdDocument) => {
 };
 
 const sortTableViews = (tableViews: TableViewModel[]) => {
-    return [...tableViews].sort((first, second) => 
+    return [...tableViews].sort((first, second) =>
         first.tableModel.physicalName.localeCompare(second.tableModel.physicalName));
 }
 
@@ -174,10 +174,14 @@ const initExportTableIndexesGenerator = (erdDocument: ErdDocument, tableModel: T
             }
         }).filter(indexedColumn => (indexedColumn != null));
 
+        const indexOption = [tableIndex.indexOption, (tableIndex.clustered ? "CLUSTERED" : "")]
+            .filter(value => (value !== ""))
+            .join(" | ");
+
         yield {
             indexName: tableIndex.physicalName,
             indexType: tableIndex.indexType,
-            indexOption: tableIndex.indexOption,
+            indexOption: indexOption,
             description: tableIndex.description,
             indexedColumns: indexedColumns
         };

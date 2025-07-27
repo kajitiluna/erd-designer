@@ -242,9 +242,10 @@ const initColumnHeader = (databaseType: DatabaseType, withTableInfo: boolean = t
         { header: "Unique", key: "unique", width: 7, style: centerAlignmentStyle },
     ];
 
-    const header4: Partial<ExcelJS.Column>[] = (databaseType === "mysql") ? [
-        { header: "Increment", key: "autoIncrement", width: 10, style: centerAlignmentStyle }
-    ] : [];
+    const header4: Partial<ExcelJS.Column>[] =
+        ((databaseType === "mysql") || (databaseType === "ms_sqlserver"))
+            ? [{ header: "Increment", key: "autoIncrement", width: 10, style: centerAlignmentStyle }]
+            : [];
 
     const header5: Partial<ExcelJS.Column>[] = [
         { header: "Default", key: "defaultValue", width: 10 },

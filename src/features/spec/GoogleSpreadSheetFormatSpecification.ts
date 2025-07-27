@@ -92,9 +92,9 @@ const initColumnHeader = (databaseType: DatabaseType, withTableInfo: boolean = t
         { title: "Unique", key: "unique", horizontalAlignment: "CENTER", width: 50 },
     ];
 
-    const header4 = (databaseType === "mysql") ? [
-        { title: "Increment", key: "autoIncrement", horizontalAlignment: "CENTER", width: 55 }
-    ] : [];
+    const header4 = ((databaseType === "mysql") || (databaseType === "ms_sqlserver"))
+        ? [{ title: "Increment", key: "autoIncrement", horizontalAlignment: "CENTER", width: 55 }]
+        : [];
 
     const header5 = [
         { title: "Default", key: "defaultValue", width: 75 },

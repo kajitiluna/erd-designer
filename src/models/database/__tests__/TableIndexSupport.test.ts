@@ -5,7 +5,7 @@ describe('TableIndexSupport', () => {
         test('should create with index options and types', () => {
             const indexOptions: TableIndexOption[] = ['UNIQUE', 'FULLTEXT'];
             const indexTypes: TableIndexType[] = ['BTREE', 'HASH'];
-            const support = new TableIndexSupport(indexOptions, indexTypes);
+            const support = new TableIndexSupport({ indexOptions, indexTypes });
 
             expect(support.indexOptions).toEqual(indexOptions);
             expect(support.indexTypes).toEqual(indexTypes);
@@ -15,7 +15,7 @@ describe('TableIndexSupport', () => {
         test('should create with nullsOrder specified', () => {
             const indexOptions: TableIndexOption[] = ['UNIQUE'];
             const indexTypes: TableIndexType[] = ['BTREE', 'GIST'];
-            const support = new TableIndexSupport(indexOptions, indexTypes, true);
+            const support = new TableIndexSupport({ indexOptions, indexTypes, nullsOrder: true });
 
             expect(support.indexOptions).toEqual(indexOptions);
             expect(support.indexTypes).toEqual(indexTypes);
@@ -23,7 +23,7 @@ describe('TableIndexSupport', () => {
         });
 
         test('should create with empty arrays', () => {
-            const support = new TableIndexSupport([], []);
+            const support = new TableIndexSupport({ indexOptions: [], indexTypes: [] });
 
             expect(support.indexOptions).toEqual([]);
             expect(support.indexTypes).toEqual([]);
@@ -32,7 +32,7 @@ describe('TableIndexSupport', () => {
 
         test('should handle all supported index options', () => {
             const allOptions: TableIndexOption[] = ['UNIQUE', 'FULLTEXT', 'SPATIAL', ''];
-            const support = new TableIndexSupport(allOptions, ['BTREE']);
+            const support = new TableIndexSupport({ indexOptions: allOptions, indexTypes: ['BTREE'] });
 
             expect(support.indexOptions).toEqual(allOptions);
             expect(support.indexOptions).toContain('UNIQUE');
@@ -43,7 +43,7 @@ describe('TableIndexSupport', () => {
 
         test('should handle all supported index types', () => {
             const allTypes: TableIndexType[] = ['BTREE', 'HASH', 'GIST', 'SPGIST', 'GIN', 'BRIN', ''];
-            const support = new TableIndexSupport(['UNIQUE'], allTypes);
+            const support = new TableIndexSupport({ indexOptions: ['UNIQUE'], indexTypes: allTypes });
 
             expect(support.indexTypes).toEqual(allTypes);
             expect(support.indexTypes).toContain('BTREE');
@@ -60,7 +60,7 @@ describe('TableIndexSupport', () => {
         test('should have readonly properties', () => {
             const indexOptions: TableIndexOption[] = ['UNIQUE'];
             const indexTypes: TableIndexType[] = ['BTREE'];
-            const support = new TableIndexSupport(indexOptions, indexTypes, true);
+            const support = new TableIndexSupport({ indexOptions, indexTypes, nullsOrder: true });
 
             // These should be readonly - TypeScript compilation will enforce this
             expect(support.indexOptions).toBe(indexOptions);
@@ -71,7 +71,7 @@ describe('TableIndexSupport', () => {
         test('should preserve reference to original arrays', () => {
             const indexOptions: TableIndexOption[] = ['UNIQUE', 'FULLTEXT'];
             const indexTypes: TableIndexType[] = ['BTREE', 'HASH'];
-            const support = new TableIndexSupport(indexOptions, indexTypes);
+            const support = new TableIndexSupport({ indexOptions, indexTypes });
 
             expect(support.indexOptions).toBe(indexOptions);
             expect(support.indexTypes).toBe(indexTypes);
@@ -80,11 +80,11 @@ describe('TableIndexSupport', () => {
 
     describe('typical usage scenarios', () => {
         test('should support PostgreSQL configuration', () => {
-            const postgresSupport = new TableIndexSupport(
-                ['UNIQUE'],
-                ['BTREE', 'HASH', 'GIST', 'SPGIST', 'GIN', 'BRIN'],
-                true
-            );
+            const postgresSupport = new TableIndexSupport({
+                indexOptions: ['UNIQUE'],
+                indexTypes: ['BTREE', 'HASH', 'GIST', 'SPGIST', 'GIN', 'BRIN'],
+                nullsOrder: true
+            });
 
             expect(postgresSupport.indexOptions).toEqual(['UNIQUE']);
             expect(postgresSupport.indexTypes).toHaveLength(6);
@@ -92,11 +92,11 @@ describe('TableIndexSupport', () => {
         });
 
         test('should support MySQL configuration', () => {
-            const mysqlSupport = new TableIndexSupport(
-                ['UNIQUE', 'FULLTEXT', 'SPATIAL'],
-                ['BTREE', 'HASH'],
-                false
-            );
+            const mysqlSupport = new TableIndexSupport({
+                indexOptions: ['UNIQUE', 'FULLTEXT', 'SPATIAL'],
+                indexTypes: ['BTREE', 'HASH'],
+                nullsOrder: false
+            });
 
             expect(mysqlSupport.indexOptions).toEqual(['UNIQUE', 'FULLTEXT', 'SPATIAL']);
             expect(mysqlSupport.indexTypes).toEqual(['BTREE', 'HASH']);

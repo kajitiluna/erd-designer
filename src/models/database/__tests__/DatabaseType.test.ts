@@ -5,7 +5,7 @@ describe('Database', () => {
     describe('constructor', () => {
         test('should create with all required properties', () => {
             const indexSupport = new TableIndexSupport(['UNIQUE'], ['BTREE']);
-            const database = new Database('postgres', 'PostgreSQL', indexSupport, true);
+            const database = new Database('postgres', 'PostgreSQL', indexSupport, { supportArray: true });
 
             expect(database.databaseType).toBe('postgres');
             expect(database.name).toBe('PostgreSQL');
