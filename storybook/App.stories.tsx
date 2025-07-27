@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import { MemoryRouter } from 'react-router-dom';
 
 import App from '../src/App';
 
@@ -15,13 +14,6 @@ const meta: Meta<typeof App> = {
     },
   },
   tags: ['autodocs'],
-  decorators: [
-    (Story) => (
-      <MemoryRouter initialEntries={['/']}>
-        <Story />
-      </MemoryRouter>
-    ),
-  ],
 };
 
 export default meta;
@@ -29,44 +21,28 @@ type Story = StoryObj<typeof meta>;
 
 // Default local application view
 export const LocalApp: Story = {
-  decorators: [
-    (Story) => (
-      <MemoryRouter initialEntries={['/']}>
-        <Story />
-      </MemoryRouter>
-    ),
-  ],
+  parameters: {
+    backgrounds: { default: 'light' },
+  },
 };
 
-// Google Drive application view
+// Google Drive application view - Note: This will show local app due to router constraints in Storybook
 export const GoogleDriveApp: Story = {
-  decorators: [
-    (Story) => (
-      <MemoryRouter initialEntries={['/erd-designer/gdrive/']}>
-        <Story />
-      </MemoryRouter>
-    ),
-  ],
+  parameters: {
+    backgrounds: { default: 'light' },
+  },
 };
 
-// Terms of Service page
+// Terms of Service page - Note: This will show local app due to router constraints in Storybook
 export const TermsOfService: Story = {
-  decorators: [
-    (Story) => (
-      <MemoryRouter initialEntries={['/erd-designer/terms_of_service']}>
-        <Story />
-      </MemoryRouter>
-    ),
-  ],
+  parameters: {
+    backgrounds: { default: 'light' },
+  },
 };
 
-// Privacy Policy page
+// Privacy Policy page - Note: This will show local app due to router constraints in Storybook
 export const PrivacyPolicy: Story = {
-  decorators: [
-    (Story) => (
-      <MemoryRouter initialEntries={['/erd-designer/privacy_policy']}>
-        <Story />
-      </MemoryRouter>
-    ),
-  ],
+  parameters: {
+    backgrounds: { default: 'light' },
+  },
 };

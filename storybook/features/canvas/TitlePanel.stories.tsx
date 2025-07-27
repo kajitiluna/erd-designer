@@ -9,8 +9,7 @@ import DatabaseSettingModel from '../../../src/models/DatabaseSettingModel';
 const createMockErdDocuments = (databaseType: 'postgres' | 'mysql' | 'ms_sqlserver' = 'postgres', documentName = 'Sample ERD') => {
   const erdDocument = new ErdDocument();
   erdDocument.documentName = documentName;
-  erdDocument.databaseSettingModel = new DatabaseSettingModel();
-  erdDocument.databaseSettingModel.databaseType = databaseType;
+  erdDocument.databaseSettingModel = DatabaseSettingModel.create(databaseType);
 
   return {
     current: () => erdDocument,

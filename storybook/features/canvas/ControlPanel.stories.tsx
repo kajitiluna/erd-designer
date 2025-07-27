@@ -17,7 +17,12 @@ const mockEditMode = {
 };
 
 const mockErdDocuments = {
-  erdDocument: new ErdDocument(),
+  current: () => new ErdDocument(),
+  canUndo: () => false,
+  canRedo: () => false,
+  undo: () => console.log('undo'),
+  redo: () => console.log('redo'),
+  updateDocumentName: (name: string) => console.log('updateDocumentName', name),
   undoableEditErdDocument: (updater: any) => console.log('undoableEditErdDocument', updater),
   erdDocumentHistory: {
     canUndo: false,
