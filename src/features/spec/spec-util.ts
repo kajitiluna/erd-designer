@@ -1,5 +1,5 @@
 import { SortOrderType } from "~/models/database";
-import { TableIndexOption, TableIndexType } from "~/models/database/TableIndexSupport";
+import { TableIndexType } from "~/models/database/TableIndexSupport";
 
 export type TableListSpecGenerator = Generator<TableListSpec, void, unknown>
 type TableListSpec = {
@@ -40,7 +40,7 @@ export type TableIndexSpecGenerator = Generator<TableIndexSpec, void, unknown>;
 export type TableIndexSpec = {
     indexName: string;
     indexType: TableIndexType;
-    indexOption: TableIndexOption;
+    indexOption: string;
     description: string;
     indexedColumns: {
         physicalName: string;

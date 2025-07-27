@@ -4,7 +4,7 @@ import TableIndexSupport from '../TableIndexSupport';
 describe('Database', () => {
     describe('constructor', () => {
         test('should create with all required properties', () => {
-            const indexSupport = new TableIndexSupport(['UNIQUE'], ['BTREE']);
+            const indexSupport = new TableIndexSupport({ indexOptions: ['UNIQUE'], indexTypes: ['BTREE'] });
             const database = new Database('postgres', 'PostgreSQL', indexSupport, { supportArray: true });
 
             expect(database.databaseType).toBe('postgres');
