@@ -7,27 +7,36 @@ import MsSQLServerIcon from './MsSQLServerIcon';
 
 // Component wrapper to show all database icons
 const DatabaseIconsDemo = ({ size }: { size: 'small' | 'medium' | 'large' }) => {
-  const iconSize = size === 'small' ? 'small' : size === 'large' ? 'large' : 'medium';
+  const iconStyle = {
+    width: size === 'small' ? 24 : size === 'large' ? 48 : 32,
+    height: size === 'small' ? 24 : size === 'large' ? 48 : 32,
+  };
   
   return (
     <Stack direction="row" spacing={4} alignItems="center">
       <Paper elevation={1} sx={{ padding: 2, textAlign: 'center' }}>
         <Stack alignItems="center" spacing={1}>
-          <MySQLIcon fontSize={iconSize} />
+          <div style={iconStyle}>
+            <MySQLIcon />
+          </div>
           <Typography variant="caption">MySQL</Typography>
         </Stack>
       </Paper>
       
       <Paper elevation={1} sx={{ padding: 2, textAlign: 'center' }}>
         <Stack alignItems="center" spacing={1}>
-          <PostgreSQLIcon fontSize={iconSize} />
+          <div style={iconStyle}>
+            <PostgreSQLIcon />
+          </div>
           <Typography variant="caption">PostgreSQL</Typography>
         </Stack>
       </Paper>
       
       <Paper elevation={1} sx={{ padding: 2, textAlign: 'center' }}>
         <Stack alignItems="center" spacing={1}>
-          <MsSQLServerIcon fontSize={iconSize} />
+          <div style={iconStyle}>
+            <MsSQLServerIcon />
+          </div>
           <Typography variant="caption">MS SQL Server</Typography>
         </Stack>
       </Paper>
