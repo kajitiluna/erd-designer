@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react';
 
-import PrimaryKeyIcon from './PrimaryKeyIcon';
-import ForeignKeyIcon from './ForeignKeyIcon';
+import PrimaryKeyIcon from '../../../src/components/icons/PrimaryKeyIcon';
+import ForeignKeyIcon from '../../../src/components/icons/ForeignKeyIcon';
 import { Stack, Typography } from '@mui/material';
 
 // Component wrapper to show both key icons

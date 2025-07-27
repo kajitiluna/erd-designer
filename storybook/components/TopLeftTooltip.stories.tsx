@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { Button, IconButton } from '@mui/material';
 import { Info, Help, Settings } from '@mui/icons-material';
 
-import TopLeftTooltip from './TopLeftTooltip';
+import TopLeftTooltip from '../../src/components/TopLeftTooltip';
 
 const meta: Meta<typeof TopLeftTooltip> = {
   title: 'Components/TopLeftTooltip',

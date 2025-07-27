@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { Save, Delete, Edit, Visibility, Download } from '@mui/icons-material';
 
-import EdgedIconButton from './EdgedIconButton';
+import EdgedIconButton from '../../src/components/EdgedIconButton';
 
 const meta: Meta<typeof EdgedIconButton> = {
   title: 'Components/EdgedIconButton',

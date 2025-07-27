@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { Stack, Typography, Paper } from '@mui/material';
 
-import MySQLIcon from './MySQLIcon';
-import PostgreSQLIcon from './PostgreSQLIcon';
-import MsSQLServerIcon from './MsSQLServerIcon';
+import MySQLIcon from '../../../src/components/icons/MySQLIcon';
+import PostgreSQLIcon from '../../../src/components/icons/PostgreSQLIcon';
+import MsSQLServerIcon from '../../../src/components/icons/MsSQLServerIcon';
 
 // Component wrapper to show all database icons
 const DatabaseIconsDemo = ({ size }: { size: 'small' | 'medium' | 'large' }) => {
