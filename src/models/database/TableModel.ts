@@ -80,7 +80,7 @@ export default class TableModel {
             logicalName: this.logicalName,
             columnModelIds: columnModelIds,
             tableIndexModels: this.tableIndexModels.map(tableIndexModel => tableIndexModel.toJSON()),
-            description: this.description
+            ...((this.description !== "") && { description: this.description })
         };
     }
 
