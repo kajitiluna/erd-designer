@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react';
 
 import ColorSelector from '../../src/components/ColorSelector';
-import ColorValue from '~/models/ColorValue';
+import ColorValue from '../../src/models/ColorValue';
 
 const meta: Meta<typeof ColorSelector> = {
   title: 'Components/ColorSelector',
