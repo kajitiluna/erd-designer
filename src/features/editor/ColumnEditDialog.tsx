@@ -91,12 +91,13 @@ const ColumnEditDialog = ({
             logicalName: logicalName, setLogicalName: setLogicalName
         });
 
-    // PK の場合は、 NotNull も true となり、変更できない
+    // PK の場合は、 NotNull = true, Unique = false とし、変更できないようにする
     const handleChangePrimary = (event: React.ChangeEvent<HTMLInputElement>) => {
         const checked = event.target.checked
         setPrimaryKey(checked);
         if (checked === true) {
             setNotNull(true);
+            setUnique(false);
         }
     };
 
@@ -169,13 +170,14 @@ const ColumnEditDialog = ({
                 <Checkbox checked={checkedPrimaryKey} onChange={handleChangePrimary} />} />
             <FormControlLabel label="Not Null" control={
                 <Checkbox checked={checkedNotNull} disabled={checkedPrimaryKey}
-                    onChange={(event) => setNotNull(event.target.checked)} />} />
+                    onChange={event => setNotNull(event.target.checked)} />} />
             <FormControlLabel label="Unique" control={
-                <Checkbox checked={checkedUnique} onChange={(event) => setUnique(event.target.checked)} />} />
+                <Checkbox checked={checkedUnique} disabled={checkedPrimaryKey}
+                    onChange={event => setUnique(event.target.checked)} />} />
             {editableAutoIncrement &&
                 <FormControlLabel label={database.autoIncrementLabel()} control={
                     <Checkbox checked={checkAutoIncrement}
-                        onChange={(event) => setAutoIncrement(event.target.checked)} />} />
+                        onChange={event => setAutoIncrement(event.target.checked)} />} />
             }
         </Stack>
     );
