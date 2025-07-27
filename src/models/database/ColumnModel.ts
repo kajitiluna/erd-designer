@@ -1,5 +1,5 @@
 import { v4 as uuidV4 } from 'uuid';
-import { instanceToPlain } from "class-transformer";
+
 import { PropertyNotExistsError } from "~/models/exceptions";
 
 type ColumnModelOptions = {
@@ -49,7 +49,17 @@ export default class ColumnModel {
     }
 
     public toJSON(): Record<string, unknown> {
-        return instanceToPlain(this);
+        return {
+            columnModelId: this.columnModelId,
+            columnShareModelId: this.columnShareModelId,
+            ...((this.physicalName !== "") && { physicalName: this.physicalName }),
+            ...((this.logicalName !== "") && { logicalName: this.logicalName }),
+            ...(this.primaryKey && { primaryKey: this.primaryKey }),
+            ...(this.notNull && { notNull: this.notNull }),
+            ...(this.unique && { unique: this.unique }),
+            ...(this.autoIncrement && { autoIncrement: this.autoIncrement }),
+            ...((this.defaultValue !== "") && { defaultValue: this.defaultValue })
+        };
     }
 
     public static toObject(obj: object): ColumnModel {

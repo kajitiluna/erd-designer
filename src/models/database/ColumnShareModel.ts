@@ -73,11 +73,11 @@ export default class ColumnShareModel {
             physicalName: this.physicalName,
             logicalName: this.logicalName,
             columnTypeId: this.columnType.id,
-            precision: this.precision,
-            scale: this.scale,
-            unsigned: this.unsigned,
-            isArray: this.isArray,
-            description: this.description,
+            ...((this.precision !== "") && { precision: this.precision }),
+            ...((this.scale !== "") && { scale: this.scale }),
+            ...(this.unsigned && { unsigned: this.unsigned }),
+            ...(this.isArray && { isArray: this.isArray }),
+            ...((this.description !== "") && { description: this.description }),
             createdAt: this.createdAt
         };
     }
@@ -95,29 +95,17 @@ export default class ColumnShareModel {
         if (!("columnTypeId" in obj)) {
             throw new PropertyNotExistsError("columnTypeId", obj);
         }
-        if (!("precision" in obj)) {
-            throw new PropertyNotExistsError("precision", obj);
-        }
-        if (!("scale" in obj)) {
-            throw new PropertyNotExistsError("scale", obj);
-        }
-        if (!("unsigned" in obj)) {
-            throw new PropertyNotExistsError("unsigned", obj);
-        }
-        if (!("description" in obj)) {
-            throw new PropertyNotExistsError("description", obj);
-        }
 
         return new ColumnShareModel({
             columnShareModelId: obj.columnShareModelId as string,
             physicalName: obj.physicalName as string,
             logicalName: obj.logicalName as string,
             columnType: toColumnType(obj.columnTypeId as number),
-            precision: obj.precision as string,
-            scale: obj.scale as string,
-            unsigned: obj.unsigned as boolean,
+            precision: ("precision" in obj) ? (obj.precision as string) : "",
+            scale: ("scale" in obj) ? (obj.scale as string) : "",
+            unsigned: ("unsigned" in obj) ? (obj.unsigned as boolean) : false,
             isArray: ("isArray" in obj) ? (obj.isArray as boolean) : false,
-            description: obj.description as string,
+            description: ("description" in obj) ? (obj.description as string) : "",
             createdAt: ("createdAt" in obj) ? toDateTime(obj.createdAt) : new Date()
         });
     }

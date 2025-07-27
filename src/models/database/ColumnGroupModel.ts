@@ -1,5 +1,5 @@
 import { v4 as uuidV4 } from 'uuid';
-import { instanceToPlain } from "class-transformer";
+
 import { PropertyNotExistsError } from "~/models/exceptions";
 
 type ColumnGroupModelOptions = {
@@ -26,7 +26,12 @@ export default class ColumnGroupModel {
     }
 
     public toJSON(): Record<string, unknown> {
-        return instanceToPlain(this);
+        return {
+            columnGroupId: this.columnGroupId,
+            groupName: this.groupName,
+            columnModelIds: this.columnModelIds,
+            ...((this.description !== "") && { description: this.description })
+        };
     }
 
     public static toObject(obj: object): ColumnGroupModel {
@@ -40,13 +45,11 @@ export default class ColumnGroupModel {
             throw new PropertyNotExistsError("columnModelIds", obj);
         }
 
-        const description = ("description" in obj) ? obj.description as string : "";
-
         return new ColumnGroupModel({
             columnGroupId: obj.columnGroupId as string,
             groupName: obj.groupName as string,
             columnModelIds: obj.columnModelIds as string[],
-            description: description
+            description: ("description" in obj) ? obj.description as string : ""
         });
     }
 }

@@ -1,8 +1,6 @@
-import { instanceToPlain } from "class-transformer";
 import { TableIndexOption, TableIndexType } from "~/models/database/TableIndexSupport";
 import { PropertyNotExistsError } from "~/models/exceptions";
 import { toObjects } from "~/models/util";
-
 
 export type SortOrderType = "ASC" | "DESC" | "";
 export type NullsOrderType = "FIRST" | "LAST" | "";
@@ -50,10 +48,10 @@ export default class TableIndexModel {
             tableIndexModelId: this.tableIndexModelId,
             physicalName: this.physicalName,
             indexColumnModels: this.indexColumnModels.map(model => model.toJSON()),
-            indexOption: this.indexOption,
-            indexType: this.indexType,
+            ...((this.indexOption !== "") && { indexOption: this.indexOption }),
+            ...((this.indexType !== "") && { indexType: this.indexType }),
             ...(this.clustered && { clustered: this.clustered }),
-            description: this.description
+            ...((this.description !== "") && { description: this.description })
         };
     }
 
@@ -166,7 +164,11 @@ export class IndexColumnModel {
     }
 
     public toJSON(): Record<string, unknown> {
-        return instanceToPlain(this);
+        return {
+            columnModelId: this.columnModelId,
+            ...((this.sortOrderType !== "") && { sortOrderType: this.sortOrderType }),
+            ...((this.nullsOrderType !== "") && { nullsOrderType: this.nullsOrderType })
+        };
     }
 
     public static toObject(obj: object): IndexColumnModel {
