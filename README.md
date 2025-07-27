@@ -29,7 +29,13 @@ By installing the ERD Designer app from the [Google Workspace Marketplace](https
 
 ## Manual
 
-Under preparation.
+Comprehensive user manuals are available:
+
+- **Wiki Documentation**: Detailed manual available in the [GitHub Wiki](https://github.com/kajitiluna/erd-designer/wiki)
+- **English Manual**: [Manual content in English](manual/en/Home.md)
+- **Japanese Manual**: [日本語マニュアル](manual/ja/Home.md)
+
+The manual covers all features including table creation, relationship management, export capabilities, and both online and Google Drive App usage.
 
 ## Installation and Usage
 
