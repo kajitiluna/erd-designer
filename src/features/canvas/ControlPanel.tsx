@@ -217,7 +217,7 @@ const downloadImage = (erdDocument: ErdDocument) => {
 };
 
 const downloadSpecification = (
-    erdDocument: ErdDocument, 
+    erdDocument: ErdDocument,
     exportSpecification: (erdDocument: ErdDocument, contents: ImageContent) => void
 ) => {
     const erdCanvas = document.getElementById("erd-canvas");

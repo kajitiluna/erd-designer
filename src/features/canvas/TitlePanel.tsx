@@ -66,7 +66,7 @@ const TitlePanel = () => {
     const preferenceSlotProps = {
         list: {
             onMouseLeave: () => {
-                if (displayStyleElement != null) {
+                if (displayStyleElement !== null) {
                     return;
                 }
 
