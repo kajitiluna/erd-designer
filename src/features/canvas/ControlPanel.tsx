@@ -118,14 +118,14 @@ const ActionPanel = () => {
 
     return (
         <ButtonGroup orientation="vertical" aria-label="vertical button group" sx={ACTION_BUTTON_STYLE}>
-            <ColorSelector key='color-selector-default' color={localSetting.defaultColor.background}
+            <ColorSelector color={localSetting.defaultColor.background}
                 shape="rectangle" callback={handleSetDefaultColor} />
             <Divider />
-            <Button key="undo" variant="text" startIcon={<UndoIcon />}
+            <Button variant="text" startIcon={<UndoIcon />}
                 disabled={!documentsHolder.canUndo()} onClick={() => documentsHolder.undo()}>
                 Undo
             </Button>
-            <Button key="undo" variant="text" startIcon={<RedoIcon />}
+            <Button variant="text" startIcon={<RedoIcon />}
                 disabled={!documentsHolder.canRedo()} onClick={() => documentsHolder.redo()}>
                 Redo
             </Button>
