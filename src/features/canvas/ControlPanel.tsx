@@ -1,7 +1,7 @@
 import React from "react";
 import {
-    Box, Button, ButtonGroup, FormControl, InputLabel,
-    Menu, MenuItem, Select, SelectChangeEvent, ToggleButton, ToggleButtonGroup, Tooltip
+    Box, Button, ButtonGroup, Divider, Menu, MenuItem,
+    ToggleButton, ToggleButtonGroup, Tooltip
 } from "@mui/material";
 import HighlightAltIcon from '@mui/icons-material/HighlightAlt';
 import PanToolIcon from '@mui/icons-material/PanTool';
@@ -15,10 +15,8 @@ import html2canvas from "html2canvas";
 import EditMode, { EditModeType } from "~/models/EditMode";
 import EditModeContext from "~/context/EditModeContext";
 import ErdDocument from "~/models/ErdDocument";
-import ErdSettingModel from "~/models/ErdSettingModel";
 import ColorValue from "~/models/ColorValue";
 import ColorSelector from "~/components/ColorSelector";
-import DisplayStyle from "~/models/database/DisplayStyle";
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import ExportDdlView from "~/features/editor/ExportDdlView";
 import download from "~/components/file-downloader";
@@ -34,26 +32,26 @@ type ControlPanelProps = {
 };
 
 const ControlPanel = ({ erdExportable }: ControlPanelProps) => {
-    const panelStyle = {
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        border: "1px solid white",
-        borderRadius: "15px",
-        boxShadow: "5px 5px 30px 0px #bebebe",
-        paddingTop: "15px",
-        paddingBottom: "15px",
-        backgroundColor: "#FFFFFF"
-    };
-
     return (
-        <Box sx={panelStyle}>
+        <Box sx={PANEL_STYLE}>
             <EditModePanel />
             <ActionPanel />
             <SubMenuButton erdExportable={erdExportable} />
         </Box>
     );
+};
+
+const PANEL_STYLE = {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    border: "1px solid white",
+    borderRadius: "15px",
+    boxShadow: "5px 5px 30px 0px #bebebe",
+    paddingTop: "15px",
+    paddingBottom: "15px",
+    backgroundColor: "#FFFFFF"
 };
 
 const EditModePanel = () => {
@@ -110,9 +108,6 @@ const ActionPanel = () => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { localSetting, dispatchLocalSetting } = React.useContext(LocalSettingContext);
 
-    const erdDocument: ErdDocument = documentsHolder.current();
-    const erdSetting: ErdSettingModel = erdDocument.erdSettingModel;
-
     const handleSetDefaultColor = (background: ColorValue, foreground: ColorValue) => {
         dispatchLocalSetting({
             type: "defaultColor",
@@ -120,39 +115,11 @@ const ActionPanel = () => {
         });
     };
 
-    const handleChangeDisplayStyle = (event: SelectChangeEvent<string>) => {
-        const nextValue = event.target.value;
-        if (erdSetting.displayStyle.name === nextValue) {
-            return;
-        }
-
-        for (const displayStyle of DisplayStyle.values()) {
-            if (displayStyle.name !== nextValue) {
-                continue;
-            }
-
-            const nextErdSetting = erdSetting.update({ displayStyle: displayStyle });
-            documentsHolder.updateErdSetting(nextErdSetting);
-        }
-    };
-
-    const buttonStyle = { display: 'flex', flexDirection: 'column', height: '100%', width: '100%' };
-
     return (
-        <ButtonGroup orientation="vertical" aria-label="vertical button group" sx={buttonStyle}>
+        <ButtonGroup orientation="vertical" aria-label="vertical button group" sx={ACTION_BUTTON_STYLE}>
             <ColorSelector key='color-selector-default' color={localSetting.defaultColor.background}
                 shape="rectangle" callback={handleSetDefaultColor} />
-            <FormControl size="small">
-                <InputLabel id="label-display-style">Display Style</InputLabel>
-                <Select labelId="label-display-style" id="select-display-style" label="Display Style"
-                    value={erdSetting.displayStyle.name} onChange={handleChangeDisplayStyle}>
-                    {DisplayStyle.values().map(displayStyle => (
-                        <MenuItem key={displayStyle.name} value={displayStyle.name}>
-                            {displayStyle.name}
-                        </MenuItem>
-                    ))}
-                </Select>
-            </FormControl>
+            <Divider />
             <Button key="undo" variant="text" startIcon={<UndoIcon />}
                 disabled={!documentsHolder.canUndo()} onClick={() => documentsHolder.undo()}>
                 Undo
@@ -164,6 +131,8 @@ const ActionPanel = () => {
         </ButtonGroup>
     );
 };
+
+const ACTION_BUTTON_STYLE = { display: 'flex', flexDirection: 'column', height: '100%', width: '100%' };
 
 type SubMenuButtonProps = {
     erdExportable: boolean
@@ -204,15 +173,13 @@ const SubMenuButton = ({ erdExportable }: SubMenuButtonProps) => {
     };
 
     const isConfigureOpen = Boolean(configureElement);
-    const buttonStyle = { display: 'flex', flexDirection: 'column', height: '100%', width: '100%' };
 
     return (
         <>
-            <Box sx={buttonStyle}>
+            <Box sx={SUBMENU_BUTTON_STYLE}>
                 <Button key="submenu-button" variant="text"
-                    aria-controls={isConfigureOpen ? 'basic-menu' : undefined}
-                    aria-expanded={isConfigureOpen ? 'true' : undefined}
-                    aria-haspopup="true" endIcon={<KeyboardArrowDownIcon />}
+                    aria-expanded={isConfigureOpen} aria-haspopup="true"
+                    endIcon={<KeyboardArrowDownIcon />}
                     onClick={handleOpenMenu}>
                     Export
                 </Button>
@@ -234,6 +201,8 @@ const SubMenuButton = ({ erdExportable }: SubMenuButtonProps) => {
     );
 };
 
+const SUBMENU_BUTTON_STYLE = { display: 'flex', flexDirection: 'column', height: '100%', width: '100%' };
+
 const downloadImage = (erdDocument: ErdDocument) => {
     const erdCanvas = document.getElementById("erd-canvas");
     if (erdCanvas == null) {
@@ -248,7 +217,8 @@ const downloadImage = (erdDocument: ErdDocument) => {
 };
 
 const downloadSpecification = (
-    erdDocument: ErdDocument, exportSpecification: (erdDocument: ErdDocument, contents: ImageContent) => void
+    erdDocument: ErdDocument, 
+    exportSpecification: (erdDocument: ErdDocument, contents: ImageContent) => void
 ) => {
     const erdCanvas = document.getElementById("erd-canvas");
     if (erdCanvas == null) {

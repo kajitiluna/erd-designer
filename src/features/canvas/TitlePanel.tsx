@@ -1,6 +1,7 @@
-import React, { MouseEvent } from "react";
+import React from "react";
 import { IconButton, InputBase, Menu, MenuItem, Stack, Tooltip } from "@mui/material";
 import SettingsIcon from '@mui/icons-material/Settings';
+import ArrowRightIcon from '@mui/icons-material/ArrowRight';
 
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ErdDocument from "~/models/ErdDocument";
@@ -10,6 +11,8 @@ import MySQLIcon from "~/components/icons/MySQLIcon";
 import ColumnGroupView from "~/features/editor/ColumnGroupView";
 import ImportFromDdlView from "~/features/editor/ImportFromDdlView";
 import MsSQLServerIcon from "~/components/icons/MsSQLServerIcon";
+import ErdSettingModel from "~/models/ErdSettingModel";
+import DisplayStyle from "~/models/database/DisplayStyle";
 
 type SettingMenuType = "column_group" | "import_ddl" | "";
 
@@ -17,9 +20,11 @@ const TitlePanel = () => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const erdDocument: ErdDocument = documentsHolder.current();
     const [title, setTitle] = React.useState<string>(erdDocument.documentName);
-    const [settingElement, setSettingElement] = React.useState<HTMLElement | null>(null);
+    const [preferenceElement, setPreferenceElement] = React.useState<HTMLElement | null>(null);
+    const [displayStyleElement, setDisplayStyleElement] = React.useState<HTMLElement | null>(null);
     const [selectedMenu, setSelectedMenu] = React.useState<SettingMenuType>("");
 
+    const erdSetting: ErdSettingModel = erdDocument.erdSettingModel;
     const databaseType: DatabaseType = erdDocument.databaseSettingModel.databaseType;
     const databaseIcon = databaseTypeIcons[databaseType];
 
@@ -27,14 +32,14 @@ const TitlePanel = () => {
         documentsHolder.updateDocumentName(title);
     }
 
-    const isSettingOpen = Boolean(settingElement);
-    const handleOpenPreference = (event: React.MouseEvent<HTMLButtonElement>) => setSettingElement(event.currentTarget);
+    const isSettingOpen = Boolean(preferenceElement);
+    const handleOpenPreference = (event: React.MouseEvent<HTMLButtonElement>) => setPreferenceElement(event.currentTarget);
     const handleClosePreference = () => {
-        setSettingElement(null);
+        setPreferenceElement(null);
     };
 
     const initHandleMenu = (menuType: SettingMenuType) => {
-        return (event: MouseEvent) => {
+        return (event: React.MouseEvent) => {
             event.stopPropagation();
 
             setSelectedMenu(menuType);
@@ -42,26 +47,70 @@ const TitlePanel = () => {
         };
     };
 
-    const handleSelectColumnGroup = initHandleMenu("column_group");
-    const handleSelectImportDdl = initHandleMenu("import_ddl");
+    const handleCloseDisplayStyle = () => {
+        setDisplayStyleElement(null);
+    };
+    const initHandleChangeDisplayStyle = (displayStyle: DisplayStyle) => {
+        return () => {
+            if (displayStyle.name === erdSetting.displayStyle.name) {
+                return;
+            }
+
+            const nextErdSetting = erdSetting.update({ displayStyle: displayStyle });
+            documentsHolder.updateErdSetting(nextErdSetting);
+
+            handleCloseDisplayStyle();
+        };
+    };
+
+    const preferenceSlotProps = {
+        list: {
+            onMouseLeave: () => {
+                if (displayStyleElement != null) {
+                    return;
+                }
+
+                handleClosePreference()
+            }
+        }
+    };
 
     return (
-        <Stack direction="row" spacing={1} sx={panelStyle}>
+        <Stack direction="row" spacing={1} sx={TITLE_PANEL_STYLE}>
             {databaseIcon}
-            <InputBase value={title} sx={inputStyle}
+            <InputBase value={title} sx={TITLE_INPUT_STYLE}
                 onChange={event => setTitle(event.target.value)}
                 onBlur={handleOnSave} />
             <IconButton aria-label="Preferences"
-                aria-controls={isSettingOpen ? 'basic-menu' : undefined}
-                aria-expanded={isSettingOpen ? 'true' : undefined}
-                aria-haspopup="true"
+                aria-expanded={isSettingOpen} aria-haspopup="true"
                 onClick={handleOpenPreference}>
                 <SettingsIcon />
             </IconButton>
-            <Menu anchorEl={settingElement} open={isSettingOpen} onClose={handleClosePreference}>
-                <MenuItem onClick={handleSelectColumnGroup}>Column Group</MenuItem>
-                <MenuItem onClick={handleSelectImportDdl}>Import from DDL</MenuItem>
+
+            <Menu anchorEl={preferenceElement} open={isSettingOpen} onClose={handleClosePreference}
+                slotProps={preferenceSlotProps}>
+                <MenuItem sx={{ paddingRight: "4px" }}
+                    onClick={event => setDisplayStyleElement(event.currentTarget)}>
+                    Display Style : {erdSetting.displayStyle.name} <ArrowRightIcon />
+                </MenuItem>
+                <MenuItem onClick={initHandleMenu("column_group")}>Column Group</MenuItem>
+                <MenuItem onClick={initHandleMenu("import_ddl")}>Import from DDL</MenuItem>
             </Menu>
+
+            <Menu anchorEl={displayStyleElement} open={Boolean(displayStyleElement)}
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                onClose={handleCloseDisplayStyle}
+                slotProps={{ list: { onMouseLeave: handleCloseDisplayStyle } }}>
+                {DisplayStyle.values().map(displayStyle => (
+                    <MenuItem key={displayStyle.name} value={displayStyle.name}
+                        selected={displayStyle.name === erdSetting.displayStyle.name}
+                        onClick={initHandleChangeDisplayStyle(displayStyle)}>
+                        {displayStyle.name}
+                    </MenuItem>
+                ))}
+            </Menu>
+
             {(selectedMenu === "column_group") && (
                 <ColumnGroupView
                     isOpen={selectedMenu === "column_group"}
@@ -77,7 +126,7 @@ const TitlePanel = () => {
     );
 };
 
-const panelStyle = {
+const TITLE_PANEL_STYLE = {
     display: "flex",
     flexDirection: "row",
     alignItems: "center",
@@ -91,7 +140,7 @@ const panelStyle = {
     backgroundColor: "#FFFFFF"
 };
 
-const inputStyle = {
+const TITLE_INPUT_STYLE = {
     fontSize: "1.2rem",
     fontWeight: "bold",
     color: "#3F3F3F",
