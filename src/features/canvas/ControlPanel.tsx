@@ -17,6 +17,7 @@ import EditModeContext from "~/context/EditModeContext";
 import ErdDocument from "~/models/ErdDocument";
 import ColorValue from "~/models/ColorValue";
 import ColorSelector from "~/components/ColorSelector";
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import ExportDdlView from "~/features/editor/ExportDdlView";
 import download from "~/components/file-downloader";
@@ -174,23 +175,35 @@ const SubMenuButton = ({ erdExportable }: SubMenuButtonProps) => {
 
     const isConfigureOpen = Boolean(configureElement);
 
+    const handleLeavingMenu = () => {
+        if (selectedMenu !== "") {
+            return;
+        }
+
+        handleCloseMenu();
+    };
+
     return (
         <>
             <Box sx={SUBMENU_BUTTON_STYLE}>
                 <Button key="submenu-button" variant="text"
                     aria-expanded={isConfigureOpen} aria-haspopup="true"
-                    endIcon={<KeyboardArrowDownIcon />}
+                    endIcon={isConfigureOpen ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
                     onClick={handleOpenMenu}>
                     Export
                 </Button>
-                <Menu anchorEl={configureElement} open={isConfigureOpen} onClose={handleCloseMenu}
-                    slotProps={{ paper: { 'aria-labelledby': 'basic-button', } }}>
-                    <MenuItem onClick={() => setSelectedMenu("export_ddl")}>Export DDL</MenuItem>
-                    <MenuItem onClick={handleSaveAsImage}>Save as image</MenuItem>
-                    <MenuItem onClick={handleExportSpecification}>Export specification</MenuItem>
-                    {erdExportable && <MenuItem onClick={handleSaveToJson}>Save to ERD file</MenuItem>}
-                </Menu>
             </Box>
+
+            <Menu anchorEl={configureElement} open={isConfigureOpen} onClose={handleCloseMenu}
+                slotProps={{
+                    paper: { 'aria-labelledby': 'basic-button', },
+                    list: { onMouseLeave: handleLeavingMenu }
+                }}>
+                <MenuItem onClick={() => setSelectedMenu("export_ddl")}>Export DDL</MenuItem>
+                <MenuItem onClick={handleSaveAsImage}>Save as image</MenuItem>
+                <MenuItem onClick={handleExportSpecification}>Export specification</MenuItem>
+                {erdExportable && <MenuItem onClick={handleSaveToJson}>Save to ERD file</MenuItem>}
+            </Menu>
 
             {(selectedMenu === "export_ddl") && (
                 <ExportDdlView documentsHolder={documentsHolder}
@@ -217,7 +230,7 @@ const downloadImage = (erdDocument: ErdDocument) => {
 };
 
 const downloadSpecification = (
-    erdDocument: ErdDocument, 
+    erdDocument: ErdDocument,
     exportSpecification: (erdDocument: ErdDocument, contents: ImageContent) => void
 ) => {
     const erdCanvas = document.getElementById("erd-canvas");
