@@ -1318,7 +1318,7 @@ export default class ErdDocument {
         const toColumnType = databaseSettingModel.initToColumnTypeMapping();
 
         const tableViewModels = toObjects(obj.tableViewModels, "tableViewModels",
-            (value) => TableViewModel.toObject(value))
+            value => TableViewModel.toObject(value))
         const columnGroupModels = ("columnGroupModels" in obj)
             ? toObjects(obj.columnGroupModels, "columnGroupModels", value => ColumnGroupModel.toObject(value)) : [];
         const columnModels = toObjects(obj.columnModels, "columnModels",

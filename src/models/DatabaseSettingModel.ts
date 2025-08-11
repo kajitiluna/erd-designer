@@ -60,7 +60,7 @@ export default class DatabaseSettingModel {
         }
 
         const databaseType = obj.databaseType as DatabaseType;
-        const orgColumnTypes = toObjects(obj.columnTypes, "columnTypes", (value) => ColumnType.toObject(value));
+        const orgColumnTypes = toObjects(obj.columnTypes, "columnTypes", value => ColumnType.toObject(value));
         const orgVersion = ("version" in obj) ? (obj.version as number) : 0;
 
         const columnTypes = migrateColumns(databaseType, orgColumnTypes, orgVersion);

@@ -67,7 +67,7 @@ export default class TableIndexModel {
         }
 
         const indexColumnModels = toObjects(obj.indexColumnModels, "indexColumnModels",
-            (value) => IndexColumnModel.toObject(value));
+            value => IndexColumnModel.toObject(value));
 
         return new TableIndexModel({
             tableIndexModelId: obj.tableIndexModelId as string,
