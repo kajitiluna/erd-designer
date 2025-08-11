@@ -40,7 +40,7 @@ type StickyNoteViewProps = {
     foreground?: boolean
 };
 
-const StickyMemoView = React.memo(function StickyMemoView({ memoViewModel, onDragAction, foreground = true }: StickyNoteViewProps) {
+const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: StickyNoteViewProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
@@ -49,7 +49,6 @@ const StickyMemoView = React.memo(function StickyMemoView({ memoViewModel, onDra
     const displayScale = React.useContext(DisplayScaleContext);
 
     const textAreaRef = React.useRef<HTMLTextAreaElement>(null);
-    const [memo, setMemo] = useState<string>(memoViewModel.memo);
     const [isTextEdit, setTextEdit] = useState<boolean>(false);
     const [mouseCursorStyle, setMouseCursorStyle] = useState<string>("pointer");
     const [resizingDirection, setResizingDirection] = useState<ResizingDirection>(ResizingDirection.NO_RESIZING);
@@ -176,7 +175,11 @@ const StickyMemoView = React.memo(function StickyMemoView({ memoViewModel, onDra
         setResizingDirection(ResizingDirection.NO_RESIZING);
         setMouseCursorStyle("pointer");
 
-        const nextMemo = memoViewModel.updateMemo(memo);
+        if (!textAreaRef.current) {
+            return;
+        }
+
+        const nextMemo = memoViewModel.updateMemo(textAreaRef.current.value);
         if (memoViewModel === nextMemo) {
             return;
         }
@@ -205,12 +208,11 @@ const StickyMemoView = React.memo(function StickyMemoView({ memoViewModel, onDra
 
             return (
                 <textarea ref={textAreaRef}
-                    style={textAreaStyle} value={memo}
-                    onChange={(event) => setMemo(event.target.value)} />
+                    style={textAreaStyle} defaultValue={memoViewModel.memo} />
             );
         }
 
-        const memoLines = memo.split("\n");
+        const memoLines = memoViewModel.memo.split("\n");
         const baseStyle: React.CSSProperties = {
             width: "100%", height: "100%",
             color: memoViewModel.foregroundColor.toHex(),
@@ -292,7 +294,7 @@ const StickyMemoView = React.memo(function StickyMemoView({ memoViewModel, onDra
                 && <StickyControlPane memoViewModel={memoViewModel} />}
         </Box>
     );
-}, (old: StickyNoteViewProps, next: StickyNoteViewProps) => old.memoViewModel.equals(next.memoViewModel));
+};
 
 const STICKY_PADDING = 10;
 
