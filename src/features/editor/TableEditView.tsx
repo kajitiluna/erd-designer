@@ -5,7 +5,7 @@ import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorag
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ColumnViewTable from "~/features/editor/ColumnViewTable";
 import IndexViewTable from "~/features/editor/IndexViewTable";
-import { ColumnWrapModel, initHandleChangeWithSyncPhysicalName, initHandleEnterKeyDown } from "~/features/editor/support";
+import { ColumnWrapModel, initHandleChangeWithSyncPhysicalName, initHandleCloseDialog, initHandleEnterKeyDown } from "~/features/editor/support";
 import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import ColumnModel from "~/models/database/ColumnModel";
@@ -164,7 +164,8 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             columnShareModelStorage: columnShareModelStorage,
             updateStorage: (updating: ColumnShareModelStorage) => setColumnShareModelStorage(updating)
         }}>
-            <Dialog fullWidth maxWidth="lg" open={isOpen} sx={{ userSelect: "none" }} onClose={onClose}>
+            <Dialog fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
+                open={isOpen} onClose={initHandleCloseDialog(onClose)}>
                 <DialogTitle>Edit Table</DialogTitle>
                 <DialogContent>
                     <Stack spacing={3}>

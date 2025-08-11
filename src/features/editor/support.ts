@@ -89,3 +89,19 @@ export const initHandleEnterKeyDown = (onEnterAction: () => void) => {
         }
     };
 };
+
+/**
+ * Dialog コンポーネントにて、コンポーネント外のクリック制御を抑制するためのハンドラを生成する。
+ * 
+ * @param onClose ダイアログクローズ時のコールバック関数
+ * @returns Event handler function for dialog close events that suppresses closing on backdrop clicks.
+ */
+export const initHandleCloseDialog = (onClose: () => void) => {
+    return (_: object, reason: "backdropClick" | "escapeKeyDown") => {
+        if (reason === "backdropClick") {
+            return;
+        }
+
+        onClose();
+    }
+};

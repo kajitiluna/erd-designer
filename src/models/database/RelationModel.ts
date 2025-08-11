@@ -78,7 +78,7 @@ export default class RelationModel {
             childCardinality: (("childCardinality" in obj)
                 ? obj.childCardinality as CardinalityType : "1"),
             relationPairs: toObjects(obj.relationPairs, "relationPairs",
-                (value) => RelationPair.toObject(value)),
+                value => RelationPair.toObject(value)),
             onUpdateAction: (("onUpdateAction" in obj)
                 ? obj.onUpdateAction as TableReferenceActionType : "RESTRICT"),
             onDeleteAction: (("onDeleteAction" in obj)

@@ -106,7 +106,7 @@ export default class TableModel {
             )
 
         const tableIndexModels = ("tableIndexModels" in obj)
-            ? toObjects(obj.tableIndexModels, "tableIndexModels", (value) => TableIndexModel.toObject(value)) : [];
+            ? toObjects(obj.tableIndexModels, "tableIndexModels", value => TableIndexModel.toObject(value)) : [];
         const description = ("description" in obj) ? obj.description as string : "";
 
         return new TableModel({

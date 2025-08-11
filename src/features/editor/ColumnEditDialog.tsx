@@ -14,7 +14,7 @@ import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
 import {
     ColumnWrapModel, initHandleChangePhysicalName,
-    initHandleChangeWithSyncPhysicalName, initHandleEnterKeyDown
+    initHandleChangeWithSyncPhysicalName, initHandleCloseDialog, initHandleEnterKeyDown
 } from "~/features/editor/support";
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
@@ -254,7 +254,8 @@ const ColumnEditDialog = ({
         ? columnTypeAttribute.columnType.defaultValueCandidates : [];
 
     return (
-        <Dialog fullWidth maxWidth="md" sx={{ userSelect: "none" }} open={isOpen} onClose={onClose}>
+        <Dialog fullWidth maxWidth="md" sx={{ userSelect: "none" }}
+            open={isOpen} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>Edit table column</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>

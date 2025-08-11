@@ -1,6 +1,5 @@
 import { v4 as uuidV4 } from 'uuid';
-
-import React, { MouseEvent, useState } from "react";
+import React from "react";
 import {
     Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
     FormControl, InputLabel, MenuItem, Paper, Select, SelectChangeEvent, Stack,
@@ -15,7 +14,7 @@ import TableModel from "~/models/database/TableModel";
 import ErdDocument from "~/models/ErdDocument";
 import RelationViewModel from "~/models/RelationViewModel";
 import ColumnModel from "~/models/database/ColumnModel";
-import { initHandleChangePhysicalName, initHandleEnterKeyDown } from '~/features/editor/support';
+import { initHandleChangePhysicalName, initHandleCloseDialog, initHandleEnterKeyDown } from '~/features/editor/support';
 import { overrideColumnName } from '~/models/database/support';
 
 type RelationEditViewProps = {
@@ -40,17 +39,17 @@ const RelationEditView = ({ isOpen, relationViewModel, parentTableModel, childTa
         .map(pair => [pair.parentColumnModelId, pair.childColumnModelId])
     );
 
-    const [relationName, setRelationName] = useState<string>(relationModel.relationName);
-    const [relationPairs, setRelationPairs] = useState<RelationPair[]>(
+    const [relationName, setRelationName] = React.useState<string>(relationModel.relationName);
+    const [relationPairs, setRelationPairs] = React.useState<RelationPair[]>(
         parentPrimaryColumns.map(primaryColumn => new RelationPair({
             parentColumnModelId: primaryColumn.columnModelId,
             childColumnModelId: previousRelationMap.get(primaryColumn.columnModelId) || ""
         }))
     );
-    const [parentCardinality, setParentCardinality] = useState<CardinalityType>(relationModel.parentCardinality);
-    const [childCardinality, setChildCardinality] = useState<CardinalityType>(relationModel.childCardinality);
-    const [updateActionType, setUpdateActionType] = useState<TableReferenceActionType>(relationModel.onUpdateAction);
-    const [deleteActionType, setDeleteActionType] = useState<TableReferenceActionType>(relationModel.onDeleteAction);
+    const [parentCardinality, setParentCardinality] = React.useState<CardinalityType>(relationModel.parentCardinality);
+    const [childCardinality, setChildCardinality] = React.useState<CardinalityType>(relationModel.childCardinality);
+    const [updateActionType, setUpdateActionType] = React.useState<TableReferenceActionType>(relationModel.onUpdateAction);
+    const [deleteActionType, setDeleteActionType] = React.useState<TableReferenceActionType>(relationModel.onDeleteAction);
 
     if (parentPrimaryColumns.length === 0) {
         // 親テーブルに primary key が存在しないので中断
@@ -95,15 +94,11 @@ const RelationEditView = ({ isOpen, relationViewModel, parentTableModel, childTa
         onClose();
     };
 
-    const handleCloseDialog = (event: MouseEvent) => {
-        event.stopPropagation();
-        onClose();
-    };
-
     const handleEnterDown = initHandleEnterKeyDown(handleCompleted);
 
     return (
-        <Dialog fullWidth maxWidth="md" open={isOpen} onClose={handleCloseDialog}>
+        <Dialog fullWidth maxWidth="md" sx={{ userSelect: "none" }}
+            open={isOpen} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>Edit Relation</DialogTitle>
             <DialogContent>
                 <Stack direction="column" spacing={3}>
@@ -127,7 +122,7 @@ const RelationEditView = ({ isOpen, relationViewModel, parentTableModel, childTa
                 </Stack>
             </DialogContent>
             <DialogActions>
-                <Button onClick={handleCloseDialog}>Cancel</Button>
+                <Button onClick={onClose}>Cancel</Button>
                 <Button variant="contained" disabled={!editValueValidated} onClick={handleCompleted}>OK</Button>
             </DialogActions>
         </Dialog>
