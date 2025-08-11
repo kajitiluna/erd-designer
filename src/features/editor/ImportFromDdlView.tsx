@@ -13,6 +13,7 @@ import { LocalSettingContext } from "~/context/LocalSettingContext";
 import TableViewModel from "~/models/TableViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
 import LineViewModel from "~/models/LineViewModel";
+import { initHandleCloseDialog } from "~/features/editor/support";
 
 type ImportFromDdlViewProps = {
     isOpen: boolean;
@@ -41,7 +42,8 @@ const ImportFromDdlView = ({ isOpen, onClose }: ImportFromDdlViewProps) => {
 
     if (loadResult == null) {
         return (
-            <Dialog fullWidth maxWidth="lg" open={isOpen && (loadResult == null)} sx={{ userSelect: "none" }} onClose={onClose}>
+            <Dialog fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
+                open={isOpen && (loadResult == null)} onClose={initHandleCloseDialog(onClose)}>
                 <DialogTitle>Import from DDL (Experimental)</DialogTitle>
                 <DialogContent>
                     <Stack spacing={3}>

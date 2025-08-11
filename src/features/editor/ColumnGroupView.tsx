@@ -18,7 +18,7 @@ import PrimaryKeyIcon from "~/components/icons/PrimaryKeyIcon";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import { handlePreventMouseEvent } from "~/features/canvas/support";
 import ColumnGroupEditDialog from "~/features/editor/ColumnGroupEditDialog";
-import { ColumnWrapModel, SELECTED_CELL_COLOR } from "~/features/editor/support";
+import { ColumnWrapModel, initHandleCloseDialog, SELECTED_CELL_COLOR } from "~/features/editor/support";
 
 type ColumnGroupViewProps = {
     isOpen: boolean,
@@ -276,7 +276,8 @@ const ColumnGroupView = ({ isOpen, viewMode, onSelect = () => { }, onClose }: Co
 
     return (
         <>
-            <Dialog fullWidth maxWidth="lg" open={isOpen} sx={{ userSelect: "none" }} onClose={onClose}>
+            <Dialog fullWidth maxWidth="xl" sx={{ userSelect: "none" }}
+                open={isOpen} onClose={initHandleCloseDialog(onClose)}>
                 <DialogTitle>{(viewMode === "select" ? "Select Column Group" : "Column Groups")}</DialogTitle>
                 <DialogContent>
                     <Stack spacing={3}>

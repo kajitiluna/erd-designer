@@ -6,7 +6,7 @@ import {
 
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
-import { SELECTED_CELL_COLOR } from "~/features/editor/support";
+import { initHandleCloseDialog, SELECTED_CELL_COLOR } from "~/features/editor/support";
 
 type SearchColumnShareModelDialogProps = {
     isOpen: boolean,
@@ -94,13 +94,9 @@ const SearchColumnShareModelDialog = ({ isOpen, associateColumnModel, onClose }:
         onClose();
     };
 
-    const handleCloseDialog = (event: MouseEvent) => {
-        event.stopPropagation();
-        onClose();
-    };
-
     return (
-        <Dialog fullWidth maxWidth="lg" open={isOpen} sx={{ userSelect: "none" }} onClose={handleCloseDialog}>
+        <Dialog fullWidth maxWidth="xl" sx={{ userSelect: "none" }}
+            open={isOpen} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>Search column model</DialogTitle>
             <DialogContent>
                 <TableContainer>
@@ -138,7 +134,7 @@ const SearchColumnShareModelDialog = ({ isOpen, associateColumnModel, onClose }:
                 }
             </DialogContent>
             <DialogActions>
-                <Button onClick={handleCloseDialog}>Cancel</Button>
+                <Button onClick={onClose}>Cancel</Button>
                 <Button variant="contained" disabled={selectedModel == null} onClick={handleSubmit}>OK</Button>
             </DialogActions>
         </Dialog>

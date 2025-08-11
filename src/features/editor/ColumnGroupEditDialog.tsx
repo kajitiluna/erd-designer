@@ -4,7 +4,7 @@ import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Sta
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import ErdDocument from "~/models/ErdDocument";
-import { ColumnWrapModel, initHandleEnterKeyDown } from "~/features/editor/support";
+import { ColumnWrapModel, initHandleCloseDialog, initHandleEnterKeyDown } from "~/features/editor/support";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import ColumnViewTable from "~/features/editor/ColumnViewTable";
@@ -58,7 +58,8 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
             columnShareModelStorage: columnShareModelStorage,
             updateStorage: (updating: ColumnShareModelStorage) => setColumnShareModelStorage(updating)
         }}>
-            <Dialog fullWidth maxWidth="lg" open={isOpen} sx={{ userSelect: "none" }} onClose={onClose}>
+            <Dialog fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
+                open={isOpen} onClose={initHandleCloseDialog(onClose)}>
                 <DialogTitle>Edit Column Group</DialogTitle>
                 <DialogContent>
                     <Stack spacing={3}>
