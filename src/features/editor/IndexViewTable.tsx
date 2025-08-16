@@ -21,7 +21,7 @@ import ColumnModel from "~/models/database/ColumnModel";
 import TableIndexModel, { IndexColumnModel, NullsOrderType, SortOrderType } from "~/models/database/TableIndexModel";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import TableIndexSupport, { TableIndexOption, TableIndexType } from "~/models/database/TableIndexSupport";
-import { ColumnWrapModel, initHandleChangePhysicalName, initHandleEnterKeyDown, SELECTED_CELL_COLOR } from "~/features/editor/support";
+import { ColumnWrapModel, initHandleChangePhysicalName, initHandleCloseDialog, initHandleEnterKeyDown, SELECTED_CELL_COLOR } from "~/features/editor/support";
 import ColumnShareModel from '~/models/database/ColumnShareModel';
 import { overrideColumnName } from '~/models/database/support';
 import { Database } from '~/models/database';
@@ -64,9 +64,9 @@ const IndexViewTable = ({
         );
     }, [columnModels, tableIndexModels]);
 
-
     const selectedIndex = (targetIndexModel == null) ? -1
-        : tableIndexModels.findIndex(target => (target.tableIndexModelId === targetIndexModel.tableIndexModelId));
+        : tableIndexModels.findIndex(target =>
+            (target.tableIndexModelId === targetIndexModel.tableIndexModelId));
 
     const initDragEventHandler = (indexIndex: number) => {
         const handleDragStart = (event: React.DragEvent) => {
@@ -99,6 +99,7 @@ const IndexViewTable = ({
                 const nextTableIndexModels = [...previous];
                 nextTableIndexModels.splice(draggingStartIndex, 1);
                 nextTableIndexModels.splice(indexIndex, 0, previous[draggingStartIndex]);
+
                 return nextTableIndexModels;
             });
         };
@@ -117,6 +118,14 @@ const IndexViewTable = ({
         };
     };
 
+    const isSelectedIndex = (indexIndex: number) => {
+        if (targetIndexModel == null) {
+            return false;
+        }
+
+        return (tableIndexModels[indexIndex].tableIndexModelId === targetIndexModel.tableIndexModelId);
+    };
+
     const initHeaderCellStyle = (indexIndex: number) => {
         const style: React.CSSProperties = { width: "60px" };
 
@@ -127,7 +136,8 @@ const IndexViewTable = ({
             return { ...style, backgroundColor: 'lightblue' };
         }
 
-        return style;
+        const isSelected = isSelectedIndex(indexIndex);
+        return isSelected ? { ...style, backgroundColor: SELECTED_CELL_COLOR } : style;
     };
 
     const initCurrentCellStyle = (indexIndex: number) => {
@@ -135,8 +145,7 @@ const IndexViewTable = ({
             return { backgroundColor: 'lightblue' };
         }
 
-        const isSelected = (targetIndexModel == null) ? false
-            : (tableIndexModels[indexIndex].tableIndexModelId === targetIndexModel.tableIndexModelId);
+        const isSelected = isSelectedIndex(indexIndex);
         const baseStyle = isSelected ? { backgroundColor: SELECTED_CELL_COLOR }
             : ((indexIndex % 2 === 1) ? { backgroundColor: "action.hover" } : {});
 
@@ -282,25 +291,31 @@ const IndexViewTable = ({
         previousModels => previousModels.filter((_, indexIndex) => (selectedIndex !== indexIndex))
     );
 
-    const editButtonPanel = (
-        <Stack justifyContent="flex-end" direction="row" spacing={2}>
-            <EdgedIconButton tooltip="Edit index" disabled={selectedIndex < 0}
-                onClick={() => setOpenEditDialog(true)}>
-                <EditIcon fontSize="small" />
+    const operationPanel = (
+        <Stack direction="row" justifyContent="space-between" sx={{ margin: 1, marginBottom: 0.5 }}>
+            <EdgedIconButton tooltip="Add index" withText onClick={handleAddIndex}>
+                <AddIcon />
             </EdgedIconButton>
-            <EdgedIconButton tooltip="Move forward" disabled={selectedIndex <= 0}
-                onClick={initHandleShiftColumn(-1)}>
-                <ArrowBackIcon fontSize="small" />
-            </EdgedIconButton>
-            <EdgedIconButton tooltip="Move backward"
-                disabled={(selectedIndex < 0) || (selectedIndex >= tableIndexModels.length - 1)}
-                onClick={initHandleShiftColumn(1)}>
-                <ArrowForwardIcon fontSize="small" />
-            </EdgedIconButton>
-            <EdgedIconButton tooltip="Remove index" disabled={selectedIndex < 0}
-                onClick={handleRemoveIndex}>
-                <DeleteIcon fontSize="small" />
-            </EdgedIconButton>
+
+            <Stack justifyContent="flex-end" direction="row" spacing={2}>
+                <EdgedIconButton tooltip="Edit index" disabled={selectedIndex < 0}
+                    onClick={() => setOpenEditDialog(true)}>
+                    <EditIcon fontSize="small" />
+                </EdgedIconButton>
+                <EdgedIconButton tooltip="Move forward" disabled={selectedIndex <= 0}
+                    onClick={initHandleShiftColumn(-1)}>
+                    <ArrowBackIcon fontSize="small" />
+                </EdgedIconButton>
+                <EdgedIconButton tooltip="Move backward"
+                    disabled={(selectedIndex < 0) || (selectedIndex >= tableIndexModels.length - 1)}
+                    onClick={initHandleShiftColumn(1)}>
+                    <ArrowForwardIcon fontSize="small" />
+                </EdgedIconButton>
+                <EdgedIconButton tooltip="Remove index" disabled={selectedIndex < 0}
+                    onClick={handleRemoveIndex}>
+                    <DeleteIcon fontSize="small" />
+                </EdgedIconButton>
+            </Stack>
         </Stack>
     );
 
@@ -329,12 +344,7 @@ const IndexViewTable = ({
                     </Stack>
                 </Box>
             </Stack>
-            <Stack direction="row" justifyContent="space-between" sx={{ margin: 1, marginBottom: 0.5 }}>
-                <EdgedIconButton tooltip="Add index" withText onClick={handleAddIndex}>
-                    <AddIcon />
-                </EdgedIconButton>
-                {editButtonPanel}
-            </Stack>
+            {operationPanel}
             {isOpenEditDialog && <IndexEditDialog
                 isOpen={isOpenEditDialog}
                 database={database}
@@ -470,7 +480,8 @@ const IndexEditDialog = ({
     const handleEnterDown = initHandleEnterKeyDown(handleCompleted);
 
     return (
-        <Dialog fullWidth maxWidth="lg" sx={{ userSelect: "none" }} open={isOpen} onClose={() => onClose()}>
+        <Dialog fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
+            open={isOpen} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>Edit table index</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>

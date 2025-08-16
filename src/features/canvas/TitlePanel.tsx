@@ -13,8 +13,9 @@ import ImportFromDdlView from "~/features/editor/ImportFromDdlView";
 import MsSQLServerIcon from "~/components/icons/MsSQLServerIcon";
 import ErdSettingModel from "~/models/ErdSettingModel";
 import DisplayStyle from "~/models/database/DisplayStyle";
+import PerspectiveView from "~/features/editor/PerspectiveView";
 
-type SettingMenuType = "column_group" | "import_ddl" | "";
+type SettingMenuType = "column_group" | "import_ddl" | "perspective" | "";
 
 const TitlePanel = () => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
@@ -71,6 +72,11 @@ const TitlePanel = () => {
         handleClosePreference();
     };
 
+    const handleCloseMenu = () => {
+        setSelectedMenu("");
+        handleClosePreference();
+    };
+
     return (
         <Stack direction="row" spacing={1} sx={TITLE_PANEL_STYLE}>
             {databaseIcon}
@@ -90,6 +96,7 @@ const TitlePanel = () => {
                     Display Style : {erdSetting.displayStyle.name} <ArrowRightIcon />
                 </MenuItem>
                 <MenuItem onClick={initHandleMenu("column_group")}>Column Group</MenuItem>
+                <MenuItem onClick={initHandleMenu("perspective")}>Perspective</MenuItem>
                 <MenuItem onClick={initHandleMenu("import_ddl")}>Import from DDL</MenuItem>
             </Menu>
 
@@ -111,12 +118,17 @@ const TitlePanel = () => {
                 <ColumnGroupView
                     isOpen={selectedMenu === "column_group"}
                     viewMode="edit"
-                    onClose={() => setSelectedMenu("")} />
+                    onClose={handleCloseMenu} />
+            )}
+            {(selectedMenu === "perspective") && (
+                <PerspectiveView
+                    isOpen={selectedMenu === "perspective"}
+                    onClose={handleCloseMenu} />
             )}
             {(selectedMenu === "import_ddl") && (
                 <ImportFromDdlView
                     isOpen={selectedMenu === "import_ddl"}
-                    onClose={() => setSelectedMenu("")} />
+                    onClose={handleCloseMenu} />
             )}
         </Stack>
     );

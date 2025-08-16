@@ -183,7 +183,7 @@ export default class ErdDocument {
         return this.relationViewModelStorage.findParentRelation(childTableModelId, childColumnModelId);
     }
 
-    public getMemoViewModels() {
+    public getMemoViewModels():{ frontMemos: MemoViewModel[], backMemos: MemoViewModel[] } {
         return this.memoViewModelStorage.getMemos();
     }
 
