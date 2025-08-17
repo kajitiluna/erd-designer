@@ -4,6 +4,7 @@ import ColorValue from "~/models/ColorValue";
 export type LocalSetting = {
     defaultColor: { background: ColorValue, foreground: ColorValue },
     perspectiveId: string,
+    visibleLineStyle: "both-bounded" | "half-bounded",
     stickySize: { width: number, height: number },
     stickyFontSize: number
 };
@@ -11,6 +12,7 @@ export type LocalSetting = {
 export type LocalSettingAction =
     { type: "defaultColor", color: { background: ColorValue, foreground: ColorValue } }
     | { type: "perspective", perspectiveId: string }
+    | { type: "showLine", visibleStyle: "both-bounded" | "half-bounded" }
     | { type: "stickySize", size: { width: number, height: number } }
     | { type: "stickyFontSize", fontSize: number };
 
@@ -30,6 +32,14 @@ export const reduceLocalSetting = (current: LocalSetting, action: LocalSettingAc
         }
 
         return { ...current, perspectiveId: action.perspectiveId };
+    }
+
+    if (action.type === "showLine") {
+        if (current.visibleLineStyle === action.visibleStyle) {
+            return current;
+        }
+
+        return { ...current, visibleLineStyle: action.visibleStyle };
     }
 
     if (action.type === "stickySize") {
@@ -52,12 +62,13 @@ export const reduceLocalSetting = (current: LocalSetting, action: LocalSettingAc
     return current;
 };
 
-export const DEFAULT_LOCAL_SETTING = {
+export const DEFAULT_LOCAL_SETTING: LocalSetting = {
     defaultColor: {
         background: new ColorValue({ red: 227, green: 242, blue: 253 }),
         foreground: ColorValue.BLACK
     },
     perspectiveId: "",
+    visibleLineStyle: "both-bounded",
     stickySize: { width: 100, height: 100 },
     stickyFontSize: 9
 };

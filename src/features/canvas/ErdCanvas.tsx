@@ -277,9 +277,16 @@ const ErdCanvas = () => {
             return;
         }
 
-        const svgElements = relationRef.current.svgElements();
-        setSvgPaths(svgElements);
-    }, [selectState, dragState, rectangleArea, erdDocument]);
+        const targetElements = (currentPerspective == null)
+            ? relationRef.current.svgElements()
+            : relationRef.current.svgElements()
+                .filter(element => (localSetting.visibleLineStyle === "both-bounded")
+                    ? element.tableIds.every(tableId => currentPerspective.containsModel(tableId))
+                    : element.tableIds.some(tableId => currentPerspective.containsModel(tableId)));
+
+        const svgPaths = targetElements.map(element => element.path);
+        setSvgPaths(svgPaths);
+    }, [selectState, dragState, rectangleArea, localSetting.visibleLineStyle, erdDocument, currentPerspective]);
 
     // マウスカーソルのアイコン設定
     React.useLayoutEffect(() => {

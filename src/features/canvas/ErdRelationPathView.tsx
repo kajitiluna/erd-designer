@@ -31,7 +31,7 @@ import LineOrthogonalIcon from "~/components/icons/LineOrthogonalIcon";
 import { OrthogonalDirection } from "~/models/LineViewModel";
 
 export type ErdRelationTooltipRef = {
-    svgElements: () => JSX.Element[]
+    svgElements: () => { tableIds: string[], path: JSX.Element }[]
 };
 
 type ErdRelationPathViewProps = {
@@ -624,16 +624,19 @@ const useStraightLineView = (
         const childMarker = toMarkerId(relationModel.childCardinality);
         const selected = (selectState.relationId === relationView.relationId);
 
-        return (
-            <g key={`relation-line_${relationView.relationId}`}>
-                <path d={lineSegment.drawingPath} fill="none"
-                    stroke={lineViewModel.color.toHex()}
-                    strokeWidth={lineViewModel.strokeWidth}
-                    markerStart={parentMarker} markerEnd={childMarker}
-                    className={initPathCss(relationView, selected)} />
-                {lineSegment.svgPaths}
-            </g>
-        );
+        return {
+            tableIds: [relationModel.parentTableModelId, relationModel.childTableModelId],
+            path: (
+                <g key={`relation-line_${relationView.relationId}`}>
+                    <path d={lineSegment.drawingPath} fill="none"
+                        stroke={lineViewModel.color.toHex()}
+                        strokeWidth={lineViewModel.strokeWidth}
+                        markerStart={parentMarker} markerEnd={childMarker}
+                        className={initPathCss(relationView, selected)} />
+                    {lineSegment.svgPaths}
+                </g>
+            )
+        };
     }).filter(element => (element != null));
 };
 
@@ -825,17 +828,20 @@ const useOrthogonalLine = (
 
         const selected = (selectState.relationId === relationView.relationId);
 
-        return (
-            <g key={`relation-line_${relationView.relationId}`}>
-                <path d={drawingLine} fill="none"
-                    stroke={relationView.lineViewModel.color.toHex()}
-                    strokeWidth={relationView.lineViewModel.strokeWidth}
-                    markerStart={toMarkerId(relationModel.parentCardinality)}
-                    markerEnd={toMarkerId(relationModel.childCardinality)}
-                    className={initPathCss(selected, isReducedLine)} />
-                {handlePaths}
-            </g>
-        );
+        return {
+            tableIds: [relationModel.parentTableModelId, relationModel.childTableModelId],
+            path: (
+                <g key={`relation-line_${relationView.relationId}`}>
+                    <path d={drawingLine} fill="none"
+                        stroke={relationView.lineViewModel.color.toHex()}
+                        strokeWidth={relationView.lineViewModel.strokeWidth}
+                        markerStart={toMarkerId(relationModel.parentCardinality)}
+                        markerEnd={toMarkerId(relationModel.childCardinality)}
+                        className={initPathCss(selected, isReducedLine)} />
+                    {handlePaths}
+                </g>
+            )
+        };
     }).filter(element => (element != null));
 };
 
