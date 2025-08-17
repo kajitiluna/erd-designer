@@ -3,12 +3,14 @@ import ColorValue from "~/models/ColorValue";
 
 export type LocalSetting = {
     defaultColor: { background: ColorValue, foreground: ColorValue },
+    perspectiveId: string,
     stickySize: { width: number, height: number },
     stickyFontSize: number
 };
 
 export type LocalSettingAction =
     { type: "defaultColor", color: { background: ColorValue, foreground: ColorValue } }
+    | { type: "perspective", perspectiveId: string }
     | { type: "stickySize", size: { width: number, height: number } }
     | { type: "stickyFontSize", fontSize: number };
 
@@ -20,6 +22,14 @@ export const reduceLocalSetting = (current: LocalSetting, action: LocalSettingAc
         }
 
         return { ...current, defaultColor: action.color };
+    }
+
+    if (action.type === "perspective") {
+        if (current.perspectiveId === action.perspectiveId) {
+            return current;
+        }
+
+        return { ...current, perspectiveId: action.perspectiveId };
     }
 
     if (action.type === "stickySize") {
@@ -47,6 +57,7 @@ export const DEFAULT_LOCAL_SETTING = {
         background: new ColorValue({ red: 227, green: 242, blue: 253 }),
         foreground: ColorValue.BLACK
     },
+    perspectiveId: "",
     stickySize: { width: 100, height: 100 },
     stickyFontSize: 9
 };

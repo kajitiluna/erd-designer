@@ -22,6 +22,7 @@ import TableViewModel from "~/models/TableViewModel";
 import MemoViewModel from "~/models/MemoViewModel";
 import StickyMemoView, { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
 import { LocalSetting, LocalSettingContext } from "~/context/LocalSettingContext";
+import PerspectiveModel from "~/models/PerspectiveModel";
 
 type RectangleArea = {
     tableRectangles: Map<string, RectangleViewModel>,
@@ -57,9 +58,14 @@ const ErdCanvas = () => {
 
     const erdDocument = documentsHolder.current();
 
+    const erdSetting = erdDocument.erdSettingModel;
+    const currentPerspective = erdSetting.findPerspectiveModel(localSetting.perspectiveId);
+
     const tableViews = erdDocument.getTableViewModels().map(tableView => (
         <ErdTableView key={`erd-table-view_${tableView.tableId}`}
             tableViewModel={tableView}
+            visible={(currentPerspective == null)
+                || currentPerspective.containsModel(tableView.tableId)}
             onEditAction={setEditAction}
             onDragAction={dispatchDragAction} />
     ));
@@ -67,7 +73,10 @@ const ErdCanvas = () => {
     const initToMemoView = (foreground: boolean) => {
         const toMemoView = (memo: MemoViewModel) => (
             <StickyMemoView key={`sticky-note_${memo.memoId}`}
-                memoViewModel={memo} onDragAction={dispatchDragAction}
+                memoViewModel={memo}
+                visible={(currentPerspective == null)
+                    || currentPerspective.containsModel(memo.memoId)}
+                onDragAction={dispatchDragAction}
                 foreground={foreground} />
         );
 
@@ -185,6 +194,7 @@ const ErdCanvas = () => {
         const mousePosition = getLogicalMousePosition(event, displayScale);
         dispatchDragAction({ type: "clear" });
 
+        // テーブルもしくはメモを選択状態でドラッグが完了した場合の制御
         if (selectState.tableIds.size + selectState.memoIds.size > 0) {
             const offset = {
                 x: mousePosition.x - dragState.start.x,
@@ -206,6 +216,7 @@ const ErdCanvas = () => {
             return;
         }
 
+        // リレーションの edge をドラッグし終えた場合の制御
         if (selectState.relationId && (selectState.edgeId != null)) {
             if (!selectState.edgeType) {
                 return;
@@ -239,8 +250,8 @@ const ErdCanvas = () => {
 
         // 短形選択モードの場合
         const draggedArea = RectangleViewModel.createFromPoints(dragState.start, mousePosition);
-        const selectedTableIds = doFindRectangleSelected(draggedArea, rectangleArea.tableRectangles);
-        const selectedMemoIds = doFindRectangleSelected(draggedArea, rectangleArea.memoRectangles);
+        const selectedTableIds = doFindRectangleSelected(draggedArea, rectangleArea.tableRectangles, currentPerspective);
+        const selectedMemoIds = doFindRectangleSelected(draggedArea, rectangleArea.memoRectangles, currentPerspective);
 
         const withMultiSelection = withMultiSelectKey(event);
         dispatchSelectAction({ type: "bulk", tableIds: selectedTableIds, memoIds: selectedMemoIds, withMultiSelection });
@@ -258,7 +269,7 @@ const ErdCanvas = () => {
         // Canvas 描画領域の初期化
         const rectangleArea = initRectangleArea(erdCanvas, displayScale);
         setRectangleArea(rectangleArea);
-    }, [erdDocument.lastUpdatedAt, displayScale, dragState.status]);
+    }, [erdDocument.lastUpdatedAt, displayScale, dragState.status, currentPerspective]);
 
     // // リレーションの線情報を更新
     React.useLayoutEffect(() => {
@@ -570,12 +581,17 @@ const ActiveDraggingArea = ({ editMode, dragState, selectState }: ActiveDragging
     );
 };
 
-const doFindRectangleSelected = (selectedArea: RectangleViewModel, rectangles: Map<string, RectangleViewModel>) =>
+const doFindRectangleSelected = (
+    selectedArea: RectangleViewModel, rectangles: Map<string, RectangleViewModel>,
+    perspective: PerspectiveModel | null
+) =>
     Array.from(rectangles.entries())
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .filter(([_tableId, rectangle]) => selectedArea.contains(rectangle))
+        .filter(([_rectangleId, rectangle]) => selectedArea.contains(rectangle))
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .map(([tableId, _rectangle]) => tableId);
+        .filter(([rectangleId, _rectangle]) => (perspective == null) || perspective.containsModel(rectangleId))
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        .map(([rectangleId, _rectangle]) => rectangleId);
 
 const NO_EDIT_ACTION: EditAction = { editType: "none" } as const
 

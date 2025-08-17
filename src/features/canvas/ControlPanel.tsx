@@ -1,7 +1,7 @@
 import React from "react";
 import {
-    Box, Button, ButtonGroup, Divider, Menu, MenuItem,
-    ToggleButton, ToggleButtonGroup, Tooltip
+    Box, Button, ButtonGroup, Divider, FormControl, InputLabel, Menu, MenuItem,
+    Select, SelectChangeEvent, ToggleButton, ToggleButtonGroup, Tooltip
 } from "@mui/material";
 import HighlightAltIcon from '@mui/icons-material/HighlightAlt';
 import PanToolIcon from '@mui/icons-material/PanTool';
@@ -44,6 +44,8 @@ const ControlPanel = ({ erdExportable }: ControlPanelProps) => {
 
 const PANEL_STYLE = {
     display: "flex",
+    minWidth: "120px",
+    maxWidth: "120px",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
@@ -120,7 +122,10 @@ const ActionPanel = () => {
         <ButtonGroup orientation="vertical" aria-label="vertical button group" sx={ACTION_BUTTON_STYLE}>
             <ColorSelector color={localSetting.defaultColor.background}
                 shape="rectangle" callback={handleSetDefaultColor} />
+
+            <PerspectiveForm />
             <Divider />
+
             <Button variant="text" startIcon={<UndoIcon />}
                 disabled={!documentsHolder.canUndo()} onClick={() => documentsHolder.undo()}>
                 Undo
@@ -132,6 +137,37 @@ const ActionPanel = () => {
         </ButtonGroup>
     );
 };
+
+const PerspectiveForm = () => {
+    const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const { localSetting, dispatchLocalSetting } = React.useContext(LocalSettingContext);
+
+    const erdDocument = documentsHolder.current();
+    const erdSetting = erdDocument.erdSettingModel;
+    const perspectiveModels = erdSetting.getPerspectiveModels();
+
+    const perspectiveId = (localSetting.perspectiveId != "") ? localSetting.perspectiveId : "(Default)";
+
+    const handleChangePerspective = (event: SelectChangeEvent<string>) => {
+        const nextPerspectiveId = event.target.value;
+        dispatchLocalSetting({ type: "perspective", perspectiveId: nextPerspectiveId });
+    };
+
+    return (
+        <FormControl size="small" sx={{ padding: "0 6px", margin: "5px -1px 10px" }}>
+            <InputLabel id="label-display-style">Perspective</InputLabel>
+            <Select labelId="label-display-style" label="Perspective"
+                value={perspectiveId} onChange={handleChangePerspective}>
+                <MenuItem key="(default)" value="(Default)">(Default)</MenuItem>
+                {perspectiveModels.map(perspective => (
+                    <MenuItem key={perspective.perspectiveId} value={perspective.perspectiveId}>
+                        {perspective.perspectiveName}
+                    </MenuItem>
+                ))}
+            </Select>
+        </FormControl>
+    );
+}
 
 const ACTION_BUTTON_STYLE = { display: 'flex', flexDirection: 'column', height: '100%', width: '100%' };
 

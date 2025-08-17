@@ -40,11 +40,12 @@ export const ERD_TABLE_VIEW_CLASS_NAME = "erdTableView";
 
 type ErdTableViewProps = {
     tableViewModel: TableViewModel,
+    visible?: boolean,
     onEditAction: (editAction: EditAction) => void,
     onDragAction: (dragAction: DragAction) => void
 };
 
-const ErdTableView = ({ tableViewModel, onEditAction, onDragAction }: ErdTableViewProps) => {
+const ErdTableView = ({ tableViewModel, visible = true, onEditAction, onDragAction }: ErdTableViewProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState } = React.useContext(SelectEntityContext);
@@ -76,7 +77,7 @@ const ErdTableView = ({ tableViewModel, onEditAction, onDragAction }: ErdTableVi
             </>
         );
     }, [
-        erdDocument.lastUpdatedAt, 
+        erdDocument.lastUpdatedAt,
         // リレーション選択時に外部制約があるカラムの背景色を変更するので、それに対する検証
         (selectState.relationId || "")
     ]);
@@ -91,6 +92,7 @@ const ErdTableView = ({ tableViewModel, onEditAction, onDragAction }: ErdTableVi
                 onDragAction={onDragAction}
                 tableContentCache={tableContentCache}
                 selected={selected}
+                visible={visible}
                 isOpenDeletingDialog={openDeletingDialog}
                 onOpenDeleteDialog={setOpenDeleteDialog} />
         );
@@ -98,6 +100,8 @@ const ErdTableView = ({ tableViewModel, onEditAction, onDragAction }: ErdTableVi
         erdDocument.lastUpdatedAt,
         // 選択状態、およびドラッグ状態に対する検証
         selected, (selected ? dragState : ""),
+        // 表示状態に対する検証
+        visible,
         // リレーション作成時の制御に対する検証
         editMode, (editMode === EditModeType.CREATE_RELATION ? [...selectState.tableIds].join(",") : ""),
         // テーブルキャッシュに対する検証
@@ -262,12 +266,13 @@ type InnerErdTableViewProps = {
     tableContentCache: React.JSX.Element,
     selected: boolean,
     isOpenDeletingDialog: boolean,
+    visible: boolean,
     onOpenDeleteDialog: (open: boolean) => void
 };
 
 const InnerErdTableView = ({
     tableViewModel, onEditAction, onDragAction,
-    tableContentCache, selected, isOpenDeletingDialog, onOpenDeleteDialog
+    tableContentCache, selected, isOpenDeletingDialog, visible, onOpenDeleteDialog
 }: InnerErdTableViewProps) => {
 
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
@@ -426,7 +431,8 @@ const InnerErdTableView = ({
         left: tableViewModel.corner.left + moving.x + DRAWABLE_AREA.width / 2,
         top: tableViewModel.corner.top + moving.y + DRAWABLE_AREA.height / 2,
         display: "flex", flexDirection: "column", justifyContent: "flex-start",
-        userSelect: "none"
+        userSelect: "none",
+        ...(!visible && { opacity: 0, pointerEvents: 'none' })
     };
 
     const boundStyle = {

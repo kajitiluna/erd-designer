@@ -36,11 +36,12 @@ export const ERD_MEMO_VIEW_CLASS_NAME = "erdMemoView";
 
 type StickyNoteViewProps = {
     memoViewModel: MemoViewModel,
+    visible?: boolean,
     onDragAction: (dragAction: DragAction) => void,
     foreground?: boolean
 };
 
-const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: StickyNoteViewProps) => {
+const StickyMemoView = ({ memoViewModel, visible = true, onDragAction, foreground = true }: StickyNoteViewProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
@@ -270,7 +271,8 @@ const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: Stic
         display: "flex", flexDirection: "column", justifyContent: "flex-start",
         boxShadow: selected ? "" : "0px 0px 7px 0px #bebebe",
         // "&::-webkit-scrollbar": { display: "none" },
-        msOverflowStyle: "none", scrollbarWidth: "none"
+        msOverflowStyle: "none", scrollbarWidth: "none",
+        ...(!visible && { opacity: 0, pointerEvents: 'none', userSelect: "none" })
     };
     const stickyStyle: React.CSSProperties = {
         width: `${currentRectangle.width}px`,
