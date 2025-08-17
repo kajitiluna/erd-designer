@@ -23,6 +23,7 @@ import MemoViewModel from "~/models/MemoViewModel";
 import StickyMemoView, { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
 import { LocalSetting, LocalSettingContext } from "~/context/LocalSettingContext";
 import PerspectiveModel from "~/models/PerspectiveModel";
+import PerspectiveSettingView from "~/features/editor/PerspectiveSettingView";
 
 type RectangleArea = {
     tableRectangles: Map<string, RectangleViewModel>,
@@ -71,14 +72,21 @@ const ErdCanvas = () => {
     ));
 
     const initToMemoView = (foreground: boolean) => {
-        const toMemoView = (memo: MemoViewModel) => (
-            <StickyMemoView key={`sticky-note_${memo.memoId}`}
-                memoViewModel={memo}
-                visible={(currentPerspective == null)
-                    || currentPerspective.containsModel(memo.memoId)}
-                onDragAction={dispatchDragAction}
-                foreground={foreground} />
-        );
+        const toMemoView = (memo: MemoViewModel) => {
+            const handleSettingAction = () => {
+                setEditAction({ editType: "perspective", targetId: memo.memoId });
+            };
+
+            return (
+                <StickyMemoView key={`sticky-note_${memo.memoId}`}
+                    memoViewModel={memo}
+                    visible={(currentPerspective == null)
+                        || currentPerspective.containsModel(memo.memoId)}
+                    onSettingAction={handleSettingAction}
+                    onDragAction={dispatchDragAction}
+                    foreground={foreground} />
+            );
+        };
 
         return toMemoView;
     };
@@ -381,6 +389,12 @@ const ErdCanvas = () => {
                     relationViewModel={editAction.relationViewModel}
                     parentTableModel={editAction.parentTable}
                     childTableModel={editAction.childTable}
+                    onClose={handleCloseEditDialog} />
+            )}
+            {(editAction.editType === "perspective") && (
+                <PerspectiveSettingView
+                    isOpen={editAction.editType === "perspective"}
+                    targetId={editAction.targetId}
                     onClose={handleCloseEditDialog} />
             )}
         </DragActionContext.Provider>

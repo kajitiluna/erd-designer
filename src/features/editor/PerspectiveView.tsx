@@ -148,7 +148,7 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
     };
 
     const initRecordHeaderCell = (perspective: PerspectiveModel, perspectiveIndex: number) => {
-        const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const handleChanged = (event: React.ChangeEvent<HTMLInputElement>) => {
             event.stopPropagation();
 
             const checked = event.target.checked;
@@ -176,7 +176,7 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
                 <Checkbox size="small" sx={{ padding: "4px" }}
                     onClick={handlePreventMouseEvent}
                     onDoubleClick={handlePreventMouseEvent}
-                    onChange={handleChange} />
+                    onChange={handleChanged} />
             </Stack>
         );
     };
@@ -517,7 +517,7 @@ const PerspectiveEditDialog = ({
     return (
         <Dialog fullWidth maxWidth="sm" sx={{ userSelect: "none" }}
             open={isOpen} onClose={initHandleCloseDialog(onClose)}>
-            <DialogTitle>Edit perspective</DialogTitle>
+            <DialogTitle>Edit Perspective</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>
                     <Divider />
