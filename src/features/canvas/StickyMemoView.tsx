@@ -1,4 +1,4 @@
-import React, { MouseEvent, useEffect, useState } from "react";
+import React from "react";
 import {
     Box, Button, ButtonGroup, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
     Divider, FormControl, IconButton, MenuItem, Select, SelectChangeEvent, Stack, ToggleButton, Tooltip
@@ -13,6 +13,7 @@ import VerticalAlignBottomIcon from "@mui/icons-material/VerticalAlignBottom";
 import FormatAlignLeftIcon from "@mui/icons-material/FormatAlignLeft";
 import FormatAlignCenterIcon from "@mui/icons-material/FormatAlignCenter";
 import FormatAlignRightIcon from "@mui/icons-material/FormatAlignRight";
+import VisibilityIcon from '@mui/icons-material/Visibility';
 
 import ColorSelector from "~/components/ColorSelector";
 import DisplayScaleContext from "~/context/DisplayScaleContext";
@@ -20,7 +21,7 @@ import { DragAction, DragActionContext } from "~/context/DragActionContext";
 import EditModeContext from "~/context/EditModeContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { LocalSettingContext } from "~/context/LocalSettingContext";
-import { SelectEntityContext, SelectState } from "~/context/SelectEntityContext";
+import { RELEASE_ACTION, SelectEntityContext, SelectState } from "~/context/SelectEntityContext";
 import {
     DRAWABLE_AREA, getLogicalMousePosition,
     handlePreventMouseEvent, withMultiSelectKey
@@ -36,11 +37,13 @@ export const ERD_MEMO_VIEW_CLASS_NAME = "erdMemoView";
 
 type StickyNoteViewProps = {
     memoViewModel: MemoViewModel,
+    visible?: boolean,
+    onSettingAction: () => void
     onDragAction: (dragAction: DragAction) => void,
     foreground?: boolean
 };
 
-const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: StickyNoteViewProps) => {
+const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDragAction, foreground = true }: StickyNoteViewProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
@@ -49,13 +52,13 @@ const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: Stic
     const displayScale = React.useContext(DisplayScaleContext);
 
     const textAreaRef = React.useRef<HTMLTextAreaElement>(null);
-    const [isTextEdit, setTextEdit] = useState<boolean>(false);
-    const [mouseCursorStyle, setMouseCursorStyle] = useState<string>("pointer");
-    const [resizingDirection, setResizingDirection] = useState<ResizingDirection>(ResizingDirection.NO_RESIZING);
+    const [isTextEdit, setTextEdit] = React.useState<boolean>(false);
+    const [mouseCursorStyle, setMouseCursorStyle] = React.useState<string>("pointer");
+    const [resizingDirection, setResizingDirection] = React.useState<ResizingDirection>(ResizingDirection.NO_RESIZING);
 
     const selected = selectState.memoIds.has(memoViewModel.memoId);
 
-    const handleDoubleClickPanel = (event: MouseEvent) => {
+    const handleDoubleClickPanel = (event: React.MouseEvent) => {
         // 左クリック以外は無視
         if (event.button !== 0) {
             return;
@@ -74,7 +77,7 @@ const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: Stic
     ) ? memoViewModel.rectangleViewModel
         : initCurrentRectangle(memoViewModel.rectangleViewModel, dragState.delta(), resizingDirection);
 
-    const handleDragStart = (event: MouseEvent) => {
+    const handleDragStart = (event: React.MouseEvent) => {
         // 左クリック以外は無視
         if (event.button !== 0) {
             return;
@@ -106,7 +109,7 @@ const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: Stic
         setResizingDirection(direction);
     };
 
-    const handleMouseMove = (event: MouseEvent) => {
+    const handleMouseMove = (event: React.MouseEvent) => {
         if ((editMode !== EditModeType.SELECT) || (dragState.status === "on_dragging")) {
             return;
         }
@@ -117,7 +120,7 @@ const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: Stic
         setMouseCursorStyle(nextStyle);
     };
 
-    const handleDragEnd = (event: MouseEvent) => {
+    const handleDragEnd = (event: React.MouseEvent) => {
         // 左クリック以外は無視
         if (event.button !== 0) {
             return;
@@ -161,7 +164,7 @@ const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: Stic
         onDragAction({ type: "clear" });
     };
 
-    const handleClick = (event: MouseEvent) => {
+    const handleClick = (event: React.MouseEvent) => {
         // 左クリック以外は無視
         if (event.button !== 0) {
             return;
@@ -249,7 +252,7 @@ const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: Stic
     };
 
     // メモを編集可能にした際に、必ず textarea にフォーカスを当てる
-    useEffect(() => {
+    React.useEffect(() => {
         if (isTextEdit) {
             textAreaRef.current?.focus();
         }
@@ -270,7 +273,8 @@ const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: Stic
         display: "flex", flexDirection: "column", justifyContent: "flex-start",
         boxShadow: selected ? "" : "0px 0px 7px 0px #bebebe",
         // "&::-webkit-scrollbar": { display: "none" },
-        msOverflowStyle: "none", scrollbarWidth: "none"
+        msOverflowStyle: "none", scrollbarWidth: "none",
+        ...(!visible && { opacity: 0, pointerEvents: 'none', userSelect: "none" })
     };
     const stickyStyle: React.CSSProperties = {
         width: `${currentRectangle.width}px`,
@@ -291,7 +295,7 @@ const StickyMemoView = ({ memoViewModel, onDragAction, foreground = true }: Stic
             </Box>
             {selected && (!isTextEdit) && (dragState.status !== "on_dragging")
                 && (selectState.tableIds.size + selectState.memoIds.size === 1)
-                && <StickyControlPane memoViewModel={memoViewModel} />}
+                && <StickyControlPane memoViewModel={memoViewModel} onSettingAction={onSettingAction} />}
         </Box>
     );
 };
@@ -403,15 +407,22 @@ const initCurrentRectangle = (
 };
 
 type StickyControlPaneProps = {
-    memoViewModel: MemoViewModel
+    memoViewModel: MemoViewModel,
+    onSettingAction: () => void
 };
 
-const StickyControlPane = ({ memoViewModel }: StickyControlPaneProps) => {
+const StickyControlPane = ({ memoViewModel, onSettingAction }: StickyControlPaneProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const { editMode } = React.useContext(EditModeContext);
+    const { dispatchSelectAction } = React.useContext(SelectEntityContext);
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
 
-    const [showAlignPanel, setShowAlignPanel] = useState<boolean>(false);
-    const [isOpenDeleteDialog, setOpenDeleteDialog] = useState<boolean>(false);
+    const [showAlignPanel, setShowAlignPanel] = React.useState<boolean>(false);
+    const [isOpenDeleteDialog, setOpenDeleteDialog] = React.useState<boolean>(false);
+
+    const erdDocument = documentsHolder.current();
+    const erdSetting = erdDocument.erdSettingModel;
+    const perspectives = erdSetting.getPerspectiveModels();
 
     const handleSetColor = (background: ColorValue, foreground: ColorValue) => {
         dispatchLocalSetting({ type: "defaultColor", color: { background, foreground } });
@@ -434,6 +445,18 @@ const StickyControlPane = ({ memoViewModel }: StickyControlPaneProps) => {
         }
 
         documentsHolder.updateMemo(nextMemoViewModel);
+    };
+
+
+    const handleSettingPerspectiveDialog = (event: React.MouseEvent) => {
+        if (editMode != EditModeType.SELECT) {
+            return;
+        }
+
+        event.stopPropagation();
+
+        onSettingAction();
+        dispatchSelectAction(RELEASE_ACTION);
     };
 
     const handleBackPosition = () => documentsHolder.arrangeMemo(memoViewModel.memoId, "back");
@@ -507,12 +530,12 @@ const StickyControlPane = ({ memoViewModel }: StickyControlPaneProps) => {
         </div>
     );
 
-    const handleCloseConfirmationDialog = (event: MouseEvent) => {
+    const handleCloseConfirmationDialog = (event: React.MouseEvent) => {
         event.stopPropagation();
 
         setOpenDeleteDialog(false)
     };
-    const handleDeleteMemo = (event: MouseEvent) => {
+    const handleDeleteMemo = (event: React.MouseEvent) => {
         event.stopPropagation();
 
         documentsHolder.deleteMemo(memoViewModel.memoId)
@@ -559,6 +582,13 @@ const StickyControlPane = ({ memoViewModel }: StickyControlPaneProps) => {
                         </Tooltip>
                         {alignPanel}
                     </div>
+                    {(perspectives.length > 0) && (
+                        <Tooltip title="Perspective" placement="top-end">
+                            <IconButton onClick={handleSettingPerspectiveDialog}>
+                                <VisibilityIcon />
+                            </IconButton>
+                        </Tooltip>
+                    )}
                     <Tooltip title="To back" placement="top-end">
                         <IconButton onClick={handleBackPosition}><FlipToBackIcon /></IconButton>
                     </Tooltip>

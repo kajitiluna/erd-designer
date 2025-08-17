@@ -1,7 +1,7 @@
 import React from "react";
 import {
-    Box, Button, ButtonGroup, Divider, Menu, MenuItem,
-    ToggleButton, ToggleButtonGroup, Tooltip
+    Box, Button, ButtonGroup, Divider, FormControl, FormControlLabel, InputLabel, Menu, MenuItem,
+    Select, SelectChangeEvent, Switch, ToggleButton, ToggleButtonGroup, Tooltip
 } from "@mui/material";
 import HighlightAltIcon from '@mui/icons-material/HighlightAlt';
 import PanToolIcon from '@mui/icons-material/PanTool';
@@ -27,6 +27,7 @@ import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityConte
 import { LocalSettingContext } from "~/context/LocalSettingContext";
 import { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
 import ExportSpecificationContext, { ImageContent } from "~/context/ExportSpecificationContext";
+import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
 
 type ControlPanelProps = {
     erdExportable: boolean
@@ -44,6 +45,8 @@ const ControlPanel = ({ erdExportable }: ControlPanelProps) => {
 
 const PANEL_STYLE = {
     display: "flex",
+    minWidth: "120px",
+    maxWidth: "120px",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
@@ -109,6 +112,53 @@ const ActionPanel = () => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { localSetting, dispatchLocalSetting } = React.useContext(LocalSettingContext);
 
+    const erdDocument = documentsHolder.current();
+    const erdSetting = erdDocument.erdSettingModel;
+    const perspectiveModels = erdSetting.getPerspectiveModels();
+
+    const perspectiveId = (localSetting.perspectiveId != "") ? localSetting.perspectiveId : "(Default)";
+
+    const handleChangePerspective = (event: SelectChangeEvent<string>) => {
+        const selectedValue = event.target.value;
+        const nextPerspectiveId = (selectedValue !== "(Default)") ? selectedValue : "";
+        dispatchLocalSetting({ type: "perspective", perspectiveId: nextPerspectiveId });
+    };
+
+    const perspectiveSelector = (
+        <FormControl size="small" sx={{ padding: "0 6px", margin: "5px -1px 10px" }}>
+            <InputLabel id="label-display-style">Perspective</InputLabel>
+            <Select labelId="label-display-style" label="Perspective"
+                value={perspectiveId} onChange={handleChangePerspective}>
+                <MenuItem key="(default)" value="(Default)">(Default)</MenuItem>
+                {perspectiveModels.map(perspective => (
+                    <MenuItem key={perspective.perspectiveId} value={perspective.perspectiveId}>
+                        {perspective.perspectiveName}
+                    </MenuItem>
+                ))}
+            </Select>
+        </FormControl>
+    );
+
+    const handleChangeVisibleStyle = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const checked = event.target.checked;
+        const visibleStyle = checked ? "half-bounded" : "both-bounded";
+
+        dispatchLocalSetting({ type: "showLine", visibleStyle });
+    };
+
+    const lineVisibleSwitcher = (
+        <FormControl sx={{ padding: "0 6px 6px 12px" }}>
+            <DescriptionTooltip placement="right-end"
+                title={"When the switch is active, show relations\neven if one table is hidden."}>
+                <FormControlLabel sx={SWITCH_FORM_STYLE}
+                    label="Show half-bounded line" control={
+                        <Switch size="small" disabled={localSetting.perspectiveId === ""}
+                            onChange={handleChangeVisibleStyle} />
+                    } />
+            </DescriptionTooltip>
+        </FormControl>
+    );
+
     const handleSetDefaultColor = (background: ColorValue, foreground: ColorValue) => {
         dispatchLocalSetting({
             type: "defaultColor",
@@ -120,7 +170,11 @@ const ActionPanel = () => {
         <ButtonGroup orientation="vertical" aria-label="vertical button group" sx={ACTION_BUTTON_STYLE}>
             <ColorSelector color={localSetting.defaultColor.background}
                 shape="rectangle" callback={handleSetDefaultColor} />
+
+            {perspectiveSelector}
+            {lineVisibleSwitcher}
             <Divider />
+
             <Button variant="text" startIcon={<UndoIcon />}
                 disabled={!documentsHolder.canUndo()} onClick={() => documentsHolder.undo()}>
                 Undo
@@ -133,7 +187,21 @@ const ActionPanel = () => {
     );
 };
 
-const ACTION_BUTTON_STYLE = { display: 'flex', flexDirection: 'column', height: '100%', width: '100%' };
+const SWITCH_FORM_STYLE = {
+    marginRight: "6px",
+    userSelect: "none",
+    "& .MuiFormControlLabel-label": {
+        fontSize: "0.7rem",
+        color: "rgba(0, 0, 0, 0.6)"
+    }
+};
+
+const ACTION_BUTTON_STYLE = {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+    width: '100%'
+};
 
 type SubMenuButtonProps = {
     erdExportable: boolean

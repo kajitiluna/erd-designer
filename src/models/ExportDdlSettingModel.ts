@@ -2,7 +2,7 @@ import { instanceToPlain } from "class-transformer";
 import { PropertyNotExistsError } from "~/models/exceptions";
 
 
-type ExportDdlSettingType = {
+type ExportDdlSettingModelOptions = {
     fileName: string,
     withTable?: boolean,
     withIndex?: boolean,
@@ -20,7 +20,7 @@ export default class ExportDdlSettingModel {
 
     constructor({
         fileName, withTable = true, withIndex = true, withForeignKey = true, withComment = true
-    }: ExportDdlSettingType) {
+    }: ExportDdlSettingModelOptions) {
         this.fileName = fileName;
         this.withTable = withTable;
         this.withIndex = withIndex;

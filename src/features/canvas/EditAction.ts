@@ -7,6 +7,7 @@ type EditAction = { editType: "none" }
     | {
         editType: "relation", relationViewModel: RelationViewModel,
         parentTable: TableModel, childTable: TableModel
-    };
+    }
+    | { editType: "perspective", targetId: string };
 
 export default EditAction;

@@ -6,32 +6,33 @@ import {
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import VisibilityIcon from '@mui/icons-material/Visibility';
 
-import { LocalSettingContext } from "~/context/LocalSettingContext";
-import DisplayScaleContext from "~/context/DisplayScaleContext";
-import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
-import { DRAWABLE_AREA, getLogicalMousePosition, handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
 import ColorSelector from "~/components/ColorSelector";
-import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
-import TableViewModel from "~/models/TableViewModel";
-import ColorValue from "~/models/ColorValue";
-import ErdDocument from "~/models/ErdDocument";
-import ColumnModel from "~/models/database/ColumnModel";
+import TopLeftTooltip from "~/components/TopLeftTooltip";
 import KeyColor from "~/components/icons/KeyColor";
 import PrimaryKeyIcon from "~/components/icons/PrimaryKeyIcon";
 import ForeignKeyIcon from "~/components/icons/ForeignKeyIcon";
-import EditModeContext from "~/context/EditModeContext";
-import { EditModeType } from "~/models/EditMode";
-import { RELEASE_ACTION, SelectEntityContext, SelectState } from "~/context/SelectEntityContext";
-import EditAction from "~/features/canvas/EditAction";
-import RelationModel from "~/models/database/RelationModel";
-import RelationViewModel from "~/models/RelationViewModel";
-import LineViewModel from "~/models/LineViewModel";
+import DisplayScaleContext from "~/context/DisplayScaleContext";
 import { DragAction, DragActionContext } from "~/context/DragActionContext";
-import TableModel from "~/models/database/TableModel";
-import TopLeftTooltip from "~/components/TopLeftTooltip";
+import EditModeContext from "~/context/EditModeContext";
+import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
+import { LocalSettingContext } from "~/context/LocalSettingContext";
+import { RELEASE_ACTION, SelectEntityContext, SelectState } from "~/context/SelectEntityContext";
+import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
+import EditAction from "~/features/canvas/EditAction";
+import { DRAWABLE_AREA, getLogicalMousePosition, handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
+import TableViewModel from "~/models/TableViewModel";
+import ColorValue from "~/models/ColorValue";
+import { EditModeType } from "~/models/EditMode";
+import ErdDocument from "~/models/ErdDocument";
+import LineViewModel from "~/models/LineViewModel";
+import RelationViewModel from "~/models/RelationViewModel";
+import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
 import DisplayStyle from "~/models/database/DisplayStyle";
+import RelationModel from "~/models/database/RelationModel";
+import TableModel from "~/models/database/TableModel";
 import { overrideColumnName } from "~/models/database/support";
 
 import styleClasses from "./ErdCanvas.module.css";
@@ -40,11 +41,12 @@ export const ERD_TABLE_VIEW_CLASS_NAME = "erdTableView";
 
 type ErdTableViewProps = {
     tableViewModel: TableViewModel,
+    visible?: boolean,
     onEditAction: (editAction: EditAction) => void,
     onDragAction: (dragAction: DragAction) => void
 };
 
-const ErdTableView = ({ tableViewModel, onEditAction, onDragAction }: ErdTableViewProps) => {
+const ErdTableView = ({ tableViewModel, visible = true, onEditAction, onDragAction }: ErdTableViewProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState } = React.useContext(SelectEntityContext);
@@ -76,7 +78,7 @@ const ErdTableView = ({ tableViewModel, onEditAction, onDragAction }: ErdTableVi
             </>
         );
     }, [
-        erdDocument.lastUpdatedAt, 
+        erdDocument.lastUpdatedAt,
         // リレーション選択時に外部制約があるカラムの背景色を変更するので、それに対する検証
         (selectState.relationId || "")
     ]);
@@ -91,6 +93,7 @@ const ErdTableView = ({ tableViewModel, onEditAction, onDragAction }: ErdTableVi
                 onDragAction={onDragAction}
                 tableContentCache={tableContentCache}
                 selected={selected}
+                visible={visible}
                 isOpenDeletingDialog={openDeletingDialog}
                 onOpenDeleteDialog={setOpenDeleteDialog} />
         );
@@ -98,6 +101,8 @@ const ErdTableView = ({ tableViewModel, onEditAction, onDragAction }: ErdTableVi
         erdDocument.lastUpdatedAt,
         // 選択状態、およびドラッグ状態に対する検証
         selected, (selected ? dragState : ""),
+        // 表示状態に対する検証
+        visible,
         // リレーション作成時の制御に対する検証
         editMode, (editMode === EditModeType.CREATE_RELATION ? [...selectState.tableIds].join(",") : ""),
         // テーブルキャッシュに対する検証
@@ -262,12 +267,13 @@ type InnerErdTableViewProps = {
     tableContentCache: React.JSX.Element,
     selected: boolean,
     isOpenDeletingDialog: boolean,
+    visible: boolean,
     onOpenDeleteDialog: (open: boolean) => void
 };
 
 const InnerErdTableView = ({
     tableViewModel, onEditAction, onDragAction,
-    tableContentCache, selected, isOpenDeletingDialog, onOpenDeleteDialog
+    tableContentCache, selected, isOpenDeletingDialog, visible, onOpenDeleteDialog
 }: InnerErdTableViewProps) => {
 
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
@@ -278,6 +284,8 @@ const InnerErdTableView = ({
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
 
     const erdDocument = documentsHolder.current();
+    const erdSetting = erdDocument.erdSettingModel;
+    const perspectives = erdSetting.getPerspectiveModels();
 
     const tableModel = tableViewModel.tableModel;
 
@@ -391,6 +399,17 @@ const InnerErdTableView = ({
         handleOpenEditDialog(event);
     };
 
+    const handleSettingPerspectiveDialog = (event: React.MouseEvent) => {
+        if (editMode != EditModeType.SELECT) {
+            return;
+        }
+
+        event.stopPropagation();
+
+        onEditAction({ editType: "perspective", targetId: tableViewModel.tableId });
+        dispatchSelectAction(RELEASE_ACTION);
+    };
+
     const handleOpenEditDialog = (event: React.MouseEvent) => {
         if (editMode != EditModeType.SELECT) {
             return;
@@ -426,7 +445,8 @@ const InnerErdTableView = ({
         left: tableViewModel.corner.left + moving.x + DRAWABLE_AREA.width / 2,
         top: tableViewModel.corner.top + moving.y + DRAWABLE_AREA.height / 2,
         display: "flex", flexDirection: "column", justifyContent: "flex-start",
-        userSelect: "none"
+        userSelect: "none",
+        ...(!visible && { opacity: 0, pointerEvents: 'none' })
     };
 
     const boundStyle = {
@@ -451,6 +471,13 @@ const InnerErdTableView = ({
                     <ColorSelector key={`table-color-selector_${tableViewModel.tableId}`}
                         color={tableViewModel.headerColor.background}
                         callback={handleSetColor} />
+                    {(perspectives.length > 0) && (
+                        <Tooltip title="Perspective" placement="top-end">
+                            <IconButton onClick={handleSettingPerspectiveDialog}>
+                                <VisibilityIcon />
+                            </IconButton>
+                        </Tooltip>
+                    )}
                     <Tooltip title="Edit" placement="top-end">
                         <IconButton onClick={handleOpenEditDialog}>
                             <EditIcon />
