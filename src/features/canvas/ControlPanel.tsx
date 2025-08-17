@@ -149,7 +149,7 @@ const ActionPanel = () => {
     const lineVisibleSwitcher = (
         <FormControl sx={{ padding: "0 6px 6px 12px" }}>
             <DescriptionTooltip placement="right-end"
-                title={"When the switch is active, show relations\n even if one table is hidden."}>
+                title={"When the switch is active, show relations\neven if one table is hidden."}>
                 <FormControlLabel sx={SWITCH_FORM_STYLE}
                     label="Show half-bounded line" control={
                         <Switch size="small" disabled={localSetting.perspectiveId === ""}

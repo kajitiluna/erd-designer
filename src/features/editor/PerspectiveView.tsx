@@ -346,12 +346,12 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
 
     const operationPanel = (
         <Stack direction="row" justifyContent="space-between" sx={{ margin: 1, marginBottom: 0.5 }}>
-            <EdgedIconButton tooltip="Add index" withText onClick={handleAddPerspective}>
+            <EdgedIconButton tooltip="Add perspective" withText onClick={handleAddPerspective}>
                 <AddIcon />
             </EdgedIconButton>
 
             <Stack justifyContent="flex-end" direction="row" spacing={2}>
-                <EdgedIconButton tooltip="Edit index" disabled={selectedIndex < 0}
+                <EdgedIconButton tooltip="Edit perspective" disabled={selectedIndex < 0}
                     onClick={() => setOpenEditDialog(true)}>
                     <EditIcon fontSize="small" />
                 </EdgedIconButton>
@@ -364,7 +364,7 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
                     onClick={initHandleShiftColumn(1)}>
                     <ArrowForwardIcon fontSize="small" />
                 </EdgedIconButton>
-                <EdgedIconButton tooltip="Remove index" disabled={selectedIndex < 0}
+                <EdgedIconButton tooltip="Remove perspective" disabled={selectedIndex < 0}
                     onClick={handleRemoveIndex}>
                     <DeleteIcon fontSize="small" />
                 </EdgedIconButton>
