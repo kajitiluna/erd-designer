@@ -128,6 +128,7 @@ const ActionPanel = () => {
         <FormControl size="small" sx={{ padding: "0 6px", margin: "5px -1px 10px" }}>
             <InputLabel id="label-display-style">Perspective</InputLabel>
             <Select labelId="label-display-style" label="Perspective"
+                sx={(perspectiveId !== "(Default)") ? { backgroundColor: "#fff59d" } : {}}
                 value={perspectiveId} onChange={handleChangePerspective}>
                 <MenuItem key="(default)" value="(Default)">(Default)</MenuItem>
                 {perspectiveModels.map(perspective => (
