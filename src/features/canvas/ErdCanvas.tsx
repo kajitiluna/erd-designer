@@ -37,7 +37,7 @@ const ErdCanvas = () => {
     const documentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode, dispatchEditMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
-    const { localSetting } = React.useContext(LocalSettingContext);
+    const { localSetting, dispatchLocalSetting } = React.useContext(LocalSettingContext);
     const displayScale = React.useContext(DisplayScaleContext);
 
     // Canvas に描画されている短形の情報を保持する
@@ -61,6 +61,10 @@ const ErdCanvas = () => {
 
     const erdSetting = erdDocument.erdSettingModel;
     const currentPerspective = erdSetting.findPerspectiveModel(localSetting.perspectiveId);
+    if ((localSetting.perspectiveId !== "") && (currentPerspective == null)) {
+        // 指定されている Perspective が存在しない場合は、デフォルトに戻す
+        dispatchLocalSetting({ type: "perspective", perspectiveId: "" });
+    }
 
     const tableViews = erdDocument.getTableViewModels().map(tableView => (
         <ErdTableView key={`erd-table-view_${tableView.tableId}`}

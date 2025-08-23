@@ -1,6 +1,6 @@
 import React from "react";
 import {
-    Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle,
+    Alert, Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle,
     Divider, Stack, TextField, Typography
 } from "@mui/material";
 import AddIcon from '@mui/icons-material/Add';
@@ -316,7 +316,15 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
             </Box>
         </Stack>
     ) : (
-        <Typography>No perspectives.</Typography>
+        <>
+            <Typography>No perspectives.</Typography>
+            <Alert severity="info">
+                Perspectives help you:<br />
+                - Group tables and memos by functionality<br />
+                - Display only relevant information<br />
+                - Manage multiple views of your design
+            </Alert>
+        </>
     );
 
     const handleAddPerspective = () => {

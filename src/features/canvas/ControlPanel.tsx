@@ -108,6 +108,8 @@ const EditModePanel = () => {
     );
 };
 
+const DEFAULT_PERSPECTIVE_ID = "__default_perspective_id__";
+
 const ActionPanel = () => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { localSetting, dispatchLocalSetting } = React.useContext(LocalSettingContext);
@@ -116,11 +118,11 @@ const ActionPanel = () => {
     const erdSetting = erdDocument.erdSettingModel;
     const perspectiveModels = erdSetting.getPerspectiveModels();
 
-    const perspectiveId = (localSetting.perspectiveId != "") ? localSetting.perspectiveId : "(Default)";
+    const perspectiveId = (localSetting.perspectiveId != "") ? localSetting.perspectiveId : DEFAULT_PERSPECTIVE_ID;
 
     const handleChangePerspective = (event: SelectChangeEvent<string>) => {
         const selectedValue = event.target.value;
-        const nextPerspectiveId = (selectedValue !== "(Default)") ? selectedValue : "";
+        const nextPerspectiveId = (selectedValue !== DEFAULT_PERSPECTIVE_ID) ? selectedValue : "";
         dispatchLocalSetting({ type: "perspective", perspectiveId: nextPerspectiveId });
     };
 
@@ -128,8 +130,9 @@ const ActionPanel = () => {
         <FormControl size="small" sx={{ padding: "0 6px", margin: "5px -1px 10px" }}>
             <InputLabel id="label-display-style">Perspective</InputLabel>
             <Select labelId="label-display-style" label="Perspective"
+                sx={(perspectiveId !== DEFAULT_PERSPECTIVE_ID) ? { backgroundColor: "#fff59d" } : {}}
                 value={perspectiveId} onChange={handleChangePerspective}>
-                <MenuItem key="(default)" value="(Default)">(Default)</MenuItem>
+                <MenuItem key={DEFAULT_PERSPECTIVE_ID} value={DEFAULT_PERSPECTIVE_ID}>(Default)</MenuItem>
                 {perspectiveModels.map(perspective => (
                     <MenuItem key={perspective.perspectiveId} value={perspective.perspectiveId}>
                         {perspective.perspectiveName}
