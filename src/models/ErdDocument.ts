@@ -12,6 +12,7 @@ import RelationPair from '~/models/database/RelationPair';
 import TableIndexModel from '~/models/database/TableIndexModel';
 import TableModel, { ColumnModelType } from '~/models/database/TableModel';
 import DatabaseSettingModel from '~/models/DatabaseSettingModel';
+import DbSchemaConfig from '~/models/DbSchemaConfig';
 import ErdSettingModel from '~/models/ErdSettingModel';
 import { PropertyNotExistsError } from '~/models/exceptions';
 import LineViewModel, { OrthogonalDirection } from '~/models/LineViewModel';
@@ -25,6 +26,8 @@ import { toDateTime, toObjects } from '~/models/util';
 type ErdDocumentOptions = {
     documentName: string,
     erdSettingModel: ErdSettingModel,
+    databaseSettingModel: DatabaseSettingModel,
+    schemaConfig: DbSchemaConfig,
     tableViewModels?: readonly TableViewModel[],
     columnGroupModels?: readonly ColumnGroupModel[],
     columnModels?: readonly ColumnModel[],
@@ -32,7 +35,6 @@ type ErdDocumentOptions = {
     relationViewModels?: readonly RelationViewModel[],
     foregroundMemoViewModels?: MemoViewModel[],
     backgroundMemoViewModels?: MemoViewModel[],
-    databaseSettingModel: DatabaseSettingModel,
     lastUpdatedAt?: Date | null
 };
 
@@ -40,6 +42,8 @@ export default class ErdDocument {
 
     public readonly documentName: string;
     public readonly erdSettingModel: ErdSettingModel;
+    public readonly databaseSettingModel: DatabaseSettingModel;
+    public readonly schemaConfig: DbSchemaConfig;
     private readonly columnShareModelStorage: ColumnShareModelStorage;
     private readonly tableViewModelIds: readonly string[];
     private readonly tableViewModelMap: Map<string, TableViewModel>;
@@ -47,19 +51,21 @@ export default class ErdDocument {
     private readonly columnModelMap: Map<string, ColumnModel>;
     private readonly relationViewModelStorage: RelationViewModelStorage;
     private readonly memoViewModelStorage: MemoViewModelStorage;
-    public readonly databaseSettingModel: DatabaseSettingModel;
     public readonly lastUpdatedAt: Date;
 
     private constructor(
         documentName: string, erdSettingModel: ErdSettingModel,
+        databaseSettingModel: DatabaseSettingModel, schemaConfig: DbSchemaConfig,
         tableViewModelIds: readonly string[], tableViewModelMap: Map<string, TableViewModel>,
         columnGroupModelMap: Map<string, ColumnGroupModel>,
         columnModelMap: Map<string, ColumnModel>, columnShareModelStorage: ColumnShareModelStorage,
-        relationViewModelStorage: RelationViewModelStorage, memoViewModelStorage: MemoViewModelStorage,
-        databaseSettingModel: DatabaseSettingModel, lastUpdatedAt: Date | null = null
+        relationViewModelStorage: RelationViewModelStorage,
+        memoViewModelStorage: MemoViewModelStorage, lastUpdatedAt: Date | null = null
     ) {
         this.documentName = documentName;
         this.erdSettingModel = erdSettingModel;
+        this.databaseSettingModel = databaseSettingModel;
+        this.schemaConfig = schemaConfig;
         this.columnShareModelStorage = columnShareModelStorage;
         this.tableViewModelIds = tableViewModelIds;
         this.tableViewModelMap = tableViewModelMap;
@@ -67,19 +73,18 @@ export default class ErdDocument {
         this.columnModelMap = columnModelMap;
         this.relationViewModelStorage = relationViewModelStorage;
         this.memoViewModelStorage = memoViewModelStorage;
-        this.databaseSettingModel = databaseSettingModel;
         this.lastUpdatedAt = lastUpdatedAt ? lastUpdatedAt : new Date();
     }
 
     public static create({
-        documentName, erdSettingModel, databaseSettingModel,
+        documentName, erdSettingModel, databaseSettingModel, schemaConfig,
         tableViewModels = [], columnGroupModels = [], columnModels = [], columnShareModels = [],
         relationViewModels = [], foregroundMemoViewModels = [], backgroundMemoViewModels = [],
         lastUpdatedAt = null
     }: ErdDocumentOptions): ErdDocument {
 
         return new ErdDocument(
-            documentName, erdSettingModel,
+            documentName, erdSettingModel, databaseSettingModel, schemaConfig,
             tableViewModels.map(viewModel => viewModel.tableId),
             new Map(tableViewModels.map(viewModel => [viewModel.tableId, viewModel])),
             new Map(columnGroupModels.map(groupModel => [groupModel.columnGroupId, groupModel])),
@@ -87,7 +92,6 @@ export default class ErdDocument {
             ColumnShareModelStorage.create(columnShareModels),
             new RelationViewModelStorage(relationViewModels),
             MemoViewModelStorage.create(foregroundMemoViewModels, backgroundMemoViewModels),
-            databaseSettingModel,
             lastUpdatedAt
         );
     }
@@ -101,6 +105,8 @@ export default class ErdDocument {
     private doUpdate(overrides: Partial<{
         documentName: string,
         erdSettingModel: ErdSettingModel,
+        databaseSettingModel: DatabaseSettingModel,
+        schemaConfig: DbSchemaConfig
         tableViewModelIds: readonly string[],
         tableViewModelMap: Map<string, TableViewModel>,
         columnGroupModelMap: Map<string, ColumnGroupModel>,
@@ -108,12 +114,13 @@ export default class ErdDocument {
         columnShareModelStorage: ColumnShareModelStorage,
         relationViewModelStorage: RelationViewModelStorage,
         memoViewModelStorage: MemoViewModelStorage,
-        databaseSettingModel: DatabaseSettingModel,
         lastUpdatedAt: Date
     }>): ErdDocument {
         return new ErdDocument(
             overrides.documentName ?? this.documentName,
             overrides.erdSettingModel ?? this.erdSettingModel,
+            overrides.databaseSettingModel ?? this.databaseSettingModel,
+            overrides.schemaConfig ?? this.schemaConfig,
             overrides.tableViewModelIds ?? this.tableViewModelIds,
             overrides.tableViewModelMap ?? this.tableViewModelMap,
             overrides.columnGroupModelMap ?? this.columnGroupModelMap,
@@ -121,7 +128,6 @@ export default class ErdDocument {
             overrides.columnShareModelStorage ?? this.columnShareModelStorage,
             overrides.relationViewModelStorage ?? this.relationViewModelStorage,
             overrides.memoViewModelStorage ?? this.memoViewModelStorage,
-            overrides.databaseSettingModel ?? this.databaseSettingModel,
             overrides.lastUpdatedAt ?? null
         );
     }
@@ -219,6 +225,22 @@ export default class ErdDocument {
 
     public getMemoViewModels(): { frontMemos: MemoViewModel[], backMemos: MemoViewModel[] } {
         return this.memoViewModelStorage.getMemos();
+    }
+
+    /**
+     * DBスキーマ設定を更新する。
+     * 
+     * @param next 更新後の状態
+     * @returns 操作後のモデル
+     */
+    public updateSchema(next: DbSchemaConfig): ErdDocument {
+        if (this.schemaConfig.equals(next)) {
+            return this;
+        }
+
+        return this.doUpdate({
+            schemaConfig: next
+        });
     }
 
     /**
@@ -1195,6 +1217,7 @@ export default class ErdDocument {
     }
 
     public toJSON(): Record<string, unknown> {
+        const database = this.getDatabase();
         const tableViewModels = this.tableViewModelIds
             .map(tableId => this.tableViewModelMap.get(tableId))
             .filter((viewModel): viewModel is TableViewModel => viewModel != null)
@@ -1210,6 +1233,7 @@ export default class ErdDocument {
         return {
             documentName: this.documentName,
             lastUpdatedAt: this.lastUpdatedAt,
+            ...((database.supportsSchema) && { schemaConfig: this.schemaConfig.toJSON() }),
             tableViewModels: tableViewModels,
             columnGroupModels: columnGroupModels,
             columnModels: columnModels,
@@ -1249,6 +1273,10 @@ export default class ErdDocument {
         const databaseSettingModel = DatabaseSettingModel.toObject(obj.databaseSetting as object);
         const toColumnType = databaseSettingModel.initToColumnTypeMapping();
 
+        const schemaConfig = ("schemaConfig" in obj)
+            ? DbSchemaConfig.toObject(obj.schemaConfig as object)
+            : DbSchemaConfig.create();
+
         const tableViewModels = toObjects(obj.tableViewModels, "tableViewModels",
             value => TableViewModel.toObject(value))
         const columnGroupModels = ("columnGroupModels" in obj)
@@ -1268,6 +1296,7 @@ export default class ErdDocument {
         return ErdDocument.create({
             documentName: obj.documentName as string,
             erdSettingModel: erdSettingModel,
+            schemaConfig: schemaConfig,
             tableViewModels: tableViewModels,
             columnGroupModels: columnGroupModels,
             columnModels: columnModels,

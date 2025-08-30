@@ -339,11 +339,11 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
             }
 
             setPerspectiveModels(previous => {
-                const nextTableIndexModels = [...previous]
-                nextTableIndexModels[selectedIndex] = perspectiveModels[selectedIndex + shift];
-                nextTableIndexModels[selectedIndex + shift] = perspectiveModels[selectedIndex];
+                const nextModels = [...previous]
+                nextModels[selectedIndex] = perspectiveModels[selectedIndex + shift];
+                nextModels[selectedIndex + shift] = perspectiveModels[selectedIndex];
 
-                return nextTableIndexModels;
+                return nextModels;
             });
         };
     };

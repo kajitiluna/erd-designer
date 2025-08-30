@@ -14,8 +14,9 @@ import MsSQLServerIcon from "~/components/icons/MsSQLServerIcon";
 import ErdSettingModel from "~/models/ErdSettingModel";
 import DisplayStyle from "~/models/database/DisplayStyle";
 import PerspectiveView from "~/features/editor/PerspectiveView";
+import DbSchemaView from "~/features/editor/DbSchemaView";
 
-type SettingMenuType = "column_group" | "import_ddl" | "perspective" | "";
+type SettingMenuType = "perspective" | "column_group" | "db_schema" | "import_ddl" | "";
 
 const TitlePanel = () => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
@@ -26,8 +27,8 @@ const TitlePanel = () => {
     const [selectedMenu, setSelectedMenu] = React.useState<SettingMenuType>("");
 
     const erdSetting: ErdSettingModel = erdDocument.erdSettingModel;
-    const databaseType: DatabaseType = erdDocument.databaseSettingModel.databaseType;
-    const databaseIcon = databaseTypeIcons[databaseType];
+    const database = erdDocument.getDatabase();
+    const databaseIcon = databaseTypeIcons[database.databaseType];
 
     const handleOnSave = () => {
         documentsHolder.updateDocumentName(title);
@@ -90,13 +91,16 @@ const TitlePanel = () => {
             </IconButton>
 
             <Menu anchorEl={preferenceElement} open={isSettingOpen} onClose={handleClosePreference}
-                slotProps={{list: { onMouseLeave: handleLeavingPreference }}}>
+                slotProps={{ list: { onMouseLeave: handleLeavingPreference } }}>
                 <MenuItem sx={{ paddingRight: "4px" }}
                     onClick={event => setDisplayStyleElement(event.currentTarget)}>
                     Display Style : {erdSetting.displayStyle.name} <ArrowRightIcon />
                 </MenuItem>
-                <MenuItem onClick={initHandleMenu("column_group")}>Column Group</MenuItem>
                 <MenuItem onClick={initHandleMenu("perspective")}>Perspective</MenuItem>
+                <MenuItem onClick={initHandleMenu("column_group")}>Column Group</MenuItem>
+                {(database.supportsSchema) && (
+                    <MenuItem onClick={initHandleMenu("db_schema")}>DB Schema</MenuItem>
+                )}
                 <MenuItem onClick={initHandleMenu("import_ddl")}>Import from DDL</MenuItem>
             </Menu>
 
@@ -114,15 +118,20 @@ const TitlePanel = () => {
                 ))}
             </Menu>
 
+            {(selectedMenu === "perspective") && (
+                <PerspectiveView
+                    isOpen={selectedMenu === "perspective"}
+                    onClose={handleCloseMenu} />
+            )}
             {(selectedMenu === "column_group") && (
                 <ColumnGroupView
                     isOpen={selectedMenu === "column_group"}
                     viewMode="edit"
                     onClose={handleCloseMenu} />
             )}
-            {(selectedMenu === "perspective") && (
-                <PerspectiveView
-                    isOpen={selectedMenu === "perspective"}
+            {(selectedMenu === "db_schema") && (
+                <DbSchemaView
+                    isOpen={selectedMenu === "db_schema"}
                     onClose={handleCloseMenu} />
             )}
             {(selectedMenu === "import_ddl") && (

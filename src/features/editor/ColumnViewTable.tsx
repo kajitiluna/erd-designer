@@ -58,6 +58,22 @@ const ColumnViewTable = ({
             return false;
         });
 
+    const initRowStyle = (targetIndex: number) => {
+        const rowStyle = (selectedIndex === targetIndex)
+            ? { backgroundColor: SELECTED_CELL_COLOR, height: "43px" } : BASE_ROW_STYLE;
+
+        // ドラッグ中の行は半透明にする
+        if (draggingStartIndex === targetIndex) {
+            return { ...rowStyle, opacity: 0.2 };
+        }
+        // ドラッグオーバー中の行は色を変える
+        if (draggingOverIndex === targetIndex) {
+            return { height: "43px", backgroundColor: 'lightblue' };
+        }
+
+        return rowStyle;
+    };
+
     const initColumnModelRow = (columnWrapModel: ColumnWrapModel, targetIndex: number) => {
         const cells = (columnWrapModel.modelType === "single")
             ? doInitSingleColumnRow(columnWrapModel.columnModel)
@@ -119,25 +135,9 @@ const ColumnViewTable = ({
             setDraggingOverIndex(null);
         };
 
-        const initRowStyle = () => {
-            const rowStyle = (selectedIndex === targetIndex)
-                ? { backgroundColor: SELECTED_CELL_COLOR, height: "43px" } : BASE_ROW_STYLE;
-
-            // ドラッグ中の行は半透明にする
-            if (draggingStartIndex === targetIndex) {
-                return { ...rowStyle, opacity: 0.2 };
-            }
-            // ドラッグオーバー中の行は色を変える
-            if (draggingOverIndex === targetIndex) {
-                return { height: "43px", backgroundColor: 'lightblue' };
-            }
-
-            return rowStyle;
-        };
-
         return (
             <TableRow key={`column-view-${targetIndex}`}
-                sx={initRowStyle()} style={{ cursor: 'pointer' }}
+                sx={initRowStyle(targetIndex)} style={{ cursor: 'pointer' }}
                 draggable={columnWrapModels.length > 1}
                 onDragStart={handleDragStart} onDragOver={handleDragOver}
                 onDragLeave={() => setDraggingOverIndex(null)}
