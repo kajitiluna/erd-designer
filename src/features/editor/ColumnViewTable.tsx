@@ -121,7 +121,7 @@ const ColumnViewTable = ({
 
         const initRowStyle = () => {
             const rowStyle = (selectedIndex === targetIndex)
-                ? { backgroundColor: SELECTED_CELL_COLOR, height: "43px" } : baseRowStyle;
+                ? { backgroundColor: SELECTED_CELL_COLOR, height: "43px" } : BASE_ROW_STYLE;
 
             // ドラッグ中の行は半透明にする
             if (draggingStartIndex === targetIndex) {
@@ -177,21 +177,6 @@ const ColumnViewTable = ({
             <TableCell colSpan={5}>{columnGroupModel.groupName}</TableCell>
         </>);
     }
-
-    const tableHeader = (
-        <TableHead>
-            <TableRow>
-                <TableCell sx={{ width: "5px", paddingRight: "8px" }} align="center"></TableCell>
-                <TableCell sx={{ width: "10px" }} align="center">PK</TableCell>
-                <TableCell sx={{ width: "10px" }} align="center">FK</TableCell>
-                <TableCell>Physical Name</TableCell>
-                <TableCell>Logical Name</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell sx={{ width: "50px" }} align="center">NotNull</TableCell>
-                <TableCell sx={{ width: "50px" }} align="center">Unique</TableCell>
-            </TableRow>
-        </TableHead>
-    );
 
     const handleAddColumn = () => {
         const columnModel = new ColumnModel({});
@@ -314,7 +299,7 @@ const ColumnViewTable = ({
         <>
             <TableContainer sx={{ maxHeight: window.innerHeight - 550 }}>
                 <Table stickyHeader size="small" aria-label="column view table" style={{ tableLayout: "fixed" }}>
-                    {tableHeader}
+                    {COLUMN_VIEW_HEADER}
                     <TableBody>
                         {(columnWrapModels.length > 0)
                             ? columnWrapModels.map((columnWrapModel: ColumnWrapModel, index: number) =>
@@ -352,6 +337,24 @@ const ColumnViewTable = ({
     );
 };
 
-const baseRowStyle = { height: "43px", '&:nth-of-type(odd)': { backgroundColor: 'action.hover' } };
+const COLUMN_VIEW_HEADER = (
+    <TableHead>
+        <TableRow>
+            <TableCell sx={{ width: "5px", paddingRight: "8px" }} align="center"></TableCell>
+            <TableCell sx={{ width: "10px" }} align="center">PK</TableCell>
+            <TableCell sx={{ width: "10px" }} align="center">FK</TableCell>
+            <TableCell>Physical Name</TableCell>
+            <TableCell>Logical Name</TableCell>
+            <TableCell>Type</TableCell>
+            <TableCell sx={{ width: "50px" }} align="center">NotNull</TableCell>
+            <TableCell sx={{ width: "50px" }} align="center">Unique</TableCell>
+        </TableRow>
+    </TableHead>
+);
+
+const BASE_ROW_STYLE = {
+    height: "43px",
+    '&:nth-of-type(odd)': { backgroundColor: 'action.hover' }
+};
 
 export default ColumnViewTable;

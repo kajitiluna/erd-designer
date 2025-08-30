@@ -92,6 +92,40 @@ export default class ErdDocument {
         );
     }
 
+    /**
+     * 現在のインスタンスをベースに、指定されたフィールドのみを更新した新しいインスタンスを作成する。
+     * 
+     * @param overrides 更新するフィールドを含むオブジェクト
+     * @returns 新しいErdDocumentインスタンス
+     */
+    private doUpdate(overrides: Partial<{
+        documentName: string,
+        erdSettingModel: ErdSettingModel,
+        tableViewModelIds: readonly string[],
+        tableViewModelMap: Map<string, TableViewModel>,
+        columnGroupModelMap: Map<string, ColumnGroupModel>,
+        columnModelMap: Map<string, ColumnModel>,
+        columnShareModelStorage: ColumnShareModelStorage,
+        relationViewModelStorage: RelationViewModelStorage,
+        memoViewModelStorage: MemoViewModelStorage,
+        databaseSettingModel: DatabaseSettingModel,
+        lastUpdatedAt: Date
+    }>): ErdDocument {
+        return new ErdDocument(
+            overrides.documentName ?? this.documentName,
+            overrides.erdSettingModel ?? this.erdSettingModel,
+            overrides.tableViewModelIds ?? this.tableViewModelIds,
+            overrides.tableViewModelMap ?? this.tableViewModelMap,
+            overrides.columnGroupModelMap ?? this.columnGroupModelMap,
+            overrides.columnModelMap ?? this.columnModelMap,
+            overrides.columnShareModelStorage ?? this.columnShareModelStorage,
+            overrides.relationViewModelStorage ?? this.relationViewModelStorage,
+            overrides.memoViewModelStorage ?? this.memoViewModelStorage,
+            overrides.databaseSettingModel ?? this.databaseSettingModel,
+            overrides.lastUpdatedAt ?? null
+        );
+    }
+
     public getDatabase(): Database {
         return this.databaseSettingModel.getDatabase();
     }
@@ -183,7 +217,7 @@ export default class ErdDocument {
         return this.relationViewModelStorage.findParentRelation(childTableModelId, childColumnModelId);
     }
 
-    public getMemoViewModels():{ frontMemos: MemoViewModel[], backMemos: MemoViewModel[] } {
+    public getMemoViewModels(): { frontMemos: MemoViewModel[], backMemos: MemoViewModel[] } {
         return this.memoViewModelStorage.getMemos();
     }
 
@@ -252,18 +286,12 @@ export default class ErdDocument {
             ? updatingColumnShareModelStorage.deleteModels(deletingColumnShareModelIds)
             : updatingColumnShareModelStorage.copy();
 
-        return new ErdDocument(
-            this.documentName,
-            this.erdSettingModel,
-            this.tableViewModelIds,
-            nextTableViewModelMap,
-            this.columnGroupModelMap,
-            nextColumnModelMap,
-            nextColumnShareModelStorage,
-            nextRelationViewModelStorage,
-            this.memoViewModelStorage,
-            this.databaseSettingModel
-        );
+        return this.doUpdate({
+            tableViewModelMap: nextTableViewModelMap,
+            columnModelMap: nextColumnModelMap,
+            columnShareModelStorage: nextColumnShareModelStorage,
+            relationViewModelStorage: nextRelationViewModelStorage
+        });
     }
 
     private doAddTableViewModel(
@@ -280,18 +308,12 @@ export default class ErdDocument {
             nextColumnModelMap.set(columnModel.columnModelId, columnModel)
         );
 
-        return new ErdDocument(
-            this.documentName,
-            this.erdSettingModel,
-            nextTableViewModelIds,
-            nextTableViewModelMap,
-            this.columnGroupModelMap,
-            nextColumnModelMap,
-            columnShareModelStorage.copy(),
-            this.relationViewModelStorage,
-            this.memoViewModelStorage,
-            this.databaseSettingModel
-        );
+        return this.doUpdate({
+            tableViewModelIds: nextTableViewModelIds,
+            tableViewModelMap: nextTableViewModelMap,
+            columnModelMap: nextColumnModelMap,
+            columnShareModelStorage: columnShareModelStorage.copy()
+        });
     }
 
     private doUpdateTableViewModelWithRelation(
@@ -536,18 +558,13 @@ export default class ErdDocument {
             shareModel => existedColumnShareModelIds.has(shareModel.columnShareModelId)
         );
 
-        return new ErdDocument(
-            this.documentName,
-            this.erdSettingModel,
-            nextTableViewModelIds,
-            nextTableViewModelMap,
-            this.columnGroupModelMap,
-            nextColumnMap,
-            ColumnShareModelStorage.create(updatingColumnShareModels),
-            this.relationViewModelStorage.deleteFromTableId([deletingTableId]),
-            this.memoViewModelStorage,
-            this.databaseSettingModel
-        );
+        return this.doUpdate({
+            tableViewModelIds: nextTableViewModelIds,
+            tableViewModelMap: nextTableViewModelMap,
+            columnModelMap: nextColumnMap,
+            columnShareModelStorage: ColumnShareModelStorage.create(updatingColumnShareModels),
+            relationViewModelStorage: this.relationViewModelStorage.deleteFromTableId([deletingTableId])
+        });
     }
 
     /**
@@ -586,18 +603,13 @@ export default class ErdDocument {
             ? new Map([...this.tableViewModelMap, ...nextTableViewModels])
             : this.tableViewModelMap;
 
-        return new ErdDocument(
-            this.documentName,
-            this.erdSettingModel,
-            this.tableViewModelIds,
-            nextTableViewModelMap,
-            nextColumnGroupModelMap,
-            nextColumnModelMap,
-            updatingColumnShareModelStorage.copy(),
-            nextRelationViewModelStorage,
-            this.memoViewModelStorage,
-            this.databaseSettingModel
-        );
+        return this.doUpdate({
+            tableViewModelMap: nextTableViewModelMap,
+            columnGroupModelMap: nextColumnGroupModelMap,
+            columnModelMap: nextColumnModelMap,
+            columnShareModelStorage: updatingColumnShareModelStorage.copy(),
+            relationViewModelStorage: nextRelationViewModelStorage
+        });
     }
 
     private doUpdateTableViewModelsWithUpdatingColumnGroup(
@@ -730,18 +742,13 @@ export default class ErdDocument {
         const { nextTableViewModelMap, nextRelationViewModelStorage }
             = this.doUpdateTableViewModelsWithDeletingColumnGroup(previousModel);
 
-        return new ErdDocument(
-            this.documentName,
-            this.erdSettingModel,
-            this.tableViewModelIds,
-            nextTableViewModelMap,
-            nextColumnGroupModelMap,
-            nextColumnModelMap,
-            ColumnShareModelStorage.create(updatingColumnShareModels),
-            nextRelationViewModelStorage,
-            this.memoViewModelStorage,
-            this.databaseSettingModel
-        );
+        return this.doUpdate({
+            tableViewModelMap: nextTableViewModelMap,
+            columnGroupModelMap: nextColumnGroupModelMap,
+            columnModelMap: nextColumnModelMap,
+            columnShareModelStorage: ColumnShareModelStorage.create(updatingColumnShareModels),
+            relationViewModelStorage: nextRelationViewModelStorage
+        });
     }
 
     private doUpdateTableViewModelsWithDeletingColumnGroup(previousModel: ColumnGroupModel) {
@@ -759,8 +766,7 @@ export default class ErdDocument {
         let hasChanged = false;
 
         // インデクスの更新
-        for (const entry of this.tableViewModelMap.entries()) {
-            const [tableId, tableViewModel] = entry;
+        for (const [tableId, tableViewModel] of this.tableViewModelMap.entries()) {
             const nextColumns = tableViewModel.tableModel.columns
                 .filter(column => (column.modelType === "single")
                     || (column.columnGroupId !== previousModel.columnGroupId)
@@ -935,18 +941,11 @@ export default class ErdDocument {
             nextColumnModelMap = this.columnModelMap;
         }
 
-        return new ErdDocument(
-            this.documentName,
-            this.erdSettingModel,
-            this.tableViewModelIds,
-            nextTableViewModelMap,
-            this.columnGroupModelMap,
-            nextColumnModelMap,
-            this.columnShareModelStorage,
-            this.relationViewModelStorage.updateRelationModel([updatingModel]),
-            this.memoViewModelStorage,
-            this.databaseSettingModel
-        );
+        return this.doUpdate({
+            tableViewModelMap: nextTableViewModelMap,
+            columnModelMap: nextColumnModelMap,
+            relationViewModelStorage: this.relationViewModelStorage.updateRelationModel([updatingModel])
+        });
     }
 
     public deleteRelation(relationId: string): ErdDocument {
@@ -955,18 +954,9 @@ export default class ErdDocument {
             return this;
         }
 
-        return new ErdDocument(
-            this.documentName,
-            this.erdSettingModel,
-            this.tableViewModelIds,
-            this.tableViewModelMap,
-            this.columnGroupModelMap,
-            this.columnModelMap,
-            this.columnShareModelStorage,
-            next,
-            this.memoViewModelStorage,
-            this.databaseSettingModel
-        );
+        return this.doUpdate({
+            relationViewModelStorage: next
+        });
     }
 
     public updateRelationLineModel(relationId: string, updatingModel: LineViewModel): ErdDocument {
@@ -975,18 +965,9 @@ export default class ErdDocument {
             return this;
         }
 
-        return new ErdDocument(
-            this.documentName,
-            this.erdSettingModel,
-            this.tableViewModelIds,
-            this.tableViewModelMap,
-            this.columnGroupModelMap,
-            this.columnModelMap,
-            this.columnShareModelStorage,
-            nextRelationStorage,
-            this.memoViewModelStorage,
-            this.databaseSettingModel
-        );
+        return this.doUpdate({
+            relationViewModelStorage: nextRelationStorage
+        });
     }
 
     /**
@@ -1072,18 +1053,10 @@ export default class ErdDocument {
             nextTableViewModelMap.set(tableId, updateTableView(currentModel));
         });
 
-        return new ErdDocument(
-            this.documentName,
-            this.erdSettingModel,
-            this.tableViewModelIds,
-            nextTableViewModelMap,
-            this.columnGroupModelMap,
-            this.columnModelMap,
-            this.columnShareModelStorage,
-            (nextRelationViewStorage != null) ? nextRelationViewStorage : this.relationViewModelStorage,
-            this.memoViewModelStorage,
-            this.databaseSettingModel
-        );
+        return this.doUpdate({
+            tableViewModelMap: nextTableViewModelMap,
+            relationViewModelStorage: (nextRelationViewStorage != null) ? nextRelationViewStorage : this.relationViewModelStorage
+        });
     }
 
     /**
@@ -1133,18 +1106,9 @@ export default class ErdDocument {
             return this;
         }
 
-        return new ErdDocument(
-            this.documentName,
-            this.erdSettingModel,
-            this.tableViewModelIds,
-            this.tableViewModelMap,
-            this.columnGroupModelMap,
-            this.columnModelMap,
-            this.columnShareModelStorage,
-            this.relationViewModelStorage,
-            nextMemoViewStorage,
-            this.databaseSettingModel
-        );
+        return this.doUpdate({
+            memoViewModelStorage: nextMemoViewStorage
+        });
     }
 
     /**
@@ -1164,18 +1128,9 @@ export default class ErdDocument {
             return this;
         }
 
-        return new ErdDocument(
-            this.documentName,
-            this.erdSettingModel,
-            this.tableViewModelIds,
-            this.tableViewModelMap,
-            this.columnGroupModelMap,
-            this.columnModelMap,
-            this.columnShareModelStorage,
-            this.relationViewModelStorage,
-            nextMemoViewStorage,
-            this.databaseSettingModel
-        );
+        return this.doUpdate({
+            memoViewModelStorage: nextMemoViewStorage
+        });
     }
 
     /**
@@ -1189,18 +1144,9 @@ export default class ErdDocument {
             return this;
         }
 
-        return new ErdDocument(
-            updating,
-            this.erdSettingModel,
-            this.tableViewModelIds,
-            this.tableViewModelMap,
-            this.columnGroupModelMap,
-            this.columnModelMap,
-            this.columnShareModelStorage,
-            this.relationViewModelStorage,
-            this.memoViewModelStorage,
-            this.databaseSettingModel
-        );
+        return this.doUpdate({
+            documentName: updating
+        });
     }
 
     /**
@@ -1214,18 +1160,9 @@ export default class ErdDocument {
             return this;
         }
 
-        return new ErdDocument(
-            this.documentName,
-            updatingSetting,
-            this.tableViewModelIds,
-            this.tableViewModelMap,
-            this.columnGroupModelMap,
-            this.columnModelMap,
-            this.columnShareModelStorage,
-            this.relationViewModelStorage,
-            this.memoViewModelStorage,
-            this.databaseSettingModel
-        );
+        return this.doUpdate({
+            erdSettingModel: updatingSetting
+        });
     }
 
     /**
@@ -1248,18 +1185,13 @@ export default class ErdDocument {
             [...this.relationViewModelStorage.getModels(), ...relationViewModels]
         )
 
-        return new ErdDocument(
-            this.documentName,
-            this.erdSettingModel,
-            nextTableViewModelIds,
-            nextTableViewModelMap,
-            this.columnGroupModelMap,
-            nextColumnModelMap,
-            nextColumnShareModelStorage,
-            nextRelationViewModelStorage,
-            this.memoViewModelStorage,
-            this.databaseSettingModel
-        );
+        return this.doUpdate({
+            tableViewModelIds: nextTableViewModelIds,
+            tableViewModelMap: nextTableViewModelMap,
+            columnModelMap: nextColumnModelMap,
+            columnShareModelStorage: nextColumnShareModelStorage,
+            relationViewModelStorage: nextRelationViewModelStorage
+        });
     }
 
     public toJSON(): Record<string, unknown> {
