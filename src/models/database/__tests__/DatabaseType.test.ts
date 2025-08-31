@@ -5,10 +5,11 @@ describe('Database', () => {
     describe('constructor', () => {
         test('should create with all required properties', () => {
             const indexSupport = new TableIndexSupport({ indexOptions: ['UNIQUE'], indexTypes: ['BTREE'] });
-            const database = new Database('postgres', 'PostgreSQL', indexSupport, { supportArray: true });
+            const database = new Database('postgres', 'PostgreSQL', true, indexSupport, { supportArray: true });
 
             expect(database.databaseType).toBe('postgres');
             expect(database.name).toBe('PostgreSQL');
+            expect(database.supportsSchema).toBe(true);
             expect(database.tableIndexSupport).toBe(indexSupport);
         });
     });
@@ -50,5 +51,20 @@ describe('databases constant', () => {
         expect(mysql.tableIndexSupport.indexTypes).toContain('BTREE');
         expect(mysql.tableIndexSupport.indexTypes).toContain('HASH');
         expect(mysql.tableIndexSupport.nullsOrder).toBe(false);
+    });
+
+    test('postgres should support schema', () => {
+        const postgres = Database.get("postgres");
+        expect(postgres.supportsSchema).toBe(true);
+    });
+
+    test('mysql should not support schema', () => {
+        const mysql = Database.get("mysql");
+        expect(mysql.supportsSchema).toBe(false);
+    });
+
+    test('ms_sqlserver should support schema', () => {
+        const sqlServer = Database.get("ms_sqlserver");
+        expect(sqlServer.supportsSchema).toBe(true);
     });
 });

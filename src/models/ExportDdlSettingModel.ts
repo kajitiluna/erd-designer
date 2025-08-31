@@ -8,6 +8,7 @@ type ExportDdlSettingModelOptions = {
     withIndex?: boolean,
     withForeignKey?: boolean,
     withComment?: boolean,
+    withSchema?: boolean
 };
 
 export default class ExportDdlSettingModel {
@@ -17,15 +18,18 @@ export default class ExportDdlSettingModel {
     public readonly withIndex: boolean;
     public readonly withForeignKey: boolean;
     public readonly withComment: boolean;
+    public readonly withSchema: boolean;
 
     constructor({
-        fileName, withTable = true, withIndex = true, withForeignKey = true, withComment = true
+        fileName, withTable = true, withIndex = true, withForeignKey = true, withComment = true,
+        withSchema = true
     }: ExportDdlSettingModelOptions) {
         this.fileName = fileName;
         this.withTable = withTable;
         this.withIndex = withIndex;
         this.withForeignKey = withForeignKey;
         this.withComment = withComment;
+        this.withSchema = withSchema;
     }
 
     public equals(other: ExportDdlSettingModel): boolean {
@@ -45,6 +49,9 @@ export default class ExportDdlSettingModel {
         if (this.withComment !== other.withComment) {
             return false;
         }
+        if (this.withSchema !== other.withSchema) {
+            return false;
+        }
 
         return true;
     }
@@ -62,10 +69,11 @@ export default class ExportDdlSettingModel {
         const withIndex = ("withIndex" in obj) ? obj.withIndex as boolean : true;
         const withForeignKey = ("withForeignKey" in obj) ? obj.withForeignKey as boolean : true;
         const withComment = ("withComment" in obj) ? obj.withComment as boolean : true;
+        const withSchema = ("withSchema" in obj) ? obj.withSchema as boolean : false;
 
         return new ExportDdlSettingModel({
             fileName: obj.fileName as string,
-            withTable, withIndex, withForeignKey, withComment
+            withTable, withIndex, withForeignKey, withComment, withSchema
         });
     }
 }

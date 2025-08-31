@@ -6,6 +6,7 @@ import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
 import RelationModel from "~/models/database/RelationModel";
+import DbSchemaConfig from "~/models/DbSchemaConfig";
 import ErdDocument from "~/models/ErdDocument";
 import ErdSettingModel from "~/models/ErdSettingModel";
 import LineViewModel, { OrthogonalDirection } from "~/models/LineViewModel";
@@ -69,6 +70,15 @@ export class ErdDocumentsHolder {
         nextHistory.unshift(next);
 
         this.updateDocument(nextHistory, 0);
+    }
+
+    /**
+     * DBスキーマ設定を更新する。
+     * 
+     * @param next 更新後の状態
+     */
+    public updateSchema(next: DbSchemaConfig) {
+        this.doUpdate(previous => previous.updateSchema(next));
     }
 
     /**

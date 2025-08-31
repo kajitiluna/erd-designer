@@ -26,7 +26,9 @@ const ExportDdlView = ({ documentsHolder, isViewOpen, onClose }: ExportDdlViewPr
     const [withIndex, setWithIndex] = useState<boolean>(exportSetting.withIndex);
     const [withForeignKey, setWithForeignKey] = useState<boolean>(exportSetting.withForeignKey);
     const [withComment, setWithComment] = useState<boolean>(exportSetting.withComment);
+    const [withSchema, setWithSchema] = useState<boolean>(exportSetting.withSchema);
 
+    const database = erdDocument.getDatabase();
     const invalidMessages = initInvalidMessages(erdDocument);
 
     const handleExport = () => {
@@ -34,7 +36,11 @@ const ExportDdlView = ({ documentsHolder, isViewOpen, onClose }: ExportDdlViewPr
             return;
         }
 
-        const ddlQuery = createDdl(erdDocument, { withTable, withIndex, withForeignKey, withComment });
+        const ddlOption = {
+            withTable, withIndex, withForeignKey, withComment,
+            withSchema: withSchema && database.supportsSchema
+        };
+        const ddlQuery = createDdl(erdDocument, ddlOption);
         const ddlFileName = (fileName.toLowerCase().endsWith(".sql") || fileName.toLowerCase().endsWith(".ddl"))
             ? fileName : `${fileName}.sql`;
         const downloadContent = new Blob([ddlQuery], { type: 'text/plain' });
@@ -43,7 +49,7 @@ const ExportDdlView = ({ documentsHolder, isViewOpen, onClose }: ExportDdlViewPr
         download(ddlFileName, downloadContent);
 
         const nextExportSetting = new ExportDdlSettingModel(
-            { fileName, withTable, withIndex, withForeignKey, withComment }
+            { fileName, withTable, withIndex, withForeignKey, withComment, withSchema }
         );
         // 設定が変更された場合のみ保存する
         if (nextExportSetting.equals(exportSetting) === false) {
@@ -80,6 +86,13 @@ const ExportDdlView = ({ documentsHolder, isViewOpen, onClose }: ExportDdlViewPr
                         <Checkbox checked={withComment === true}
                             onChange={(event) => setWithComment(event.target.checked)} />} />
                 </Grid>
+                {(database.supportsSchema) && (
+                    <Grid size={{ md: 3, sm: 6 }}>
+                        <FormControlLabel label="Schemas" control={
+                            <Checkbox checked={withSchema === true}
+                                onChange={(event) => setWithSchema(event.target.checked)} />} />
+                    </Grid>
+                )}
             </Grid>
         </Paper>
     );
@@ -97,7 +110,9 @@ const ExportDdlView = ({ documentsHolder, isViewOpen, onClose }: ExportDdlViewPr
                     {(invalidMessages.length > 0) && (
                         <Alert severity="error">
                             {invalidMessages.map((message, index) => (
-                                <Typography key={`export-ddl_message-${index}`} variant="body1">{message}</Typography>
+                                <Typography key={`export-ddl_message-${index}`} variant="body1">
+                                    {message}
+                                </Typography>
                             ))}
                         </Alert>
                     )}
