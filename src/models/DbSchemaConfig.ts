@@ -26,7 +26,24 @@ class DbSchemaConfig {
     }
 
     public findSchema(schemaId: string): DbSchemaModel | null {
-        return this.schemaMap.get(schemaId) || null;
+        if (schemaId === "") {
+            return this.findDefaultSchema();
+        }
+
+        const schema = this.schemaMap.get(schemaId);
+        if (schema != null) {
+            return schema;
+        }
+
+        return this.findDefaultSchema();
+    }
+
+    private findDefaultSchema(): DbSchemaModel | null {
+        if (this.defaultSchemaId === "") {
+            return null;
+        }
+
+        return this.schemaMap.get(this.defaultSchemaId) || null;
     }
 
     public hasSchemas(): boolean {

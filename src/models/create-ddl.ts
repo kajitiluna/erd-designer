@@ -1,6 +1,7 @@
 import { Database, DatabaseType } from "~/models/database";
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
+import DbSchemaModel from "~/models/database/DbSchemaModel";
 import RelationModel from "~/models/database/RelationModel";
 import { overrideColumnName } from "~/models/database/support";
 import TableModel from "~/models/database/TableModel";
@@ -12,6 +13,7 @@ type DdlOption = {
     withIndex: boolean,
     withForeignKey: boolean,
     withComment: boolean,
+    withSchema: boolean
 };
 
 export const createDdl = (erdDocument: ErdDocument, option: DdlOption) => {
@@ -62,12 +64,34 @@ class DatabaseDdlCreator {
     }
 
     public create(erdDocument: ErdDocument, option: DdlOption) {
+        const schemaQueries = this.createSchemaDdl(erdDocument, option);
         const tableQueries = this.createTableDdl(erdDocument, option);
         const indexQueries = this.createIndexDdl(erdDocument, option);
         const foreignKeyQueries = this.createForeignKeyDdl(erdDocument, option);
         const commentQueries = this.createCommentDdl(erdDocument, option);
 
-        return [...tableQueries, ...indexQueries, ...foreignKeyQueries, ...commentQueries].join("\n");
+        return [
+            ...schemaQueries, ...tableQueries, ...indexQueries,
+            ...foreignKeyQueries, ...commentQueries
+        ].join("\n");
+    }
+
+    createSchemaDdl(erdDocument: ErdDocument, option: DdlOption): string[] {
+        if (option.withSchema === false) {
+            return [];
+        }
+
+        const database = erdDocument.getDatabase();
+        if (!database.supportsSchema) {
+            return [];
+        }
+
+        const schemaModels = erdDocument.schemaConfig.getSchemas();
+        const queries = schemaModels.map(schema => {
+            return `CREATE SCHEMA ${this.escape(schema.schemaName)};`;
+        });
+
+        return (queries.length > 0) ? ["/* create schemas. */", ...queries, "\n"] : [];
     }
 
     createTableDdl(erdDocument: ErdDocument, option: DdlOption): string[] {
@@ -105,14 +129,21 @@ class DatabaseDdlCreator {
                 columnQueries.push(primaryKeyQuery);
             }
 
-            return `${this.tableQuery(tableModel, columnQueries, option)};\n`;
+            const schemaModel = erdDocument.findSchema(tableModel.schemaId)
+
+            return `${this.tableQuery(tableModel, schemaModel, columnQueries, option)};\n`;
         });
 
         return (queries.length > 0) ? ["/* create tables. */", ...queries, ""] : [];
     }
 
-    private tableQuery(tableModel: TableModel, columnQueries: string[], option: DdlOption) {
-        const query = `CREATE TABLE ${this.escape(tableModel.physicalName)} (\n    ${columnQueries.join(",\n    ")}\n)`;
+    private tableQuery(
+        tableModel: TableModel, schemaModel: DbSchemaModel | null, columnQueries: string[], option: DdlOption
+    ) {
+        const tableName = this.escape(tableModel.physicalName);
+        const schemaPrefix = (schemaModel != null) ? `${this.escape(schemaModel.schemaName)}.` : "";
+        const query = `CREATE TABLE ${schemaPrefix}${tableName} (\n    ${columnQueries.join(",\n    ")}\n)`;
+
         return this.tableQueryWithOption(query, tableModel, option);
     }
 
@@ -145,19 +176,20 @@ class DatabaseDdlCreator {
         return this.columnQueryWithOption(query, overrideName, option);
     }
 
-    createIndexDdl(erViewModel: ErdDocument, option: DdlOption): string[] {
+    createIndexDdl(erdDocument: ErdDocument, option: DdlOption): string[] {
         if (option.withIndex === false) {
             return [];
         }
 
-        const tableViewModels = erViewModel.getTableViewModels();
+        const tableViewModels = erdDocument.getTableViewModels();
         const queries = tableViewModels.flatMap(tableViewModel => {
             const tableModel: TableModel = tableViewModel.tableModel;
+            const schemaModel = erdDocument.findSchema(tableModel.schemaId);
 
             return tableModel.tableIndexModels.map(indexModel => {
                 const columnQueries = indexModel.indexColumnModels.map(indexColumn => {
-                    const columnModel = erViewModel.findColumnModel(indexColumn.columnModelId) as ColumnModel;
-                    const columnShareModel = erViewModel.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
+                    const columnModel = erdDocument.findColumnModel(indexColumn.columnModelId) as ColumnModel;
+                    const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
 
                     const overrideName = overrideColumnName(columnModel, columnShareModel);
                     const columnName = this.escape(overrideName.physicalName);
@@ -172,7 +204,8 @@ class DatabaseDdlCreator {
                 const indexOption = (indexOptionValues.length > 0) ? `${indexOptionValues.join(" ")} ` : ""
                 const indexTypeQuery = indexModel.indexType ? ` USING ${indexModel.indexType}` : "";
                 const indexName = this.escape(indexModel.physicalName);
-                const tableName = this.escape(tableModel.physicalName);
+                const tableName = ((schemaModel != null) ? `${this.escape(schemaModel.schemaName)}.` : "")
+                    + this.escape(tableModel.physicalName);
 
                 return this.indexQuery({ indexOption, indexName, tableName, indexTypeQuery, columnQueries });
             });
@@ -181,27 +214,30 @@ class DatabaseDdlCreator {
         return (queries.length > 0) ? ["/* create indexes. */", ...queries, ""] : [];
     }
 
-    createForeignKeyDdl(erViewModel: ErdDocument, option: DdlOption) {
+    createForeignKeyDdl(erdDocument: ErdDocument, option: DdlOption) {
         if (option.withForeignKey === false) {
             return [];
         }
 
-        const relationViewModels = erViewModel.getRelationViewModels();
+        const relationViewModels = erdDocument.getRelationViewModels();
         const queries = relationViewModels.map(relationViewModel => {
             const relationModel: RelationModel = relationViewModel.relationModel;
 
-            const childTableViewModel = erViewModel.findTableViewModel(relationModel.childTableModelId) as TableViewModel;
+            const childTableViewModel = erdDocument.findTableViewModel(relationModel.childTableModelId) as TableViewModel;
             const childTableModel = childTableViewModel.tableModel;
-            const parentTableViewModel = erViewModel.findTableViewModel(relationModel.parentTableModelId) as TableViewModel;
+            const childSchema = erdDocument.findSchema(childTableModel.schemaId);
+
+            const parentTableViewModel = erdDocument.findTableViewModel(relationModel.parentTableModelId) as TableViewModel;
             const parentTableModel = parentTableViewModel.tableModel;
+            const parentSchema = erdDocument.findSchema(parentTableModel.schemaId);
 
             const pairColumnNames = relationModel.relationPairs.map(relationPair => {
-                const childColumnModel = erViewModel.findColumnModel(relationPair.childColumnModelId) as ColumnModel;
-                const childColumnShareModel = erViewModel.findColumnShareModel(childColumnModel.columnShareModelId) as ColumnShareModel;
+                const childColumnModel = erdDocument.findColumnModel(relationPair.childColumnModelId) as ColumnModel;
+                const childColumnShareModel = erdDocument.findColumnShareModel(childColumnModel.columnShareModelId) as ColumnShareModel;
 
-                const parentColumnModel = erViewModel.findColumnModel(relationPair.parentColumnModelId) as ColumnModel;
+                const parentColumnModel = erdDocument.findColumnModel(relationPair.parentColumnModelId) as ColumnModel;
                 const parentColumnShareModel = (parentColumnModel.columnShareModelId === childColumnModel.columnShareModelId)
-                    ? childColumnShareModel : erViewModel.findColumnShareModel(parentColumnModel.columnShareModelId) as ColumnShareModel;
+                    ? childColumnShareModel : erdDocument.findColumnShareModel(parentColumnModel.columnShareModelId) as ColumnShareModel;
 
                 const parentColumnName = overrideColumnName(parentColumnModel, parentColumnShareModel);
                 const childColumnName = overrideColumnName(childColumnModel, childColumnShareModel);
@@ -212,7 +248,8 @@ class DatabaseDdlCreator {
                 };
             });
 
-            const parentTableName = this.escape(parentTableModel.physicalName);
+            const parentTableName = ((parentSchema != null) ? `${this.escape(parentSchema.schemaName)}.` : "")
+                + this.escape(parentTableModel.physicalName);
             const alterQueries = [
                 `ADD FOREIGN KEY (${pairColumnNames.map(pair => pair.child).join(", ")})`,
                 `REFERENCES ${parentTableName} (${pairColumnNames.map(pair => pair.parent).join(", ")})`,
@@ -220,7 +257,8 @@ class DatabaseDdlCreator {
                 `ON DELETE ${relationModel.onDeleteAction}`
             ];
 
-            const childTableName = this.escape(childTableModel.physicalName);
+            const childTableName = ((childSchema != null) ? `${this.escape(childSchema.schemaName)}.` : "")
+                + this.escape(childTableModel.physicalName);
 
             return `ALTER TABLE ${childTableName}\n    ${alterQueries.join("\n    ")};\n`;
         });
@@ -433,6 +471,7 @@ const commentQueryForPostgres = (
     const tableViewModels = erdDocument.getTableViewModels();
     const queries = tableViewModels.flatMap(tableViewModel => {
         const tableModel: TableModel = tableViewModel.tableModel;
+        const schemaModel = erdDocument.findSchema(tableModel.schemaId);
 
         const commentQueries = erdDocument.toAllColumnModels(tableModel)
             .map(columnModel => {
@@ -441,7 +480,8 @@ const commentQueryForPostgres = (
                     return null;
                 }
 
-                const tableName = escape(tableModel.physicalName);
+                const tableName = ((schemaModel != null) ? `${escape(schemaModel.schemaName)}.` : "")
+                    + escape(tableModel.physicalName);
                 const overrideName = overrideColumnName(columnModel, columnShareModel);
                 const columnName = escape(overrideName.physicalName);
 
@@ -451,7 +491,8 @@ const commentQueryForPostgres = (
             .filter((comment): comment is string => (comment != null));
 
         if (tableModel.logicalName !== tableModel.physicalName) {
-            const tableName = escape(tableModel.physicalName);
+            const tableName = ((schemaModel != null) ? `${escape(schemaModel.schemaName)}.` : "")
+                + escape(tableModel.physicalName);
             commentQueries.unshift(`COMMENT ON TABLE ${tableName} IS '${escapeComment(tableModel.logicalName)}';`);
         }
 

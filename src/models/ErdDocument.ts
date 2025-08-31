@@ -150,10 +150,6 @@ export default class ErdDocument {
         return this.schemaConfig.findSchema(schemaId);
     }
 
-    public findDefaultSchema(): DbSchemaModel | null {
-        return this.findSchema("");
-    }
-
     public findTableViewModel(tableId: string): TableViewModel | null {
         const tableViewModel = this.tableViewModelMap.get(tableId);
         return tableViewModel ? tableViewModel : null;
