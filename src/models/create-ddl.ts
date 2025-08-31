@@ -129,7 +129,7 @@ class DatabaseDdlCreator {
                 columnQueries.push(primaryKeyQuery);
             }
 
-            const schemaModel = erdDocument.findSchema(tableModel.schemaId)
+            const schemaModel = erdDocument.findSchema(tableModel.schemaId);
 
             return `${this.tableQuery(tableModel, schemaModel, columnQueries, option)};\n`;
         });
