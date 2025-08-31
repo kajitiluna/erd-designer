@@ -1,6 +1,6 @@
-import TableModel from "~/models/database/TableModel";
 import ErdDocument from "~/models/ErdDocument";
-import TableViewModel from "~/models/TableViewModel";
+import DbSchemaModel from "~/models/database/DbSchemaModel";
+import TableModel from "~/models/database/TableModel";
 
 const createSpecification = (erdDocument: ErdDocument) => {
 
@@ -18,13 +18,23 @@ const createSpecification = (erdDocument: ErdDocument) => {
 };
 
 const initSheetNameMapping = (erdDocument: ErdDocument) => {
+    const defaultSchema = erdDocument.findDefaultSchema();
     const existedSheetNames = new Set<string>();
 
     return new Map(erdDocument.getTableViewModels()
         .map(tableView => {
             const tableModel = tableView.tableModel;
-            const defaultSheetName = (tableModel.physicalName.length > 30)
-                ? tableModel.physicalName.substring(0, 30) : tableModel.physicalName;
+            const schemaModel = erdDocument.findSchema(tableModel.schemaId);
+            const tableNameWithSchema = initTablePhysicalName(tableModel, schemaModel);
+
+            // デフォルトスキーマの場合は、シート名にスキーマ名を付与しない
+            const baseSheetName = (
+                ((defaultSchema == null) && (schemaModel == null))
+                || ((defaultSchema != null) && (defaultSchema.schemaId === schemaModel?.schemaId))
+            ) ? tableModel.physicalName : tableNameWithSchema;
+
+            const defaultSheetName = (baseSheetName.length > 30)
+                ? baseSheetName.substring(0, 30) : baseSheetName;
 
             let sheetName = defaultSheetName;
             if (existedSheetNames.has(sheetName)) {
@@ -35,15 +45,54 @@ const initSheetNameMapping = (erdDocument: ErdDocument) => {
 
             existedSheetNames.add(sheetName);
 
-            return [tableModel.physicalName, sheetName];
+            return [tableNameWithSchema, sheetName];
         })
     );
 };
 
-const sortTableViews = (tableViews: TableViewModel[]) => {
-    return [...tableViews].sort((first, second) =>
-        first.tableModel.physicalName.localeCompare(second.tableModel.physicalName));
+const sortTableViews = (erdDocument: ErdDocument) => {
+    const tableViews = erdDocument.getTableViewModels();
+    const defaultSchema = erdDocument.findDefaultSchema();
+
+    return tableViews.sort((first, second) => {
+        const firstSchema = erdDocument.findSchema(first.tableModel.schemaId);
+        const secondSchema = erdDocument.findSchema(second.tableModel.schemaId);
+
+        const firstSchemaIsDefault = (first.tableModel.schemaId === "")
+            || (firstSchema == null)
+            || (firstSchema.schemaId === defaultSchema?.schemaId);
+        const secondSchemaIsDefault = (second.tableModel.schemaId === "")
+            || (secondSchema == null)
+            || (secondSchema.schemaId === defaultSchema?.schemaId);
+
+        if ((first.tableModel.schemaId === second.tableModel.schemaId)
+            || (firstSchemaIsDefault && secondSchemaIsDefault)) {
+            return first.tableModel.physicalName.localeCompare(second.tableModel.physicalName);
+        }
+
+        if (firstSchemaIsDefault) {
+            return -1;
+        }
+        if (secondSchemaIsDefault) {
+            return 1;
+        }
+
+        const nameCompared = firstSchema.schemaName.localeCompare(secondSchema.schemaName);
+        if (nameCompared !== 0) {
+            return nameCompared;
+        }
+
+        return firstSchema.schemaId.localeCompare(secondSchema.schemaId);
+    });
 }
+
+const initTablePhysicalName = (tableModel: TableModel, schemaModel: DbSchemaModel | null) => {
+    if (schemaModel == null) {
+        return tableModel.physicalName;
+    }
+
+    return `${schemaModel.schemaName}.${tableModel.physicalName}`;
+};
 
 /**
  * テーブル一覧を出力するジェネレータを作成する。
@@ -52,12 +101,13 @@ const sortTableViews = (tableViews: TableViewModel[]) => {
  * @returns 
  */
 const initExportAllTablesGenerator = (erdDocument: ErdDocument) => function* () {
-    const tableViews = sortTableViews(erdDocument.getTableViewModels());
+    const tableViews = sortTableViews(erdDocument);
     for (const tableView of tableViews) {
         const tableModel = tableView.tableModel;
+        const schemaModel = erdDocument.findSchema(tableModel.schemaId);
 
         yield {
-            physicalName: tableModel.physicalName,
+            physicalName: initTablePhysicalName(tableModel, schemaModel),
             logicalName: tableModel.logicalName,
             description: tableModel.description
         };
@@ -71,7 +121,7 @@ const initExportAllTablesGenerator = (erdDocument: ErdDocument) => function* () 
  * @returns 
  */
 const initExportAllColumnsGenerator = (erdDocument: ErdDocument) => function* () {
-    const tableViews = sortTableViews(erdDocument.getTableViewModels());
+    const tableViews = sortTableViews(erdDocument);
     for (const tableView of tableViews) {
         const exportColumns = initExportColumnGenerator(erdDocument, tableView.tableModel)
 
@@ -80,6 +130,8 @@ const initExportAllColumnsGenerator = (erdDocument: ErdDocument) => function* ()
 };
 
 const initExportColumnGenerator = (erdDocument: ErdDocument, tableModel: TableModel) => function* () {
+    const schemaModel = erdDocument.findSchema(tableModel.schemaId);
+
     for (const columnModel of erdDocument.toAllColumnModels(tableModel)) {
         const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
         if (columnShareModel == null) {
@@ -89,7 +141,7 @@ const initExportColumnGenerator = (erdDocument: ErdDocument, tableModel: TableMo
         const parentRelation = erdDocument.findParentRelation(tableModel.tableModelId, columnModel.columnModelId);
 
         yield {
-            physicalTableName: tableModel.physicalName,
+            physicalTableName: initTablePhysicalName(tableModel, schemaModel),
             logicalTableName: tableModel.logicalName,
             physicalColumnName: columnShareModel.physicalName,
             logicalColumnName: columnShareModel.logicalName,
@@ -138,14 +190,16 @@ const initForeignRelation = (erdDocument: ErdDocument, parentRelation: ParentRel
  * @returns 
  */
 const initExportTableSpecsGenerator = (erdDocument: ErdDocument) => function* () {
-    const tableViews = sortTableViews(erdDocument.getTableViewModels());
+    const tableViews = sortTableViews(erdDocument);
     for (const tableView of tableViews) {
         const tableModel = tableView.tableModel;
+        const schemaModel = erdDocument.findSchema(tableModel.schemaId);
+
         const exportColumns = initExportColumnGenerator(erdDocument, tableModel)
         const exportTableIndexes = initExportTableIndexesGenerator(erdDocument, tableModel);
 
         yield {
-            physicalName: tableModel.physicalName,
+            physicalName: initTablePhysicalName(tableModel, schemaModel),
             logicalName: tableModel.logicalName,
             description: tableModel.description,
             exportColumns: exportColumns,
