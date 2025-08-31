@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '.github/**'
+      - '.vscode/**'
+      - '*.md'
+      - 'LICENSE'
   workflow_dispatch:
 
 jobs:
