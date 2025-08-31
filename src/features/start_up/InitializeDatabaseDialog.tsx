@@ -8,6 +8,7 @@ import { Database, DatabaseType } from "~/models/database";
 import ErdDocument from "~/models/ErdDocument";
 import DatabaseSettingModel from "~/models/DatabaseSettingModel";
 import ErdSettingModel from "~/models/ErdSettingModel";
+import DbSchemaConfig from "~/models/DbSchemaConfig";
 
 type InitializeDatabaseDialogProps = {
     isOpen: boolean,
@@ -35,12 +36,14 @@ const InitializeDatabaseDialog = ({ isOpen, onCreate, onClose }: InitializeDatab
         }
 
         const databaseSetting = DatabaseSettingModel.create(databaseType)
-        const setting = ErdSettingModel.create(documentName);
+        const erdSetting = ErdSettingModel.create(documentName);
+        const schemaConfig = DbSchemaConfig.create();
 
         const erdDocument = ErdDocument.create({
             documentName: documentName,
-            erdSettingModel: setting,
-            databaseSettingModel: databaseSetting
+            erdSettingModel: erdSetting,
+            databaseSettingModel: databaseSetting,
+            schemaConfig: schemaConfig
         });
 
         onCreate(erdDocument);

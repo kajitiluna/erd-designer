@@ -38,7 +38,7 @@ class DbSchemaConfig {
         return this.findDefaultSchema();
     }
 
-    private findDefaultSchema(): DbSchemaModel | null {
+    public findDefaultSchema(): DbSchemaModel | null {
         if (this.defaultSchemaId === "") {
             return null;
         }
