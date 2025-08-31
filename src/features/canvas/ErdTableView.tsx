@@ -55,9 +55,9 @@ const ErdTableView = ({ tableViewModel, visible = true, onEditAction, onDragActi
     const [openDeletingDialog, setOpenDeleteDialog] = React.useState(false);
 
     const erdDocument = documentsHolder.current();
-    const tableModel = tableViewModel.tableModel;
 
     const tableContentCache = React.useMemo(() => {
+        const tableModel = tableViewModel.tableModel;
         const allColumns = erdDocument.toAllColumnModels(tableModel);
         const tableRows = (allColumns.length > 0)
             ? allColumns.map(columnModel => initTableColumn(columnModel, tableModel, erdDocument, selectState))
@@ -66,7 +66,7 @@ const ErdTableView = ({ tableViewModel, visible = true, onEditAction, onDragActi
         return (
             <>
                 <DescriptionTooltip title={tableModel.description} placement="top-end">
-                    <Box sx={HEADER_STYLE}>{tableModel.displayName(erdDocument.getDisplayStyle())}</Box>
+                    <Box sx={HEADER_STYLE}>{initDisplayTableName(erdDocument, tableModel)}</Box>
                 </DescriptionTooltip>
                 <Box sx={BODY_STYLE}>
                     <TableContainer>
@@ -112,6 +112,17 @@ const ErdTableView = ({ tableViewModel, visible = true, onEditAction, onDragActi
     ]);
 
     return viewCache;
+};
+
+const initDisplayTableName = (erdDocument: ErdDocument, tableModel: TableModel) => {
+    const dbSchema = erdDocument.findSchema(tableModel.schemaId);
+    const displayStyle = erdDocument.getDisplayStyle();
+
+    const physicalName = (dbSchema != null)
+        ? `${dbSchema.schemaName}.${tableModel.physicalName}`
+        : tableModel.physicalName;
+
+    return displayStyle.displayName(physicalName, tableModel.logicalName);
 };
 
 const HEADER_STYLE = {

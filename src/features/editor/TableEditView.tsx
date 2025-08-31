@@ -1,11 +1,17 @@
 import React from "react";
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Stack, Tab, Tabs, TextField } from "@mui/material";
+import {
+    Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
+    FormControl, InputLabel, MenuItem, Select, SelectChangeEvent, Stack, Tab, Tabs, TextField
+} from "@mui/material";
 
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ColumnViewTable from "~/features/editor/ColumnViewTable";
 import IndexViewTable from "~/features/editor/IndexViewTable";
-import { ColumnWrapModel, initHandleChangeWithSyncPhysicalName, initHandleCloseDialog, initHandleEnterKeyDown } from "~/features/editor/support";
+import {
+    ColumnWrapModel, initHandleChangeWithSyncPhysicalName,
+    initHandleCloseDialog, initHandleEnterKeyDown
+} from "~/features/editor/support";
 import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import ColumnModel from "~/models/database/ColumnModel";
@@ -28,6 +34,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
     const [columnShareModelStorage, setColumnShareModelStorage] = React.useState(erdDocument.getColumnShareModelStorage());
 
     const tableModel: TableModel = tableViewModel.tableModel;
+    const [schemaId, setSchemaId] = React.useState<string>(tableModel.schemaId);
     const [physicalTableName, setPhysicalTableName] = React.useState<string>(tableModel.physicalName);
     const [logicalTableName, setLogicalTableName] = React.useState<string>(tableModel.logicalName);
     const [columnWrapModels, setColumnWrapModels] = React.useState<ColumnWrapModel[]>(
@@ -97,6 +104,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             tableModelId: tableModel.tableModelId,
             physicalName: physicalTableName,
             logicalName: logicalTableName,
+            schemaId: schemaId,
             columns: columns,
             tableIndexModels: tableIndexModels
                 .map(tableIndexModel => new TableIndexModel({
@@ -119,6 +127,37 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
 
         onClose();
     };
+
+    const database = erdDocument.getDatabase();
+    const schemaConfig = erdDocument.schemaConfig;
+    const handleChangeSchema = (event: SelectChangeEvent) => {
+        const nextValue = event.target.value;
+        setSchemaId(nextValue);
+    };
+
+    const definitionPanel = (
+        <Stack direction="row" spacing={2}>
+            {(database.supportsSchema && schemaConfig.hasSchemas()) && (
+                <FormControl fullWidth sx={{ flex: 2 }}>
+                    <InputLabel id="label-db-schema">Schema</InputLabel>
+                    <Select labelId="label-db-schema" label="Schema"
+                        value={schemaId} onChange={handleChangeSchema}>
+                        <MenuItem value="">(Default)</MenuItem>
+                        {schemaConfig.getSchemas().map(schema => (
+                            <MenuItem key={`table-schema_${schema.schemaId}`} value={schema.schemaId}>
+                                {schema.schemaName}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
+            )}
+            <TableNamePanel label="PhysicalName" value={physicalTableName}
+                setValue={handleChangePhysicalName} onEnterAction={handleCompleted} />
+            <TableNamePanel label="LogicalName" value={logicalTableName}
+                setValue={event => setLogicalTableName(event.target.value)}
+                onEnterAction={handleCompleted} />
+        </Stack>
+    );
 
     const isChildRelation = (columnModelId: string) =>
         erdDocument.inChildRelation(tableModel.tableModelId, columnModelId);
@@ -170,13 +209,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
                 <DialogContent>
                     <Stack spacing={3}>
                         <Divider />
-                        <Stack direction="row" spacing={2}>
-                            <TableNamePanel label="PhysicalName" value={physicalTableName}
-                                setValue={handleChangePhysicalName} onEnterAction={handleCompleted} />
-                            <TableNamePanel label="LogicalName" value={logicalTableName}
-                                setValue={event => setLogicalTableName(event.target.value)}
-                                onEnterAction={handleCompleted} />
-                        </Stack>
+                        {definitionPanel}
                         {tabPanel}
                         <TextField variant="outlined"
                             id="description" label="Description" multiline rows={3}
@@ -226,7 +259,7 @@ const TableNamePanel = ({ label, value, setValue, onEnterAction = () => { } }: T
     const handleKeyDown = initHandleEnterKeyDown(onEnterAction);
 
     return (
-        <TextField fullWidth required variant="outlined"
+        <TextField fullWidth required variant="outlined" sx={{ flex: 5 }}
             label={label} value={value} onChange={setValue} onKeyDown={handleKeyDown} />
     );
 };

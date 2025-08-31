@@ -6,6 +6,7 @@ import { Database } from '~/models/database';
 import ColumnGroupModel from '~/models/database/ColumnGroupModel';
 import ColumnModel from '~/models/database/ColumnModel';
 import ColumnShareModel from '~/models/database/ColumnShareModel';
+import DbSchemaModel from '~/models/database/DbSchemaModel';
 import DisplayStyle from '~/models/database/DisplayStyle';
 import RelationModel from '~/models/database/RelationModel';
 import RelationPair from '~/models/database/RelationPair';
@@ -138,6 +139,19 @@ export default class ErdDocument {
 
     public getDisplayStyle(): DisplayStyle {
         return this.erdSettingModel.displayStyle;
+    }
+
+    public findSchema(schemaId: string): DbSchemaModel | null {
+        const database = this.getDatabase();
+        if (!database.supportsSchema) {
+            return null;
+        }
+
+        return this.schemaConfig.findSchema(schemaId);
+    }
+
+    public findDefaultSchema(): DbSchemaModel | null {
+        return this.findSchema("");
     }
 
     public findTableViewModel(tableId: string): TableViewModel | null {

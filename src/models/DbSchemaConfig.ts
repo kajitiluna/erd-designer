@@ -29,6 +29,10 @@ class DbSchemaConfig {
         return this.schemaMap.get(schemaId) || null;
     }
 
+    public hasSchemas(): boolean {
+        return this.schemaIds.length > 0;
+    }
+
     public getSchemas(): DbSchemaModel[] {
         return this.schemaIds.map(id => this.schemaMap.get(id)!);
     }
