@@ -1,5 +1,5 @@
-import { SortOrderType } from "~/models/database";
 import { TableIndexType } from "~/models/database/TableIndexSupport";
+import { SortOrderType } from "~/models/database/ValueType";
 
 export type TableListSpecGenerator = Generator<TableListSpec, void, unknown>
 type TableListSpec = {

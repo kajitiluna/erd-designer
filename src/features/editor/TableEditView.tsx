@@ -20,6 +20,7 @@ import TableIndexModel from "~/models/database/TableIndexModel";
 import TableModel, { ColumnModelType } from "~/models/database/TableModel";
 import ErdDocument from "~/models/ErdDocument";
 import TableViewModel from "~/models/TableViewModel";
+import TableUniqueKeysModel from "~/models/database/TableUniqueKeysModel";
 
 type TableEditViewProps = {
     isOpen: boolean,
@@ -31,16 +32,19 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const erdDocument: ErdDocument = documentsHolder.current();
 
-    const [columnShareModelStorage, setColumnShareModelStorage] = React.useState(erdDocument.getColumnShareModelStorage());
+    const [columnShareModelStorage, setColumnShareModelStorage]
+        = React.useState(erdDocument.getColumnShareModelStorage());
 
     const tableModel: TableModel = tableViewModel.tableModel;
     const [schemaId, setSchemaId] = React.useState<string>(tableModel.schemaId);
     const [physicalTableName, setPhysicalTableName] = React.useState<string>(tableModel.physicalName);
     const [logicalTableName, setLogicalTableName] = React.useState<string>(tableModel.logicalName);
-    const [columnWrapModels, setColumnWrapModels] = React.useState<ColumnWrapModel[]>(
-        initColumnWrapModels(erdDocument, tableModel)
-    );
-    const [tableIndexModels, setTableIndexModels] = React.useState<TableIndexModel[]>([...tableModel.tableIndexModels]);
+    const [columnWrapModels, setColumnWrapModels]
+        = React.useState<ColumnWrapModel[]>(initColumnWrapModels(erdDocument, tableModel));
+    const [uniqueKeysModels, setUniqueKeysModels]
+        = React.useState<TableUniqueKeysModel[]>([...tableModel.uniqueKeysModels]);
+    const [tableIndexModels, setTableIndexModels]
+        = React.useState<TableIndexModel[]>([...tableModel.tableIndexModels]);
     const [description, setDescription] = React.useState<string>(tableModel.description);
 
     const [tabIndex, setTabIndex] = React.useState<number>(0);
@@ -96,9 +100,12 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
         const allColumnModelIds = new Set(columnWrapModels
             .flatMap(wrapModel => (wrapModel.modelType === "single")
                 ? [wrapModel.columnModel.columnModelId]
-                : wrapModel.columnGroupModel.columnModelIds
-            )
-        );
+                : wrapModel.columnGroupModel.columnModelIds));
+
+        const updatedUniqueKeys = TableUniqueKeysModel.filterColumns(
+            uniqueKeysModels, column => allColumnModelIds.has(column.columnModelId));
+        const updatedTableIndex = TableIndexModel.filterColumns(
+            tableIndexModels, column => allColumnModelIds.has(column.columnModelId));
 
         const nextTableModel = new TableModel({
             tableModelId: tableModel.tableModelId,
@@ -106,13 +113,8 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             logicalName: logicalTableName,
             schemaId: schemaId,
             columns: columns,
-            tableIndexModels: tableIndexModels
-                .map(tableIndexModel => new TableIndexModel({
-                    ...tableIndexModel,
-                    indexColumnModels: tableIndexModel.indexColumnModels
-                        .filter(model => allColumnModelIds.has(model.columnModelId))
-                }))
-                .filter(tableIndexModel => tableIndexModel.indexColumnModels.length > 0),
+            uniqueKeysModels: updatedUniqueKeys.tableUniqueKeysModels,
+            tableIndexModels: updatedTableIndex.tableIndexModels,
             description: description
         });
         const nextTableViewModel = new TableViewModel({
@@ -175,6 +177,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
         return (parentColumnModel.columnShareModelId === columnModel.columnShareModelId);
     };
 
+    // TODO 複合一意キー指定
     const tabPanel = (<>
         <Tabs value={tabIndex} onChange={(_, newValue) => setTabIndex(newValue)}>
             <Tab label="Column" />

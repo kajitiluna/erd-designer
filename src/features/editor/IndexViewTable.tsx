@@ -18,13 +18,14 @@ import PrimaryKeyIcon from "~/components/icons/PrimaryKeyIcon";
 import ForeignKeyIcon from "~/components/icons/ForeignKeyIcon";
 import EdgedIconButton from "~/components/EdgedIconButton";
 import ColumnModel from "~/models/database/ColumnModel";
-import TableIndexModel, { IndexColumnModel, NullsOrderType, SortOrderType } from "~/models/database/TableIndexModel";
+import TableIndexModel, { IndexColumnModel } from "~/models/database/TableIndexModel";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import TableIndexSupport, { TableIndexOption, TableIndexType } from "~/models/database/TableIndexSupport";
 import { ColumnWrapModel, initHandleChangePhysicalName, initHandleCloseDialog, initHandleEnterKeyDown, SELECTED_CELL_COLOR } from "~/features/editor/support";
 import ColumnShareModel from '~/models/database/ColumnShareModel';
 import { overrideColumnName } from '~/models/database/support';
 import { Database } from '~/models/database';
+import { NullsOrderType, SortOrderType } from '~/models/database/ValueType';
 
 type IndexViewTableProps = {
     database: Database,

@@ -1,9 +1,7 @@
 import { TableIndexOption, TableIndexType } from "~/models/database/TableIndexSupport";
+import { NullsOrderType, SortOrderType } from "~/models/database/ValueType";
 import { PropertyNotExistsError } from "~/models/exceptions";
 import { toObjects } from "~/models/util";
-
-export type SortOrderType = "ASC" | "DESC" | "";
-export type NullsOrderType = "FIRST" | "LAST" | "";
 
 type TableIndexModelOptions = {
     tableIndexModelId: string,
@@ -41,6 +39,34 @@ export default class TableIndexModel {
         this.indexType = indexType;
         this.clustered = clustered;
         this.description = description;
+    }
+
+    public static filterColumns(
+        indexModels: TableIndexModel[] | readonly TableIndexModel[],
+        filterCondition: (column: IndexColumnModel) => boolean
+    ): { tableIndexModels: TableIndexModel[], hasChanged: boolean } {
+        let hasChanged = false;
+
+        const nextIndexModels = indexModels.flatMap(indexModel => {
+            const nextColumns = indexModel.indexColumnModels.filter(filterCondition);
+            if (nextColumns.length === indexModel.indexColumnModels.length) {
+                return [indexModel];
+            }
+
+            hasChanged = true;
+            if (nextColumns.length === 0) {
+                return [];
+            }
+
+            return [
+                new TableIndexModel({
+                    ...indexModel,
+                    indexColumnModels: nextColumns
+                })
+            ];
+        });
+
+        return { tableIndexModels: nextIndexModels, hasChanged };
     }
 
     public toJSON(): Record<string, unknown> {

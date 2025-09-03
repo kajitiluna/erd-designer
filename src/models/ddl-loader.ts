@@ -6,8 +6,7 @@ import { Parser as MsSqlServerParser } from "node-sql-parser/build/transactsql";
 import { Alter, AST, Create, Parser, ValueExpr } from "node-sql-parser";
 
 import {
-    DatabaseType, findDatabaseColumns, IndexColumnModel,
-    NullsOrderType, SortOrderType, TableReferenceActionType
+    DatabaseType, findDatabaseColumns, IndexColumnModel, TableReferenceActionType
 } from "~/models/database";
 import ErdDocument from "~/models/ErdDocument";
 import { TableIndexOption, TableIndexType } from "~/models/database/TableIndexSupport";
@@ -18,6 +17,7 @@ import TableIndexModel from '~/models/database/TableIndexModel';
 import TableModel, { ColumnModelType } from '~/models/database/TableModel';
 import RelationPair from '~/models/database/RelationPair';
 import RelationModel from '~/models/database/RelationModel';
+import { NullsOrderType, SortOrderType } from '~/models/database/ValueType';
 
 export const loadDdl = (erdDocument: ErdDocument, ddl: string, separator: string = ""): DdlLoadResult => {
     const ddlLoader = new DdlLoader(erdDocument, separator);

@@ -12,6 +12,7 @@ import RelationModel from '~/models/database/RelationModel';
 import RelationPair from '~/models/database/RelationPair';
 import TableIndexModel from '~/models/database/TableIndexModel';
 import TableModel, { ColumnModelType } from '~/models/database/TableModel';
+import TableUniqueKeysModel from '~/models/database/TableUniqueKeysModel';
 import DatabaseSettingModel from '~/models/DatabaseSettingModel';
 import DbSchemaConfig from '~/models/DbSchemaConfig';
 import ErdSettingModel from '~/models/ErdSettingModel';
@@ -530,20 +531,20 @@ export default class ErdDocument {
                     nextColumnModelMap.set(addingColumnModel.columnModelId, addingColumnModel);
                 });
 
+                const childTableModel = childTableViewModel.tableModel;
                 const nextChildTableViewModel = new TableViewModel({
                     ...childTableViewModel,
                     tableModel: new TableModel({
-                        ...childTableViewModel.tableModel,
+                        ...childTableModel,
                         columns: [
-                            ...childTableViewModel.tableModel.columns,
+                            ...childTableModel.columns,
                             ...addingColumnModels.map(columnModel => (
                                 {
                                     modelType: "single",
                                     columnModelId: columnModel.columnModelId,
                                 } as ColumnModelType
                             ))
-                        ],
-                        tableIndexModels: [...childTableViewModel.tableModel.tableIndexModels]
+                        ]
                     })
                 });
                 nextTableViewModels.set(nextChildTableViewModel.tableId, nextChildTableViewModel);
@@ -683,29 +684,17 @@ export default class ErdDocument {
             for (const beforeTableViewModel of tableViewModels) {
                 const beforeTableModel = beforeTableViewModel.tableModel;
 
-                let hasChanged = false;
-                const nextTableIndexModels = beforeTableModel.tableIndexModels.flatMap(tableIndexModel => {
-                    const nextIndexColumnModels = tableIndexModel.indexColumnModels
-                        .filter(indexModel => deletingColumnModelIds.has(indexModel.columnModelId) === false);
-                    if (tableIndexModel.indexColumnModels.length === nextIndexColumnModels.length) {
-                        return tableIndexModel;
-                    }
+                const updatedUniqueKeys = TableUniqueKeysModel.filterColumns(
+                    beforeTableModel.uniqueKeysModels,
+                    column => (deletingColumnModelIds.has(column.columnModelId) === false)
+                );
 
-                    hasChanged = true;
-                    // インデクス定義がなくなった場合は削除
-                    if (nextIndexColumnModels.length === 0) {
-                        return [];
-                    }
+                const updatedTableIndex = TableIndexModel.filterColumns(
+                    beforeTableModel.tableIndexModels,
+                    column => (deletingColumnModelIds.has(column.columnModelId) === false)
+                );
 
-                    return [
-                        new TableIndexModel({
-                            ...tableIndexModel,
-                            indexColumnModels: nextIndexColumnModels
-                        })
-                    ];
-                });
-
-                if (hasChanged === false) {
+                if ((updatedUniqueKeys.hasChanged === false) && (updatedTableIndex.hasChanged === false)) {
                     continue;
                 }
 
@@ -713,8 +702,8 @@ export default class ErdDocument {
                     ...beforeTableViewModel,
                     tableModel: new TableModel({
                         ...beforeTableModel,
-                        columns: [...beforeTableModel.columns],
-                        tableIndexModels: nextTableIndexModels
+                        uniqueKeysModels: updatedUniqueKeys.tableUniqueKeysModels,
+                        tableIndexModels: updatedTableIndex.tableIndexModels
                     })
                 });
                 nextTableViewModels.set(nextTableViewModel.tableId, nextTableViewModel);
@@ -792,8 +781,8 @@ export default class ErdDocument {
         });
     }
 
-    private doUpdateTableViewModelsWithDeletingColumnGroup(previousModel: ColumnGroupModel) {
-        const previousColumnModels = previousModel.columnModelIds
+    private doUpdateTableViewModelsWithDeletingColumnGroup(deletingModel: ColumnGroupModel) {
+        const previousColumnModels = deletingModel.columnModelIds
             .map(columnModelId => this.columnModelMap.get(columnModelId))
             .filter((columnModel): columnModel is ColumnModel => (columnModel != null));
         const previousPkColumnModelIds = previousColumnModels
@@ -810,7 +799,7 @@ export default class ErdDocument {
         for (const [tableId, tableViewModel] of this.tableViewModelMap.entries()) {
             const nextColumns = tableViewModel.tableModel.columns
                 .filter(column => (column.modelType === "single")
-                    || (column.columnGroupId !== previousModel.columnGroupId)
+                    || (column.columnGroupId !== deletingModel.columnGroupId)
                 );
 
             if (tableViewModel.tableModel.columns.length === nextColumns.length) {
@@ -826,33 +815,26 @@ export default class ErdDocument {
 
             changedPreviousTableModels.push(tableViewModel.tableModel);
 
-            const nextTableIndexModels = tableViewModel.tableModel.tableIndexModels
-                .map(tableIndexModel => {
-                    const nextIndexColumnModels = tableIndexModel.indexColumnModels
-                        .filter(indexColumnModel =>
-                            previousModel.columnModelIds.includes(indexColumnModel.columnModelId) === false
-                        );
+            const notContainedInDeletingModel = (columnModelId: string) => {
+                return (deletingModel.columnModelIds.includes(columnModelId) === false);
+            }
 
-                    if (nextIndexColumnModels.length === tableIndexModel.indexColumnModels.length) {
-                        return tableIndexModel;
-                    }
-                    if (nextIndexColumnModels.length === 0) {
-                        return null;
-                    }
-
-                    return new TableIndexModel({
-                        ...tableIndexModel,
-                        indexColumnModels: nextIndexColumnModels
-                    });
-                })
-                .filter(tableIndexModel => tableIndexModel != null);
+            const updatedUniqueKeys = TableUniqueKeysModel.filterColumns(
+                tableViewModel.tableModel.uniqueKeysModels,
+                column => notContainedInDeletingModel(column.columnModelId)
+            );
+            const updatedTableIndex = TableIndexModel.filterColumns(
+                tableViewModel.tableModel.tableIndexModels,
+                column => notContainedInDeletingModel(column.columnModelId)
+            );
 
             const nextTableViewModel = new TableViewModel({
                 ...tableViewModel,
                 tableModel: new TableModel({
                     ...tableViewModel.tableModel,
                     columns: nextColumns,
-                    tableIndexModels: nextTableIndexModels,
+                    uniqueKeysModels: updatedUniqueKeys.tableUniqueKeysModels,
+                    tableIndexModels: updatedTableIndex.tableIndexModels,
                 })
             });
             nextTableViewModelMap.set(tableId, nextTableViewModel);
@@ -891,7 +873,7 @@ export default class ErdDocument {
                 .filter(relationModel => {
                     // 子テーブルから削除されたカラムに紐づくリレーションが存在する場合、該当リレーションを削除する
                     for (const pair of relationModel.relationPairs) {
-                        for (const columnModelId of previousModel.columnModelIds) {
+                        for (const columnModelId of deletingModel.columnModelIds) {
                             if (pair.childColumnModelId === columnModelId) {
                                 deleteRelationIds.add(relationModel.relationModelId);
                                 return false;
