@@ -1,13 +1,11 @@
 import { v4 as uuidV4 } from 'uuid';
 import React from "react";
 import {
-    Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
+    Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
     FormControl, FormControlLabel, InputLabel, MenuItem, Select, SelectChangeEvent, Stack,
     TableCell, TextField
 } from "@mui/material";
 
-import PrimaryKeyIcon from "~/components/icons/PrimaryKeyIcon";
-import ForeignKeyIcon from "~/components/icons/ForeignKeyIcon";
 import ColumnModel from "~/models/database/ColumnModel";
 import TableIndexModel, { IndexColumnModel } from "~/models/database/TableIndexModel";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
@@ -20,9 +18,9 @@ import ColumnShareModel from '~/models/database/ColumnShareModel';
 import { overrideColumnName } from '~/models/database/support';
 import { Database } from '~/models/database';
 import { NullsOrderType, SortOrderType } from '~/models/database/ValueType';
-import { GRID_CELL_STYLE } from '~/components/constant';
 import BaseGridView from '~/components/BaseGridView';
 import ColumnTransferPanel from '~/features/editor/ColumnTransferPanel';
+import { initGridColumnHeaders } from '~/features/editor/view-support';
 
 type IndexGridViewProps = {
     database: Database,
@@ -57,45 +55,9 @@ const IndexGridView = ({
         });
     }, [columnModels, tableIndexModels]);
 
-    // ヘッダータイトル
-    const keyIconHeaderStyle = initHeaderStyle(10);
-    const headerTitle = (
-        <Stack direction="row" alignItems="center">
-            <Box sx={keyIconHeaderStyle}>PK</Box>
-            <Box sx={keyIconHeaderStyle}>FK</Box>
-            <Box sx={initHeaderStyle(200)}>Physical Name</Box>
-        </Stack>
-    );
-    const attributeHeaders = columnModels.map(columnModel => {
-        const columnShareModel = columnShareModelStorage.find(columnModel.columnShareModelId);
-        if (columnShareModel == null) {
-            console.warn(`ColumnShareModel not found for columnModelId: ${columnModel.columnModelId}`);
-            return {
-                key: columnModel.columnModelId,
-                content: <span>Unknown Column</span>
-            };
-        }
-
-        const overrideName = overrideColumnName(columnModel, columnShareModel);
-        const inChildRelation = isChildRelation(columnModel.columnModelId);
-
-        return {
-            key: columnModel.columnModelId,
-            content: (
-                <Stack direction="row" alignItems="center">
-                    <Box sx={initTitleStyle(10, true)}>
-                        {columnModel.primaryKey && <PrimaryKeyIcon />}
-                    </Box>
-                    <Box sx={initTitleStyle(10)}>
-                        {inChildRelation && <ForeignKeyIcon />}
-                    </Box>
-                    <Box sx={initTitleStyle(200, true)}>
-                        {overrideName.physicalName}
-                    </Box>
-                </Stack>
-            )
-        };
-    });
+    // ヘッダ情報
+    const { headerTitle, attributeHeaders }
+        = initGridColumnHeaders(columnModels, columnShareModelStorage, isChildRelation);
 
     const records = indexModelWithOrders.map(indexModelWithOrder => {
         const { indexModelId, columnIdToOrder } = indexModelWithOrder;
@@ -161,24 +123,6 @@ const IndexGridView = ({
                 />)}
         </>
     );
-};
-
-const initHeaderStyle = (width: number): React.CSSProperties => {
-    return {
-        ...GRID_CELL_STYLE,
-        minWidth: `${width}px`,
-        maxWidth: `${width}px`,
-        minHeight: "24px"
-    };
-};
-
-const initTitleStyle = (width: number, withBackgroundColor: boolean = false): React.CSSProperties => {
-    return {
-        ...GRID_CELL_STYLE,
-        minWidth: `${width}px`,
-        maxWidth: `${width}px`,
-        backgroundColor: withBackgroundColor ? "action.hover" : ""
-    };
 };
 
 type IndexEditDialogProps = {
