@@ -7,7 +7,7 @@ import {
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ColumnViewTable from "~/features/editor/ColumnViewTable";
-import IndexViewTable from "~/features/editor/IndexViewTable";
+import IndexGridView from "~/features/editor/IndexGridView";
 import {
     ColumnWrapModel, initHandleChangeWithSyncPhysicalName,
     initHandleCloseDialog, initHandleEnterKeyDown
@@ -192,7 +192,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
                 onUpdateColumnWrapModels={setColumnWrapModels} />
         </div>
         <div hidden={tabIndex !== 1}>
-            <IndexViewTable
+            <IndexGridView
                 database={erdDocument.getDatabase()}
                 columnWrapModels={columnWrapModels}
                 tableIndexModels={tableIndexModels}
