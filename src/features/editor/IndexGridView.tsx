@@ -2,18 +2,12 @@ import { v4 as uuidV4 } from 'uuid';
 import React from "react";
 import {
     Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
-    FormControl, FormControlLabel, InputLabel, MenuItem, Paper, Select, SelectChangeEvent, Stack,
-    Table, TableBody, TableCell, TableContainer, TableRow, TextField, Typography
+    FormControl, FormControlLabel, InputLabel, MenuItem, Select, SelectChangeEvent, Stack,
+    TableCell, TextField
 } from "@mui/material";
-import Grid from '@mui/material/Grid2';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 
 import PrimaryKeyIcon from "~/components/icons/PrimaryKeyIcon";
 import ForeignKeyIcon from "~/components/icons/ForeignKeyIcon";
-import EdgedIconButton from "~/components/EdgedIconButton";
 import ColumnModel from "~/models/database/ColumnModel";
 import TableIndexModel, { IndexColumnModel } from "~/models/database/TableIndexModel";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
@@ -28,6 +22,7 @@ import { Database } from '~/models/database';
 import { NullsOrderType, SortOrderType } from '~/models/database/ValueType';
 import { GRID_CELL_STYLE } from '~/components/constant';
 import BaseGridView from '~/components/BaseGridView';
+import ColumnTransferPanel from '~/features/editor/ColumnTransferPanel';
 
 type IndexGridViewProps = {
     database: Database,
@@ -49,17 +44,28 @@ const IndexGridView = ({
     );
 
     // 各インデックスに対する列順序のマッピングを計算
-    const columnIdToOrders = React.useMemo(() => {
+    const indexModelWithOrders = React.useMemo(() => {
         const existedColumnModelIds = new Set(columnModels.map(columnModel => columnModel.columnModelId));
 
-        return tableIndexModels.map(indexModel =>
-            new Map<string, string>(indexModel.indexColumnModels
+        return tableIndexModels.map(tableIndexModel => {
+            const columnIdToOrder = new Map<string, string>(tableIndexModel.indexColumnModels
                 .filter(indexColumnModel => existedColumnModelIds.has(indexColumnModel.columnModelId))
                 .map((indexColumnModel, index) => [indexColumnModel.columnModelId, `${index + 1}`])
-            )
-        );
+            );
+
+            return { indexModelId: tableIndexModel.tableIndexModelId, columnIdToOrder };
+        });
     }, [columnModels, tableIndexModels]);
 
+    // ヘッダータイトル
+    const keyIconHeaderStyle = initHeaderStyle(10);
+    const headerTitle = (
+        <Stack direction="row" alignItems="center">
+            <Box sx={keyIconHeaderStyle}>PK</Box>
+            <Box sx={keyIconHeaderStyle}>FK</Box>
+            <Box sx={initHeaderStyle(200)}>Physical Name</Box>
+        </Stack>
+    );
     const attributeHeaders = columnModels.map(columnModel => {
         const columnShareModel = columnShareModelStorage.find(columnModel.columnShareModelId);
         if (columnShareModel == null) {
@@ -91,17 +97,14 @@ const IndexGridView = ({
         };
     });
 
-    // RecordDataの生成（各TableIndexModelに対応）
-    const records = tableIndexModels.map((indexModel, indexIndex) => {
-        const columnIdToOrder = columnIdToOrders[indexIndex];
+    const records = indexModelWithOrders.map(indexModelWithOrder => {
+        const { indexModelId, columnIdToOrder } = indexModelWithOrder;
 
         return {
-            key: indexModel.tableIndexModelId,
+            key: indexModelId,
             findAttribute: (columnModelId: string) => {
-                const order = columnIdToOrder.get(columnModelId);
                 return {
-                    value: order || "",
-                    sx: undefined
+                    value: columnIdToOrder.get(columnModelId) || ""
                 };
             }
         };
@@ -136,19 +139,9 @@ const IndexGridView = ({
         }
     };
 
-    // ヘッダータイトル
-    const keyIconHeaderStyle = initHeaderStyle(10);
-    const headerTitle = (
-        <Stack direction="row" alignItems="center">
-            <Box sx={keyIconHeaderStyle}>PK</Box>
-            <Box sx={keyIconHeaderStyle}>FK</Box>
-            <Box sx={initHeaderStyle(200)}>Physical Name</Box>
-        </Stack>
-    );
-
     return (
         <>
-            <BaseGridView<TableIndexModel>
+            <BaseGridView
                 modelName="index"
                 headerTitle={headerTitle}
                 attributeHeaders={attributeHeaders}
@@ -205,7 +198,7 @@ type IndexModelAttribute = {
 }
 
 const IndexEditDialog = ({
-    isOpen, database, tableIndexModel, columnModels, 
+    isOpen, database, tableIndexModel, columnModels,
     isChildRelation, onUpdateTableIndexModels, onClose
 }: IndexEditDialogProps) => {
 
@@ -223,12 +216,129 @@ const IndexEditDialog = ({
     const [description, setDescription] = React.useState<string>(tableIndexModel.description);
 
     const tableIndexSupport: TableIndexSupport = database.tableIndexSupport;
-    const availableIndexTypes = tableIndexSupport.indexTypes.length > 0;
+
+    const indexOptionPanel = (
+        <Stack direction="row" spacing={2}>
+            {tableIndexSupport.indexOptions.map(targetOption => (
+                <FormControlLabel key={`index_option_${targetOption}`} label={targetOption} control={
+                    <Checkbox checked={targetOption === indexOption}
+                        onChange={event => setIndexOption((event.target.checked ? targetOption : ""))} />
+                } />
+            ))}
+            {tableIndexSupport.supportsClustered && (
+                <FormControlLabel label="CLUSTERED" control={
+                    <Checkbox checked={clustered}
+                        onChange={event => setClustered(event.target.checked)} />
+                } />
+            )}
+        </Stack>
+    );
 
     const handleChangeIndexType = (event: SelectChangeEvent) => {
         const nextIndexType = event.target.value as TableIndexType;
         setIndexType(nextIndexType);
     }
+    const tableIndexForm = (tableIndexSupport.indexTypes.length > 0) ? (
+        <FormControl fullWidth sx={{ flex: 1 }}>
+            <InputLabel id="index-type">Index Type</InputLabel>
+            <Select label="Index Type" labelId="index-type"
+                value={indexType} onChange={handleChangeIndexType}>
+                <MenuItem value="">(Default)</MenuItem>
+                {tableIndexSupport.indexTypes.map(targetIndexType => (
+                    <MenuItem key={`index_type/${targetIndexType}`}
+                        value={targetIndexType}>{targetIndexType}</MenuItem>
+                ))}
+            </Select>
+        </FormControl>
+    ) : (<></>);
+
+    const handleNewIndexedColumn = (columnModelId: string): IndexModelAttribute => {
+        return {
+            columnModelId: columnModelId,
+            sortOrderType: "",
+            nullsOrderType: ""
+        };
+    };
+
+    const handleRenderIndexedColumn = (
+        arg: {
+            indexedColumn: IndexModelAttribute,
+            columnModel: ColumnModel,
+            columnShareModel: ColumnShareModel
+        },
+        arrayIndex: number
+    ) => {
+        const { indexedColumn, columnModel, columnShareModel } = arg;
+
+        const columnModelId = columnModel.columnModelId;
+        const columnName = overrideColumnName(columnModel, columnShareModel);
+        const inChildRelation = isChildRelation(columnModelId);
+
+        const handleChangeSortOrder = (event: SelectChangeEvent) => {
+            const nextSortOrderType = event.target.value as SortOrderType;
+            setIndexedColumns(previousColumns =>
+                previousColumns.map(previous =>
+                    (previous.columnModelId !== columnModelId) ? previous : {
+                        columnModelId: previous.columnModelId,
+                        sortOrderType: nextSortOrderType,
+                        nullsOrderType: previous.nullsOrderType
+                    }
+                )
+            );
+        };
+        const handleChangeNullsOrder = (event: SelectChangeEvent) => {
+            const nextNullsOrderType = event.target.value as NullsOrderType;
+            setIndexedColumns(previousColumns =>
+                previousColumns.map(previous =>
+                    (previous.columnModelId !== columnModelId) ? previous : {
+                        columnModelId: previous.columnModelId,
+                        sortOrderType: previous.sortOrderType,
+                        nullsOrderType: nextNullsOrderType
+                    }
+                )
+            );
+        };
+
+        return (
+            <>
+                <TableCell align="right" sx={{ width: 10 }}>{arrayIndex + 1}</TableCell>
+                <TableCell>{columnName.physicalName}</TableCell>
+                <TableCell>{columnShareModel.specifiedColumnType(inChildRelation)}</TableCell>
+                <TableCell>
+                    <FormControl fullWidth size="small">
+                        <InputLabel id={`sort-order-${columnModelId}`}>Sort Order</InputLabel>
+                        <Select label="Sort order" labelId={`sort-order-${columnModelId}`}
+                            value={indexedColumn.sortOrderType} onChange={handleChangeSortOrder}>
+                            <MenuItem value="">(Default)</MenuItem>
+                            <MenuItem value="ASC">ASC</MenuItem>
+                            <MenuItem value="DESC">DESC</MenuItem>
+                        </Select>
+                    </FormControl>
+                </TableCell>
+                {database.tableIndexSupport.nullsOrder && <TableCell>
+                    <FormControl fullWidth size="small">
+                        <InputLabel id={`nulls-order-${columnModelId}`}>Nulls Order</InputLabel>
+                        <Select label="Null order" labelId={`nulls-order-${columnModelId}`}
+                            value={indexedColumn.nullsOrderType} onChange={handleChangeNullsOrder}>
+                            <MenuItem value="">(Default)</MenuItem>
+                            <MenuItem value="FIRST">FIRST</MenuItem>
+                            <MenuItem value="LAST">LAST</MenuItem>
+                        </Select>
+                    </FormControl>
+                </TableCell>}
+            </>
+        );
+    };
+
+    const transferPanel = (
+        <ColumnTransferPanel
+            columnModels={columnModels}
+            indexedColumns={indexedColumns}
+            isChildRelation={isChildRelation}
+            onNewIndexedColumn={handleNewIndexedColumn}
+            onRenderIndexedColumn={handleRenderIndexedColumn}
+            onUpdateIndexedColumns={setIndexedColumns} />
+    );
 
     const editValueValidated = (physicalName.length > 0) && (indexedColumns.length > 0)
     const handleCompleted = () => {
@@ -263,8 +373,6 @@ const IndexEditDialog = ({
         onClose();
     };
 
-    const handleEnterDown = initHandleEnterKeyDown(handleCompleted);
-
     return (
         <Dialog fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
             open={isOpen} onClose={initHandleCloseDialog(onClose)}>
@@ -272,48 +380,15 @@ const IndexEditDialog = ({
             <DialogContent>
                 <Stack spacing={3}>
                     <Divider />
-                    <Stack direction="row" spacing={2}>
-                        {tableIndexSupport.indexOptions.map(targetOption => (
-                            <FormControlLabel key={`index_option_${targetOption}`} label={targetOption} control={
-                                <Checkbox checked={targetOption === indexOption}
-                                    onChange={event => setIndexOption((event.target.checked ? targetOption : ""))} />
-                            } />
-                        ))}
-                        {tableIndexSupport.supportsClustered && (
-                            <FormControlLabel label="CLUSTERED" control={
-                                <Checkbox checked={clustered}
-                                    onChange={event => setClustered(event.target.checked)} />
-                            } />
-                        )}
+                    {indexOptionPanel}
+                    <Stack direction="row" justifyContent="center" alignItems="center" spacing={2}>
+                        <TextField id="physicalName" label="Physical Name" required fullWidth
+                            variant="outlined" sx={{ flex: 1 }} value={physicalName}
+                            onChange={initHandleChangePhysicalName(setPhysicalName)}
+                            onKeyDown={initHandleEnterKeyDown(handleCompleted)} />
+                        {tableIndexForm}
                     </Stack>
-                    <Grid container justifyContent="center" alignItems="center">
-                        <Grid size={{ xs: availableIndexTypes ? 6 : 12 }}>
-                            <TextField required fullWidth variant="outlined" id="physicalName" label="Physical Name"
-                                value={physicalName} onChange={initHandleChangePhysicalName(setPhysicalName)}
-                                onKeyDown={handleEnterDown} />
-                        </Grid>
-                        {availableIndexTypes && (
-                            <Grid size={{ xs: 6 }} sx={{ paddingLeft: 2 }}>
-                                <FormControl fullWidth>
-                                    <InputLabel id="index-type">Index Type</InputLabel>
-                                    <Select label="Index Type" labelId="index-type"
-                                        value={indexType} onChange={handleChangeIndexType}>
-                                        <MenuItem value="">(Default)</MenuItem>
-                                        {tableIndexSupport.indexTypes.map((targetIndexType) => (
-                                            <MenuItem key={`index_type/${targetIndexType}`}
-                                                value={targetIndexType}>{targetIndexType}</MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            </Grid>
-                        )}
-                    </Grid>
-                    <IndexColumnTransferPanel
-                        database={database}
-                        columnModels={columnModels}
-                        indexedColumns={indexedColumns}
-                        isChildRelation={isChildRelation}
-                        onUpdateIndexedColumns={setIndexedColumns} />
+                    {transferPanel}
                     <TextField id="description" variant="outlined" label="Description"
                         multiline rows={3} slotProps={{ input: { style: { resize: 'vertical' } } }}
                         value={description} onChange={(event) => setDescription(event.target.value)} />
@@ -324,289 +399,6 @@ const IndexEditDialog = ({
                 <Button variant="contained" disabled={!editValueValidated} onClick={handleCompleted}>OK</Button>
             </DialogActions>
         </Dialog>
-    );
-};
-
-type IndexColumnTransferPanelProps = {
-    database: Database,
-    columnModels: ColumnModel[],
-    indexedColumns: IndexModelAttribute[],
-    isChildRelation: (columnModelId: string) => boolean,
-    onUpdateIndexedColumns: (updateFunction: ((previous: IndexModelAttribute[]) => IndexModelAttribute[])) => void
-};
-
-type ColumnModelDetail = {
-    columnModel: ColumnModel,
-    columnShareModel: ColumnShareModel
-};
-
-const IndexColumnTransferPanel = ({
-    database, columnModels, indexedColumns, isChildRelation, onUpdateIndexedColumns
-}: IndexColumnTransferPanelProps) => {
-    const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
-
-    const [selectedFromId, setSelectedFromId] = React.useState<string | null>(null);
-    const [selectedIndexedId, setSelectedIndexedId] = React.useState<string | null>(null);
-
-    const columnModelMap: Map<string, ColumnModelDetail> = new Map(
-        columnModels
-            .map(model => {
-                return {
-                    columnModel: model,
-                    columnShareModel: columnShareModelStorage.find(model.columnShareModelId)
-                }
-            })
-            .filter((pair): pair is ColumnModelDetail => (pair.columnShareModel != null))
-            .map(pair => [pair.columnModel.columnModelId, pair])
-    );
-
-    const indexedColumnModelIds = new Set(indexedColumns.map((model) => model.columnModelId));
-
-    const fromColumnsPanel = columnModels
-        .filter(model => (indexedColumnModelIds.has(model.columnModelId) === false))
-        .map(model => columnModelMap.get(model.columnModelId))
-        .filter((pair): pair is ColumnModelDetail => (pair != null))
-        .map(pair => {
-            const columnModelId = pair.columnModel.columnModelId;
-            const columnName = overrideColumnName(pair.columnModel, pair.columnShareModel);
-            const inChildRelation = isChildRelation(columnModelId);
-
-            const handleSelect = () => {
-                setSelectedFromId((selectedFromId !== columnModelId) ? columnModelId : null);
-            };
-
-            const handleMove = () => {
-                doAddColumnToIndex(columnModelId);
-            };
-
-            return (
-                <TableRow key={`from-column-panel_index-${columnModelId}`} style={{ cursor: "pointer" }}
-                    selected={columnModelId === selectedFromId}
-                    onClick={handleSelect} onDoubleClick={handleMove}>
-                    <TableCell>{columnName.physicalName}</TableCell>
-                    <TableCell>{pair.columnShareModel.specifiedColumnType(inChildRelation)}</TableCell>
-                </TableRow>
-            )
-        });
-
-    const handleAddColumnToIndex = () => {
-        if (selectedFromId == null) {
-            return;
-        }
-
-        doAddColumnToIndex(selectedFromId);
-    };
-
-    const doAddColumnToIndex = (fromId: string) => {
-        onUpdateIndexedColumns(previousColumns => {
-            const newAttribute: IndexModelAttribute = {
-                columnModelId: fromId,
-                sortOrderType: "",
-                nullsOrderType: ""
-            };
-
-            return [...previousColumns, newAttribute];
-        });
-
-        setSelectedFromId(null);
-        setSelectedIndexedId(null);
-    };
-
-    const handleRemoveIndexedColumn = () => {
-        if (selectedIndexedId == null) {
-            return;
-        }
-
-        doRemoveIndexedColumn(selectedIndexedId);
-    };
-
-    const doRemoveIndexedColumn = (removeId: string) => {
-        onUpdateIndexedColumns(previousColumns =>
-            previousColumns.filter(column =>
-                (column.columnModelId !== removeId)
-            )
-        );
-
-        setSelectedIndexedId(null);
-        setSelectedFromId(null);
-    };
-
-    const transferPanel = (
-        <Stack direction="column" spacing={3} alignItems="center" justifyContent="center">
-            <EdgedIconButton tooltip="Add to index" disabled={selectedFromId == null}
-                onClick={handleAddColumnToIndex}>
-                <ArrowForwardIcon fontSize="small" />
-            </EdgedIconButton>
-            <EdgedIconButton tooltip="Remove from index" disabled={selectedIndexedId == null}
-                onClick={handleRemoveIndexedColumn}>
-                <ArrowBackIcon fontSize="small" />
-            </EdgedIconButton>
-        </Stack>
-    );
-
-    const indexedColumnsPanel = indexedColumns
-        .map(model => {
-            const detail = columnModelMap.get(model.columnModelId)
-            return { indexedColumn: model, columnModelDetail: detail }
-        })
-        // カラムが削除された場合、該当する columnModelDetail が null になる
-        .filter((pair): pair is {
-            indexedColumn: IndexColumnModel, columnModelDetail: ColumnModelDetail
-        } => (pair.columnModelDetail != null))
-        .map(pair => { return { ...pair.columnModelDetail, ...pair.indexedColumn } })
-        .map((pair, arrayIndex) => {
-            const columnModelId = pair.columnModel.columnModelId;
-            const sortOrderType = pair.sortOrderType;
-            const nullsOrderType = pair.nullsOrderType;
-
-            const columnName = overrideColumnName(pair.columnModel, pair.columnShareModel);
-            const inChildRelation = isChildRelation(columnModelId);
-
-            const handleSelect = () => {
-                setSelectedIndexedId((selectedIndexedId !== columnModelId) ? columnModelId : null);
-            };
-            const handleMove = () => {
-                doRemoveIndexedColumn(columnModelId);
-            };
-
-            const handleChangeSortOrder = (event: SelectChangeEvent) => {
-                const nextSortOrderType = event.target.value as SortOrderType;
-                onUpdateIndexedColumns(previousColumns =>
-                    previousColumns.map(previous =>
-                        (previous.columnModelId !== columnModelId) ? previous : {
-                            columnModelId: previous.columnModelId,
-                            sortOrderType: nextSortOrderType,
-                            nullsOrderType: previous.nullsOrderType
-                        }
-                    )
-                );
-            };
-            const handleChangeNullsOrder = (event: SelectChangeEvent) => {
-                const nextNullsOrderType = event.target.value as NullsOrderType;
-                onUpdateIndexedColumns(previousColumns =>
-                    previousColumns.map(previous =>
-                        (previous.columnModelId !== columnModelId) ? previous : {
-                            columnModelId: previous.columnModelId,
-                            sortOrderType: previous.sortOrderType,
-                            nullsOrderType: nextNullsOrderType
-                        }
-                    )
-                );
-            };
-
-            return (
-                <TableRow key={`indexed-column-panel_index-${columnModelId}`} style={{ cursor: 'pointer' }}
-                    selected={columnModelId === selectedIndexedId}
-                    onClick={handleSelect} onDoubleClick={handleMove}>
-                    <TableCell align="right" sx={{ width: 10 }}>{arrayIndex + 1}</TableCell>
-                    <TableCell>{columnName.physicalName}</TableCell>
-                    <TableCell>{pair.columnShareModel.specifiedColumnType(inChildRelation)}</TableCell>
-                    <TableCell>
-                        <FormControl fullWidth size="small">
-                            <InputLabel id={`sort-order-${columnModelId}`}>Sort Order</InputLabel>
-                            <Select label="Sort order" labelId={`sort-order-${columnModelId}`}
-                                value={sortOrderType} onChange={handleChangeSortOrder}>
-                                <MenuItem value="">(Default)</MenuItem>
-                                <MenuItem value="ASC">ASC</MenuItem>
-                                <MenuItem value="DESC">DESC</MenuItem>
-                            </Select>
-                        </FormControl>
-                    </TableCell>
-                    {database.tableIndexSupport.nullsOrder && <TableCell>
-                        <FormControl fullWidth size="small">
-                            <InputLabel id={`nulls-order-${columnModelId}`}>Nulls Order</InputLabel>
-                            <Select label="Null order" labelId={`nulls-order-${columnModelId}`}
-                                value={nullsOrderType} onChange={handleChangeNullsOrder}>
-                                <MenuItem value="">(Default)</MenuItem>
-                                <MenuItem value="FIRST">FIRST</MenuItem>
-                                <MenuItem value="LAST">LAST</MenuItem>
-                            </Select>
-                        </FormControl>
-                    </TableCell>}
-                </TableRow>
-            )
-        });
-
-    const initHandleShiftColumn = (shift: (1 | -1)) => {
-        if (indexedColumns.length < 2) {
-            return () => { };
-        }
-
-        return () => {
-            let selectedIndex = -2;
-            for (let index = 0; index < indexedColumns.length; index++) {
-                if (indexedColumns[index].columnModelId === selectedIndexedId) {
-                    selectedIndex = index;
-                    break;
-                }
-            }
-
-            if ((selectedIndex + shift < 0) || (selectedIndex + shift >= indexedColumns.length)) {
-                return;
-            }
-
-            onUpdateIndexedColumns(previousColumns => {
-                const nextIndexedColumns = [...previousColumns];
-                const target = nextIndexedColumns[selectedIndex];
-                nextIndexedColumns[selectedIndex] = nextIndexedColumns[selectedIndex + shift];
-                nextIndexedColumns[selectedIndex + shift] = target;
-
-                return nextIndexedColumns;
-            });
-        };
-    };
-
-    const orderPanel = (
-        <Stack direction="column" spacing={3} alignItems="center" justifyContent="center">
-            <EdgedIconButton tooltip="Move up"
-                disabled={(selectedIndexedId == null) || (indexedColumns.length < 2)
-                    || (indexedColumns[0].columnModelId === selectedIndexedId)}
-                onClick={initHandleShiftColumn(-1)}>
-                <ArrowUpwardIcon fontSize="small" />
-            </EdgedIconButton>
-            <EdgedIconButton tooltip="Move down"
-                disabled={(selectedIndexedId == null) || (indexedColumns.length < 2)
-                    || (indexedColumns[indexedColumns.length - 1].columnModelId === selectedIndexedId)}
-                onClick={initHandleShiftColumn(1)}>
-                <ArrowDownwardIcon fontSize="small" />
-            </EdgedIconButton>
-        </Stack>
-    );
-
-    return (
-        <Paper elevation={4} sx={{ p: 2 }}>
-            <Grid container spacing={1} justifyContent="flex-start" alignItems="center">
-                <Grid size={{ xs: 4 }}>
-                    <Typography variant="subtitle1" gutterBottom>Base columns</Typography>
-                </Grid>
-                <Grid size={{ xs: 1 }}></Grid>
-                <Grid size={{ xs: 6 }}>
-                    <Typography variant="subtitle1" gutterBottom>Indexed columns</Typography>
-                </Grid>
-            </Grid>
-            <Grid container spacing={1} justifyContent="center" alignItems="center">
-                <Grid size={{ xs: 4 }} >
-                    <Paper>
-                        <TableContainer>
-                            <Table size="small" style={{ tableLayout: "fixed" }}>
-                                <TableBody>{fromColumnsPanel}</TableBody>
-                            </Table>
-                        </TableContainer>
-                    </Paper>
-                </Grid>
-                <Grid size={{ xs: 1 }}>{transferPanel}</Grid>
-                <Grid size={{ xs: 6 }}>
-                    <Paper>
-                        <TableContainer>
-                            <Table size="small" style={{ tableLayout: "fixed" }}>
-                                <TableBody>{indexedColumnsPanel}</TableBody>
-                            </Table>
-                        </TableContainer>
-                    </Paper>
-                </Grid>
-                <Grid size={{ xs: 1 }}>{orderPanel}</Grid>
-            </Grid>
-        </Paper>
     );
 };
 
