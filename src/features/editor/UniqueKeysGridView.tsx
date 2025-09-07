@@ -1,8 +1,8 @@
 import { v4 as uuidV4 } from 'uuid';
 import React from 'react';
 import {
-    Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, SelectChangeEvent, Stack,
-    TableCell, TextField
+    Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl,
+    InputLabel, MenuItem, Select, SelectChangeEvent, Stack, TableCell, TextField
 } from '@mui/material';
 
 import BaseGridView from '~/components/BaseGridView';
@@ -229,6 +229,7 @@ const UniqueKeysEditDialog = ({
 
         const nextTableUniqueKeysModel = new TableUniqueKeysModel({
             tableUniqueKeysModelId: tableUniqueKeysModel.tableUniqueKeysModelId,
+            physicalName: physicalName,
             description: description,
             uniqueKeysColumnModels: uniqueKeysColumns.map(model => new UniqueKeysColumnModel({
                 columnModelId: model.columnModelId,
@@ -259,6 +260,7 @@ const UniqueKeysEditDialog = ({
             <DialogTitle>Edit unique key constraint</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>
+                    <Divider />
                     <TextField id="physicalName" label="Physical Name" required fullWidth
                         variant="outlined" sx={{ flex: 1 }} value={physicalName}
                         onChange={initHandleChangePhysicalName(setPhysicalName)}

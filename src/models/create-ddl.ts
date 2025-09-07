@@ -129,6 +129,40 @@ class DatabaseDdlCreator {
                 columnQueries.push(primaryKeyQuery);
             }
 
+            if (tableModel.uniqueKeysModels.length > 0) {
+                const columnPairMapping = new Map(columnPairs.map(pair => [pair.columnModel.columnModelId, pair]));
+
+                const uniqueKeyConstraints = tableModel.uniqueKeysModels
+                    .filter(uniqueKeysModel => (uniqueKeysModel.uniqueKeysColumnModels.length > 0))
+                    .map(uniqueKeysModel => {
+                        const constraintName = (uniqueKeysModel.physicalName !== "")
+                            ? `CONSTRAINT ${this.escape(uniqueKeysModel.physicalName)} ` : "";
+                        const constraintDefinitions = uniqueKeysModel.uniqueKeysColumnModels
+                            .map(uniqueDefinition => {
+                                const pair = columnPairMapping.get(uniqueDefinition.columnModelId)!;
+                                return (pair != null) ? { uniqueDefinition, ...pair } : null;
+                            })
+                            .filter(pair => (pair != null))
+                            .map(pair => {
+                                const { uniqueDefinition, columnModel, columnShareModel } = pair;
+                                const overrideName = overrideColumnName(columnModel, columnShareModel);
+
+                                const order = (uniqueDefinition.sortOrderType != "")
+                                    ? ` ${uniqueDefinition.sortOrderType}` : "";
+                                return `${this.escape(overrideName.physicalName)}${order}`;
+                            });
+
+                        if (constraintDefinitions.length === 0) {
+                            return null;
+                        }
+
+                        return `${constraintName}UNIQUE (${constraintDefinitions.join(", ")})`;
+                    })
+                    .filter(constraint => (constraint != null));
+
+                columnQueries.push(...uniqueKeyConstraints);
+            }
+
             const schemaModel = erdDocument.findSchema(tableModel.schemaId);
 
             return `${this.tableQuery(tableModel, schemaModel, columnQueries, option)};\n`;
