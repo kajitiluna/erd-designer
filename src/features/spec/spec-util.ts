@@ -33,7 +33,18 @@ export type TableDetailSpec = {
     logicalName: string;
     description: string;
     exportColumns: () => ColumnListSpecGenerator;
+    exportUniqueKeys: () => UniqueKeyConstraintSpecGenerator;
     exportTableIndexes: () => TableIndexSpecGenerator;
+};
+
+export type UniqueKeyConstraintSpecGenerator = Generator<UniqueKeyConstraintSpec, void, unknown>;
+export type UniqueKeyConstraintSpec = {
+    constraintName: string;
+    description: string;
+    uniqueKeyColumns: {
+        physicalName: string;
+        sortOrder: SortOrderType;
+    }[];
 };
 
 export type TableIndexSpecGenerator = Generator<TableIndexSpec, void, unknown>;

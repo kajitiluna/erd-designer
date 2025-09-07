@@ -1,5 +1,5 @@
 import createSpecification from "~/features/spec/create-specification";
-import { ColumnListSpecGenerator, TableDetailSpec, TableIndexSpec, TableListSpecGenerator } from "~/features/spec/spec-util";
+import { ColumnListSpecGenerator, TableDetailSpec, TableIndexSpec, TableListSpecGenerator, UniqueKeyConstraintSpec } from "~/features/spec/spec-util";
 import { DatabaseType } from "~/models/database";
 import ErdDocument from "~/models/ErdDocument";
 
@@ -143,29 +143,51 @@ const createTableSpecSheet = (databaseType: DatabaseType, tableSpec: TableDetail
         { startRowIndex: 2, endRowIndex: 3, startColumnIndex: 1, endColumnIndex: columnsHeader.length },
     ];
 
+    let currentEndRow = columnSummary.startRow + columnRowData.length;
+    const subTableMergeRanges = [];
+
+    // 一意キー制約定義
+    const uniqueKeyGridTitle = {
+        startRow: currentEndRow + 1,
+        startColumn: 0,
+        rowData: [{ values: [initBoldCell("Unique Keys Specification")] }],
+    };
+    const uniqueKeyGrids = [];
+    let uniqueKeyStartRow = uniqueKeyGridTitle.startRow + 1;
+    for (const uniqueKeySpec of tableSpec.exportUniqueKeys()) {
+        const { gridData, mergeRanges }
+            = initUniqueKeyConstraintContent(uniqueKeyStartRow, databaseType, uniqueKeySpec);
+        uniqueKeyStartRow += gridData.rowData.length + 1;
+        uniqueKeyGrids.push(gridData);
+        subTableMergeRanges.push(...mergeRanges);
+    }
+
+    if (uniqueKeyGrids.length > 0) {
+        currentEndRow = uniqueKeyStartRow - 1;
+    }
+
     // インデックス定義
     const tableIndexGridTitle = {
-        startRow: columnSummary.startRow + columnRowData.length + 1,
+        startRow: currentEndRow + 1,
         startColumn: 0,
         rowData: [{ values: [initBoldCell("Indexes Specification")] }],
     };
-
     const tableIndexGrids = [];
-    const tableIndexMergeRanges = [];
-    let startRow = tableIndexGridTitle.startRow + 1;
-    for (const tableIndex of tableSpec.exportTableIndexes()) {
-        const { gridData, mergeRanges } = initTableIndexContent(startRow, databaseType, tableIndex);
+    let tableIndexStartRow = tableIndexGridTitle.startRow + 1;
+    for (const tableIndexSpec of tableSpec.exportTableIndexes()) {
+        const { gridData, mergeRanges }
+            = initTableIndexContent(tableIndexStartRow, databaseType, tableIndexSpec);
 
-        startRow += gridData.rowData.length + 1;
+        tableIndexStartRow += gridData.rowData.length + 1;
         tableIndexGrids.push(gridData);
-        tableIndexMergeRanges.push(...mergeRanges);
+        subTableMergeRanges.push(...mergeRanges);
     }
 
     const sheetProperty = {
         title: tableSpec.physicalName,
         sheetType: "GRID",
         gridProperties: {
-            rowCount: (tableIndexGrids.length > 0) ? startRow : startRow - 1,
+            rowCount: (tableIndexGrids.length > 0) ? tableIndexStartRow : tableIndexStartRow - 1,
             columnCount: columnsHeader.length,
             frozenRowCount: 1,
             frozenColumnCount: 1
@@ -175,13 +197,66 @@ const createTableSpecSheet = (databaseType: DatabaseType, tableSpec: TableDetail
     return {
         properties: sheetProperty,
         data: [totalSummary, columnGridTitle, columnSummary]
+            .concat((uniqueKeyGrids.length > 0) ? [uniqueKeyGridTitle, ...uniqueKeyGrids] : [])
             .concat((tableIndexGrids.length > 0) ? [tableIndexGridTitle, ...tableIndexGrids] : []),
-        mergeRanges: summaryMergeRanges.concat(tableIndexMergeRanges)
+        mergeRanges: summaryMergeRanges.concat(subTableMergeRanges)
     };
 };
 
+const initUniqueKeyConstraintContent = (
+    startRow: number, databaseType: DatabaseType, uniqueKeySpec: UniqueKeyConstraintSpec
+) => {
+    const subHeaders = (databaseType === "postgres")
+        ? [{ title: "ColumnName (physical)", key: "physicalName" }]
+        : [
+            { title: "ColumnName (physical)", key: "physicalName" },
+            { title: "Sort Order", key: "sortOrder" }
+        ];
+
+    const records = [
+        { title: "ConstraintName", value: uniqueKeySpec.constraintName },
+        { title: "Description", value: uniqueKeySpec.description, height: 60 },
+        {
+            title: "UniqueKey Columns",
+            value: { headers: subHeaders, rows: uniqueKeySpec.uniqueKeyColumns }
+        },
+    ];
+
+    const contents = doInitVerticalGridContent(records);
+    const gridData = {
+        startRow: startRow,
+        startColumn: 0,
+        ...contents
+    };
+
+    // セル結合の情報
+    const endColumnIndex = 3;
+    const mergeRanges = [
+        { startRowIndex: startRow, endRowIndex: startRow + 1, startColumnIndex: 1, endColumnIndex },
+        { startRowIndex: startRow + 1, endRowIndex: startRow + 2, startColumnIndex: 1, endColumnIndex },
+        {
+            startRowIndex: startRow + 2, endRowIndex: startRow + 3 + uniqueKeySpec.uniqueKeyColumns.length,
+            startColumnIndex: 0, endColumnIndex: 1
+        },
+    ].concat(
+        (databaseType !== "postgres") ? [] : [
+            { startRowIndex: startRow + 2, endRowIndex: startRow + 3, startColumnIndex: 1, endColumnIndex },
+            ...uniqueKeySpec.uniqueKeyColumns.map((_, index) => {
+                return {
+                    startRowIndex: startRow + 3 + index,
+                    endRowIndex: startRow + 4 + index,
+                    startColumnIndex: 1,
+                    endColumnIndex
+                };
+            })
+        ]
+    );
+
+    return { gridData, mergeRanges };
+};
+
 const initTableIndexContent = (
-    startRow: number, databaseType: DatabaseType, tableIndex: TableIndexSpec
+    startRow: number, databaseType: DatabaseType, tableIndexSpec: TableIndexSpec
 ) => {
     const subHeaders = [
         { title: "ColumnName (physical)", key: "physicalName" },
@@ -192,18 +267,17 @@ const initTableIndexContent = (
     }
 
     const records = [
-        { title: "IndexName", value: tableIndex.indexName },
-        { title: "IndexType", value: tableIndex.indexType },
-        { title: "Option", value: tableIndex.indexOption },
-        { title: "Description", value: tableIndex.description, height: 60 },
+        { title: "IndexName", value: tableIndexSpec.indexName },
+        { title: "IndexType", value: tableIndexSpec.indexType },
+        { title: "Option", value: tableIndexSpec.indexOption },
+        { title: "Description", value: tableIndexSpec.description, height: 60 },
         {
             title: "Indexed Columns",
-            value: { headers: subHeaders, rows: tableIndex.indexedColumns }
+            value: { headers: subHeaders, rows: tableIndexSpec.indexedColumns }
         },
     ];
 
     const contents = doInitVerticalGridContent(records);
-
     const gridData = {
         startRow: startRow,
         startColumn: 0,
@@ -218,13 +292,13 @@ const initTableIndexContent = (
         { startRowIndex: startRow + 2, endRowIndex: startRow + 3, startColumnIndex: 1, endColumnIndex },
         { startRowIndex: startRow + 3, endRowIndex: startRow + 4, startColumnIndex: 1, endColumnIndex },
         {
-            startRowIndex: startRow + 4, endRowIndex: startRow + 5 + tableIndex.indexedColumns.length,
+            startRowIndex: startRow + 4, endRowIndex: startRow + 5 + tableIndexSpec.indexedColumns.length,
             startColumnIndex: 0, endColumnIndex: 1
         },
     ].concat(
         (databaseType === "mysql") ? [] : [
             { startRowIndex: startRow + 4, endRowIndex: startRow + 5, startColumnIndex: 3, endColumnIndex },
-            ...tableIndex.indexedColumns.map((_, index) => {
+            ...tableIndexSpec.indexedColumns.map((_, index) => {
                 return {
                     startRowIndex: startRow + 5 + index,
                     endRowIndex: startRow + 6 + index,

@@ -261,12 +261,12 @@ const UniqueKeysEditDialog = ({
             <DialogContent>
                 <Stack spacing={3}>
                     <Divider />
-                    <TextField id="physicalName" label="Physical Name" required fullWidth
+                    <TextField id="physicalName" label="Physical Name" fullWidth
                         variant="outlined" sx={{ flex: 1 }} value={physicalName}
                         onChange={initHandleChangePhysicalName(setPhysicalName)}
                         onKeyDown={initHandleEnterKeyDown(handleCompleted)} />
                     {transferPanel}
-                    <TextField id="description" variant="outlined" label="Description" required
+                    <TextField id="description" variant="outlined" label="Description"
                         multiline rows={3} slotProps={{ input: { style: { resize: 'vertical' } } }}
                         value={description} onChange={event => setDescription(event.target.value)} />
                 </Stack>

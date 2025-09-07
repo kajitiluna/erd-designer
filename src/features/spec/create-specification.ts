@@ -1,6 +1,7 @@
 import ErdDocument from "~/models/ErdDocument";
 import DbSchemaModel from "~/models/database/DbSchemaModel";
 import TableModel from "~/models/database/TableModel";
+import { overrideColumnName } from "~/models/database/support";
 
 const createSpecification = (erdDocument: ErdDocument) => {
 
@@ -138,13 +139,14 @@ const initExportColumnGenerator = (erdDocument: ErdDocument, tableModel: TableMo
             continue;
         }
 
+        const overrideName = overrideColumnName(columnModel, columnShareModel);
         const parentRelation = erdDocument.findParentRelation(tableModel.tableModelId, columnModel.columnModelId);
 
         yield {
             physicalTableName: initTablePhysicalName(tableModel, schemaModel),
             logicalTableName: tableModel.logicalName,
-            physicalColumnName: columnShareModel.physicalName,
-            logicalColumnName: columnShareModel.logicalName,
+            physicalColumnName: overrideName.physicalName,
+            logicalColumnName: overrideName.logicalName,
             columnType: columnShareModel.columnType.name,
             precision: columnShareModel.precision ? Number(columnShareModel.precision) : null,
             scale: columnShareModel.scale ? Number(columnShareModel.scale) : null,
@@ -196,6 +198,7 @@ const initExportTableSpecsGenerator = (erdDocument: ErdDocument) => function* ()
         const schemaModel = erdDocument.findSchema(tableModel.schemaId);
 
         const exportColumns = initExportColumnGenerator(erdDocument, tableModel)
+        const exportUniqueKeys = initExportUniqueKeysConstraintsGenerator(erdDocument, tableModel);
         const exportTableIndexes = initExportTableIndexesGenerator(erdDocument, tableModel);
 
         yield {
@@ -203,10 +206,42 @@ const initExportTableSpecsGenerator = (erdDocument: ErdDocument) => function* ()
             logicalName: tableModel.logicalName,
             description: tableModel.description,
             exportColumns: exportColumns,
+            exportUniqueKeys: exportUniqueKeys,
             exportTableIndexes: exportTableIndexes
         };
     }
 };
+
+const initExportUniqueKeysConstraintsGenerator = (
+    erdDocument: ErdDocument, tableModel: TableModel
+) => function* () {
+    for (const uniqueKeysModel of tableModel.uniqueKeysModels) {
+        const uniqueKeyColumns = uniqueKeysModel.uniqueKeysColumnModels.map(model => {
+            const columnModel = erdDocument.findColumnModel(model.columnModelId);
+            if (columnModel == null) {
+                return null;
+            }
+
+            const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
+            if (columnShareModel == null) {
+                return null;
+            }
+
+            const overrideName = overrideColumnName(columnModel, columnShareModel);
+
+            return {
+                physicalName: overrideName.physicalName,
+                sortOrder: model.sortOrderType
+            };
+        }).filter(uniqueKeyColumn => (uniqueKeyColumn != null));
+
+        yield {
+            constraintName: uniqueKeysModel.physicalName,
+            description: uniqueKeysModel.description,
+            uniqueKeyColumns: uniqueKeyColumns
+        };
+    }
+}
 
 const initExportTableIndexesGenerator = (erdDocument: ErdDocument, tableModel: TableModel) => function* () {
     for (const tableIndex of tableModel.tableIndexModels) {
@@ -221,11 +256,13 @@ const initExportTableIndexesGenerator = (erdDocument: ErdDocument, tableModel: T
                 return null;
             }
 
+            const overrideName = overrideColumnName(columnModel, columnShareModel);
+
             return {
-                physicalName: columnShareModel.physicalName,
+                physicalName: overrideName.physicalName,
                 sortOrder: model.sortOrderType,
                 nullsOrder: model.nullsOrderType ? `NULLS ${model.nullsOrderType}` : ""
-            }
+            };
         }).filter(indexedColumn => (indexedColumn != null));
 
         const indexOption = [tableIndex.indexOption, (tableIndex.clustered ? "CLUSTERED" : "")]

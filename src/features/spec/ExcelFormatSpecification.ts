@@ -4,7 +4,8 @@ import { ImageContent } from "~/context/ExportSpecificationContext";
 import createSpecification from "~/features/spec/create-specification";
 import {
     ColumnListSpecGenerator, TableIndexSpec, TableListSpecGenerator,
-    TableDetailSpec, TableDetailSpecGenerator
+    TableDetailSpec, TableDetailSpecGenerator,
+    UniqueKeyConstraintSpec
 } from "~/features/spec/spec-util";
 import { DatabaseType } from "~/models/database";
 import ErdDocument from "~/models/ErdDocument";
@@ -307,43 +308,126 @@ const addTableSpecs = (
 
     tableSheet.addRow([]);
 
-    const tableIndexes = Array.from(tableSpec.exportTableIndexes());
-    if (tableIndexes.length === 0) {
+    let nextTitleRowNumber = tableColumnCount + 8;
+
+    // 複合一意キー定義の追加
+    const uniqueKeySpecs = Array.from(tableSpec.exportUniqueKeys());
+    if (uniqueKeySpecs.length > 0) {
+        tableSheet.addRow(["Unique Keys Specification"]);
+        const uniqueKeyTitleCell = tableSheet.getCell(nextTitleRowNumber, 1);
+        uniqueKeyTitleCell.font = { bold: true };
+
+        let uniqueKeyRowNumber = nextTitleRowNumber + 1;
+        for (const uniqueKeySpec of uniqueKeySpecs) {
+            const shiftRows = doAddUniqueKeySpecForTable(tableSheet, uniqueKeyRowNumber, databaseType, uniqueKeySpec);
+            uniqueKeyRowNumber += shiftRows;
+        }
+
+        nextTitleRowNumber = uniqueKeyRowNumber;
+    }
+
+    // インデクス定義の追加
+    const tableIndexSpecs = Array.from(tableSpec.exportTableIndexes());
+    if (tableIndexSpecs.length === 0) {
         setPrintArea(tableSheet);
         return;
     }
 
     tableSheet.addRow(["Indexes Specification"]);
-    const indexTitleCell = tableSheet.getCell(tableColumnCount + 8, 1);
+    const indexTitleCell = tableSheet.getCell(nextTitleRowNumber, 1);
     indexTitleCell.font = { bold: true };
 
-    let tableIndexRowNumber = tableColumnCount + 9;
-    for (const tableIndex of tableIndexes) {
-        const shiftRows = doAddIndexSpecForTable(tableSheet, tableIndexRowNumber, databaseType, tableIndex);
+    let tableIndexRowNumber = nextTitleRowNumber + 1;
+    for (const tableIndexSpec of tableIndexSpecs) {
+        const shiftRows = doAddIndexSpecForTable(tableSheet, tableIndexRowNumber, databaseType, tableIndexSpec);
         tableIndexRowNumber += shiftRows;
     }
 
     setPrintArea(tableSheet);
 };
 
+const doAddUniqueKeySpecForTable = (
+    tableSheet: ExcelJS.Worksheet, startRowNumber: number,
+    databaseType: DatabaseType, uniqueKeySpec: UniqueKeyConstraintSpec
+) => {
+    const indexColumnHeader = (databaseType === "postgres")
+        ? ["UniqueKey Columns", "ColumnName (physical)"]
+        : ["UniqueKey Columns", "ColumnName (physical)", "Sort Order"];
+    const indexColumnValues = uniqueKeySpec.uniqueKeyColumns.map(
+        column => (databaseType === "postgres")
+            ? ["", column.physicalName]
+            : ["", column.physicalName, column.sortOrder]
+    );
+
+    tableSheet.addRows([
+        ["ConstraintName", uniqueKeySpec.constraintName],
+        ["Description", uniqueKeySpec.description],
+        indexColumnHeader,
+        ...indexColumnValues,
+        []
+    ]);
+
+    // Description セルの高さ調整
+    const descriptionRow = tableSheet.getRow(startRowNumber + 1);
+    descriptionRow.height = 45;
+    const descriptionCell = descriptionRow.getCell(2);
+    descriptionCell.alignment = { wrapText: true };
+
+    // タイトルセルの書式設定
+    const titleHeaderIndexes = [
+        [0, 1], // ConstraintName
+        [1, 1], // Description
+        [2, 1], [2, 2] // Unique key Columns header
+    ];
+    if (databaseType !== "postgres") {
+        titleHeaderIndexes.push([2, 3]);
+    }
+    titleHeaderIndexes.forEach(index => {
+        const titleCell = tableSheet.getCell(startRowNumber + index[0], index[1]);
+        titleCell.font = { bold: true };
+        titleCell.fill = HEADER_FILL;
+    });
+
+    // セルのマージ
+    const mergeEndColumn = columnAlphabet(3);
+    [0, 1].forEach(index => {
+        tableSheet.mergeCells(`B${startRowNumber + index}:${mergeEndColumn}${startRowNumber + index}`);
+    });
+    tableSheet.mergeCells(`A${startRowNumber + 2}:A${startRowNumber + 2 + uniqueKeySpec.uniqueKeyColumns.length}`);
+    if (databaseType === "postgres") {
+        for (let index = 0; index < uniqueKeySpec.uniqueKeyColumns.length + 1; index++) {
+            tableSheet.mergeCells(`B${startRowNumber + 2 + index}:C${startRowNumber + 2 + index}`);
+        }
+    }
+
+    setTableBorders(tableSheet, {
+        headerRowNumber: startRowNumber,
+        recordCount: uniqueKeySpec.uniqueKeyColumns.length + 3,
+        columnCount: 3,
+        header: "vertical"
+    });
+
+    return uniqueKeySpec.uniqueKeyColumns.length + 4;
+};
+
 const doAddIndexSpecForTable = (
     tableSheet: ExcelJS.Worksheet, startRowNumber: number,
-    databaseType: DatabaseType, tableIndex: TableIndexSpec
+    databaseType: DatabaseType, tableIndexSpec: TableIndexSpec
 ) => {
     const indexColumnHeader = (databaseType === "postgres")
         ? ["Indexed Columns", "ColumnName (physical)", "Sort Order", "NULLS Order"]
         : ["Indexed Columns", "ColumnName (physical)", "Sort Order"];
-    const indexColumnValues = tableIndex.indexedColumns.map(
+    const indexColumnValues = tableIndexSpec.indexedColumns.map(
         column => (databaseType === "postgres")
             ? ["", column.physicalName, column.sortOrder, column.nullsOrder]
             : ["", column.physicalName, column.sortOrder]
     )
 
     tableSheet.addRows([
-        ["IndexName", tableIndex.indexName],
-        ["IndexType", tableIndex.indexType],
-        ["Option", tableIndex.indexOption],
-        ["Description", tableIndex.description],
+        ["IndexName", tableIndexSpec.indexName],
+        ["IndexType", tableIndexSpec.indexType],
+        ["Option", tableIndexSpec.indexOption],
+        ["Description", tableIndexSpec.description],
         indexColumnHeader,
         ...indexColumnValues,
         []
@@ -377,21 +461,21 @@ const doAddIndexSpecForTable = (
     [0, 1, 2, 3].forEach(index => {
         tableSheet.mergeCells(`B${startRowNumber + index}:${mergeEndColumn}${startRowNumber + index}`);
     });
-    tableSheet.mergeCells(`A${startRowNumber + 4}:A${startRowNumber + 4 + tableIndex.indexedColumns.length}`);
+    tableSheet.mergeCells(`A${startRowNumber + 4}:A${startRowNumber + 4 + tableIndexSpec.indexedColumns.length}`);
     if (databaseType === "postgres") {
-        for (let index = 0; index < tableIndex.indexedColumns.length + 1; index++) {
+        for (let index = 0; index < tableIndexSpec.indexedColumns.length + 1; index++) {
             tableSheet.mergeCells(`D${startRowNumber + 4 + index}:E${startRowNumber + 4 + index}`);
         }
     }
 
     setTableBorders(tableSheet, {
         headerRowNumber: startRowNumber,
-        recordCount: tableIndex.indexedColumns.length + 5,
+        recordCount: tableIndexSpec.indexedColumns.length + 5,
         columnCount: (databaseType === "postgres" ? 5 : 3),
         header: "vertical"
     });
 
-    return tableIndex.indexedColumns.length + 6;
+    return tableIndexSpec.indexedColumns.length + 6;
 };
 
 type TableBorderOption = {
