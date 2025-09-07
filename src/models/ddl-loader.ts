@@ -18,6 +18,7 @@ import TableModel, { ColumnModelType } from '~/models/database/TableModel';
 import RelationPair from '~/models/database/RelationPair';
 import RelationModel from '~/models/database/RelationModel';
 import { NullsOrderType, SortOrderType } from '~/models/database/ValueType';
+import TableUniqueKeysModel, { UniqueKeysColumnModel } from '~/models/database/TableUniqueKeysModel';
 
 export const loadDdl = (erdDocument: ErdDocument, ddl: string, separator: string = ""): DdlLoadResult => {
     const ddlLoader = new DdlLoader(erdDocument, separator);
@@ -353,6 +354,7 @@ type TableIndexDefinition = {
     indexOption: TableIndexOption;
     indexType: TableIndexType;
     clustered: boolean;
+    uniqueKeyConstraint: boolean;
 };
 
 type IndexColumn = {
@@ -460,7 +462,7 @@ const loadCreateTableDdl = (query: Create): ([TableBaseDefinition, null] | [null
             tableName: tableName,
             columnDefinitions: columnBaseDefinitions,
             tableIndexDefinitions: tableIndexDefinitions.map(definition => {
-                if (definition.indexName != "") {
+                if (definition.uniqueKeyConstraint || (definition.indexName != "")) {
                     return definition;
                 }
 
@@ -557,7 +559,11 @@ type CreateConstraintUnique = Extract<CreateConstraintDefinition, {
 
 const loadCreateConstraintDefinition = (
     createDefinition: CreateConstraintDefinition, index: number, columnDefinitions: ColumnBaseDefinition[]
-): ([UpdateColumnDefinition[], null, null] | [UpdateColumnDefinition[], TableIndexDefinition, null] | [UpdateColumnDefinition[], null, LoadFailure]) => {
+): (
+        [UpdateColumnDefinition[], null, null]
+        | [UpdateColumnDefinition[], TableIndexDefinition, null]
+        | [UpdateColumnDefinition[], null, LoadFailure]
+    ) => {
 
     if (createDefinition.constraint_type === "primary key") {
         const [nextColumnDefinitions, noSuccessResult] =
@@ -570,8 +576,10 @@ const loadCreateConstraintDefinition = (
         || (createDefinition.constraint_type === "unique key")
         || (createDefinition.constraint_type === "unique index")) {
 
+        const uniqueKeyConstraint = (createDefinition.constraint_type === "unique index") ? false : true;
         const [nextColumnDefinition, tableIndexDefinition, noSuccessResult] =
-            doLoadCreateUniqueKeyDefinition(createDefinition as CreateConstraintUnique, index, columnDefinitions);
+            doLoadCreateUniqueKeyDefinition(createDefinition as CreateConstraintUnique,
+                uniqueKeyConstraint, index, columnDefinitions);
 
         if (noSuccessResult != null) {
             return [[], null, noSuccessResult];
@@ -622,7 +630,8 @@ const doLoadCreatePrimaryKeyDefinition = (
 };
 
 const doLoadCreateUniqueKeyDefinition = (
-    createDefinition: CreateConstraintUnique, index: number, columnDefinitions: ColumnBaseDefinition[]
+    createDefinition: CreateConstraintUnique, uniqueKeyConstraint: boolean,
+    index: number, columnDefinitions: ColumnBaseDefinition[]
 ): ([UpdateColumnDefinition, null, null] | [null, TableIndexDefinition, null] | [null, null, LoadFailure]) => {
 
     const doValidateDefinition = (
@@ -700,7 +709,8 @@ const doLoadCreateUniqueKeyDefinition = (
             } as IndexColumn)),
             indexOption: "UNIQUE",
             indexType: indexType as TableIndexType,
-            clustered: clustered
+            clustered: clustered,
+            uniqueKeyConstraint: uniqueKeyConstraint,
         },
         null
     ];
@@ -755,7 +765,8 @@ const loadCreateIndexDefinition = (
             } as IndexColumn)),
             indexOption: indexOption as TableIndexOption,
             indexType: indexType as TableIndexType,
-            clustered: false
+            clustered: false,
+            uniqueKeyConstraint: false,
         },
         null
     ];
@@ -823,7 +834,8 @@ const loadCreateIndexDdl = (query: Create): (
         indexColumns: indexColumns,
         indexOption: indexOption,
         indexType: usingIndexType as TableIndexType,
-        clustered: clustered
+        clustered: clustered,
+        uniqueKeyConstraint: false,
     }
 
     return [
@@ -922,12 +934,6 @@ const loadAlterTableDdl = (query: Alter, tableDefinitions: Map<string, TableBase
             }
 
             childTableDefinition.tableIndexDefinitions.push(tableIndexDefinition);
-
-            // UNIQUE 制約を定義できないため、暫定的に UNIQUE 制約の代わりに UNIQUE INDEX を追加するので、
-            // warning としてメッセージを追加
-            const message = `Adding unique index "${tableIndexDefinition.indexName}"`
-                + ` to table "${childTableName}" instead of unique constraint.`;
-            skippedReasons.push(skip(message));
             continue;
         }
 
@@ -1080,7 +1086,8 @@ const doLoadAlterUniqueDdl = (index: number, createDefinition: object): ([TableI
             indexColumns: indexColumns,
             indexOption: "UNIQUE" as TableIndexOption,
             indexType: "" as TableIndexType,
-            clustered: isClusteredIndexInAlterDdl(createDefinition)
+            clustered: isClusteredIndexInAlterDdl(createDefinition),
+            uniqueKeyConstraint: true,
         },
         null
     ];
@@ -1311,32 +1318,54 @@ const doInitTableModels = (tableDefinitions: DdlTableDefinition[], separator: st
             } as ColumnModelType;
         });
 
-        const tableIndexModels = tableDefinition.tableIndexDefinitions.map(indexDefinition => {
-            const indexColumnModels = indexDefinition.indexColumns.map(indexColumn => {
-                const columnModel = nameToColumnModels.get(`${physicalTableName}:${indexColumn.columnName}`) as ColumnModel;
+        const uniqueKeysModels = tableDefinition.tableIndexDefinitions
+            .filter(uniqueKeyDefinition => (uniqueKeyDefinition.uniqueKeyConstraint === true))
+            .map(uniqueKeyDefinition => {
+                const uniqueKeyColumnModels = uniqueKeyDefinition.indexColumns.map(uniqueKeyColumn => {
+                    const columnModel = nameToColumnModels.get(`${physicalTableName}:${uniqueKeyColumn.columnName}`)!;
 
-                return new IndexColumnModel({
-                    columnModelId: columnModel.columnModelId,
-                    sortOrderType: indexColumn.sortOrderType,
-                    nullsOrderType: indexColumn.nullsOrderType,
+                    return new UniqueKeysColumnModel({
+                        columnModelId: columnModel.columnModelId,
+                        sortOrderType: uniqueKeyColumn.sortOrderType
+                    });
+                });
+
+                return new TableUniqueKeysModel({
+                    tableUniqueKeysModelId: uuidV4(),
+                    physicalName: uniqueKeyDefinition.indexName,
+                    uniqueKeysColumnModels: uniqueKeyColumnModels
                 });
             });
 
-            return new TableIndexModel({
-                tableIndexModelId: uuidV4(),
-                physicalName: indexDefinition.indexName,
-                indexColumnModels: indexColumnModels,
-                indexOption: indexDefinition.indexOption,
-                indexType: indexDefinition.indexType,
-                clustered: indexDefinition.clustered,
+        const tableIndexModels = tableDefinition.tableIndexDefinitions
+            .filter(indexDefinition => (indexDefinition.uniqueKeyConstraint === false))
+            .map(indexDefinition => {
+                const indexColumnModels = indexDefinition.indexColumns.map(indexColumn => {
+                    const columnModel = nameToColumnModels.get(`${physicalTableName}:${indexColumn.columnName}`)!;
+
+                    return new IndexColumnModel({
+                        columnModelId: columnModel.columnModelId,
+                        sortOrderType: indexColumn.sortOrderType,
+                        nullsOrderType: indexColumn.nullsOrderType,
+                    });
+                });
+
+                return new TableIndexModel({
+                    tableIndexModelId: uuidV4(),
+                    physicalName: indexDefinition.indexName,
+                    indexColumnModels: indexColumnModels,
+                    indexOption: indexDefinition.indexOption,
+                    indexType: indexDefinition.indexType,
+                    clustered: indexDefinition.clustered,
+                });
             });
-        });
 
         return new TableModel({
             tableModelId: uuidV4(),
             physicalName: physicalTableName,
             logicalName: logicalTableName,
             columns: columnModelTypes,
+            uniqueKeysModels: uniqueKeysModels,
             tableIndexModels: tableIndexModels,
             description: description,
         });
