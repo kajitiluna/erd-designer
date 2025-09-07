@@ -178,7 +178,6 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
         return (parentColumnModel.columnShareModelId === columnModel.columnShareModelId);
     };
 
-    // TODO 複合一意キー指定
     const tabPanel = (<>
         <Tabs value={tabIndex} onChange={(_, newValue) => setTabIndex(newValue)}>
             <Tab label="Column" />

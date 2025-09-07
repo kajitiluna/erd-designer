@@ -576,7 +576,7 @@ const loadCreateConstraintDefinition = (
         || (createDefinition.constraint_type === "unique key")
         || (createDefinition.constraint_type === "unique index")) {
 
-        const uniqueKeyConstraint = (createDefinition.constraint_type === "unique index") ? false : true;
+        const uniqueKeyConstraint = createDefinition.constraint_type !== "unique index";
         const [nextColumnDefinition, tableIndexDefinition, noSuccessResult] =
             doLoadCreateUniqueKeyDefinition(createDefinition as CreateConstraintUnique,
                 uniqueKeyConstraint, index, columnDefinitions);
