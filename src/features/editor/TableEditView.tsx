@@ -21,6 +21,7 @@ import TableModel, { ColumnModelType } from "~/models/database/TableModel";
 import ErdDocument from "~/models/ErdDocument";
 import TableViewModel from "~/models/TableViewModel";
 import TableUniqueKeysModel from "~/models/database/TableUniqueKeysModel";
+import UniqueKeysGridView from "~/features/editor/UniqueKeysGridView";
 
 type TableEditViewProps = {
     isOpen: boolean,
@@ -181,6 +182,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
     const tabPanel = (<>
         <Tabs value={tabIndex} onChange={(_, newValue) => setTabIndex(newValue)}>
             <Tab label="Column" />
+            <Tab label={`Unique Keys (${uniqueKeysModels.length})`} disabled={columnWrapModels.length < 2} />
             <Tab label={`Index (${tableIndexModels.length})`} disabled={columnWrapModels.length === 0} />
         </Tabs>
         <div hidden={tabIndex !== 0}>
@@ -192,6 +194,14 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
                 onUpdateColumnWrapModels={setColumnWrapModels} />
         </div>
         <div hidden={tabIndex !== 1}>
+            <UniqueKeysGridView
+                database={erdDocument.getDatabase()}
+                columnWrapModels={columnWrapModels}
+                tableUniqueKeysModels={uniqueKeysModels}
+                isChildRelation={isChildRelation}
+                onUpdateTableUniqueKeysModels={setUniqueKeysModels} />
+        </div>
+        <div hidden={tabIndex !== 2}>
             <IndexGridView
                 database={erdDocument.getDatabase()}
                 columnWrapModels={columnWrapModels}

@@ -335,7 +335,7 @@ const IndexEditDialog = ({
                     {transferPanel}
                     <TextField id="description" variant="outlined" label="Description"
                         multiline rows={3} slotProps={{ input: { style: { resize: 'vertical' } } }}
-                        value={description} onChange={(event) => setDescription(event.target.value)} />
+                        value={description} onChange={event => setDescription(event.target.value)} />
                 </Stack>
             </DialogContent>
             <DialogActions>

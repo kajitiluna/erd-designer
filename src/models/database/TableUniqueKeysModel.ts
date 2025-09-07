@@ -4,6 +4,7 @@ import { toObjects } from "~/models/util";
 
 type TableUniqueKeysModelOptions = {
     tableUniqueKeysModelId: string,
+    physicalName?: string,
     uniqueKeysColumnModels: UniqueKeysColumnModel[],
     description?: string
 }
@@ -11,15 +12,18 @@ type TableUniqueKeysModelOptions = {
 export default class TableUniqueKeysModel {
 
     public readonly tableUniqueKeysModelId: string;
+    public readonly physicalName: string;
     public readonly uniqueKeysColumnModels: readonly UniqueKeysColumnModel[];
     public readonly description: string;
 
     constructor({
         tableUniqueKeysModelId,
+        physicalName = "",
         uniqueKeysColumnModels,
         description = ""
     }: TableUniqueKeysModelOptions) {
         this.tableUniqueKeysModelId = tableUniqueKeysModelId;
+        this.physicalName = physicalName.trim();
         this.uniqueKeysColumnModels = uniqueKeysColumnModels;
         this.description = description;
     }
@@ -55,6 +59,7 @@ export default class TableUniqueKeysModel {
     public toJSON(): Record<string, unknown> {
         return {
             tableUniqueKeysModelId: this.tableUniqueKeysModelId,
+            ...((this.physicalName !== "") && { physicalName: this.physicalName }),
             uniqueKeysColumnModels: this.uniqueKeysColumnModels.map(model => model.toJSON()),
             ...((this.description !== "") && { description: this.description })
         };
@@ -68,11 +73,13 @@ export default class TableUniqueKeysModel {
             throw new PropertyNotExistsError("uniqueKeysColumnModels", obj);
         }
 
+        const physicalName = ("physicalName" in obj) ? obj.physicalName as string : "";
         const uniqueKeysColumnModels = toObjects(obj.uniqueKeysColumnModels, "uniqueKeysColumnModels",
             value => UniqueKeysColumnModel.toObject(value));
 
         return new TableUniqueKeysModel({
             tableUniqueKeysModelId: obj.tableUniqueKeysModelId as string,
+            physicalName: physicalName,
             uniqueKeysColumnModels: uniqueKeysColumnModels,
             description: ("description" in obj) ? obj.description as string : "",
         });
@@ -80,6 +87,10 @@ export default class TableUniqueKeysModel {
 
     public equals(other: TableUniqueKeysModel): boolean {
         if (this.tableUniqueKeysModelId !== other.tableUniqueKeysModelId) {
+            return false;
+        }
+
+        if (this.physicalName !== other.physicalName) {
             return false;
         }
 

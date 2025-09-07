@@ -1,4 +1,5 @@
 import TableIndexSupport from "~/models/database/TableIndexSupport";
+import TableUniqueKeySupport from "~/models/database/TableUniqueKeySupport";
 
 export type DatabaseType = "postgres" | "mysql" | "ms_sqlserver";
 
@@ -8,6 +9,7 @@ export class Database {
         public readonly databaseType: DatabaseType,
         public readonly name: string,
         public readonly supportsSchema: boolean,
+        public readonly uniqueKeySupport: TableUniqueKeySupport,
         public readonly tableIndexSupport: TableIndexSupport,
         private readonly columnOption: ColumnOption
     ) { }
@@ -38,6 +40,7 @@ type ColumnOption = {
 const databases: { [key in DatabaseType]: Database } = {
     "postgres": new Database(
         "postgres", "PostgreSQL", true,
+        new TableUniqueKeySupport({ orderable: false }),
         new TableIndexSupport({
             indexOptions: ["UNIQUE"],
             indexTypes: ["BTREE", "HASH", "GIST", "SPGIST", "GIN", "BRIN"],
@@ -47,6 +50,7 @@ const databases: { [key in DatabaseType]: Database } = {
     ),
     "mysql": new Database(
         "mysql", "MySQL", false,
+        new TableUniqueKeySupport({ orderable: true }),
         new TableIndexSupport({
             indexOptions: ["UNIQUE", "FULLTEXT", "SPATIAL"],
             indexTypes: ["BTREE", "HASH"]
@@ -55,6 +59,7 @@ const databases: { [key in DatabaseType]: Database } = {
     ),
     "ms_sqlserver": new Database(
         "ms_sqlserver", "MS SQL Server", true,
+        new TableUniqueKeySupport({ orderable: true }),
         new TableIndexSupport({
             indexOptions: ["UNIQUE"],
             indexTypes: [],
