@@ -1,6 +1,7 @@
 import TableModel, { ColumnModelType } from '../TableModel';
 import TableIndexModel from '../TableIndexModel';
 import { IndexColumnModel } from '../TableIndexModel';
+import TableUniqueKeysModel, { UniqueKeysColumnModel } from '../TableUniqueKeysModel';
 import { PropertyNotExistsError } from '../../exceptions';
 
 describe('TableModel', () => {
@@ -11,7 +12,9 @@ describe('TableModel', () => {
             expect(model.tableModelId).toBeTruthy(); // UUID should be generated
             expect(model.physicalName).toBe('');
             expect(model.logicalName).toBe('');
+            expect(model.schemaId).toBe('');
             expect(model.columns).toEqual([]);
+            expect(model.uniqueKeysModels).toEqual([]);
             expect(model.tableIndexModels).toEqual([]);
             expect(model.description).toBe('');
         });
@@ -31,14 +34,25 @@ describe('TableModel', () => {
                 indexColumnModels: [indexColumnModel]
             });
 
+            const uniqueKeysColumnModel = new UniqueKeysColumnModel({
+                columnModelId: 'col1',
+                sortOrderType: 'ASC'
+            });
+            const uniqueKeysModel = new TableUniqueKeysModel({
+                tableUniqueKeysModelId: 'uk1',
+                uniqueKeysColumnModels: [uniqueKeysColumnModel]
+            });
+
             const options = {
                 tableModelId: 'test-id',
                 physicalName: 'test_table',
                 logicalName: 'Test Table',
+                schemaId: 'test-schema',
                 columns: [
                     { modelType: 'single', columnModelId: 'col1' },
                     { modelType: 'single', columnModelId: 'col2' }
                 ] as ColumnModelType[],
+                uniqueKeysModels: [uniqueKeysModel],
                 tableIndexModels: [tableIndexModel],
                 description: 'Test description'
             };
@@ -48,7 +62,9 @@ describe('TableModel', () => {
             expect(model.tableModelId).toBe(options.tableModelId);
             expect(model.physicalName).toBe(options.physicalName);
             expect(model.logicalName).toBe(options.logicalName);
+            expect(model.schemaId).toBe(options.schemaId);
             expect(model.columns).toEqual(options.columns);
+            expect(model.uniqueKeysModels).toEqual(options.uniqueKeysModels);
             expect(model.tableIndexModels).toEqual(options.tableIndexModels);
             expect(model.description).toBe(options.description);
         });
@@ -143,12 +159,22 @@ describe('TableModel', () => {
         });
 
         test('should preserve other properties when adding columns', () => {
+            const uniqueKeysColumnModel = new UniqueKeysColumnModel({
+                columnModelId: 'col1',
+                sortOrderType: 'ASC'
+            });
+            const uniqueKeysModel = new TableUniqueKeysModel({
+                tableUniqueKeysModelId: 'uk1',
+                uniqueKeysColumnModels: [uniqueKeysColumnModel]
+            });
+
             const originalData = {
                 tableModelId: 'test-id',
                 physicalName: 'test_table',
                 logicalName: 'Test Table',
                 schemaId: 'test-schema',
                 columns: [{ modelType: 'single', columnModelId: 'col1' }] as ColumnModelType[],
+                uniqueKeysModels: [uniqueKeysModel],
                 description: 'Test description'
             };
             const model = new TableModel(originalData);
@@ -159,6 +185,7 @@ describe('TableModel', () => {
             expect(result.physicalName).toBe(originalData.physicalName);
             expect(result.logicalName).toBe(originalData.logicalName);
             expect(result.schemaId).toBe(originalData.schemaId);
+            expect(result.uniqueKeysModels).toEqual(originalData.uniqueKeysModels);
             expect(result.description).toBe(originalData.description);
         });
 
@@ -181,6 +208,15 @@ describe('TableModel', () => {
 
     describe('equals', () => {
         test('should return true for identical models', () => {
+            const uniqueKeysColumnModel = new UniqueKeysColumnModel({
+                columnModelId: 'col1',
+                sortOrderType: 'ASC'
+            });
+            const uniqueKeysModel = new TableUniqueKeysModel({
+                tableUniqueKeysModelId: 'uk1',
+                uniqueKeysColumnModels: [uniqueKeysColumnModel]
+            });
+
             const data = {
                 tableModelId: 'test-id',
                 physicalName: 'test_table',
@@ -190,6 +226,7 @@ describe('TableModel', () => {
                     { modelType: 'single', columnModelId: 'col1' },
                     { modelType: 'group', columnGroupId: 'group1' }
                 ] as ColumnModelType[],
+                uniqueKeysModels: [uniqueKeysModel],
                 description: 'Test description'
             };
             const model1 = new TableModel(data);
@@ -273,6 +310,47 @@ describe('TableModel', () => {
             expect(model1.equals(model2)).toBe(false);
         });
 
+        test('should return false for different number of unique keys models', () => {
+            const uniqueKeysColumnModel = new UniqueKeysColumnModel({
+                columnModelId: 'col1',
+                sortOrderType: 'ASC'
+            });
+            const uniqueKeysModel = new TableUniqueKeysModel({
+                tableUniqueKeysModelId: 'uk1',
+                uniqueKeysColumnModels: [uniqueKeysColumnModel]
+            });
+
+            const model1 = new TableModel({ uniqueKeysModels: [] });
+            const model2 = new TableModel({ uniqueKeysModels: [uniqueKeysModel] });
+
+            expect(model1.equals(model2)).toBe(false);
+        });
+
+        test('should return false for different unique keys models', () => {
+            const uniqueKeysColumnModel1 = new UniqueKeysColumnModel({
+                columnModelId: 'col1',
+                sortOrderType: 'ASC'
+            });
+            const uniqueKeysModel1 = new TableUniqueKeysModel({
+                tableUniqueKeysModelId: 'uk1',
+                uniqueKeysColumnModels: [uniqueKeysColumnModel1]
+            });
+
+            const uniqueKeysColumnModel2 = new UniqueKeysColumnModel({
+                columnModelId: 'col2',
+                sortOrderType: 'DESC'
+            });
+            const uniqueKeysModel2 = new TableUniqueKeysModel({
+                tableUniqueKeysModelId: 'uk2',
+                uniqueKeysColumnModels: [uniqueKeysColumnModel2]
+            });
+
+            const model1 = new TableModel({ uniqueKeysModels: [uniqueKeysModel1] });
+            const model2 = new TableModel({ uniqueKeysModels: [uniqueKeysModel2] });
+
+            expect(model1.equals(model2)).toBe(false);
+        });
+
         test('should return false for different number of table index models', () => {
             const indexColumnModel = new IndexColumnModel({ columnModelId: 'col1' });
             const tableIndexModel = new TableIndexModel({
@@ -325,6 +403,15 @@ describe('TableModel', () => {
                 indexColumnModels: [indexColumnModel]
             });
 
+            const uniqueKeysColumnModel = new UniqueKeysColumnModel({
+                columnModelId: 'col1',
+                sortOrderType: 'ASC'
+            });
+            const uniqueKeysModel = new TableUniqueKeysModel({
+                tableUniqueKeysModelId: 'uk1',
+                uniqueKeysColumnModels: [uniqueKeysColumnModel]
+            });
+
             const model = new TableModel({
                 tableModelId: 'test-id',
                 physicalName: 'test_table',
@@ -334,6 +421,7 @@ describe('TableModel', () => {
                     { modelType: 'single', columnModelId: 'col1' },
                     { modelType: 'group', columnGroupId: 'group1' }
                 ] as ColumnModelType[],
+                uniqueKeysModels: [uniqueKeysModel],
                 tableIndexModels: [tableIndexModel],
                 description: 'Test description'
             });
@@ -346,6 +434,7 @@ describe('TableModel', () => {
                 logicalName: 'Test Table',
                 schemaId: 'test-schema',
                 columnModelIds: ['col1', 'group:group1'],
+                uniqueKeysModels: [uniqueKeysModel.toJSON()],
                 tableIndexModels: [tableIndexModel.toJSON()],
                 description: 'Test description'
             });
@@ -366,8 +455,7 @@ describe('TableModel', () => {
                 tableModelId: 'test-id',
                 physicalName: 'test_table',
                 logicalName: 'Test Table',
-                columnModelIds: [],
-                tableIndexModels: []
+                columnModelIds: []
             });
         });
 
@@ -397,16 +485,41 @@ describe('TableModel', () => {
 
             expect(json.columnModelIds).toEqual(['col1', 'group:group1', 'col2']);
         });
+
+        test('should omit empty uniqueKeysModels and tableIndexModels from JSON', () => {
+            const model = new TableModel({
+                tableModelId: 'test-id',
+                physicalName: 'test_table',
+                logicalName: 'Test Table',
+                uniqueKeysModels: [],
+                tableIndexModels: []
+            });
+
+            const json = model.toJSON();
+
+            expect(json).not.toHaveProperty('uniqueKeysModels');
+            expect(json).not.toHaveProperty('tableIndexModels');
+        });
     });
 
     describe('toObject', () => {
         test('should deserialize from JSON object', () => {
+            const uniqueKeysColumnModel = new UniqueKeysColumnModel({
+                columnModelId: 'col1',
+                sortOrderType: 'ASC'
+            });
+            const uniqueKeysModel = new TableUniqueKeysModel({
+                tableUniqueKeysModelId: 'uk1',
+                uniqueKeysColumnModels: [uniqueKeysColumnModel]
+            });
+
             const jsonData = {
                 tableModelId: 'test-id',
                 physicalName: 'test_table',
                 logicalName: 'Test Table',
                 schemaId: 'test-schema',
                 columnModelIds: ['col1', 'group:group1'],
+                uniqueKeysModels: [uniqueKeysModel.toJSON()],
                 tableIndexModels: [],
                 description: 'Test description'
             };
@@ -421,6 +534,8 @@ describe('TableModel', () => {
                 { modelType: 'single', columnModelId: 'col1' },
                 { modelType: 'group', columnGroupId: 'group1' }
             ]);
+            expect(model.uniqueKeysModels).toHaveLength(1);
+            expect(model.uniqueKeysModels[0].equals(uniqueKeysModel)).toBe(true);
             expect(model.description).toBe('Test description');
         });
 
@@ -435,6 +550,7 @@ describe('TableModel', () => {
             const model = TableModel.toObject(jsonData);
 
             expect(model.schemaId).toBe('');
+            expect(model.uniqueKeysModels).toEqual([]);
             expect(model.tableIndexModels).toEqual([]);
             expect(model.description).toBe('');
         });
@@ -502,6 +618,82 @@ describe('TableModel', () => {
 
             expect(model.tableIndexModels.length).toBe(1);
             expect(model.tableIndexModels[0].equals(tableIndexModel)).toBe(true);
+        });
+
+        test('should handle unique keys models deserialization', () => {
+            const uniqueKeysColumnModel = new UniqueKeysColumnModel({
+                columnModelId: 'col1',
+                sortOrderType: 'ASC'
+            });
+            const uniqueKeysModel = new TableUniqueKeysModel({
+                tableUniqueKeysModelId: 'uk1',
+                uniqueKeysColumnModels: [uniqueKeysColumnModel]
+            });
+
+            const jsonData = {
+                tableModelId: 'test-id',
+                physicalName: 'test_table',
+                logicalName: 'Test Table',
+                columnModelIds: ['col1'],
+                uniqueKeysModels: [uniqueKeysModel.toJSON()]
+            };
+
+            const model = TableModel.toObject(jsonData);
+
+            expect(model.uniqueKeysModels).toHaveLength(1);
+            expect(model.uniqueKeysModels[0].equals(uniqueKeysModel)).toBe(true);
+        });
+    });
+
+    describe('serialization roundtrip', () => {
+        test('should maintain equality after serialization and deserialization', () => {
+            const uniqueKeysColumnModel = new UniqueKeysColumnModel({
+                columnModelId: 'col1',
+                sortOrderType: 'ASC'
+            });
+            const uniqueKeysModel = new TableUniqueKeysModel({
+                tableUniqueKeysModelId: 'uk1',
+                uniqueKeysColumnModels: [uniqueKeysColumnModel]
+            });
+
+            const indexColumnModel = new IndexColumnModel({ columnModelId: 'col1' });
+            const tableIndexModel = new TableIndexModel({
+                tableIndexModelId: 'idx1',
+                physicalName: 'test_idx',
+                indexColumnModels: [indexColumnModel]
+            });
+
+            const original = new TableModel({
+                tableModelId: 'test-id',
+                physicalName: 'test_table',
+                logicalName: 'Test Table',
+                schemaId: 'test-schema',
+                columns: [
+                    { modelType: 'single', columnModelId: 'col1' },
+                    { modelType: 'group', columnGroupId: 'group1' }
+                ] as ColumnModelType[],
+                uniqueKeysModels: [uniqueKeysModel],
+                tableIndexModels: [tableIndexModel],
+                description: 'Test description'
+            });
+
+            const json = original.toJSON();
+            const deserialized = TableModel.toObject(json);
+
+            expect(original.equals(deserialized)).toBe(true);
+        });
+
+        test('should handle empty values correctly in roundtrip', () => {
+            const original = new TableModel({
+                tableModelId: 'test-id',
+                physicalName: 'test_table',
+                logicalName: 'Test Table'
+            });
+
+            const json = original.toJSON();
+            const deserialized = TableModel.toObject(json);
+
+            expect(original.equals(deserialized)).toBe(true);
         });
     });
 });

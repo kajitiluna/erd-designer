@@ -33,6 +33,8 @@ import ColumnShareModel from "~/models/database/ColumnShareModel";
 import DisplayStyle from "~/models/database/DisplayStyle";
 import RelationModel from "~/models/database/RelationModel";
 import TableModel from "~/models/database/TableModel";
+import TableIndexModel from "~/models/database/TableIndexModel";
+import TableUniqueKeysModel from "~/models/database/TableUniqueKeysModel";
 import { overrideColumnName } from "~/models/database/support";
 
 import styleClasses from "./ErdCanvas.module.css";
@@ -147,6 +149,7 @@ const initTableColumn = (columnModel: ColumnModel, tableModel: TableModel, erdDo
         return (<></>);
     }
 
+    const uniqueKeysModels = tableModel.uniqueKeysModels;
     const tableIndexModels = tableModel.tableIndexModels;
 
     const inChildRelation = erdDocument.inChildRelation(tableModel.tableModelId, columnModel.columnModelId);
@@ -161,36 +164,19 @@ const initTableColumn = (columnModel: ColumnModel, tableModel: TableModel, erdDo
     const styleRow = selectedRelationColumn ? {
         backgroundColor: "rgba(73, 76, 218, 0.12)",
     } : {};
-
-    const stylePrimaryCell = {
-        whiteSpace: "nowrap",
-        paddingTop: "4px", paddingBottom: "4px",
-        paddingLeft: "12px", paddingRight: "2px"
-    };
-    const styleForeignCell = {
-        whiteSpace: "nowrap",
-        paddingTop: "4px", paddingBottom: "4px",
-        paddingLeft: "2px", paddingRight: "12px"
-    };
     const styleTextCell = {
         whiteSpace: "nowrap", color: fontColor
     };
     const styleAttributeCell = {
         whiteSpace: "nowrap", color: fontColor, fontSize: "0.914em"
     };
-    const styleIndexCell = {
-        paddingLeft: "0px", paddingRight: "10px"
-    };
-    const styleIndexGrid = {
-        whiteSpace: "nowrap", paddingLeft: "6px", paddingRight: "6px"
-    };
 
     return (
         <TableRow key={`erd-table-column_${columnModel.columnModelId}`} sx={styleRow}>
-            <TableCell align="center" sx={stylePrimaryCell} >
+            <TableCell align="center" sx={STYLE_PRIMARY_CELL} >
                 {columnModel.primaryKey && <PrimaryKeyIcon />}
             </TableCell>
-            <TableCell align="center" sx={styleForeignCell} >
+            <TableCell align="center" sx={STYLE_FOREIGN_CELL} >
                 {inChildRelation && <ForeignKeyIcon />}
             </TableCell>
 
@@ -200,24 +186,8 @@ const initTableColumn = (columnModel: ColumnModel, tableModel: TableModel, erdDo
 
             <TableCell sx={styleAttributeCell}>{displayColumnType}</TableCell>
             <TableCell align="center" sx={styleAttributeCell}>{displayOption}</TableCell>
-            {(tableIndexModels.length > 0) &&
-                <TableCell sx={styleIndexCell}>
-                    <Grid2 container columns={tableIndexModels.length} spacing="1">
-                        {tableIndexModels.map(tableIndex =>
-                            <Grid2 key={`table-index_${tableIndex.tableIndexModelId}`} sx={styleIndexGrid}>
-                                {tableIndex.indexColumnModels.some(indexColumn =>
-                                    indexColumn.columnModelId === columnModel.columnModelId)
-                                    ? (
-                                        <TopLeftTooltip title={tableIndex.physicalName}>
-                                            <span>*</span>
-                                        </TopLeftTooltip>
-                                    ) : (<span style={{ margin: "2.8px" }}></span>)
-                                }
-                            </Grid2>
-                        )}
-                    </Grid2>
-                </TableCell>
-            }
+            {initUniqueKeysMarkers(columnModel, uniqueKeysModels)}
+            {initTableIndexMarkers(columnModel, tableIndexModels)}
         </TableRow >
     );
 };
@@ -270,6 +240,95 @@ const initDisplayOption = (columnModel: ColumnModel): string => {
 
     return (columnOptions.length > 0) ? `(${columnOptions.join("")})` : "";
 };
+
+
+const initUniqueKeysMarkers = (
+    columnModel: ColumnModel, uniqueKeysModels: readonly TableUniqueKeysModel[]
+) => {
+    if (uniqueKeysModels.length === 0) {
+        return (<></>);
+    }
+
+    const doInitIndexMarker = (uniqueKeysModel: TableUniqueKeysModel) => {
+        const hasIndexed = uniqueKeysModel.uniqueKeysColumnModels.some(indexColumn =>
+            indexColumn.columnModelId === columnModel.columnModelId);
+
+        const marker = hasIndexed
+            ? (
+                <TopLeftTooltip title={uniqueKeysModel.physicalName}>
+                    <span>+</span>
+                </TopLeftTooltip>
+            ) : (<span style={STYLE_MARKER_MARGIN}></span>);
+
+        return (
+            <Grid2 key={`table-unique_${uniqueKeysModel.tableUniqueKeysModelId}`}
+                sx={STYLE_MARKER_GRID}>
+                {marker}
+            </Grid2>
+        );
+    };
+
+    return (
+        <TableCell sx={STYLE_MARKER_CELL}>
+            <Grid2 container columns={uniqueKeysModels.length} spacing="1">
+                {uniqueKeysModels.map(uniqueKeysModel => doInitIndexMarker(uniqueKeysModel))}
+            </Grid2>
+        </TableCell>
+    );
+};
+
+const initTableIndexMarkers = (
+    columnModel: ColumnModel, tableIndexModels: readonly TableIndexModel[]
+) => {
+    if (tableIndexModels.length === 0) {
+        return (<></>);
+    }
+
+    const doInitIndexMarker = (tableIndex: TableIndexModel) => {
+        const hasIndexed = tableIndex.indexColumnModels.some(indexColumn =>
+            indexColumn.columnModelId === columnModel.columnModelId);
+
+        const marker = hasIndexed
+            ? (
+                <TopLeftTooltip title={tableIndex.physicalName}>
+                    <span>*</span>
+                </TopLeftTooltip>
+            ) : (<span style={STYLE_MARKER_MARGIN}></span>);
+
+        return (
+            <Grid2 key={`table-index_${tableIndex.tableIndexModelId}`}
+                sx={STYLE_MARKER_GRID}>
+                {marker}
+            </Grid2>
+        );
+    };
+
+    return (
+        <TableCell sx={STYLE_MARKER_CELL}>
+            <Grid2 container columns={tableIndexModels.length} spacing="1">
+                {tableIndexModels.map(tableIndex => doInitIndexMarker(tableIndex))}
+            </Grid2>
+        </TableCell>
+    );
+};
+
+const STYLE_PRIMARY_CELL = {
+    whiteSpace: "nowrap",
+    paddingTop: "4px", paddingBottom: "4px",
+    paddingLeft: "12px", paddingRight: "2px"
+};
+const STYLE_FOREIGN_CELL = {
+    whiteSpace: "nowrap",
+    paddingTop: "4px", paddingBottom: "4px",
+    paddingLeft: "2px", paddingRight: "12px"
+};
+const STYLE_MARKER_CELL = {
+    paddingLeft: "0px", paddingRight: "10px"
+};
+const STYLE_MARKER_GRID = {
+    whiteSpace: "nowrap", paddingLeft: "6px", paddingRight: "6px"
+};
+const STYLE_MARKER_MARGIN = { margin: "2.8px" };
 
 type InnerErdTableViewProps = {
     tableViewModel: TableViewModel,

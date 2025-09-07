@@ -1,5 +1,6 @@
 import { v4 as uuidV4 } from 'uuid';
 import TableIndexModel from '~/models/database/TableIndexModel';
+import TableUniqueKeysModel from '~/models/database/TableUniqueKeysModel';
 import { PropertyNotExistsError } from '~/models/exceptions';
 import { toObjects } from '~/models/util';
 
@@ -8,8 +9,9 @@ type TableModelOptions = {
     physicalName?: string,
     logicalName?: string,
     schemaId?: string,
-    columns?: ColumnModelType[],
-    tableIndexModels?: TableIndexModel[],
+    columns?: readonly ColumnModelType[],
+    uniqueKeysModels?: readonly TableUniqueKeysModel[],
+    tableIndexModels?: readonly TableIndexModel[],
     description?: string
 }
 
@@ -28,18 +30,20 @@ export default class TableModel {
     public readonly logicalName: string;
     public readonly schemaId: string;
     public readonly columns: readonly ColumnModelType[];
+    public readonly uniqueKeysModels: readonly TableUniqueKeysModel[];
     public readonly tableIndexModels: readonly TableIndexModel[];
     public readonly description: string;
 
     constructor({
-        tableModelId = "", physicalName = "", logicalName = "",
-        schemaId = "", columns = [], tableIndexModels = [], description = ""
+        tableModelId = "", physicalName = "", logicalName = "", schemaId = "",
+        columns = [], uniqueKeysModels = [], tableIndexModels = [], description = ""
     }: TableModelOptions) {
         this.tableModelId = tableModelId ? tableModelId : uuidV4();
         this.physicalName = physicalName.trim();
         this.logicalName = logicalName.trim();
         this.schemaId = schemaId;
         this.columns = columns;
+        this.uniqueKeysModels = uniqueKeysModels;
         this.tableIndexModels = tableIndexModels;
         this.description = description;
     }
@@ -63,7 +67,8 @@ export default class TableModel {
             logicalName: this.logicalName,
             schemaId: this.schemaId,
             columns: this.columns.concat(addingColumnModelIds),
-            tableIndexModels: [...this.tableIndexModels],
+            uniqueKeysModels: this.uniqueKeysModels,
+            tableIndexModels: this.tableIndexModels,
             description: this.description
         });
     }
@@ -100,6 +105,17 @@ export default class TableModel {
             }
         }
 
+        if (this.uniqueKeysModels.length !== other.uniqueKeysModels.length) {
+            return false;
+        }
+        for (let index = 0; index < this.uniqueKeysModels.length; index++) {
+            const thisUniqueKeyModel = this.uniqueKeysModels[index];
+            const otherUniqueKeyModel = other.uniqueKeysModels[index];
+            if (thisUniqueKeyModel.equals(otherUniqueKeyModel) === false) {
+                return false;
+            }
+        }
+
         if (this.tableIndexModels.length !== other.tableIndexModels.length) {
             return false;
         }
@@ -129,7 +145,10 @@ export default class TableModel {
             logicalName: this.logicalName,
             ...((this.schemaId != "") && { schemaId: this.schemaId }),
             columnModelIds: columnModelIds,
-            tableIndexModels: this.tableIndexModels.map(tableIndexModel => tableIndexModel.toJSON()),
+            ...((this.uniqueKeysModels.length > 0)
+                && { uniqueKeysModels: this.uniqueKeysModels.map(model => model.toJSON()) }),
+            ...((this.tableIndexModels.length > 0)
+                && { tableIndexModels: this.tableIndexModels.map(model => model.toJSON()) }),
             ...((this.description !== "") && { description: this.description })
         };
     }
@@ -157,8 +176,15 @@ export default class TableModel {
                     : { modelType: "single", columnModelId: id }
             )
 
+        const uniqueKeysModels = ("uniqueKeysModels" in obj)
+            ? toObjects(obj.uniqueKeysModels, "uniqueKeysModels",
+                value => TableUniqueKeysModel.toObject(value))
+            : [];
+
         const tableIndexModels = ("tableIndexModels" in obj)
-            ? toObjects(obj.tableIndexModels, "tableIndexModels", value => TableIndexModel.toObject(value)) : [];
+            ? toObjects(obj.tableIndexModels, "tableIndexModels",
+                value => TableIndexModel.toObject(value))
+            : [];
         const description = ("description" in obj) ? obj.description as string : "";
 
         return new TableModel({
@@ -167,6 +193,7 @@ export default class TableModel {
             logicalName: obj.logicalName as string,
             schemaId: schemaId,
             columns: columns,
+            uniqueKeysModels: uniqueKeysModels,
             tableIndexModels: tableIndexModels,
             description: description
         });

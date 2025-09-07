@@ -1,15 +1,18 @@
 import { Database } from '../DatabaseType';
 import TableIndexSupport from '../TableIndexSupport';
+import TableUniqueKeySupport from '../TableUniqueKeySupport';
 
 describe('Database', () => {
     describe('constructor', () => {
         test('should create with all required properties', () => {
+            const uniqueKeySupport = new TableUniqueKeySupport({ orderable: false });
             const indexSupport = new TableIndexSupport({ indexOptions: ['UNIQUE'], indexTypes: ['BTREE'] });
-            const database = new Database('postgres', 'PostgreSQL', true, indexSupport, { supportArray: true });
+            const database = new Database('postgres', 'PostgreSQL', true, uniqueKeySupport, indexSupport, { supportArray: true });
 
             expect(database.databaseType).toBe('postgres');
             expect(database.name).toBe('PostgreSQL');
             expect(database.supportsSchema).toBe(true);
+            expect(database.uniqueKeySupport).toBe(uniqueKeySupport);
             expect(database.tableIndexSupport).toBe(indexSupport);
         });
     });
@@ -21,6 +24,7 @@ describe('databases constant', () => {
 
         expect(postgres.databaseType).toBe('postgres');
         expect(postgres.name).toBe('PostgreSQL');
+        expect(postgres.uniqueKeySupport).toBeDefined();
         expect(postgres.tableIndexSupport).toBeDefined();
     });
 
@@ -29,6 +33,7 @@ describe('databases constant', () => {
 
         expect(mysql.databaseType).toBe('mysql');
         expect(mysql.name).toBe('MySQL');
+        expect(mysql.uniqueKeySupport).toBeDefined();
         expect(mysql.tableIndexSupport).toBeDefined();
     });
 
@@ -53,6 +58,24 @@ describe('databases constant', () => {
         expect(mysql.tableIndexSupport.nullsOrder).toBe(false);
     });
 
+    test('should contain ms_sqlserver database configuration', () => {
+        const sqlServer = Database.get("ms_sqlserver");
+
+        expect(sqlServer.databaseType).toBe('ms_sqlserver');
+        expect(sqlServer.name).toBe('MS SQL Server');
+        expect(sqlServer.uniqueKeySupport).toBeDefined();
+        expect(sqlServer.tableIndexSupport).toBeDefined();
+    });
+
+    test('ms_sqlserver should support expected index options and types', () => {
+        const sqlServer = Database.get("ms_sqlserver");
+
+        expect(sqlServer.tableIndexSupport.indexOptions).toContain('UNIQUE');
+        expect(sqlServer.tableIndexSupport.indexTypes).toHaveLength(0); // No specific index types
+        expect(sqlServer.tableIndexSupport.supportsClustered).toBe(true);
+        expect(sqlServer.tableIndexSupport.nullsOrder).toBe(false);
+    });
+
     test('postgres should support schema', () => {
         const postgres = Database.get("postgres");
         expect(postgres.supportsSchema).toBe(true);
@@ -66,5 +89,59 @@ describe('databases constant', () => {
     test('ms_sqlserver should support schema', () => {
         const sqlServer = Database.get("ms_sqlserver");
         expect(sqlServer.supportsSchema).toBe(true);
+    });
+
+    test('postgres should have non-orderable unique key support', () => {
+        const postgres = Database.get("postgres");
+        expect(postgres.uniqueKeySupport.orderable).toBe(false);
+    });
+
+    test('mysql should have orderable unique key support', () => {
+        const mysql = Database.get("mysql");
+        expect(mysql.uniqueKeySupport.orderable).toBe(true);
+    });
+
+    test('ms_sqlserver should have orderable unique key support', () => {
+        const sqlServer = Database.get("ms_sqlserver");
+        expect(sqlServer.uniqueKeySupport.orderable).toBe(true);
+    });
+
+    test('postgres should support array types', () => {
+        const postgres = Database.get("postgres");
+        expect(postgres.supportsArrayType).toBe(true);
+    });
+
+    test('mysql should not support array types', () => {
+        const mysql = Database.get("mysql");
+        expect(mysql.supportsArrayType).toBe(false);
+    });
+
+    test('ms_sqlserver should not support array types', () => {
+        const sqlServer = Database.get("ms_sqlserver");
+        expect(sqlServer.supportsArrayType).toBe(false);
+    });
+
+    test('postgres should have no auto increment label', () => {
+        const postgres = Database.get("postgres");
+        expect(postgres.autoIncrementLabel()).toBe('');
+    });
+
+    test('mysql should have "Auto Increment" label', () => {
+        const mysql = Database.get("mysql");
+        expect(mysql.autoIncrementLabel()).toBe('Auto Increment');
+    });
+
+    test('ms_sqlserver should have "Identity" label', () => {
+        const sqlServer = Database.get("ms_sqlserver");
+        expect(sqlServer.autoIncrementLabel()).toBe('Identity');
+    });
+
+    test('allDatabaseTypes should return all database types', () => {
+        const allTypes = Database.allDatabaseTypes();
+        
+        expect(allTypes).toHaveLength(3);
+        expect(allTypes).toContain('postgres');
+        expect(allTypes).toContain('mysql');
+        expect(allTypes).toContain('ms_sqlserver');
     });
 });
