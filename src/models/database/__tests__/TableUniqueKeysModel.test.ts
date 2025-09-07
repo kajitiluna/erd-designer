@@ -17,6 +17,7 @@ describe('TableUniqueKeysModel', () => {
             });
 
             expect(model.tableUniqueKeysModelId).toBe('uk-1');
+            expect(model.physicalName).toBe('');
             expect(model.uniqueKeysColumnModels).toHaveLength(1);
             expect(model.description).toBe('');
         });
@@ -35,11 +36,13 @@ describe('TableUniqueKeysModel', () => {
 
             const model = new TableUniqueKeysModel({
                 tableUniqueKeysModelId: 'uk-1',
+                physicalName: 'unique_constraint_1',
                 uniqueKeysColumnModels,
                 description: 'Test unique key constraint'
             });
 
             expect(model.tableUniqueKeysModelId).toBe('uk-1');
+            expect(model.physicalName).toBe('unique_constraint_1');
             expect(model.uniqueKeysColumnModels).toHaveLength(2);
             expect(model.description).toBe('Test unique key constraint');
         });
@@ -59,6 +62,23 @@ describe('TableUniqueKeysModel', () => {
 
             expect(model.uniqueKeysColumnModels).toEqual(uniqueKeysColumnModels);
             // readonly配列なので、型レベルでpushなどは禁止されている
+        });
+
+        test('should trim physicalName whitespace', () => {
+            const uniqueKeysColumnModels = [
+                new UniqueKeysColumnModel({ 
+                    columnModelId: 'col-1',
+                    sortOrderType: 'ASC'
+                })
+            ];
+
+            const model = new TableUniqueKeysModel({
+                tableUniqueKeysModelId: 'uk-1',
+                physicalName: '  constraint_name  ',
+                uniqueKeysColumnModels
+            });
+
+            expect(model.physicalName).toBe('constraint_name');
         });
     });
 
@@ -135,6 +155,7 @@ describe('TableUniqueKeysModel', () => {
 
             const model = new TableUniqueKeysModel({
                 tableUniqueKeysModelId: 'uk-1',
+                physicalName: 'unique_constraint_1',
                 uniqueKeysColumnModels,
                 description: 'Test description'
             });
@@ -143,6 +164,7 @@ describe('TableUniqueKeysModel', () => {
 
             expect(json).toEqual({
                 tableUniqueKeysModelId: 'uk-1',
+                physicalName: 'unique_constraint_1',
                 uniqueKeysColumnModels: [
                     {
                         columnModelId: 'col-1',
@@ -175,6 +197,25 @@ describe('TableUniqueKeysModel', () => {
 
             expect(json).not.toHaveProperty('description');
         });
+
+        test('should not include empty physicalName in JSON', () => {
+            const uniqueKeysColumnModels = [
+                new UniqueKeysColumnModel({ 
+                    columnModelId: 'col-1',
+                    sortOrderType: 'ASC'
+                })
+            ];
+
+            const model = new TableUniqueKeysModel({
+                tableUniqueKeysModelId: 'uk-1',
+                physicalName: '',
+                uniqueKeysColumnModels
+            });
+
+            const json = model.toJSON();
+
+            expect(json).not.toHaveProperty('physicalName');
+        });
     });
 
     describe('toObject', () => {
@@ -193,6 +234,7 @@ describe('TableUniqueKeysModel', () => {
 
             expect(model).toBeInstanceOf(TableUniqueKeysModel);
             expect(model.tableUniqueKeysModelId).toBe('uk-1');
+            expect(model.physicalName).toBe('');
             expect(model.uniqueKeysColumnModels).toHaveLength(1);
             expect(model.uniqueKeysColumnModels[0]).toBeInstanceOf(UniqueKeysColumnModel);
             expect(model.uniqueKeysColumnModels[0].columnModelId).toBe('col-1');
@@ -203,6 +245,7 @@ describe('TableUniqueKeysModel', () => {
         test('should deserialize from JSON with all values', () => {
             const json = {
                 tableUniqueKeysModelId: 'uk-2',
+                physicalName: 'unique_constraint_2',
                 uniqueKeysColumnModels: [
                     {
                         columnModelId: 'col-1',
@@ -219,6 +262,7 @@ describe('TableUniqueKeysModel', () => {
             const model = TableUniqueKeysModel.toObject(json);
 
             expect(model.tableUniqueKeysModelId).toBe('uk-2');
+            expect(model.physicalName).toBe('unique_constraint_2');
             expect(model.uniqueKeysColumnModels).toHaveLength(2);
             expect(model.uniqueKeysColumnModels[0].sortOrderType).toBe('DESC');
             expect(model.uniqueKeysColumnModels[1].sortOrderType).toBe('');
@@ -253,12 +297,14 @@ describe('TableUniqueKeysModel', () => {
 
             const model1 = new TableUniqueKeysModel({
                 tableUniqueKeysModelId: 'uk-1',
+                physicalName: 'unique_constraint_1',
                 uniqueKeysColumnModels,
                 description: 'Test'
             });
 
             const model2 = new TableUniqueKeysModel({
                 tableUniqueKeysModelId: 'uk-1',
+                physicalName: 'unique_constraint_1',
                 uniqueKeysColumnModels: [
                     new UniqueKeysColumnModel({ 
                         columnModelId: 'col-1',
@@ -344,6 +390,29 @@ describe('TableUniqueKeysModel', () => {
             expect(model1.equals(model2)).toBe(false);
         });
 
+        test('should return false for different physicalName', () => {
+            const uniqueKeysColumnModels = [
+                new UniqueKeysColumnModel({ 
+                    columnModelId: 'col-1',
+                    sortOrderType: 'ASC'
+                })
+            ];
+
+            const model1 = new TableUniqueKeysModel({
+                tableUniqueKeysModelId: 'uk-1',
+                physicalName: 'constraint_1',
+                uniqueKeysColumnModels
+            });
+
+            const model2 = new TableUniqueKeysModel({
+                tableUniqueKeysModelId: 'uk-1',
+                physicalName: 'constraint_2',
+                uniqueKeysColumnModels
+            });
+
+            expect(model1.equals(model2)).toBe(false);
+        });
+
         test('should return false for different descriptions', () => {
             const uniqueKeysColumnModels = [
                 new UniqueKeysColumnModel({ 
@@ -372,6 +441,7 @@ describe('TableUniqueKeysModel', () => {
         test('should maintain equality after serialization and deserialization', () => {
             const original = new TableUniqueKeysModel({
                 tableUniqueKeysModelId: 'uk-1',
+                physicalName: 'unique_constraint_1',
                 uniqueKeysColumnModels: [
                     new UniqueKeysColumnModel({
                         columnModelId: 'col-1',
