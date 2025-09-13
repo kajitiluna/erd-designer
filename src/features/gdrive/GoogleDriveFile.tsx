@@ -1,8 +1,12 @@
-import React, { MouseEvent, useEffect, useState } from "react";
-import { Alert, Box, Button, CircularProgress, IconButton, Snackbar, Stack, Typography } from "@mui/material";
+import React from "react";
+import {
+    Alert, Box, Button, CircularProgress, IconButton, Snackbar, Stack, Typography
+} from "@mui/material";
 import CloseIcon from '@mui/icons-material/Close';
 
-import { createSpreadSheet, findGdriveMetadata, openGdriveFile, updateGdriveFile } from "~/features/gdrive/gdrive-file-support";
+import {
+    createSpreadSheet, findGdriveMetadata, openGdriveFile, updateGdriveFile
+} from "~/features/gdrive/gdrive-file-support";
 import MainView from "~/features/MainView";
 import ErdDocument from "~/models/ErdDocument";
 import Logo from "~/logo.svg";
@@ -15,8 +19,8 @@ type GoogleDriveFileProp = {
 };
 
 const GoogleDriveFile = ({ implicitToken, authorize }: GoogleDriveFileProp) => {
-    const [sessionDocument, setSessionDocument] = useState<SessionDocument | null>(initSessionDocument);
-    const [messageToast, setMessageToast] = useState<MessageToast | null>(null);
+    const [sessionDocument, setSessionDocument] = React.useState<SessionDocument | null>(initSessionDocument);
+    const [messageToast, setMessageToast] = React.useState<MessageToast | null>(null);
     const updateQueueRef = React.useRef<Promise<string>>(Promise.resolve(""));
 
     const gdriveFileId = sessionStorage.getItem("gdriveFileId");
@@ -43,7 +47,7 @@ const GoogleDriveFile = ({ implicitToken, authorize }: GoogleDriveFileProp) => {
             console.warn("The document has been updated by another user."
                 + ` currentVersion = ${currentVersion}, gdriveVersion = ${latestMetadata.version}`);
 
-            const handleReload = (event: MouseEvent) => {
+            const handleReload = (event: React.MouseEvent) => {
                 event.stopPropagation();
 
                 setMessageToast(null);
@@ -86,7 +90,7 @@ const GoogleDriveFile = ({ implicitToken, authorize }: GoogleDriveFileProp) => {
         const specInfo = exportSpreadSheetFormatSpecification(erdDocument);
 
         createSpreadSheet(implicitToken.accessToken, specInfo).then(spreadSheetId => {
-            const handleOpenSpec = (event: MouseEvent) => {
+            const handleOpenSpec = (event: React.MouseEvent) => {
                 event.stopPropagation();
 
                 setMessageToast(null);
@@ -117,7 +121,7 @@ const GoogleDriveFile = ({ implicitToken, authorize }: GoogleDriveFileProp) => {
     };
 
     // 再読み込みされた場合の制御
-    useEffect(() => {
+    React.useEffect(() => {
         if ((sessionDocument != null) || (gdriveFileId == null)) {
             return;
         }
@@ -137,7 +141,7 @@ const GoogleDriveFile = ({ implicitToken, authorize }: GoogleDriveFileProp) => {
     }, [implicitToken, sessionDocument, gdriveFileId]);
 
     // アクセストークンの有効期限が切れる少し前に通知を表示する
-    useEffect(() => {
+    React.useEffect(() => {
         const currentDate = new Date().getTime();
         const remainedTime = implicitToken.expiresAt - currentDate;
         if (remainedTime <= 0) {
@@ -145,7 +149,7 @@ const GoogleDriveFile = ({ implicitToken, authorize }: GoogleDriveFileProp) => {
             return;
         }
 
-        const handleRenewToken = (event: MouseEvent) => {
+        const handleRenewToken = (event: React.MouseEvent) => {
             event.stopPropagation();
 
             setMessageToast(null);
@@ -167,17 +171,18 @@ const GoogleDriveFile = ({ implicitToken, authorize }: GoogleDriveFileProp) => {
         }, remainedTime - 3 * 60 * 1000);
 
         const timeoutTimerId = setTimeout(() => {
+            setMessageToast(null);
             setSessionDocument(null);
         }, remainedTime);
 
         return () => {
             clearTimeout(timeoutTimerId);
-            clearTimeout(notifyTimerId)
+            clearTimeout(notifyTimerId);
         };
     }, [implicitToken, authorize]);
 
     // ドキュメント読み込み直後に、現在のバージョンを保持する
-    useEffect(() => {
+    React.useEffect(() => {
         if ((sessionDocument == null) || (gdriveFileId == null)) {
             return;
         }
@@ -189,7 +194,7 @@ const GoogleDriveFile = ({ implicitToken, authorize }: GoogleDriveFileProp) => {
     }, [sessionDocument, gdriveFileId]);
 
     // 初回描画後に、リダイレクト時にドキュメント情報を保持していたセッションを破棄する
-    useEffect(() => {
+    React.useEffect(() => {
         sessionStorage.removeItem("temporaryDocument");
     }, []);
 
