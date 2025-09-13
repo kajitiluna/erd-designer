@@ -181,7 +181,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
     const tabPanel = (<>
         <Tabs value={tabIndex} onChange={(_, newValue) => setTabIndex(newValue)}>
             <Tab label="Column" />
-            <Tab label={`Unique Keys (${uniqueKeysModels.length})`} disabled={columnWrapModels.length < 2} />
+            <Tab label={`Unique constraints (${uniqueKeysModels.length})`} disabled={columnWrapModels.length < 2} />
             <Tab label={`Index (${tableIndexModels.length})`} disabled={columnWrapModels.length === 0} />
         </Tabs>
         <div hidden={tabIndex !== 0}>

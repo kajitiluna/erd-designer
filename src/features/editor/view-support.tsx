@@ -26,7 +26,11 @@ export const initGridColumnHeaders = (
             console.warn(`ColumnShareModel not found for columnModelId: ${columnModel.columnModelId}`);
             return {
                 key: columnModel.columnModelId,
-                content: <span>Unknown Column</span>
+                content: (
+                    <span key={`attribute-header_${columnModel.columnModelId}`}>
+                        Unknown Column
+                    </span>
+                )
             };
         }
 
@@ -36,7 +40,8 @@ export const initGridColumnHeaders = (
         return {
             key: columnModel.columnModelId,
             content: (
-                <Stack direction="row" alignItems="center">
+                <Stack key={`attribute-header_${columnModel.columnModelId}`}
+                    direction="row" alignItems="center">
                     <Box sx={initTitleStyle(10, true)}>
                         {columnModel.primaryKey && <PrimaryKeyIcon />}
                     </Box>
