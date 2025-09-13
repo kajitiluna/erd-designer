@@ -1,4 +1,4 @@
-import React, { MouseEvent, useState } from "react";
+import React from "react";
 import {
     Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
     Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField
@@ -17,20 +17,28 @@ type SearchColumnShareModelDialogProps = {
 type FilterType = "physicalName" | "logicalName" | "type" | "description"
 type FilterCondition = { [key in FilterType]: string };
 
-const SearchColumnShareModelDialog = ({ isOpen, associateColumnModel, onClose }: SearchColumnShareModelDialogProps) => {
+const SearchColumnShareModelDialog = ({
+    isOpen, associateColumnModel, onClose
+}: SearchColumnShareModelDialogProps) => {
+
     const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
     const columnShareModels = columnShareModelStorage.getModels();
 
-    const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout | null>(null);
-    const [filterCondition, setFilterCondition] = useState<FilterCondition>({
+    const focusRef = React.useRef<HTMLInputElement | null>(null);
+    const [timeoutId, setTimeoutId] = React.useState<NodeJS.Timeout | null>(null);
+    const [filterCondition, setFilterCondition] = React.useState<FilterCondition>({
         physicalName: "", logicalName: "", type: "", description: ""
     });
-    const [inSearching, setSearching] = useState<boolean>(false);
-    const [filteredShareModels, setFilteredShareModels] = useState<ColumnShareModel[]>(columnShareModels);
-    const [selectedModel, setSelectedModel] = useState<ColumnShareModel | null>(null);
+    const [inSearching, setSearching] = React.useState<boolean>(false);
+    const [filteredShareModels, setFilteredShareModels]
+        = React.useState<ColumnShareModel[]>(columnShareModels);
+    const [selectedModel, setSelectedModel] = React.useState<ColumnShareModel | null>(null);
 
-    const handleFilterAction = ({ physicalName, logicalName, type, description }: FilterCondition) => {
-        const filtered = ((physicalName === "") && (logicalName === "") && (type === "") && (description === ""))
+    const handleFilterAction = ({
+        physicalName, logicalName, type, description
+    }: FilterCondition) => {
+        const filtered = ((physicalName === "") && (logicalName === "")
+            && (type === "") && (description === ""))
             ? columnShareModels
             : columnShareModels
                 .filter(model => physicalName ? model.physicalName.includes(physicalName) : true)
@@ -42,12 +50,32 @@ const SearchColumnShareModelDialog = ({ isOpen, associateColumnModel, onClose }:
         setSelectedModel(null);
     };
 
-    const initFilterField = (filterType: FilterType, filterCondition: FilterCondition,
-        setFilterCondition: React.Dispatch<React.SetStateAction<FilterCondition>>) => (
-        <DelayActionTextField filterType={filterType}
+    const initFilterField = (
+        filterType: FilterType, inputRef?: React.RefObject<HTMLInputElement | null> | null
+    ) => (
+        <DelayActionTextField inputRef={inputRef} filterType={filterType}
             filterCondition={filterCondition} setFilterCondition={setFilterCondition}
             timeoutId={timeoutId} setTimeoutId={setTimeoutId}
             onUpdateSearching={setSearching} onDelayAction={handleFilterAction} />
+    );
+
+    const tableHeader = (
+        <TableHead>
+            <TableRow>
+                <TableCell sx={{ width: "12px" }} align="center"></TableCell>
+                <TableCell>Physical Name</TableCell>
+                <TableCell>Logical Name</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell>Description</TableCell>
+            </TableRow>
+            <TableRow>
+                <TableCell></TableCell>
+                <TableCell>{initFilterField("physicalName", focusRef)}</TableCell>
+                <TableCell>{initFilterField("logicalName")}</TableCell>
+                <TableCell>{initFilterField("type")}</TableCell>
+                <TableCell>{initFilterField("description")}</TableCell>
+            </TableRow>
+        </TableHead>
     );
 
     const initRow = (columnShareModel: ColumnShareModel) => {
@@ -69,10 +97,12 @@ const SearchColumnShareModelDialog = ({ isOpen, associateColumnModel, onClose }:
             onClose();
         };
 
-        const rowStyle = rowSelected ? { backgroundColor: SELECTED_CELL_COLOR } : baseRowStyle;
+        const rowStyle = rowSelected
+            ? { backgroundColor: SELECTED_CELL_COLOR } : BASE_ROW_STYLE;
 
         return (
-            <TableRow key={columnShareModel.columnShareModelId} sx={rowStyle} style={{ cursor: 'pointer' }}
+            <TableRow key={columnShareModel.columnShareModelId}
+                sx={rowStyle} style={{ cursor: 'pointer' }}
                 onClick={handleClickRow} onDoubleClick={handleDoubleClickRow} >
                 <TableCell align="center">{rowSelected && "✔"}</TableCell>
                 <TableCell>{columnShareModel.physicalName}</TableCell>
@@ -83,7 +113,7 @@ const SearchColumnShareModelDialog = ({ isOpen, associateColumnModel, onClose }:
         );
     };
 
-    const handleSubmit = (event: MouseEvent) => {
+    const handleSubmit = (event: React.MouseEvent) => {
         if (selectedModel == null) {
             return;
         }
@@ -94,6 +124,19 @@ const SearchColumnShareModelDialog = ({ isOpen, associateColumnModel, onClose }:
         onClose();
     };
 
+    // Dialog が開いた時に physicalName フィールドにフォーカスを当てる
+    React.useEffect(() => {
+        if (isOpen) {
+            const timeoutId = setTimeout(() => {
+                if (focusRef.current) {
+                    focusRef.current.focus();
+                }
+            }, 500);
+
+            return () => clearTimeout(timeoutId);
+        }
+    }, [isOpen]);
+
     return (
         <Dialog fullWidth maxWidth="xl" sx={{ userSelect: "none" }}
             open={isOpen} onClose={initHandleCloseDialog(onClose)}>
@@ -101,22 +144,7 @@ const SearchColumnShareModelDialog = ({ isOpen, associateColumnModel, onClose }:
             <DialogContent>
                 <TableContainer>
                     <Table stickyHeader size="small" aria-label="column model table">
-                        <TableHead>
-                            <TableRow>
-                                <TableCell sx={{ width: "12px" }} align="center"></TableCell>
-                                <TableCell>Physical Name</TableCell>
-                                <TableCell>Logical Name</TableCell>
-                                <TableCell>Type</TableCell>
-                                <TableCell>Description</TableCell>
-                            </TableRow>
-                            <TableRow>
-                                <TableCell></TableCell>
-                                <TableCell>{initFilterField("physicalName", filterCondition, setFilterCondition)}</TableCell>
-                                <TableCell>{initFilterField("logicalName", filterCondition, setFilterCondition)}</TableCell>
-                                <TableCell>{initFilterField("type", filterCondition, setFilterCondition)}</TableCell>
-                                <TableCell>{initFilterField("description", filterCondition, setFilterCondition)}</TableCell>
-                            </TableRow>
-                        </TableHead>
+                        {tableHeader}
                         {(inSearching === false) && (filteredShareModels.length > 0) &&
                             <TableBody>
                                 {filteredShareModels.map((shareModel) => initRow(shareModel))}
@@ -141,7 +169,7 @@ const SearchColumnShareModelDialog = ({ isOpen, associateColumnModel, onClose }:
     );
 };
 
-const baseRowStyle = { '&:nth-of-type(odd)': { backgroundColor: 'action.hover' } };
+const BASE_ROW_STYLE = { '&:nth-of-type(odd)': { backgroundColor: 'action.hover' } };
 
 type DelayActionTextFieldProp = {
     filterType: FilterType,
@@ -151,12 +179,13 @@ type DelayActionTextFieldProp = {
     setTimeoutId: (timeout: NodeJS.Timeout) => void,
     onUpdateSearching: (inSearching: boolean) => void,
     onDelayAction: (filter: FilterCondition) => void,
-    delay?: number
+    delay?: number,
+    inputRef?: React.RefObject<HTMLInputElement | null> | null
 };
 
 const DelayActionTextField = ({
     filterType, filterCondition, setFilterCondition, timeoutId, setTimeoutId,
-    onUpdateSearching, onDelayAction, delay = 500
+    onUpdateSearching, onDelayAction, delay = 500, inputRef = null
 }: DelayActionTextFieldProp) => {
 
     const handleChangeValue = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -177,8 +206,11 @@ const DelayActionTextField = ({
         }, delay));
     };
 
-    return (<TextField size="small" label={`filtering in ${filterType}`}
-        value={filterCondition[filterType]} onChange={handleChangeValue} />);
+    return (
+        <TextField inputRef={inputRef}
+            size="small" label={`filtering in ${filterType}`}
+            value={filterCondition[filterType]} onChange={handleChangeValue} />
+    );
 };
 
 export default SearchColumnShareModelDialog;
