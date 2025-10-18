@@ -29,7 +29,7 @@ By installing the ERD Designer app from the [Google Workspace Marketplace](https
 
 ## Manual
 
-Under preparation.
+Please refer to the [Wiki](https://github.com/kajitiluna/erd-designer/wiki) for detailed documentation.
 
 ## Installation and Usage
 
