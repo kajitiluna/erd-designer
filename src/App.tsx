@@ -1,14 +1,26 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { ThemeProvider } from '@emotion/react';
 
 import './App.css'
 import LocalApplication from '~/features/LocalApplication';
 import GoogleDriveApplication from '~/features/GoogleDriveApplication';
 import TermsOfServicePanel from '~/features/regal/TermsOfServicePanel';
 import PrivacyPolicyPanel from '~/features/regal/PrivacyPolicyPanel';
-import { ThemeProvider } from '@emotion/react';
+import VsCodeExtensionApplication from '~/extension/VsCodeExtensionApplication';
+
 import erdTheme from '~/components/ErdTheme';
 
 function App() {
+
+  if (window.vscodeApi) {
+    return (
+      <ThemeProvider theme={erdTheme}>
+        <div className='App'>
+          <VsCodeExtensionApplication vscodeApi={window.vscodeApi} />
+        </div>
+      </ThemeProvider>
+    );
+  }
 
   return (
     <ThemeProvider theme={erdTheme}>
