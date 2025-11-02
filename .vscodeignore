@@ -6,6 +6,8 @@
 src/**
 node_modules/**
 !node_modules/uuid/**
+images/**
+!images/icon.png
 .gitignore
 .yarnrc
 vite.config.ts
@@ -20,5 +22,7 @@ public/favicon.ico
 index.html
 *.md
 !README.md
+*.bak
+*.log
 docker-compose.yml
 package-lock.json
