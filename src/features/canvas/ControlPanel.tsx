@@ -28,6 +28,7 @@ import { LocalSettingContext } from "~/context/LocalSettingContext";
 import { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
 import ExportSpecificationContext, { ImageContent } from "~/context/ExportSpecificationContext";
 import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
+import { getScroll } from "~/features/canvas/support";
 
 type ControlPanelProps = {
     erdExportable: boolean
@@ -341,6 +342,8 @@ const exportDiagramImage = (erdCanvas: HTMLElement, exportImage: (contents: Imag
 };
 
 const doCalculateImageArea = (erdCanvas: HTMLElement) => {
+    const { scrollX, scrollY } = getScroll();
+    
     let leftEdge = Number.MAX_SAFE_INTEGER;
     let topEdge = Number.MAX_SAFE_INTEGER;
     let rightEdge = 0;
@@ -354,19 +357,19 @@ const doCalculateImageArea = (erdCanvas: HTMLElement) => {
         const tableViewElements = element.getElementsByClassName(ERD_TABLE_VIEW_CLASS_NAME);
         if ((tableViewElements != null) && (tableViewElements.length > 0)) {
             const rectangle = tableViewElements[0].getBoundingClientRect()
-            leftEdge = Math.min(leftEdge, rectangle.left + window.scrollX);
-            topEdge = Math.min(topEdge, rectangle.top + window.scrollY);
-            rightEdge = Math.max(rightEdge, rectangle.left + rectangle.width + window.scrollX);
-            bottomEdge = Math.max(bottomEdge, rectangle.top + rectangle.height + window.scrollY);
+            leftEdge = Math.min(leftEdge, rectangle.left + scrollX);
+            topEdge = Math.min(topEdge, rectangle.top + scrollY);
+            rightEdge = Math.max(rightEdge, rectangle.left + rectangle.width + scrollX);
+            bottomEdge = Math.max(bottomEdge, rectangle.top + rectangle.height + scrollY);
         }
 
         const memoElements = element.getElementsByClassName(ERD_MEMO_VIEW_CLASS_NAME);
         if ((memoElements != null) && (memoElements.length > 0)) {
             const rectangle = memoElements[0].getBoundingClientRect()
-            leftEdge = Math.min(leftEdge, rectangle.left + window.scrollX);
-            topEdge = Math.min(topEdge, rectangle.top + window.scrollY);
-            rightEdge = Math.max(rightEdge, rectangle.left + rectangle.width + window.scrollX);
-            bottomEdge = Math.max(bottomEdge, rectangle.top + rectangle.height + window.scrollY);
+            leftEdge = Math.min(leftEdge, rectangle.left + scrollX);
+            topEdge = Math.min(topEdge, rectangle.top + scrollY);
+            rightEdge = Math.max(rightEdge, rectangle.left + rectangle.width + scrollX);
+            bottomEdge = Math.max(bottomEdge, rectangle.top + rectangle.height + scrollY);
         }
     });
 

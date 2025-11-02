@@ -162,6 +162,17 @@ const initWebViewHtml = (context: vscode.ExtensionContext, webview: vscode.Webvi
         // CSPを追加
         .replace('</head>', `
     <meta http-equiv="Content-Security-Policy" content="${cspContent};">
+    <link rel="stylesheet" href="${styleUri}">
+    <style nonce="${nonce}">
+        :root {
+            font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif !important;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        body {
+            font-size: 16px !important;
+        }
+    </style>
     <script nonce="${nonce}">
         const vscodeApi = acquireVsCodeApi();
         window.vscodeApi = vscodeApi;
@@ -171,7 +182,6 @@ const initWebViewHtml = (context: vscode.ExtensionContext, webview: vscode.Webvi
         });
     </script>
     <script type="module" nonce="${nonce}" src="${scriptUri}"></script>
-    <link rel="stylesheet" href="${styleUri}">
   </head>`);
 
     return htmlContent;
