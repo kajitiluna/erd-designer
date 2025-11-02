@@ -1,5 +1,7 @@
 import createSpecification from "~/features/spec/create-specification";
-import { ColumnListSpecGenerator, TableDetailSpec, TableIndexSpec, TableListSpecGenerator, UniqueKeyConstraintSpec } from "~/features/spec/spec-util";
+import {
+    ColumnListSpecGenerator, TableDetailSpec, TableIndexSpec, TableListSpecGenerator, UniqueKeyConstraintSpec
+} from "~/features/spec/spec-util";
 import { DatabaseType } from "~/models/database";
 import ErdDocument from "~/models/ErdDocument";
 

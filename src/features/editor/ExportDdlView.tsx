@@ -1,5 +1,8 @@
-import { useState } from "react";
-import { Alert, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControlLabel, Paper, Stack, TextField, Typography } from "@mui/material";
+import React from "react";
+import {
+    Alert, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
+    FormControlLabel, Paper, Stack, TextField, Typography
+} from "@mui/material";
 import Grid from '@mui/material/Grid2';
 
 import download from "~/components/file-downloader";
@@ -21,12 +24,12 @@ const ExportDdlView = ({ documentsHolder, isViewOpen, onClose }: ExportDdlViewPr
     const erdSetting: ErdSettingModel = erdDocument.erdSettingModel;
     const exportSetting: ExportDdlSettingModel = erdSetting.exportDdlSetting;
 
-    const [fileName, setFileName] = useState<string>(exportSetting.fileName);
-    const [withTable, setWithTable] = useState<boolean>(exportSetting.withTable);
-    const [withIndex, setWithIndex] = useState<boolean>(exportSetting.withIndex);
-    const [withForeignKey, setWithForeignKey] = useState<boolean>(exportSetting.withForeignKey);
-    const [withComment, setWithComment] = useState<boolean>(exportSetting.withComment);
-    const [withSchema, setWithSchema] = useState<boolean>(exportSetting.withSchema);
+    const [fileName, setFileName] = React.useState<string>(exportSetting.fileName);
+    const [withTable, setWithTable] = React.useState<boolean>(exportSetting.withTable);
+    const [withIndex, setWithIndex] = React.useState<boolean>(exportSetting.withIndex);
+    const [withForeignKey, setWithForeignKey] = React.useState<boolean>(exportSetting.withForeignKey);
+    const [withComment, setWithComment] = React.useState<boolean>(exportSetting.withComment);
+    const [withSchema, setWithSchema] = React.useState<boolean>(exportSetting.withSchema);
 
     const database = erdDocument.getDatabase();
     const invalidMessages = initInvalidMessages(erdDocument);

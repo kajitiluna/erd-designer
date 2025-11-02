@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React from "react";
 import { Route, Routes } from "react-router-dom";
 import { GoogleOAuthProvider, hasGrantedAllScopesGoogle, useGoogleLogin } from "@react-oauth/google";
 
@@ -18,7 +18,7 @@ const GoogleDriveApplication = () => {
 };
 
 const GoogleDriveInnerApplication = () => {
-    const [implicitToken, setImplicitToken] = useState<ImplicitToken>(initImplicitToken);
+    const [implicitToken, setImplicitToken] = React.useState<ImplicitToken>(initImplicitToken);
 
     const authorize = useGoogleLogin({
         flow: "implicit",
@@ -59,7 +59,7 @@ const GoogleDriveInnerApplication = () => {
     };
 
     // 初回描画後に、セッションに保存したトークン情報を破棄する
-    useEffect(() => {
+    React.useEffect(() => {
         sessionStorage.removeItem("temporaryToken");
     }, []);
 

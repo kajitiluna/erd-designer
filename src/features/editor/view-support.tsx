@@ -1,8 +1,8 @@
 import { Box, Stack } from "@mui/material";
+
 import { GRID_CELL_STYLE } from "~/components/constant";
 import ForeignKeyIcon from "~/components/icons/ForeignKeyIcon";
 import PrimaryKeyIcon from "~/components/icons/PrimaryKeyIcon";
-
 import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import ColumnModel from "~/models/database/ColumnModel";
 import { overrideColumnName } from "~/models/database/support";

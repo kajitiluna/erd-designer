@@ -1,9 +1,9 @@
+import React from "react";
 import { Tooltip } from "@mui/material";
-import { JSX } from "react";
 
 type TopLeftTooltipProps = {
     title: string,
-    children: JSX.Element
+    children: React.JSX.Element
 }
 
 const TopLeftTooltip = ({ title, children }: TopLeftTooltipProps) => {

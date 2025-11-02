@@ -1,4 +1,4 @@
-import { MouseEvent, ReactNode } from 'react';
+import React from 'react';
 import { IconButton, Stack, Typography } from '@mui/material';
 
 import TopLeftTooltip from '~/components/TopLeftTooltip';
@@ -7,8 +7,8 @@ type EdgedIconButtonProps = {
     disabled?: boolean,
     tooltip?: string,
     withText?: boolean,
-    onClick: (event: MouseEvent) => void,
-    children: ReactNode
+    onClick: (event: React.MouseEvent) => void,
+    children: React.ReactNode
 };
 
 const EdgedIconButton = ({
