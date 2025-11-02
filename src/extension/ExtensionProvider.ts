@@ -6,21 +6,24 @@ import ErdDocument from '~/models/ErdDocument';
 export class ExtensionProvider implements vscode.CustomTextEditorProvider {
 
     private readonly context: vscode.ExtensionContext
+    private readonly selfUpdating: WeakMap<vscode.TextDocument, boolean>;
 
     constructor(context: vscode.ExtensionContext) {
         this.context = context;
+        this.selfUpdating = new WeakMap<vscode.TextDocument, boolean>();
     }
 
     resolveCustomTextEditor(
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         textDocument: vscode.TextDocument, webviewPanel: vscode.WebviewPanel, _token: vscode.CancellationToken
     ): Thenable<void> | void {
-        handleResolvingTextEditor(this.context, textDocument, webviewPanel);
+        handleResolvingTextEditor(this.context, this.selfUpdating, textDocument, webviewPanel);
     }
 }
 
 const handleResolvingTextEditor = (
-    context: vscode.ExtensionContext, textDocument: vscode.TextDocument, webviewPanel: vscode.WebviewPanel
+    context: vscode.ExtensionContext, selfUpdatingMap: WeakMap<vscode.TextDocument, boolean>,
+    textDocument: vscode.TextDocument, webviewPanel: vscode.WebviewPanel
 ) => {
     // Webviewの設定
     webviewPanel.webview.options = {
@@ -45,39 +48,68 @@ const handleResolvingTextEditor = (
     const documentUri = textDocument.uri.toString();
     const jsonContent = (erdDocument != null) ? JSON.stringify(erdDocument.toJSON()) : null;
 
-    // HTMLコンテンツの設定
-    webviewPanel.webview.html = initWebViewHtml(context, webviewPanel.webview);
-
-    webviewPanel.webview.onDidReceiveMessage(
-        async (message) => {
-            if (!("messageType" in message)) {
-                return;
-            }
-            if (message.messageType === "ready") {
-                // React アプリケーションの準備が完了してから、ファイルの内容を React アプリケーションに渡す
-                webviewPanel.webview.postMessage({
-                    eventSource: "erd-designer",
-                    messageType: "init",
-                    documentUri: documentUri,
-                    jsonContext: jsonContent
-                });
-
-                return;
-            }
-
-            if (!("documentUri" in message) || !("erdDocument" in message)) {
-                return;
-            }
-            if (documentUri !== message.documentUri) {
-                return;
-            }
-
-            const erdDocument = message.erdDocument as string;
-            if (message.messageType === "save") {
-                saveErdDocument(textDocument, erdDocument);
-            }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleReceivedMessage = async (message: any) => {
+        if (!("messageType" in message)) {
+            return;
         }
-    );
+
+        if (message.messageType === "ready") {
+            // React アプリケーションの準備が完了してから、ファイルの内容を React アプリケーションに渡す
+            webviewPanel.webview.postMessage({
+                eventSource: "erd-designer",
+                messageType: "init",
+                documentUri: documentUri,
+                jsonContext: jsonContent
+            });
+
+            return;
+        }
+
+        if (!("documentUri" in message) || !("erdDocument" in message)) {
+            return;
+        }
+        if (documentUri !== message.documentUri) {
+            return;
+        }
+
+        const updating = message.erdDocument as string;
+        // 保存処理の実行
+        if (message.messageType === "save") {
+            selfUpdatingMap.set(textDocument, true);
+            saveErdDocument(textDocument, updating);
+        }
+    };
+
+    const changeSubscription = vscode.workspace.onDidChangeTextDocument(event => {
+        if (event.document.uri.toString() != textDocument.uri.toString()) {
+            return;
+        }
+
+        const selfUpdating = selfUpdatingMap.get(textDocument);
+        if (selfUpdating) {
+            selfUpdatingMap.delete(textDocument);
+            return;
+        }
+
+        // 自身の操作以外で更新された場合は WebView に反映する
+        webviewPanel.webview.postMessage({
+            eventSource: "erd-designer",
+            messageType: "changeDocument",
+            documentUri: documentUri,
+            jsonContext: JSON.stringify(event.document.getText())
+        });
+    });
+
+    // HTMLコンテンツ、およびメッセージ受信時の制御の設定
+    webviewPanel.webview.html = initWebViewHtml(context, webviewPanel.webview);
+    webviewPanel.webview.onDidReceiveMessage(handleReceivedMessage);
+
+    // Webviewが閉じられたときのクリーンアップ
+    webviewPanel.onDidDispose(() => {
+        changeSubscription.dispose();
+        selfUpdatingMap.delete(textDocument);
+    });
 };
 
 const loadErdDocument = (textDocument: vscode.TextDocument) => {

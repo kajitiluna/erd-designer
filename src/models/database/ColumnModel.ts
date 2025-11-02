@@ -90,4 +90,16 @@ export default class ColumnModel {
             defaultValue: defaultValue
         });
     }
+
+    public equals(other: ColumnModel): boolean {
+        return (this.columnModelId === other.columnModelId)
+            && (this.columnShareModelId === other.columnShareModelId)
+            && (this.physicalName === other.physicalName)
+            && (this.logicalName === other.logicalName)
+            && (this.primaryKey === other.primaryKey)
+            && (this.notNull === other.notNull)
+            && (this.unique === other.unique)
+            && (this.autoIncrement === other.autoIncrement)
+            && (this.defaultValue === other.defaultValue);
+    }
 }

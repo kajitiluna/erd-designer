@@ -32,4 +32,9 @@ export default class RelationPair {
             childColumnModelId: obj.childColumnModelId as string
         });
     }
+
+    public equals(other: RelationPair): boolean {
+        return (this.parentColumnModelId === other.parentColumnModelId)
+            && (this.childColumnModelId === other.childColumnModelId);
+    }
 }

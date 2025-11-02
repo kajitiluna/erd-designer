@@ -64,4 +64,9 @@ export default class RelationViewModel {
             createdAt: createdAt
         });
     }
+
+    public equals(other: RelationViewModel): boolean {
+        return this.relationModel.equals(other.relationModel)
+            && this.lineViewModel.equals(other.lineViewModel);
+    }
 }

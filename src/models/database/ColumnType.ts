@@ -141,4 +141,24 @@ export default class ColumnType {
             defaultValueCandidates: defaultValueCandidates
         });
     }
+
+    public equals(other: ColumnType): boolean {
+        return (
+            (this.id === other.id) &&
+            (this.name === other.name) &&
+            (this.description === other.description) &&
+            (this.baseQuery === other.baseQuery) &&
+            (this.withPrecision === other.withPrecision) &&
+            (this.withScale === other.withScale) &&
+            (this.withUnsigned === other.withUnsigned) &&
+            (this.withAutoIncrement === other.withAutoIncrement) &&
+            (
+                ((this.foreignColumn === null) && (other.foreignColumn === null))
+                || ((this.foreignColumn !== null) && (other.foreignColumn !== null) &&
+                    this.foreignColumn.equals(other.foreignColumn))
+            ) &&
+            (this.defaultValueCandidates.length === other.defaultValueCandidates.length) &&
+            this.defaultValueCandidates.every((value, index) => (value === other.defaultValueCandidates[index]))
+        );
+    }
 }

@@ -89,4 +89,18 @@ export default class ErdSettingModel {
             perspectiveModelStorage: new PerspectiveModelStorage(perspectiveModels)
         });
     }
+
+    public equals(other: ErdSettingModel): boolean {
+        if (!this.displayStyle.equals(other.displayStyle)) {
+            return false;
+        }
+        if (!this.exportDdlSetting.equals(other.exportDdlSetting)) {
+            return false;
+        }
+        if (!this.perspectiveModelStorage.equals(other.perspectiveModelStorage)) {
+            return false;
+        }
+
+        return true;
+    }
 }

@@ -16,7 +16,8 @@ const VsCodeExtensionApplication = (prop: { vscodeApi: VsCodeApi }) => {
 
     // 初期化処理
     React.useEffect(() => {
-        window.addEventListener("message", event => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const handleMessage = (event: MessageEvent<any>) => {
             const message = event.data;
             if (!("eventSource" in message) || !("messageType" in message)
                 || !("documentUri" in message) || !("jsonContext" in message)) {
@@ -27,23 +28,50 @@ const VsCodeExtensionApplication = (prop: { vscodeApi: VsCodeApi }) => {
             if (message.eventSource !== "erd-designer") {
                 return;
             }
+            const uri = message.documentUri as string;
+            if (uri === "") {
+                console.error("Received empty document URI during initialization.");
+                return;
+            }
 
+            // VSCode 拡張機能側より初期化処理が完了し、ファイルの内容を受信したときの制御
             if (message.messageType === "init") {
-                const uri = message.documentUri as string;
-                if (uri === "") {
-                    console.error("Received empty document URI during initialization.");
-                    return;
-                }
-
                 const jsonContext = message.jsonContext as (string | null);
                 const erdDocument = (jsonContext != null)
                     ? ErdDocument.toObject(JSON.parse(jsonContext)) : null;
 
                 setInitDocument(erdDocument);
                 setDocumentUri(uri);
+                return;
             }
-        });
-    }, []);
+
+            if (documentUri !== uri) {
+                console.debug(`Document URI mismatch: ${documentUri} !== ${uri}`);
+                return;
+            }
+
+            if (message.messageType === "changeDocument") {
+                const jsonContext = message.jsonContext as string;
+                const erdDocument = ErdDocument.toObject(JSON.parse(jsonContext));
+
+                // ドキュメントの履歴管理は MainView 配下で行うため、MainView 配下の ErdCanvas に変更を通知する
+                const customEvent = new CustomEvent("externalDocumentChanged", {
+                    detail: {
+                        erdDocument: erdDocument
+                    }
+                });
+                window.dispatchEvent(customEvent);
+
+                return;
+            }
+        };
+
+        window.addEventListener("message", handleMessage);
+
+        return () => {
+            window.removeEventListener("message", handleMessage);
+        };
+    }, [documentUri]);
 
     // 初期化処理が終わっていない場合は、読み込み中であることを示す
     if (documentUri === "") {

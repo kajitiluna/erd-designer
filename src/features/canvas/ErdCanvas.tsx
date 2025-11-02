@@ -24,6 +24,7 @@ import StickyMemoView, { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/Stic
 import { LocalSetting, LocalSettingContext } from "~/context/LocalSettingContext";
 import PerspectiveModel from "~/models/PerspectiveModel";
 import PerspectiveSettingView from "~/features/editor/PerspectiveSettingView";
+import ErdDocument from "~/models/ErdDocument";
 
 type RectangleArea = {
     tableRectangles: Map<string, RectangleViewModel>,
@@ -342,6 +343,29 @@ const ErdCanvas = () => {
 
         return initEffectOfKeyDownOnCanvas(handlers);
     }, [editAction.editType, selectState, dispatchSelectAction, dispatchEditMode, documentsHolder]);
+
+    // 外部からの変更を Canvas の表示に反映する
+    React.useEffect(() => {
+        const handleExternalDocumentChange = (event: Event) => {
+            const customEvent = event as CustomEvent;
+            const eventDetail = customEvent.detail;
+            if (!("erdDocument" in eventDetail)) {
+                console.warn(`Unexpected event detail structure: ${JSON.stringify(eventDetail)}`);
+                return;
+            }
+
+            const erdDocument = eventDetail.erdDocument as ErdDocument;
+            documentsHolder.update(erdDocument);
+            console.info("ErdCanvas: External document change has been applied.");
+        };
+
+        window.addEventListener("externalDocumentChanged", handleExternalDocumentChange);
+
+        return () => {
+            window.removeEventListener("externalDocumentChanged", handleExternalDocumentChange);
+        };
+    }, [documentsHolder]);
+
 
     const canvasStyle = initCanvasStyle(displayScale);
     const svgStyle: React.CSSProperties = {

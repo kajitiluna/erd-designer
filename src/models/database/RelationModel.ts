@@ -94,4 +94,43 @@ export default class RelationModel {
                 ? obj.onDeleteAction as TableReferenceActionType : "RESTRICT")
         });
     }
+
+    public equals(other: RelationModel): boolean {
+        if (this.relationModelId !== other.relationModelId) {
+            return false;
+        }
+        if (this.relationName !== other.relationName) {
+            return false;
+        }
+        if (this.parentTableModelId !== other.parentTableModelId) {
+            return false;
+        }
+        if (this.parentCardinality !== other.parentCardinality) {
+            return false;
+        }
+        if (this.childTableModelId !== other.childTableModelId) {
+            return false;
+        }
+        if (this.childCardinality !== other.childCardinality) {
+            return false;
+        }
+
+        if (this.relationPairs.length !== other.relationPairs.length) {
+            return false;
+        }
+        for (let index = 0; index < this.relationPairs.length; index++) {
+            if (!this.relationPairs[index].equals(other.relationPairs[index])) {
+                return false;
+            }
+        }
+
+        if (this.onUpdateAction !== other.onUpdateAction) {
+            return false;
+        }
+        if (this.onDeleteAction !== other.onDeleteAction) {
+            return false;
+        }
+
+        return true;
+    }
 }

@@ -1309,6 +1309,81 @@ export default class ErdDocument {
             lastUpdatedAt: lastUpdatedAt
         });
     }
+
+    public equals(other: ErdDocument): boolean {
+        if (this === other) {
+            return true;
+        }
+
+        if (this.documentName !== other.documentName) {
+            return false;
+        }
+
+        if (this.tableViewModelIds.length !== other.tableViewModelIds.length) {
+            return false;
+        }
+        for (let index = 0; index < this.tableViewModelIds.length; index++) {
+            if (this.tableViewModelIds[index] !== other.tableViewModelIds[index]) {
+                return false;
+            }
+        }
+
+        if (this.tableViewModelMap.size !== other.tableViewModelMap.size) {
+            return false;
+        }
+        for (const [tableId, tableViewModel] of this.tableViewModelMap.entries()) {
+            const otherTableViewModel = other.tableViewModelMap.get(tableId);
+            if ((otherTableViewModel == null) || (tableViewModel.equals(otherTableViewModel) === false)) {
+                return false;
+            }
+        }
+
+        if (this.columnGroupModelMap.size !== other.columnGroupModelMap.size) {
+            return false;
+        }
+        for (const [columnGroupId, columnGroupModel] of this.columnGroupModelMap.entries()) {
+            const otherColumnGroupModel = other.columnGroupModelMap.get(columnGroupId);
+            if ((otherColumnGroupModel == null) || (columnGroupModel.equals(otherColumnGroupModel) === false)) {
+                return false;
+            }
+        }
+
+        if (this.columnModelMap.size !== other.columnModelMap.size) {
+            return false;
+        }
+        for (const [columnModelId, columnModel] of this.columnModelMap.entries()) {
+            const otherColumnModel = other.columnModelMap.get(columnModelId);
+            if ((otherColumnModel == null) || (columnModel.equals(otherColumnModel) === false)) {
+                return false;
+            }
+        }
+
+        if (this.columnShareModelStorage.equals(other.columnShareModelStorage) === false) {
+            return false;
+        }
+
+        if (this.relationViewModelStorage.equals(other.relationViewModelStorage) === false) {
+            return false;
+        }
+
+        if (this.memoViewModelStorage.equals(other.memoViewModelStorage) === false) {
+            return false;
+        }
+
+        if (this.erdSettingModel.equals(other.erdSettingModel) === false) {
+            return false;
+        }
+
+        if (this.databaseSettingModel.equals(other.databaseSettingModel) === false) {
+            return false;
+        }
+
+        if (this.schemaConfig.equals(other.schemaConfig) === false) {
+            return false;
+        }
+
+        return true;
+    }
 }
 
 type ImportDdlArgs = {
