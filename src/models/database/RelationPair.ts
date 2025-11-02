@@ -1,4 +1,3 @@
-import { instanceToPlain } from "class-transformer";
 import { PropertyNotExistsError } from "~/models/exceptions";
 
 type RelationPairOptions = { parentColumnModelId: string, childColumnModelId: string };
@@ -14,7 +13,10 @@ export default class RelationPair {
     }
 
     public toJSON(): Record<string, unknown> {
-        return instanceToPlain(this);
+        return {
+            parentColumnModelId: this.parentColumnModelId,
+            childColumnModelId: this.childColumnModelId
+        };
     }
 
     public static toObject(obj: object): RelationPair {

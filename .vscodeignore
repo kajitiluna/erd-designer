@@ -5,6 +5,7 @@
 .env
 src/**
 node_modules/**
+!node_modules/uuid/**
 .gitignore
 .yarnrc
 vite.config.ts

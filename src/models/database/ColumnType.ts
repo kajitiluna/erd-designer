@@ -1,4 +1,3 @@
-import { instanceToPlain } from 'class-transformer';
 import { PropertyNotExistsError } from '~/models/exceptions';
 
 type ColumnTypeOptions = {
@@ -82,7 +81,18 @@ export default class ColumnType {
     }
 
     public toJSON(): Record<string, unknown> {
-        return instanceToPlain(this);
+        return {
+            id: this.id,
+            name: this.name,
+            description: this.description,
+            baseQuery: this.baseQuery,
+            withPrecision: this.withPrecision,
+            withScale: this.withScale,
+            withUnsigned: this.withUnsigned,
+            withAutoIncrement: this.withAutoIncrement,
+            ...((this.foreignColumn != null) && { foreignColumn: this.foreignColumn.toJSON() }),
+            defaultValueCandidates: this.defaultValueCandidates
+        };
     }
 
     public static toObject(obj: object): ColumnType {

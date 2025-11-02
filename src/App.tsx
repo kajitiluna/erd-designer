@@ -6,7 +6,7 @@ import LocalApplication from '~/features/LocalApplication';
 import GoogleDriveApplication from '~/features/GoogleDriveApplication';
 import TermsOfServicePanel from '~/features/regal/TermsOfServicePanel';
 import PrivacyPolicyPanel from '~/features/regal/PrivacyPolicyPanel';
-import VsCodeExtensionApplication from '~/extension/VsCodeExtensionApplication';
+import VsCodeExtensionApplication from '~/features/VsCodeExtensionApplication';
 
 import erdTheme from '~/components/ErdTheme';
 

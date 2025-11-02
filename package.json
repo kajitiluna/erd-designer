@@ -1,7 +1,7 @@
 {
   "name": "erd-designer",
   "displayName": "ERD Designer",
-  "description": "ERD Designer (Entity Relationship Diagram Designer) is a VSCode extension for visually designing database Entity Relationship Diagrams (ER diagrams)",
+  "description": "ERD Designer is a VSCode extension for visually designing database Entity Relationship Diagrams",
   "repository": {
     "type": "git",
     "url": "https://github.com/kajitiluna/erd-designer"
@@ -39,7 +39,7 @@
         "erdDesigner.mcpServer.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "Enable MCP Server functionality"
+          "description": "Enable MCP Server for ERD Designer functionality"
         },
         "erdDesigner.mcpServer.port": {
           "type": "number",
@@ -57,11 +57,11 @@
   "scripts": {
     "dev": "vite",
     "clean": "rm -rf dist out *.vsix",
+    "watch:extension": "concurrently \"tsc -p ./tsconfig.extension.json --watch\" \"tsc-alias -p ./tsconfig.extension.json --watch\"",
     "build": "npm run clean && npm run build:webview && npm run build:extension",
     "build:webview": "tsc -b && vite build",
     "build:extension": "tsc -p ./tsconfig.extension.json && tsc-alias -p ./tsconfig.extension.json && echo '{\"type\":\"commonjs\"}' > out/package.json",
     "postbuild": "cp dist/index.html dist/404.html",
-    "watch:extension": "concurrently \"tsc -p ./tsconfig.extension.json --watch\" \"tsc-alias -p ./tsconfig.extension.json --watch\"",
     "package": "npm run package:extension",
     "package:extension": "npx vsce package",
     "lint": "eslint .",
@@ -76,7 +76,6 @@
     "@mui/icons-material": "^6.3.0",
     "@mui/material": "^6.3.0",
     "@react-oauth/google": "^0.12.1",
-    "class-transformer": "^0.5.1",
     "exceljs": "^4.4.0",
     "google-auth-library": "^9.15.1",
     "html2canvas": "^1.4.1",

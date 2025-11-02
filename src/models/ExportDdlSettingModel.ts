@@ -1,6 +1,4 @@
-import { instanceToPlain } from "class-transformer";
 import { PropertyNotExistsError } from "~/models/exceptions";
-
 
 type ExportDdlSettingModelOptions = {
     fileName: string,
@@ -57,7 +55,14 @@ export default class ExportDdlSettingModel {
     }
 
     public toJSON(): Record<string, unknown> {
-        return instanceToPlain(this);
+        return {
+            fileName: this.fileName,
+            withTable: this.withTable,
+            withIndex: this.withIndex,
+            withForeignKey: this.withForeignKey,
+            withComment: this.withComment,
+            withSchema: this.withSchema
+        };
     }
 
     public static toObject(obj: object): ExportDdlSettingModel {

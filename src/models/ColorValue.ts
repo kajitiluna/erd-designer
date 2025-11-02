@@ -1,4 +1,3 @@
-import { instanceToPlain } from "class-transformer";
 import { PropertyNotExistsError } from "~/models/exceptions";
 
 type ColorModelOptions = {
@@ -52,6 +51,10 @@ export default class ColorValue {
     }
 
     public toJSON(): Record<string, unknown> {
-        return instanceToPlain(this);
+        return {
+            red: this.red,
+            green: this.green,
+            blue: this.blue
+        };
     }
 }

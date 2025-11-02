@@ -130,9 +130,9 @@ const initWebViewHtml = (context: vscode.ExtensionContext, webview: vscode.Webvi
         throw new Error('Failed to extract script or style paths from dist/index.html');
     }
 
-    // パスから /erd-designer/ プレフィックスを削除
-    const scriptPath = scriptMatch[1].replace(/^\/erd-designer\//, '');
-    const stylePath = styleMatch[1].replace(/^\/erd-designer\//, '');
+    // パスから先頭の /erd-designer または / を削除
+    const scriptPath = scriptMatch[1].replace(/^\/(?:erd-designer\/)?/, '');
+    const stylePath = styleMatch[1].replace(/^\/(?:erd-designer\/)?/, '');
 
     // Webview用のURIに変換
     const scriptUri = webview.asWebviewUri(

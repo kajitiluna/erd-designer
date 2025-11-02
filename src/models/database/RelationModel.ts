@@ -1,5 +1,4 @@
 import { v4 as uuidV4 } from 'uuid';
-import { instanceToPlain } from 'class-transformer';
 
 import RelationPair from '~/models/database/RelationPair';
 import { PropertyNotExistsError } from '~/models/exceptions';
@@ -51,7 +50,17 @@ export default class RelationModel {
     }
 
     public toJSON(): Record<string, unknown> {
-        return instanceToPlain(this);
+        return {
+            relationModelId: this.relationModelId,
+            ...((this.relationName !== "") && { relationName: this.relationName }),
+            parentTableModelId: this.parentTableModelId,
+            parentCardinality: this.parentCardinality,
+            childTableModelId: this.childTableModelId,
+            childCardinality: this.childCardinality,
+            relationPairs: this.relationPairs.map(item => item.toJSON()),
+            onUpdateAction: this.onUpdateAction,
+            onDeleteAction: this.onDeleteAction
+        };
     }
 
     public static toObject(obj: object): RelationModel {

@@ -6,7 +6,6 @@
     "skipLibCheck": true,
     "outDir": "./out",
     "rootDir": "./src",
-    "sourceMap": true,
 
     "baseUrl": "src/",
     "paths": {
