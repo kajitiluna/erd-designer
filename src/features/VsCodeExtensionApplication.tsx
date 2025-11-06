@@ -10,6 +10,7 @@ import MainView from "~/features/MainView";
 
 const VsCodeExtensionApplication = (prop: { vscodeApi: VsCodeApi }) => {
     const [documentUri, setDocumentUri] = React.useState<string>("");
+    const [loadResult, setLoadResult] = React.useState<"" | "failure">("");
     const [initDocument, setInitDocument] = React.useState<ErdDocument | null>(null);
 
     const vscodeApi = prop.vscodeApi;
@@ -30,18 +31,28 @@ const VsCodeExtensionApplication = (prop: { vscodeApi: VsCodeApi }) => {
             }
             const uri = message.documentUri as string;
             if (uri === "") {
-                console.error("Received empty document URI during initialization.");
+                console.error("Received empty document uri during initialization.");
                 return;
             }
 
             // VSCode 拡張機能側より初期化処理が完了し、ファイルの内容を受信したときの制御
             if (message.messageType === "init") {
-                const jsonContext = message.jsonContext as (string | null);
-                const erdDocument = (jsonContext != null)
-                    ? ErdDocument.toObject(JSON.parse(jsonContext)) : null;
+                const jsonContext = message.jsonContext as string;
+                let erdDocument: ErdDocument | null = null;
+                if (jsonContext.length > 0) {
+                    try {
+                        erdDocument = ErdDocument.toObject(JSON.parse(jsonContext));
+                    } catch (error) {
+                        console.warn(`Failed to parse erd document. uri: ${uri}\n\tdetail: ${error}`);
+                        setLoadResult("failure");
+                        return;
+                    }
+                }
 
                 setInitDocument(erdDocument);
                 setDocumentUri(uri);
+
+                console.info(`Initialized erd-designer: ${uri}`);
                 return;
             }
 
@@ -62,6 +73,9 @@ const VsCodeExtensionApplication = (prop: { vscodeApi: VsCodeApi }) => {
                 });
                 window.dispatchEvent(customEvent);
 
+                console.debug("Dispatching a changeDocument event from vscode"
+                    + ` to externalDocumentChanged event: ${documentUri}`);
+
                 return;
             }
         };
@@ -77,16 +91,25 @@ const VsCodeExtensionApplication = (prop: { vscodeApi: VsCodeApi }) => {
     if (documentUri === "") {
         // VSCode 側に準備完了を通知する。その後、上記の message イベントが発火されるのを待つ。
         vscodeApi.postMessage({
+            eventSource: "erd-designer",
             messageType: "ready"
         });
 
+        console.debug("Sent ready event to vscode extension.");
+
         return (<CircularProgress />);
+    }
+
+    // 開いた .erd ファイルの形式が不正だった場合
+    if (loadResult === "failure") {
+        return (<div>Failed to load erd file.</div>);
     }
 
     // VSCode 上のファイル保存処理
     const handleSaveDocument = (updating: ErdDocument) => {
         // ファイル保存は VSCode 側に処理を委譲する
         vscodeApi.postMessage({
+            eventSource: "erd-designer",
             messageType: "save",
             documentUri: documentUri,
             erdDocument: updating.toJSON()

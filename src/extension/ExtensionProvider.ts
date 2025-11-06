@@ -1,28 +1,27 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-
-import ErdDocument from '~/models/ErdDocument';
+import { DocumentResource } from '~/extension/DocumentResource';
 
 export class ExtensionProvider implements vscode.CustomTextEditorProvider {
 
     private readonly context: vscode.ExtensionContext
-    private readonly selfUpdating: WeakMap<vscode.TextDocument, boolean>;
+    private readonly documentResource: DocumentResource;
 
-    constructor(context: vscode.ExtensionContext) {
+    constructor(context: vscode.ExtensionContext, documentResource: DocumentResource) {
         this.context = context;
-        this.selfUpdating = new WeakMap<vscode.TextDocument, boolean>();
+        this.documentResource = documentResource;
     }
 
     resolveCustomTextEditor(
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         textDocument: vscode.TextDocument, webviewPanel: vscode.WebviewPanel, _token: vscode.CancellationToken
     ): Thenable<void> | void {
-        handleResolvingTextEditor(this.context, this.selfUpdating, textDocument, webviewPanel);
+        handleResolvingTextEditor(this.context, this.documentResource, textDocument, webviewPanel);
     }
 }
 
 const handleResolvingTextEditor = (
-    context: vscode.ExtensionContext, selfUpdatingMap: WeakMap<vscode.TextDocument, boolean>,
+    context: vscode.ExtensionContext, documentResource: DocumentResource,
     textDocument: vscode.TextDocument, webviewPanel: vscode.WebviewPanel
 ) => {
     // Webviewの設定
@@ -33,28 +32,30 @@ const handleResolvingTextEditor = (
         ]
     };
 
-    let erdDocument: ErdDocument | null = null;
-    try {
-        erdDocument = loadErdDocument(textDocument);
-    } catch (error) {
-        console.warn(`Failed to load ERD document. detail : ${error}`);
-        handleLoadFailure(textDocument);
-
-        // 現在のWebviewを閉じる
-        webviewPanel.dispose();
-        return;
-    }
-
     const documentUri = textDocument.uri.toString();
-    const jsonContent = (erdDocument != null) ? JSON.stringify(erdDocument.toJSON()) : null;
+    const jsonContent = textDocument.getText().trim();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleReceivedMessage = async (message: any) => {
-        if (!("messageType" in message)) {
+        if (!("eventSource" in message) || !("messageType" in message)) {
+            return;
+        }
+        if (message.eventSource !== "erd-designer") {
             return;
         }
 
         if (message.messageType === "ready") {
+            const handleChangeView = (updating: string) => {
+                // 自身の操作以外で更新された場合は WebView に変更を通知する
+                webviewPanel.webview.postMessage({
+                    eventSource: "erd-designer",
+                    messageType: "changeDocument",
+                    documentUri: documentUri,
+                    jsonContext: updating
+                });
+            };
+            documentResource.register(textDocument, jsonContent, handleChangeView);
+
             // React アプリケーションの準備が完了してから、ファイルの内容を React アプリケーションに渡す
             webviewPanel.webview.postMessage({
                 eventSource: "erd-designer",
@@ -62,6 +63,8 @@ const handleResolvingTextEditor = (
                 documentUri: documentUri,
                 jsonContext: jsonContent
             });
+
+            console.info(`Received ready event from webview and sent init event: ${documentUri}`);
 
             return;
         }
@@ -76,30 +79,10 @@ const handleResolvingTextEditor = (
         const updating = message.erdDocument as string;
         // 保存処理の実行
         if (message.messageType === "save") {
-            selfUpdatingMap.set(textDocument, true);
-            saveErdDocument(textDocument, updating);
+            documentResource.update(textDocument, updating);
+            saveDocument(textDocument, updating);
         }
     };
-
-    const changeSubscription = vscode.workspace.onDidChangeTextDocument(event => {
-        if (event.document.uri.toString() != textDocument.uri.toString()) {
-            return;
-        }
-
-        const selfUpdating = selfUpdatingMap.get(textDocument);
-        if (selfUpdating) {
-            selfUpdatingMap.delete(textDocument);
-            return;
-        }
-
-        // 自身の操作以外で更新された場合は WebView に反映する
-        webviewPanel.webview.postMessage({
-            eventSource: "erd-designer",
-            messageType: "changeDocument",
-            documentUri: documentUri,
-            jsonContext: JSON.stringify(event.document.getText())
-        });
-    });
 
     // HTMLコンテンツ、およびメッセージ受信時の制御の設定
     webviewPanel.webview.html = initWebViewHtml(context, webviewPanel.webview);
@@ -107,34 +90,12 @@ const handleResolvingTextEditor = (
 
     // Webviewが閉じられたときのクリーンアップ
     webviewPanel.onDidDispose(() => {
-        changeSubscription.dispose();
-        selfUpdatingMap.delete(textDocument);
+        documentResource.remove(textDocument);
     });
 };
 
-const loadErdDocument = (textDocument: vscode.TextDocument) => {
-    const text = textDocument.getText().trim();
-    if (text.length === 0) {
-        return null;
-    }
-
-    const jsonContext = JSON.parse(text);
-    return ErdDocument.toObject(jsonContext);
-};
-
-const failureMessage = "This file does not appear to be an ERD Designer file." +
-    " Would you like to open it as a text file instead?";
-
-const handleLoadFailure = async (textDocument: vscode.TextDocument) => {
-    // 不正な形式の場合、デフォルトエディタで開くオプションを提供
-    const action = await vscode.window.showErrorMessage(failureMessage, "Open as Text", "Cancel");
-    if (action === "Open as Text") {
-        await vscode.commands.executeCommand("vscode.openWith", textDocument.uri, "default");
-    }
-};
-
-const saveErdDocument = async (textDocument: vscode.TextDocument, erdDocument: string) => {
-    const jsonContent = JSON.stringify(erdDocument, null, 4);
+const saveDocument = async (textDocument: vscode.TextDocument, content: string) => {
+    const jsonContent = JSON.stringify(content, null, 4);
     const editRange = new vscode.Range(0, 0, textDocument.lineCount, 0);
 
     const workspaceEdit = new vscode.WorkspaceEdit();
@@ -142,7 +103,8 @@ const saveErdDocument = async (textDocument: vscode.TextDocument, erdDocument: s
 
     const success = await vscode.workspace.applyEdit(workspaceEdit);
     if (!success) {
-        vscode.window.showErrorMessage(`Failed to save ERD file : ${textDocument.fileName}`);
+        // ファイル保存が失敗した場合にエラーメッセージを表示
+        vscode.window.showErrorMessage(`Failed to save erd file : ${textDocument.fileName}`);
         return;
     }
 
