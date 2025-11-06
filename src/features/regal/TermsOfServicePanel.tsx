@@ -26,20 +26,22 @@ const termsOfService = `
 
 ## サービス内容と利用範囲
 
-- 本アプリケーションは、以下の機能を提供します。
-  - Google ドライブアプリから利用する場合は、Google ドライブ上で利用者が指定したファイルのみを操作します。
-  - Google ドライブアプリ以外から利用する場合は、編集内容はローカルマシンのみに保存され、インターネット上には保存されません。
-- Google ドライブアプリから利用する場合、利用者は操作対象のファイルを明示的に選択する必要があります。
+- 本アプリケーションは、ER 図の作成、編集を行うためのツールです。
+- Google ドライブアプリとして利用する場合、利用者が明示的に選択したファイルに対してのみアクセス・操作を行います。
+- Google ドライブアプリ以外で利用する場合、編集内容はローカルマシンのみに保存され、インターネット上には保存されません。
+- 本サービスは、広告やスパム目的では利用されません。
 
 ## サポートおよび OSS の性質について
 
 - 本アプリケーションはオープンソースとして提供されており、コミュニティベースでの更新および改善が行われます。公式な商用サポートは提供しておりません。
 - 利用者は、利用に関する問題やバグレポート等については、GitHub のイシュー機能等を通じて報告してください。
+  - GitHub Issue ページ : https://github.com/kajitiluna/erd-designer/issues  
 - 上記において、開発者は報告された問題やバグレポート等を全て解決する義務は負いません。
 
 ## 個人情報等の取り扱い
 
 - 本サービスは、利用者が作成、編集した情報については、本サービスのみの利用とし、第三者への提供は行いません。
+- データの取り扱いに関しては、[プライバシーポリシー](https://kajitiluna.github.io/erd-designer/privacy_policy) を参照してください。
 
 ## 禁止行為
 
@@ -71,7 +73,10 @@ const termsOfService = `
 - 本規約の有効性，解釈及び履行については，日本法に準拠し，日本法に従って解釈されるものとします。
 - 開発者と利用者等との間での論議・訴訟その他一切の紛争については、訴額に応じて、東京簡易裁判所又は東京地方裁判所を専属的合意管轄裁判所とします｡
 
-2025 年 03 月 29 日 施工
+## 改定履歴
+- 制定日：2025 年 03 月 29 日
+- 改定日：2025 年 11 月 06 日
+  - 改定内容：プライバシーポリシーおよびサポート情報の明確化。
 
 
 ---
@@ -102,20 +107,22 @@ const termsOfService = `
 
 ## Service Description and Scope
 
-- The Application provides the following functionalities:
-  - When used as a Google Drive App, it operates only on the file specified by the User on Google Drive.
-  - When used outside the Google Drive App, any edits are saved locally on the machine and are not stored online.
-- When using the Google Drive App, the User must explicitly select the file to be acted upon.
+- The Application is a tool for creating and editing Entity Relationship Diagrams (ERDs).
+- When used as a Google Drive App, it only accesses and edits files explicitly selected by the User.
+- When used outside Google Drive, data is stored only on the local machine and is not saved on the internet.
+- The Service is **not intended for advertisement or spamming purposes**.
 
 ## Support and the Nature of the OSS
 
 - The Application is provided as open source and maintained by the community; no official commercial support is provided.
 - Users may report issues or bugs via GitHub’s issue tracking system or through similar channels.
+  - GitHub Issues: https://github.com/kajitiluna/erd-designer/issues
 - The Developer is not obligated to resolve every reported issue or bug.
 
 ## Privacy Policy
 
 - The Service shall use any information created or edited by the User solely for the purposes of the Service, and shall not provide such information to any third party.
+- For more information, please refer to the [Privacy Policy](https://kajitiluna.github.io/erd-designer/privacy_policy).
 
 ## Prohibited Actions
 
@@ -147,7 +154,11 @@ const termsOfService = `
 - These Terms shall be governed by and construed in accordance with the laws of Japan.
 - Any dispute arising between the Developer and the User shall be subject to the exclusive jurisdiction of the Tokyo Summary Court or the Tokyo District Court, in accordance with the claim amount.
 
-2025-03-29 Issued
+## Revision History
+
+- Established: 2025-03-29
+- Revised: 2025-11-06
+  - Summary of Revisions: Clarified privacy, support, and compliance details.
 `;
 
 const TermsOfServicePanel = () => {
