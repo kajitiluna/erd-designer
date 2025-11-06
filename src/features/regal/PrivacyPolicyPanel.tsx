@@ -28,6 +28,7 @@ const privacyPolicy = `
 本サービスは、利用者のデータやファイルを第三者に提供することは一切ありません。
 
 ## セキュリティ
+
 本サービスは、Google が提供する OAuth 2.0 認証を使用し、安全な通信経路（HTTPS）を通じてデータアクセスを行います。
 
 ## お問い合わせ
@@ -60,7 +61,6 @@ This Privacy Policy describes how the Service handles user data and files.
 
 - When used as a Google Drive App, the Service accesses only the files explicitly selected by the User via Google OAuth authorization.  
 - The accessed data is used solely for reading and saving ER diagrams.  
-- The Service does not send data to other Google services or external APIs.
 - When the Service is used outside of the Google Drive App, any data created by the User is stored solely on the User's local machine and is not saved on any Internet-connected servers.
 
 ## Data Storage

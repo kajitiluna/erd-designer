@@ -35,7 +35,7 @@ const termsOfService = `
 
 - 本アプリケーションはオープンソースとして提供されており、コミュニティベースでの更新および改善が行われます。公式な商用サポートは提供しておりません。
 - 利用者は、利用に関する問題やバグレポート等については、GitHub のイシュー機能等を通じて報告してください。
-  - GitHub Issue ページ : https://github.com/kajitiluna/erd-designer/issues  
+  - GitHub Issue ページ : https://github.com/kajitiluna/erd-designer/issues
 - 上記において、開発者は報告された問題やバグレポート等を全て解決する義務は負いません。
 
 ## 個人情報等の取り扱い
