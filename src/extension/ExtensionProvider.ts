@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+
 import { DocumentResource } from '~/extension/DocumentResource';
 
 export class ExtensionProvider implements vscode.CustomTextEditorProvider {
@@ -79,7 +80,7 @@ const handleResolvingTextEditor = (
         const updating = message.erdDocument as string;
         // 保存処理の実行
         if (message.messageType === "save") {
-            documentResource.update(textDocument, updating);
+            documentResource.update(textDocument, JSON.stringify(updating));
             saveDocument(textDocument, updating);
         }
     };

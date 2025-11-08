@@ -6,19 +6,22 @@ import { Server } from "http";
 import { DocumentResource } from "~/extension/DocumentResource";
 import { mcpRegisterResourceOfDocumentResource } from "~/extension/mcpserver/documents";
 import { McpErrorCode } from "~/extension/mcpserver/support";
+import { ShowMessage } from "~/extension/vscode-message";
 
 export class McpServerManager {
 
     private readonly expressApp: express.Express;
+    private readonly onShowMessage: ShowMessage;
     private operationQueue: Promise<void>;
     private httpServer: Server | null;
     private serverEnabled: boolean;
     private serverPort: number;
 
-    constructor(documentResource: DocumentResource) {
+    constructor(documentResource: DocumentResource, onShowMessage: ShowMessage = () => {}) {
         const mcpServer = createMcpServer(documentResource);
 
         this.expressApp = createExpressServer(mcpServer);
+        this.onShowMessage = onShowMessage;
         this.operationQueue = Promise.resolve();
         this.httpServer = null;
         this.serverEnabled = false;
@@ -46,7 +49,7 @@ export class McpServerManager {
                 return;
             }
 
-            this.httpServer = startExpress(this.expressApp, this.serverPort);
+            this.httpServer = startExpress(this.expressApp, this.serverPort, this.onShowMessage);
         });
     }
 
@@ -97,7 +100,7 @@ export class McpServerManager {
             this.serverPort = serverPort;
 
             if (this.serverEnabled) {
-                this.httpServer = startExpress(this.expressApp, this.serverPort);
+                this.httpServer = startExpress(this.expressApp, this.serverPort, this.onShowMessage);
             }
         });
     }
@@ -122,6 +125,8 @@ const createExpressServer = (mcpServer: McpServer) => {
 
     app.post('/mcp', async (request, response) => {
         try {
+            console.debug(`Received request : [${request.method}] ${request.path} : ${JSON.stringify(request.body)}`);
+            
             const transport = new StreamableHTTPServerTransport({
                 sessionIdGenerator: undefined,
                 enableJsonResponse: true
@@ -151,10 +156,12 @@ const createExpressServer = (mcpServer: McpServer) => {
     return app;
 };
 
-const startExpress = (expressApp: express.Express, serverPort: number) => {
+const startExpress = (expressApp: express.Express, serverPort: number, onShowMessage: ShowMessage) => {
     return expressApp.listen(serverPort, () => {
-        console.info(`MCP server is running on 'http://localhost:${serverPort}/mcp'`);
+        console.info(`ERD Designer's MCP server is running on 'http://localhost:${serverPort}/mcp'`);
+        onShowMessage("INFO", `ERD Designer's MCP server started on 'http://localhost:${serverPort}/mcp'`);
     }).on('error', error => {
         console.error('Server error:', error);
+        onShowMessage("ERROR", `Failed to start ERD Designer's MCP server: ${error.message}`);
     });
 };

@@ -3,9 +3,10 @@ import { DocumentResource } from '~/extension/DocumentResource';
 
 import { ExtensionProvider } from '~/extension/ExtensionProvider';
 import { McpServerManager } from '~/extension/McpServerManager';
+import { showVsCodeMessage } from '~/extension/vscode-message';
 
 const documentResource = new DocumentResource();
-const mcpManager = new McpServerManager(documentResource);
+const mcpManager = new McpServerManager(documentResource, showVsCodeMessage);
 
 export const activate = (context: vscode.ExtensionContext) => {
     console.info("ERD Designer extension is starting to activate.");

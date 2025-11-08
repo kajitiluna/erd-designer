@@ -70,14 +70,17 @@ export class DocumentResource {
     public update(textDocument: vscode.TextDocument, content: string) {
         const documentId = this.uriToIdMap.get(textDocument.uri.toString());
         if (!documentId) {
+            console.warn(`documentId not found for uri: ${textDocument.uri.toString()}`);
             return;
         }
         const previousBudget = this.idToBudgetMap.get(documentId);
         if (!previousBudget) {
+            console.warn(`budget not found for documentId: ${documentId}, uri: ${textDocument.uri.toString()}`);
             return;
         }
         const erdDocument = parseErdDocument(content);
         if (!erdDocument) {
+            console.warn(`failed to parse ErdDocument for uri: ${textDocument.uri.toString()}, content : ${content}`);
             return;
         }
 
