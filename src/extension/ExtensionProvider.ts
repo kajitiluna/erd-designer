@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 
-import { DocumentResource } from '~/extension/DocumentResource';
+import { DocumentResource, RectangleType } from '~/extension/DocumentResource';
 
 export class ExtensionProvider implements vscode.CustomTextEditorProvider {
 
@@ -70,18 +70,34 @@ const handleResolvingTextEditor = (
             return;
         }
 
-        if (!("documentUri" in message) || !("erdDocument" in message)) {
+        if (!("documentUri" in message)) {
             return;
         }
         if (documentUri !== message.documentUri) {
             return;
         }
 
-        const updating = message.erdDocument as string;
+        // 描画処理更新の反映
+        if (message.messageType === "drawnRectangles") {
+            if (!("rectangles" in message)) {
+                return;
+            }
+
+            const rectangles = message.rectangles as { tableId: string; rectangle: RectangleType }[];
+            documentResource.updateDrawnRectangles(textDocument, rectangles);
+            return;
+        }
+
         // 保存処理の実行
         if (message.messageType === "save") {
+            if (!("erdDocument" in message)) {
+                return;
+            }
+
+            const updating = message.erdDocument as Record<string, unknown>;
             documentResource.update(textDocument, JSON.stringify(updating));
             saveDocument(textDocument, updating);
+            return;
         }
     };
 
@@ -95,7 +111,9 @@ const handleResolvingTextEditor = (
     });
 };
 
-const saveDocument = async (textDocument: vscode.TextDocument, content: string) => {
+const saveDocument = async (
+    textDocument: vscode.TextDocument, content: Record<string, unknown>
+) => {
     const jsonContent = JSON.stringify(content, null, 4);
     const editRange = new vscode.Range(0, 0, textDocument.lineCount, 0);
 

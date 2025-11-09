@@ -4,7 +4,8 @@ import express from "express";
 import { Server } from "http";
 
 import { DocumentResource } from "~/extension/DocumentResource";
-import { mcpRegisterResourceOfDocumentResource } from "~/extension/mcpserver/documents";
+import { mcpRegisterErdDocument } from "~/extension/mcpserver/documents";
+import { mcpRegisterPerspective } from "~/extension/mcpserver/perspectives";
 import { McpErrorCode } from "~/extension/mcpserver/support";
 import { ShowMessage } from "~/extension/vscode-message";
 
@@ -17,7 +18,7 @@ export class McpServerManager {
     private serverEnabled: boolean;
     private serverPort: number;
 
-    constructor(documentResource: DocumentResource, onShowMessage: ShowMessage = () => {}) {
+    constructor(documentResource: DocumentResource, onShowMessage: ShowMessage = () => { }) {
         const mcpServer = createMcpServer(documentResource);
 
         this.expressApp = createExpressServer(mcpServer);
@@ -112,9 +113,20 @@ const createMcpServer = (documentResource: DocumentResource) => {
         version: "0.1.0"
     });
 
-    // `erd-designer://documents`
-    const mcpRegisterResourceArgs = mcpRegisterResourceOfDocumentResource(documentResource);
-    mcpRegisterResourceArgs.forEach(args => mcpServer.registerResource(...args));
+    const mcpConfig = [
+        // `erd-designer://documents`
+        mcpRegisterErdDocument(documentResource),
+        // `erd-designer://documents/{documentId}/perspectives`
+        mcpRegisterPerspective(documentResource)
+    ].reduce((merged, config) => ({
+        resources: [...merged.resources, ...config.resources],
+        resourceTemplates: [...merged.resourceTemplates, ...config.resourceTemplates],
+        tools: [...merged.tools, ...config.tools]
+    }), { resources: [], resourceTemplates: [], tools: [] });
+
+    mcpConfig.resources.forEach(args => mcpServer.registerResource(...args));
+    mcpConfig.resourceTemplates.forEach(args => mcpServer.registerResource(...args));
+    mcpConfig.tools.forEach(args => mcpServer.registerTool(...args));
 
     return mcpServer
 };
@@ -126,7 +138,7 @@ const createExpressServer = (mcpServer: McpServer) => {
     app.post('/mcp', async (request, response) => {
         try {
             console.debug(`Received request : [${request.method}] ${request.path} : ${JSON.stringify(request.body)}`);
-            
+
             const transport = new StreamableHTTPServerTransport({
                 sessionIdGenerator: undefined,
                 enableJsonResponse: true

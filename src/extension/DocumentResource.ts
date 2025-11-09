@@ -8,11 +8,13 @@ type InnerErdBudget = {
     documentId: string;
     uri: vscode.Uri;
     erdDocument: ErdDocument;
+    drawnRectangles: Map<string, RectangleType>;
     onUpdateDocument: (updating: string) => void;
 } | {
     status: "empty";
     documentId: string;
     uri: vscode.Uri;
+    drawnRectangles: Map<string, RectangleType>;
     onUpdateDocument: (updating: string) => void;
 };
 
@@ -51,14 +53,31 @@ export class DocumentResource {
         const documentId = crypto.createHash('sha256')
             .update(uri.toString())
             .digest('hex').substring(0, 16);
+        const drawnRectangles = new Map<string, RectangleType>();
         const budget: InnerErdBudget = erdDocument
-            ? { status: "ready", documentId, uri, erdDocument, onUpdateDocument }
-            : { status: "empty", documentId, uri, onUpdateDocument };
+            ? { status: "ready", documentId, uri, drawnRectangles, onUpdateDocument, erdDocument }
+            : { status: "empty", documentId, uri, drawnRectangles, onUpdateDocument };
 
         this.uriToIdMap.set(uri.toString(), documentId);
         this.idToBudgetMap.set(documentId, budget);
 
         console.info(`ErdDocumentResource registered document: ${uri.toString()} (id: ${documentId})`);
+    }
+
+    private doFindBudget(textDocument: vscode.TextDocument) {
+        const documentId = this.uriToIdMap.get(textDocument.uri.toString());
+        if (!documentId) {
+            console.warn(`documentId not found for uri: ${textDocument.uri.toString()}`);
+            return null;
+        }
+
+        const budget = this.idToBudgetMap.get(documentId);
+        if (!budget) {
+            console.warn(`budget not found for documentId: ${documentId}, uri: ${textDocument.uri.toString()}`);
+            return null;
+        }
+
+        return { documentId, budget };
     }
 
     /**
@@ -68,26 +87,36 @@ export class DocumentResource {
      * @param content ドキュメント本文
      */
     public update(textDocument: vscode.TextDocument, content: string) {
-        const documentId = this.uriToIdMap.get(textDocument.uri.toString());
-        if (!documentId) {
-            console.warn(`documentId not found for uri: ${textDocument.uri.toString()}`);
+        const previous = this.doFindBudget(textDocument);
+        if (!previous) {
             return;
         }
-        const previousBudget = this.idToBudgetMap.get(documentId);
-        if (!previousBudget) {
-            console.warn(`budget not found for documentId: ${documentId}, uri: ${textDocument.uri.toString()}`);
-            return;
-        }
+
         const erdDocument = parseErdDocument(content);
         if (!erdDocument) {
             console.warn(`failed to parse ErdDocument for uri: ${textDocument.uri.toString()}, content : ${content}`);
             return;
         }
 
-        const nextBudget: InnerErdBudget = { ...previousBudget, status: "ready", erdDocument };
-        this.idToBudgetMap.set(documentId, nextBudget);
+        const nextBudget: InnerErdBudget = { ...previous.budget, status: "ready", erdDocument };
+        this.idToBudgetMap.set(previous.documentId, nextBudget);
 
-        console.info(`ErdDocumentResource updated document: ${textDocument.uri.toString()} (id: ${documentId})`);
+        console.info(`ErdDocumentResource updated document: ${textDocument.uri.toString()} (id: ${previous.documentId})`);
+    }
+
+    public updateDrawnRectangles(
+        textDocument: vscode.TextDocument, rectangles: { tableId: string; rectangle: RectangleType }[]
+    ) {
+        const previous = this.doFindBudget(textDocument);
+        if (!previous) {
+            return;
+        }
+
+        const drawnRectangles = new Map<string, RectangleType>(rectangles.map(item => [item.tableId, item.rectangle]));
+        const nextBudget: InnerErdBudget = { ...previous.budget, drawnRectangles };
+        this.idToBudgetMap.set(previous.documentId, nextBudget);
+
+        console.info(`ErdDocumentResource updated drawn rectangles: ${textDocument.uri.toString()} (id: ${previous.documentId})`);
     }
 
     /**
@@ -155,6 +184,7 @@ export type ErdDocumentBudget = {
     documentId: string;
     uri: string;
     erdDocument: ErdDocument;
+    rectangles: Map<string, RectangleType>;
 };
 
 const parseErdDocument = (content: string): ErdDocument | null => {
@@ -173,6 +203,14 @@ const convertBudget = (budget: InnerErdBudget): ErdDocumentBudget | null => {
     return {
         documentId: budget.documentId,
         uri: budget.uri.toString(),
-        erdDocument: budget.erdDocument
+        erdDocument: budget.erdDocument,
+        rectangles: budget.drawnRectangles
     };
 }
+
+export type RectangleType = {
+    positionX: number;
+    positionY: number;
+    width: number;
+    height: number;
+};

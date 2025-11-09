@@ -282,6 +282,18 @@ const ErdCanvas = () => {
         // Canvas 描画領域の初期化
         const rectangleArea = initRectangleArea(erdCanvas, displayScale);
         setRectangleArea(rectangleArea);
+
+        if (rectangleArea.tableRectangles.size === 0) {
+            return;
+        }
+
+        // 描画変更をイベント通知 (VSCode 拡張機能側で利用できるよう、VsCodeExtensionApplication にて制御する)
+        const customEvent = new CustomEvent("canvasRectanglesDrawn", {
+            detail: {
+                tableRectangles: rectangleArea.tableRectangles
+            }
+        });
+        window.dispatchEvent(customEvent);
     }, [erdDocument.lastUpdatedAt, displayScale, dragState.status, currentPerspective]);
 
     // // リレーションの線情報を更新

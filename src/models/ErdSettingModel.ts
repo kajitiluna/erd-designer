@@ -62,6 +62,19 @@ export default class ErdSettingModel {
         });
     }
 
+    public updatePerspective(updating: PerspectiveModel): ErdSettingModel {
+        const nextPerspectiveStorage = this.perspectiveModelStorage.updateModel(updating);
+        if (nextPerspectiveStorage === this.perspectiveModelStorage) {
+            return this;
+        }
+
+        return new ErdSettingModel({
+            displayStyle: this.displayStyle,
+            exportDdlSetting: this.exportDdlSetting,
+            perspectiveModelStorage: nextPerspectiveStorage
+        });
+    }
+
     public toJSON(): Record<string, unknown> {
         const perspectiveModels = this.perspectiveModelStorage.getModels().map(model => model.toJSON());
 

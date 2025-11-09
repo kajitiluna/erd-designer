@@ -19,6 +19,28 @@ class PerspectiveModelStorage {
         return this.perspectiveIds.map(id => this.perspectiveMap.get(id)!);
     }
 
+    public updateModel(perspective: PerspectiveModel): PerspectiveModelStorage {
+        const previous = this.perspectiveMap.get(perspective.perspectiveId);
+        if (previous == null) {
+            const nextModels = [...this.getModels(), perspective];
+            return new PerspectiveModelStorage(nextModels);
+        }
+
+        if (previous.equals(perspective) === true) {
+            return this;
+        }
+
+        const nextModels = this.getModels().map(model => {
+            if (model.perspectiveId !== perspective.perspectiveId) {
+                return model;
+            }
+
+            return perspective;
+        });
+
+        return new PerspectiveModelStorage(nextModels);
+    }
+
     public equals(other: PerspectiveModelStorage): boolean {
         const thisIds = this.perspectiveIds;
         const otherIds = other.perspectiveIds;

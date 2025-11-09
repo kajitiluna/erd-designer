@@ -7,6 +7,7 @@ import ExportSpecificationContext, { ImageContent } from "~/context/ExportSpecif
 import exportExcelFormatSpecification from "~/features/spec/ExcelFormatSpecification";
 import download from "~/components/file-downloader";
 import MainView from "~/features/MainView";
+import RectangleViewModel from "~/models/RectangleViewModel";
 
 const VsCodeExtensionApplication = (prop: { vscodeApi: VsCodeApi }) => {
     const [documentUri, setDocumentUri] = React.useState<string>("");
@@ -18,7 +19,7 @@ const VsCodeExtensionApplication = (prop: { vscodeApi: VsCodeApi }) => {
     // 初期化処理
     React.useEffect(() => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const handleMessage = (event: MessageEvent<any>) => {
+        const handleMessageFromVsCode = (event: MessageEvent<any>) => {
             const message = event.data;
             if (!("eventSource" in message) || !("messageType" in message)
                 || !("documentUri" in message) || !("jsonContext" in message)) {
@@ -80,12 +81,43 @@ const VsCodeExtensionApplication = (prop: { vscodeApi: VsCodeApi }) => {
             }
         };
 
-        window.addEventListener("message", handleMessage);
+        window.addEventListener("message", handleMessageFromVsCode);
 
         return () => {
-            window.removeEventListener("message", handleMessage);
+            window.removeEventListener("message", handleMessageFromVsCode);
         };
     }, [documentUri]);
+
+    // Canvas 上に描画されたテーブルの矩形情報を受信し、拡張機能に伝搬する。
+    React.useEffect(() => {
+        const handleCanvasRectanglesDrawn = (event: Event) => {
+            const customEvent = event as CustomEvent;
+            const eventDetail = customEvent.detail;
+            if (!("tableRectangles" in eventDetail)) {
+                return;
+            }
+
+            const tableRectangles = eventDetail.tableRectangles as Map<string, RectangleViewModel>;
+            const rectangles = Array.from(tableRectangles.entries())
+                .map(([tableId, rectangle]) => ({
+                    tableId,
+                    rectangle: { ...rectangle }
+                }));
+
+            vscodeApi.postMessage({
+                eventSource: "erd-designer",
+                messageType: "drawnRectangles",
+                documentUri: documentUri,
+                rectangles: rectangles
+            });
+        };
+
+        window.addEventListener("canvasRectanglesDrawn", handleCanvasRectanglesDrawn);
+
+        return () => {
+            window.removeEventListener("canvasRectanglesDrawn", handleCanvasRectanglesDrawn);
+        };
+    }, [documentUri, vscodeApi]);
 
     // 初期化処理が終わっていない場合は、読み込み中であることを示す
     if (documentUri === "") {
