@@ -4,6 +4,7 @@ import { DocumentResource, ErdDocumentBudget } from "~/extension/DocumentResourc
 import {
     initResourceNotFound, McpRegisterConfig, McpServerRegisterResourceArgs, McpServerRegisterResourceTemplateArgs
 } from "~/extension/mcpserver/support";
+import { toTableSummary } from "~/extension/mcpserver/tables";
 
 export const mcpRegisterErdDocument = (documentResource: DocumentResource): McpRegisterConfig => {
     return {
@@ -24,7 +25,7 @@ To manipulate ERD documents from the MCP Server, the corresponding document must
 
 RESPONSE:
 An array of document summary objects, each containing:
-- uri: The unique URI of the document (format: erd-designer://document/{documentId}). 
+- uri: The unique URI of the document (format: erd-designer://documents/{documentId}). 
   Use this identifier to access document-specific resources.
 - documentId: The unique identifier of the document (auto-generated UUID).
 - filePath: The file path of the document in the file system.
@@ -63,7 +64,7 @@ const mcpListDocuments = (documentResource: DocumentResource): McpServerRegister
 
 const toSummary = (budget: ErdDocumentBudget) => {
     return {
-        uri: `erd-designer://document/${budget.documentId}`,
+        uri: `erd-designer://documents/${budget.documentId}`,
         documentId: budget.documentId,
         filePath: budget.uri,
         documentName: budget.erdDocument.documentName,
@@ -83,7 +84,7 @@ REQUEST (path variables):
 
 RESPONSE:
 An object containing detailed document information:
-- uri: The unique URI of the document (format: erd-designer://document/{documentId}).
+- uri: The unique URI of the document (format: erd-designer://documents/{documentId}).
 - documentId: The unique identifier of the document (auto-generated UUID).
 - filePath: The file path of the document in the file system.
 - documentName: The name of the document.
@@ -118,7 +119,7 @@ An object containing detailed document information:
 const mcpFindDocumentById = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
     return [
         "find-document-by-id",
-        new ResourceTemplate("erd-designer://document/{documentId}", { list: undefined }),
+        new ResourceTemplate("erd-designer://documents/{documentId}", { list: undefined }),
         {
             title: "Find ERD document by documentId",
             description: descriptionFindById
@@ -145,36 +146,12 @@ const mcpFindDocumentById = (documentResource: DocumentResource): McpServerRegis
 };
 
 const toDetail = (budget: ErdDocumentBudget) => {
-    const documentUri = `erd-designer://document/${budget.documentId}`;
+    const documentUri = `erd-designer://documents/${budget.documentId}`;
+    const documentId = budget.documentId;
     const erdDocument = budget.erdDocument;
 
     const tableViews = erdDocument.getTableViewModels()
-        .map(tableView => {
-            const rectangle = budget.rectangles.get(tableView.tableId);
-
-            return {
-                uri: `${documentUri}/tables/${tableView.tableId}`,
-                tableId: tableView.tableId,
-                tableName: {
-                    physical: tableView.tableModel.physicalName,
-                    logical: tableView.tableModel.logicalName
-                },
-                view: {
-                    position: {
-                        x: tableView.corner.left,
-                        y: tableView.corner.top
-                    },
-                    size: rectangle && {
-                        width: rectangle.width,
-                        height: rectangle.height
-                    },
-                    color: {
-                        background: tableView.headerColor.background.toHex(),
-                        foreground: tableView.headerColor.foreground.toHex()
-                    }
-                }
-            };
-        });
+        .map(tableView => toTableSummary(documentId, tableView, budget.rectangles));
 
     const relationModels = erdDocument.getRelationViewModels()
         .map(relationView => {
@@ -253,7 +230,7 @@ REQUEST:
 
 RESPONSE:
 An object containing detailed document information (same structure as find-document-by-id):
-- uri: The unique URI of the document (format: erd-designer://document/{documentId}).
+- uri: The unique URI of the document (format: erd-designer://documents/{documentId}).
 - documentId: The unique identifier of the document (auto-generated UUID).
 - filePath: The file path of the document in the file system.
 - documentName: The name of the document.
