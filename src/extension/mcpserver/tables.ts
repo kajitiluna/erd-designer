@@ -209,10 +209,12 @@ export const toTableSummary = (
                 x: tableView.corner.left,
                 y: tableView.corner.top
             },
-            size: rectangle && {
-                width: rectangle.width,
-                height: rectangle.height
-            },
+            ...(rectangle && {
+                size: {
+                    width: rectangle.width,
+                    height: rectangle.height
+                }
+            }),
             color: {
                 background: tableView.headerColor.background.toHex(),
                 foreground: tableView.headerColor.foreground.toHex()
@@ -231,7 +233,7 @@ type TableColumn = {
         physical: string;
         logical: string;
     };
-    columnType: string;
+    typeExpression: string;
     primaryKey: boolean;
     notNull: boolean;
     unique: boolean;
@@ -280,14 +282,14 @@ const toTableColumnDefinitions = (tableView: TableViewModel, documentId: string)
     return columns.map(column => {
         if (column.modelType === "group") {
             return {
-                uri: `erd-designer://documents/${documentId}/columnGroups/${column.columnGroupId}`,
+                uri: `erd-designer://documents/${documentId}/column_groups/${column.columnGroupId}`,
                 columnGroupId: column.columnGroupId,
                 modelType: "group" as const
             };
         }
 
         return {
-            uri: `erd-designer://documents/${documentId}/columnModels/${column.columnModelId}`,
+            uri: `erd-designer://documents/${documentId}/columns/${column.columnModelId}`,
             columnModelId: column.columnModelId,
             modelType: "single" as const
         }
@@ -305,17 +307,17 @@ const toTableColumns = (tableView: TableViewModel, documentId: string, erdDocume
 
         const columnName = overrideColumnName(columnModel, shareModel);
         const inChildRelation = erdDocument.inChildRelation(tableView.tableId, columnModel.columnModelId);
-        const columnType = shareModel.specifiedColumnType(inChildRelation);
+        const typeExpression = shareModel.specifiedColumnType(inChildRelation);
 
         return [
             {
-                uri: `erd-designer://documents/${documentId}/columnModels/${columnModel.columnModelId}`,
+                uri: `erd-designer://documents/${documentId}/columns/${columnModel.columnModelId}`,
                 columnModelId: columnModel.columnModelId,
                 columnName: {
                     physical: columnName.physicalName,
                     logical: columnName.logicalName
                 },
-                columnType: columnType,
+                typeExpression: typeExpression,
                 primaryKey: columnModel.primaryKey,
                 notNull: columnModel.notNull,
                 unique: columnModel.unique,

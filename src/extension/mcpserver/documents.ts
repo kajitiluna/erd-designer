@@ -206,7 +206,7 @@ const toDetail = (budget: ErdDocumentBudget) => {
                 uri: `${documentUri}/perspectives`
             },
             columnGroups: {
-                uri: `${documentUri}/column-groups`
+                uri: `${documentUri}/column_groups`
             },
             ...(database.supportsSchema && {
                 schemas: {
