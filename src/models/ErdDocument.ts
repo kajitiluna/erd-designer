@@ -235,12 +235,19 @@ export default class ErdDocument {
         return this.relationViewModelStorage.getModels();
     }
 
-    public inChildRelation(tableModelId: string, columnModelId: string): boolean {
-        return this.relationViewModelStorage.inChildRelation(tableModelId, columnModelId);
+    public inChildRelation(tableId: string, columnId: string): boolean {
+        return this.relationViewModelStorage.inChildRelation(tableId, columnId);
     }
 
-    public findParentRelation(childTableModelId: string, childColumnModelId: string) {
-        return this.relationViewModelStorage.findParentRelation(childTableModelId, childColumnModelId);
+    public findParentRelation(childTableId: string, childColumnId: string) {
+        return this.relationViewModelStorage.findParentRelation(childTableId, childColumnId);
+    }
+
+    public findRelatedRelations(tableId: string) {
+        const parentRelations = this.relationViewModelStorage.fetchRelationsByParent(tableId);
+        const childRelations = this.relationViewModelStorage.fetchRelationsByChild(tableId);
+
+        return { parentRelations, childRelations };
     }
 
     public getMemoViewModels(): { frontMemos: MemoViewModel[], backMemos: MemoViewModel[] } {

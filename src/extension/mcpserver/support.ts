@@ -48,3 +48,5 @@ export type McpRegisterConfig = {
 export const initResourceNotFound = (url: URL, message: string = "Resource not found.") => {
     return new McpError(McpErrorCode.ResourceNotFound, message, { uri: url.href });
 };
+
+export const searchParameters = (url: URL, param: string) => url.searchParams.getAll(param).filter(value => (value !== ""));

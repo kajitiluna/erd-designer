@@ -1,9 +1,11 @@
 import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 import { DocumentResource, RectangleType } from "~/extension/DocumentResource";
+import { toRelationSummary } from "~/extension/mcpserver/relations";
 import {
     initResourceNotFound,
-    McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs
+    McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs,
+    searchParameters
 } from "~/extension/mcpserver/support";
 import { Database } from "~/models/database";
 import { overrideColumnName } from "~/models/database/support";
@@ -25,10 +27,46 @@ export const mcpRegisterPerspective = (documentResource: DocumentResource): McpR
 const descriptionList = `\
 Retrieves a list of tables from the specified ERD document.
 Each table includes detailed information about its columns, unique constraints, and indices.
+This resource supports optional filtering via query parameters to narrow down the results.
 
 REQUEST (path variables):
 - documentId: The unique identifier of the ERD document whose tables are to be listed.
   Can be obtained from 'erd-designer://documents' resource.
+
+REQUEST (query parameters - all optional):
+Filtering conditions can be specified to narrow down the table list.
+Multiple conditions are combined with AND logic.
+- tableName.physical.contains: Filter tables whose physical name contains the specified string (partial match).
+  Can be specified multiple times; all conditions must be satisfied (AND).
+  Example: ?tableName.physical.contains=user
+- tableName.logical.contains: Filter tables whose logical name contains the specified string (partial match).
+  Can be specified multiple times; all conditions must be satisfied (AND).
+  Example: ?tableName.logical.contains=ユーザー
+- columnName.physical.contains: Filter tables that have columns whose physical name contains the specified string (partial match).
+  Can be specified multiple times; all conditions must be satisfied (AND).
+  Example: ?columnName.physical.contains=email
+- columnName.logical.contains: Filter tables that have columns whose logical name contains the specified string (partial match).
+  Can be specified multiple times; all conditions must be satisfied (AND).
+  Example: ?columnName.logical.contains=メール
+- columnId: Filter tables that contain the specified column ID (exact match).
+  Can be specified multiple times; tables must contain all specified column IDs (AND).
+  Example: ?columnId=abc-123-def-456
+
+QUERY EXAMPLES:
+- All tables:
+  \`erd-designer://documents/doc123/tables\`
+- Tables with physical name containing "user":
+  \`erd-designer://documents/doc123/tables?tableName.physical.contains=user\`
+- Tables with columns having physical name containing "email":
+  \`erd-designer://documents/doc123/tables?columnName.physical.contains=email\`
+- Tables containing specific column ID:
+  \`erd-designer://documents/doc123/tables?columnId=abc-123-def-456\`
+- Multiple conditions (AND): physical name contains "user" AND has column with physical name containing "id":
+  \`erd-designer://documents/doc123/tables?tableName.physical.contains=user&columnName.physical.contains=id\`
+- Multiple same parameters (AND): physical name contains both "user" AND "account":
+  \`erd-designer://documents/doc123/tables?tableName.physical.contains=user&tableName.physical.contains=account\`
+- Tables containing all specified column IDs:
+  \`erd-designer://documents/doc123/tables?columnId=abc-123&columnId=def-456\`
 
 RESPONSE:
 An array of table objects, each containing:
@@ -67,10 +105,18 @@ An array of table objects, each containing:
 `;
 
 const mcpListTables = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
+    const queryParams = [
+        "tableName.physical.contains",
+        "tableName.logical.contains",
+        "columnName.physical.contains",
+        "columnName.logical.contains",
+        "columnId"
+    ].join(",");
+
     return [
         "list_tables",
         new ResourceTemplate(
-            "erd-designer://documents/{documentId}/tables",
+            "erd-designer://documents/{documentId}/tables" + `{?${queryParams}*}`,
             { list: undefined }
         ),
         {
@@ -85,14 +131,15 @@ const mcpListTables = (documentResource: DocumentResource): McpServerRegisterRes
             }
 
             const erdDocument = budget.erdDocument;
-            const tableViews = erdDocument.getTableViewModels()
-                .map(tableView => toTableSummaryWithColumns(documentId, budget.rectangles, erdDocument, tableView));
+            const tableViews = doFilterTableViews(url, erdDocument);
+            const responses = tableViews.map(tableView =>
+                toTableSummaryWithColumns(documentId, budget.rectangles, erdDocument, tableView));
 
             return {
                 contents: [
                     {
                         uri: url.href,
-                        text: JSON.stringify(tableViews),
+                        text: JSON.stringify(responses),
                         mimeType: "application/json"
 
                     }
@@ -102,9 +149,73 @@ const mcpListTables = (documentResource: DocumentResource): McpServerRegisterRes
     ] as const;
 };
 
+const doFilterTableViews = (url: URL, erdDocument: ErdDocument) => {
+    const tablePhysicalNameContains = searchParameters(url, "tableName.physical.contains")
+    const tableLogicalNameContains = searchParameters(url, "tableName.logical.contains");
+    const columnIds = searchParameters(url, "columnId");
+    const columnPhysicalNameContains = searchParameters(url, "columnName.physical.contains");
+    const columnLogicalNameContains = searchParameters(url, "columnName.logical.contains");
+
+    return erdDocument.getTableViewModels().filter(tableView => {
+        const matchedTablePhysical = (tablePhysicalNameContains.length === 0)
+            || tablePhysicalNameContains.every(filtering =>
+                tableView.tableModel.physicalName.includes(filtering));
+        if (!matchedTablePhysical) {
+            return false;
+        };
+
+        const matchedTableLogical = (tableLogicalNameContains.length === 0)
+            || tableLogicalNameContains.every(filtering =>
+                tableView.tableModel.logicalName.includes(filtering));
+        if (!matchedTableLogical) {
+            return false;
+        };
+
+        const allColumns = erdDocument.toAllColumnModels(tableView.tableModel);
+
+        const matchedColumnIds = (columnIds.length === 0)
+            || allColumns.some(column => columnIds.every(filtering => column.columnModelId === filtering));
+        if (!matchedColumnIds) {
+            return false;
+        };
+
+        const matchedColumnPhysical = (columnPhysicalNameContains.length === 0)
+            || allColumns.some(column => {
+                const columnShare = erdDocument.findColumnShareModel(column.columnShareModelId);
+                if (columnShare == null) {
+                    return false;
+                }
+
+                const overrideNames = overrideColumnName(column, columnShare);
+                return columnPhysicalNameContains.every(filtering =>
+                    overrideNames.physicalName.includes(filtering));
+            });
+        if (!matchedColumnPhysical) {
+            return false;
+        };
+
+        const matchedColumnLogical = (columnLogicalNameContains.length === 0)
+            || allColumns.some(column => {
+                const columnShare = erdDocument.findColumnShareModel(column.columnShareModelId);
+                if (columnShare == null) {
+                    return false;
+                }
+
+                const overrideNames = overrideColumnName(column, columnShare);
+                return columnLogicalNameContains.every(filtering =>
+                    overrideNames.logicalName.includes(filtering));
+            });
+        if (!matchedColumnLogical) {
+            return false;
+        };
+
+        return true;
+    });
+};
+
 const descriptionFind = `\
 Retrieves detailed information about a specific table from the specified ERD document using its tableId.
-This includes complete column definitions, unique constraints, and index information.
+This includes complete column definitions, unique constraints, index information, and related relations.
 
 REQUEST (path variables):
 - documentId: The unique identifier of the ERD document.
@@ -146,6 +257,18 @@ An object containing detailed information about the specified table:
   - indexType: The type of index.
   - clustered: Boolean indicating if clustered (only present if database supports it).
   - description: A brief description of the index.
+- parentRelations: An array of relation objects where this table is the child table, each containing:
+  - uri: The URI to access detailed relation information.
+  - relationId: The unique identifier of the relation.
+  - relationName: The name of the relation.
+  - parentTableId: The id of the parent table.
+  - childTableId: The id of this table (child table).
+- childRelations: An array of relation objects where this table is the parent table, each containing:
+  - uri: The URI to access detailed relation information.
+  - relationId: The unique identifier of the relation.
+  - relationName: The name of the relation.
+  - parentTableId: The id of this table (parent table).
+  - childTableId: The id of the child table.
 - columnDefinitions: An array of column definition references, each containing either:
   - For single columns: uri, columnModelId, and modelType: "single"
   - For column groups: uri, columnGroupId, and modelType: "group"
@@ -265,18 +388,21 @@ const toTableDetail = (
     documentId: string, rectangles: Map<string, RectangleType>,
     erdDocument: ErdDocument, tableView: TableViewModel
 ) => {
-    const columnDefinitions = toTableColumnDefinitions(tableView, documentId);
     const tableWithColumns = toTableSummaryWithColumns(
         documentId, rectangles, erdDocument, tableView
     );
+    const { parentRelations, childRelations } = erdDocument.findRelatedRelations(tableView.tableId);
+    const columnDefinitions = toTableColumnDefinitions(documentId, tableView);
 
     return {
         ...tableWithColumns,
+        parentRelations: parentRelations.map(relationView => toRelationSummary(documentId, relationView.relationModel)),
+        childRelations: childRelations.map(relationView => toRelationSummary(documentId, relationView.relationModel)),
         columnDefinitions: columnDefinitions
     };
 };
 
-const toTableColumnDefinitions = (tableView: TableViewModel, documentId: string) => {
+const toTableColumnDefinitions = (documentId: string, tableView: TableViewModel) => {
     const columns = tableView.tableModel.columns;
 
     return columns.map(column => {
