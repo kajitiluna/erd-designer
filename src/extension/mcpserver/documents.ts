@@ -1,10 +1,13 @@
 import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import z from "zod";
 
 import { DocumentResource, ErdDocumentBudget } from "~/extension/DocumentResource";
 import {
-    initResourceNotFound, McpRegisterConfig, McpServerRegisterResourceArgs, McpServerRegisterResourceTemplateArgs
+    initResourceNotFound, McpRegisterConfig, McpServerRegisterResourceArgs, McpServerRegisterResourceTemplateArgs,
+    McpServerRegisterToolArgs
 } from "~/extension/mcpserver/support";
 import { toTableSummary } from "~/extension/mcpserver/tables";
+import DisplayStyle from "~/models/database/DisplayStyle";
 
 export const mcpRegisterErdDocument = (documentResource: DocumentResource): McpRegisterConfig => {
     return {
@@ -15,7 +18,9 @@ export const mcpRegisterErdDocument = (documentResource: DocumentResource): McpR
             mcpFindDocumentById(documentResource),
             mcpFindDocumentByUri(documentResource)
         ],
-        tools: []
+        tools: [
+            mcpUpdateDocument(documentResource)
+        ] as McpServerRegisterToolArgs[]
     };
 };
 
@@ -77,6 +82,13 @@ const descriptionFindById = `\
 Retrieves detailed information about an ERD document using its documentId.
 This resource returns URIs for accessing detailed information about the corresponding ERD document.
 To retrieve tables, relations, and other information, access them through their respective resources using the URIs provided.
+
+COORDINATE SYSTEM:
+All position coordinates in this document use a canvas coordinate system where:
+- The origin (0, 0) is at the center of the canvas
+- X-axis: increases to the right (positive values = right of center, negative values = left of center)
+- Y-axis: increases downward (positive values = below center, negative values = above center)
+When specifying or moving element positions, use this coordinate system as reference.
 
 REQUEST (path variables):
 - documentId: The unique identifier of the document to retrieve.
@@ -224,6 +236,13 @@ Retrieves detailed information about an ERD document using its file URI.
 This resource returns URIs for accessing detailed information about the corresponding ERD document.
 To retrieve tables, relations, and other information, access them through their respective resources using the URIs provided.
 
+COORDINATE SYSTEM:
+All position coordinates in this document use a canvas coordinate system where:
+- The origin (0, 0) is at the center of the canvas
+- X-axis: increases to the right (positive values = right of center, negative values = left of center)
+- Y-axis: increases downward (positive values = below center, negative values = above center)
+When specifying or moving element positions, use this coordinate system as reference.
+
 REQUEST:
 - The full file URI of the document to retrieve (e.g., file:///path/to/document.erd).
   This must be a file URI of a document currently open in VSCode.
@@ -288,4 +307,100 @@ const mcpFindDocumentByUri = (documentResource: DocumentResource): McpServerRegi
             };
         }
     ] as const;
+};
+
+type UpdateDocumentInput = {
+    documentId: z.ZodString;
+    document: z.ZodObject<{
+        documentName: z.ZodOptional<z.ZodString>;
+        displayStyle: z.ZodOptional<z.ZodEnum<["both", "physical", "logical"]>>;
+    }>
+};
+
+const descriptionUpdate = `\
+Updates the name or display style of an existing ERD document.
+You can update either the document name, the display style, or both properties simultaneously.
+
+REQUEST:
+- documentId: The unique identifier of the document to be updated.
+  Can be obtained from 'erd-designer://documents' resource.
+- document: An object containing the fields to be updated (all fields are optional):
+  - documentName: The new name for the document. Leading and trailing whitespace will be trimmed.
+  - displayStyle: The new display style for the document. Must be one of:
+    - 'physical': Display only physical names
+    - 'logical': Display only logical names
+    - 'both': Display both physical and logical names
+  
+  Note: If no fields are provided, the document remains unchanged.
+  At least one field should be provided to make meaningful changes.
+
+RESPONSE:
+A resource link object containing:
+- type: "resource_link"
+- uri: The URI of the updated document (format: erd-designer://documents/{documentId}).
+- name: The updated document name.
+- mimeType: "application/json"
+`;
+
+const mcpUpdateDocument = (documentResource: DocumentResource): McpServerRegisterToolArgs<UpdateDocumentInput> => {
+    return [
+        "update-document",
+        {
+            title: "Update the name or display style of ERD document",
+            description: descriptionUpdate,
+            inputSchema: {
+                documentId: z.string().describe("The unique identifier of the document to update."),
+                document: z.object({
+                    documentName: z.string().optional()
+                        .describe("The new name for the document."),
+                    displayStyle: z.enum(["both", "physical", "logical"]).optional()
+                        .describe("The new display style for the document ('physical', 'logical', or 'both').")
+                }).describe("The document properties to update.")
+            }
+        },
+        async ({ documentId, document: inputDocument }) => {
+            const budget = documentResource.findById(documentId);
+            if (budget == null) {
+                const url = new URL(`erd-designer://documents/${documentId}`);
+                throw initResourceNotFound(url);
+            }
+
+            const previousDocument = budget.erdDocument;
+            const previousSetting = previousDocument.erdSettingModel;
+
+            let nextDocument = previousDocument;
+            if (inputDocument.documentName) {
+                nextDocument = nextDocument.updateDocumentName(inputDocument.documentName.trim());
+            }
+            if (inputDocument.displayStyle) {
+                const nextStyle = toDisplayStyle(inputDocument.displayStyle);
+                const nextSetting = previousSetting.update({ displayStyle: nextStyle });
+                nextDocument = nextDocument.updateErdSetting(nextSetting);
+            }
+
+            documentResource.notify(documentId, nextDocument);
+
+            return {
+                content: [
+                    {
+                        type: "resource_link",
+                        uri: `erd-designer://documents/${documentId}`,
+                        name: nextDocument.documentName,
+                        mimeType: "application/json"
+                    }
+                ]
+            };
+        }
+    ] as const;
+};
+
+const toDisplayStyle = (style: "both" | "physical" | "logical"): DisplayStyle => {
+    switch (style) {
+        case "both":
+            return DisplayStyle.BOTH;
+        case "physical":
+            return DisplayStyle.PHYSICAL;
+        case "logical":
+            return DisplayStyle.LOGICAL;
+    }
 };

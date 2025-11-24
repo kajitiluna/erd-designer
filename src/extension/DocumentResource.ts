@@ -143,12 +143,17 @@ export class DocumentResource {
      * @param erdDocument 更新内容
      */
     public notify(documentId: string, erdDocument: ErdDocument) {
-        const budget = this.idToBudgetMap.get(documentId);
-        if (!budget) {
+        const erdBudget = this.idToBudgetMap.get(documentId);
+        if (!erdBudget) {
             return;
         }
 
-        budget.onUpdateDocument(JSON.stringify(erdDocument.toJSON()));
+        // ここでは簡易的にオブジェクトの同一性で判定する
+        if ((erdBudget.status === "ready") && (erdBudget.erdDocument === erdDocument)) {
+            return;
+        }
+
+        erdBudget.onUpdateDocument(JSON.stringify(erdDocument.toJSON()));
     }
 
     public fetchDocuments(): ErdDocumentBudget[] {
