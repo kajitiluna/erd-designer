@@ -552,7 +552,7 @@ const exportConfigs: { [key in DatabaseType]: DatabaseDdlCreator } = {
             `CREATE ${args.indexOption}INDEX ${args.indexName} ON ${args.tableName}`
             + `${args.indexTypeQuery} (${args.columnQueries.join(", ")});`,
         commentQueryForPostgres,
-        "",
+        "GENERATED ALWAYS AS IDENTITY",
         [...commonReservedWords, ...postgresReservedWords],
         (value: string) => `"${value}"` // PostgreSQL uses double quotes as escape character
     ),

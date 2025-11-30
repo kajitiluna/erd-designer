@@ -46,7 +46,7 @@ const databases: { [key in DatabaseType]: Database } = {
             indexTypes: ["BTREE", "HASH", "GIST", "SPGIST", "GIN", "BRIN"],
             nullsOrder: true
         }),
-        { supportArray: true }
+        { autoIncrementLabel: "Generated Always As Identity", supportArray: true }
     ),
     "mysql": new Database(
         "mysql", "MySQL", false,

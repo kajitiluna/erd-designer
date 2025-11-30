@@ -241,20 +241,16 @@ const initColumnHeader = (databaseType: DatabaseType, withTableInfo: boolean = t
         { header: "PK", key: "primaryKey", width: 5, style: centerAlignmentStyle },
         { header: "NotNull", key: "notNull", width: 7, style: centerAlignmentStyle },
         { header: "Unique", key: "unique", width: 7, style: centerAlignmentStyle },
-    ];
-
-    const header4: Partial<ExcelJS.Column>[] =
-        ((databaseType === "mysql") || (databaseType === "ms_sqlserver"))
-            ? [{ header: "Increment", key: "autoIncrement", width: 10, style: centerAlignmentStyle }]
-            : [];
-
-    const header5: Partial<ExcelJS.Column>[] = [
+        {
+            header: (databaseType === "mysql") ? "Increment" : "Identity",
+            key: "autoIncrement", width: (databaseType === "mysql") ? 10 : 8, style: centerAlignmentStyle
+        },
         { header: "Default", key: "defaultValue", width: 10 },
         { header: "Foreign Key", key: "foreignRelation", width: 15 },
         { header: "Description", key: "description", width: 50, style: { alignment: { wrapText: true } } },
     ];
 
-    return [...header0, ...header1, ...header2, ...header3, ...header4, ...header5];
+    return [...header0, ...header1, ...header2, ...header3];
 };
 
 const addTableSpecs = (

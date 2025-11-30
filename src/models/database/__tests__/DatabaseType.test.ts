@@ -123,7 +123,7 @@ describe('databases constant', () => {
 
     test('postgres should have no auto increment label', () => {
         const postgres = Database.get("postgres");
-        expect(postgres.autoIncrementLabel()).toBe('');
+        expect(postgres.autoIncrementLabel()).toBe('Generated Always As Identity');
     });
 
     test('mysql should have "Auto Increment" label', () => {
