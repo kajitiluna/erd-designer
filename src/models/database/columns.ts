@@ -236,7 +236,7 @@ export const migrateColumns = (databaseType: DatabaseType, orgColumnTypes: Colum
                 ...columnType,
                 withAutoIncrement: true
             });
-        })
+        });
     }
 
     return nextColumnTypes;
