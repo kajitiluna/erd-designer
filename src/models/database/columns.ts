@@ -1,9 +1,9 @@
 import ColumnType from '~/models/database/ColumnType';
 import { DatabaseType } from './DatabaseType';
 
-const POSTGRES_SMALL_INT = new ColumnType({ id: 11, name: 'smallint', description: '2バイト符号付き整数', baseQuery: 'SMALLINT', withPrecision: false, withScale: false });
-const POSTGRES_INTEGER = new ColumnType({ id: 15, name: 'integer', description: '4バイト符号付き整数', baseQuery: 'INTEGER', withPrecision: false, withScale: false });
-const POSTGRES_BIGINT = new ColumnType({ id: 17, name: 'bigint', description: '8バイト符号付き整数', baseQuery: 'BIGINT', withPrecision: false, withScale: false });
+const POSTGRES_SMALL_INT = new ColumnType({ id: 11, name: 'smallint', description: '2バイト符号付き整数', baseQuery: 'SMALLINT', withPrecision: false, withScale: false, withAutoIncrement: true });
+const POSTGRES_INTEGER = new ColumnType({ id: 15, name: 'integer', description: '4バイト符号付き整数', baseQuery: 'INTEGER', withPrecision: false, withScale: false, withAutoIncrement: true });
+const POSTGRES_BIGINT = new ColumnType({ id: 17, name: 'bigint', description: '8バイト符号付き整数', baseQuery: 'BIGINT', withPrecision: false, withScale: false, withAutoIncrement: true });
 
 const databaseColumns: { [key in DatabaseType]: ColumnType[] } = {
     // cSpell: ignore bytea smallserial bigserial tsquery tsvector lseg macaddr
@@ -183,41 +183,60 @@ const databaseColumns: { [key in DatabaseType]: ColumnType[] } = {
 
 export const findDatabaseColumns = (databaseType: DatabaseType): ColumnType[] => databaseColumns[databaseType];
 
-export const migrateColumns = (databaseType: DatabaseType, columnTypes: ColumnType[], version: number) => {
-    const baseColumnTypeMap = new Map(
+export const migrateColumns = (databaseType: DatabaseType, orgColumnTypes: ColumnType[], orgVersion: number) => {
+    const latestColumnTypeMap = new Map(
         findDatabaseColumns(databaseType).map(columnType => [columnType.id, columnType])
     );
 
-    let nextColumnTypes = columnTypes;
+    let nextColumnTypes = orgColumnTypes;
 
     // ColumnType に defaultValueCandidates プロパティを追加
-    if (version < 20250612) {
+    if (orgVersion < 20250612) {
         nextColumnTypes = nextColumnTypes.map(columnType => {
-            const baseColumnType = baseColumnTypeMap.get(columnType.id);
-            if (baseColumnType == null) {
+            const latestColumnType = latestColumnTypeMap.get(columnType.id);
+            if (latestColumnType == null) {
                 return columnType;
             }
-            if (columnType.name !== baseColumnType.name) {
+            if (columnType.name !== latestColumnType.name) {
                 return columnType;
             }
-            if (baseColumnType.defaultValueCandidates.length === 0) {
+            if (latestColumnType.defaultValueCandidates.length === 0) {
                 return columnType;
             }
 
             return new ColumnType({
                 ...columnType,
-                defaultValueCandidates: [...baseColumnType.defaultValueCandidates]
+                defaultValueCandidates: [...latestColumnType.defaultValueCandidates]
             });
         });
     }
 
     // PostgreSQL の場合、OID カラムを追加
-    if ((version < 20250718) && (databaseType === "postgres")) {
-        const oidColumnType = baseColumnTypeMap.get(9103);
+    if ((orgVersion < 20250718) && (databaseType === "postgres")) {
+        const oidColumnType = latestColumnTypeMap.get(9103);
         if ((oidColumnType != null)
             && nextColumnTypes.every(columnType => columnType.id !== 9103)) {
             nextColumnTypes.push(oidColumnType);
         }
+    }
+
+    // PostgreSQL の場合、GENERATED ALWAYS AS IDENTITY の定義を追加
+    if ((orgVersion < 20251130) && (databaseType === "postgres")) {
+        nextColumnTypes = nextColumnTypes.map(columnType => {
+            const latestColumnType = latestColumnTypeMap.get(columnType.id);
+            if (latestColumnType == null) {
+                return columnType;
+            }
+
+            if (!latestColumnType.withAutoIncrement) {
+                return columnType;
+            }
+
+            return new ColumnType({
+                ...columnType,
+                withAutoIncrement: true
+            });
+        })
     }
 
     return nextColumnTypes;

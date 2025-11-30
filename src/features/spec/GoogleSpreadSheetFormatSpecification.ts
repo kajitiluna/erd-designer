@@ -90,19 +90,16 @@ const initColumnHeader = (databaseType: DatabaseType, withTableInfo: boolean = t
         { title: "PK", key: "primaryKey", horizontalAlignment: "CENTER", width: 35 },
         { title: "NotNull", key: "notNull", horizontalAlignment: "CENTER", width: 50 },
         { title: "Unique", key: "unique", horizontalAlignment: "CENTER", width: 50 },
-    ];
-
-    const header4 = ((databaseType === "mysql") || (databaseType === "ms_sqlserver"))
-        ? [{ title: "Increment", key: "autoIncrement", horizontalAlignment: "CENTER", width: 55 }]
-        : [];
-
-    const header5 = [
+        {
+            title: (databaseType === "mysql") ? "Increment" : "Identity",
+            key: "autoIncrement", horizontalAlignment: "CENTER", width: 55
+        },
         { title: "Default", key: "defaultValue", width: 75 },
         { title: "Foreign Key", key: "foreignRelation", width: 120 },
         { title: "Description", key: "description", wrapText: true, width: 350 },
     ];
 
-    return [...header0, ...header1, ...header2, ...header3, ...header4, ...header5];
+    return [...header0, ...header1, ...header2, ...header3];
 };
 
 const createTableSpecSheet = (databaseType: DatabaseType, tableSpec: TableDetailSpec) => {
