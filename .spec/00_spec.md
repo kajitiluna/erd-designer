@@ -1139,7 +1139,7 @@ erd-designer://documents/doc123/column_groups?columnId=abc-123&columnId=def-456
   columns: {                               // 追加するカラムの配列
     column: {
       // パターン1: 既存の共有カラムモデルを使用
-      columnShareId: string;                 // 共有カラムモデルID（必須）
+      columnShareId?: string;                 // 共有カラムモデルID（必須）
       overrideName?: {                       // 名前を上書きする場合
         physical?: string;
         logical?: string;
@@ -1562,7 +1562,7 @@ erd-designer://documents/doc123/column_groups?columnId=abc-123&columnId=def-456
       physical?: string;
       logical?: string;
     };
-    columnTypeId?: string;                 // カラム型ID
+    columnTypeId?: number;                 // カラム型ID
     precision?: string;
     scale?: string;
     unsigned?: boolean;

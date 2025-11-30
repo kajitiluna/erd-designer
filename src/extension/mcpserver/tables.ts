@@ -12,7 +12,7 @@ import { overrideColumnName } from "~/models/database/support";
 import ErdDocument from "~/models/ErdDocument";
 import TableViewModel from "~/models/TableViewModel";
 
-export const mcpRegisterPerspective = (documentResource: DocumentResource): McpRegisterConfig => {
+export const mcpRegisterTable = (documentResource: DocumentResource): McpRegisterConfig => {
     return {
         resources: [],
         resourceTemplates: [

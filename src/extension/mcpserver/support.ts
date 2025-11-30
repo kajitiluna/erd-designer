@@ -7,6 +7,7 @@ import { ZodRawShape } from "zod";
 
 export const McpErrorCode = {
     ResourceNotFound: -32002,
+    InvalidParams: ErrorCode.InvalidParams,
     InternalError: ErrorCode.InternalError
 } as const;
 
@@ -49,4 +50,22 @@ export const initResourceNotFound = (url: URL, message: string = "Resource not f
     return new McpError(McpErrorCode.ResourceNotFound, message, { uri: url.href });
 };
 
-export const searchParameters = (url: URL, param: string) => url.searchParams.getAll(param).filter(value => (value !== ""));
+export const initInvalidParams = (message: string) => new McpError(McpErrorCode.InvalidParams, message);
+
+export const searchParameters = (url: URL, param: string) =>
+    url.searchParams.getAll(param).filter(value => (value !== ""));
+
+const PHYSICAL_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+export const validatePhysicalName = (value: string): boolean => PHYSICAL_PATTERN.test(value);
+
+export const validatePositiveNumber = (val: string): boolean => /^\d+$/.test(val);
+
+export const indent = (text: string, indentation: number) => {
+    if (indentation <= 0) {
+        return text;
+    }
+
+    const indentString = "  ".repeat(indentation);
+    return text.split("\n").map(line => indentString + line).join("\n");
+}

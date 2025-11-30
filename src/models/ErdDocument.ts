@@ -215,6 +215,19 @@ export default class ErdDocument {
         return this.columnShareModelStorage.find(columnShareModelId);
     }
 
+    public fetchReferencedColumnModelsForShareModel(columnShareModelId: string): ColumnModel[] {
+        return Array.from(this.columnModelMap.values())
+            .filter(columnModel => (columnModel.columnShareModelId === columnShareModelId))
+            .sort((first, seconde) => {
+                const nameCompared = first.physicalName.localeCompare(seconde.physicalName, "en");
+                if (nameCompared !== 0) {
+                    return nameCompared;
+                }
+
+                return first.columnModelId.localeCompare(seconde.columnModelId, "en");
+            });
+    }
+
     public getColumnShareModelStorage(): ColumnShareModelStorage {
         return this.columnShareModelStorage.copy();
     }
@@ -908,6 +921,51 @@ export default class ErdDocument {
         }
     }
 
+    /**
+     * カラムモデルを更新する。
+     * (MCP Server 経由の利用を想定している)
+     * 
+     * @param updatingModel 更新対象のカラムモデル
+     * @returns 更新後のドキュメント
+     */
+    public updateColumnModel(updatingModel: ColumnModel): ErdDocument {
+        const previousModel = this.columnModelMap.get(updatingModel.columnModelId);
+        if (previousModel == null) {
+            return this;
+        }
+
+        const nextColumnModelMap = new Map(this.columnModelMap);
+        nextColumnModelMap.set(updatingModel.columnModelId, updatingModel);
+
+        return this.doUpdate({
+            columnModelMap: nextColumnModelMap
+        });
+    }
+
+    /**
+     * 共有カラムモデルを更新する。
+     * (MCP Server 経由の利用を想定している)
+     * 
+     * @param columnShare 更新対象の共有カラムモデル
+     * @returns 更新後のドキュメント
+     */
+    public updateColumnShareModel(columnShare: ColumnShareModel): ErdDocument {
+        const next = this.columnShareModelStorage.addModel(columnShare);
+        if (next === this.columnShareModelStorage) {
+            return this;
+        }
+
+        return this.doUpdate({
+            columnShareModelStorage: next
+        });
+    }
+
+    /**
+     * リレーションを更新する。
+     * 
+     * @param updatingModel 更新対象のリレーションモデル
+     * @returns 更新後のドキュメント
+     */
     public updateRelationModel(updatingModel: RelationModel): ErdDocument {
         const tempChildTableViewModel = this.tableViewModelMap.get(updatingModel.childTableModelId);
         if (tempChildTableViewModel == null) {
@@ -978,6 +1036,12 @@ export default class ErdDocument {
         });
     }
 
+    /**
+     * 指定されたリレーションを削除する。
+     * 
+     * @param relationId 削除対象のリレーションID
+     * @returns 更新後のドキュメント
+     */
     public deleteRelation(relationId: string): ErdDocument {
         const next = this.relationViewModelStorage.deleteRelation([relationId]);
         if (next === this.relationViewModelStorage) {
@@ -989,6 +1053,13 @@ export default class ErdDocument {
         });
     }
 
+    /**
+     * 指定されたリレーションの線描画を更新する。
+     * 
+     * @param relationId 更新対象のリレーションID
+     * @param updatingModel 更新後の線描画モデル
+     * @returns 更新後のドキュメント
+     */
     public updateRelationLineModel(relationId: string, updatingModel: LineViewModel): ErdDocument {
         const nextRelationStorage = this.relationViewModelStorage.updateLineViewModel(relationId, updatingModel);
         if (this.relationViewModelStorage === nextRelationStorage) {

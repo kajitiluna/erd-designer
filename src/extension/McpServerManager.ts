@@ -4,9 +4,11 @@ import express from "express";
 import { Server } from "http";
 
 import { DocumentResource } from "~/extension/DocumentResource";
+import { mcpRegisterColumn } from "~/extension/mcpserver/columns";
 import { mcpRegisterErdDocument } from "~/extension/mcpserver/documents";
 import { mcpRegisterPerspective } from "~/extension/mcpserver/perspectives";
 import { McpErrorCode } from "~/extension/mcpserver/support";
+import { mcpRegisterTable } from "~/extension/mcpserver/tables";
 import { ShowMessage } from "~/extension/vscode-message";
 
 export class McpServerManager {
@@ -116,6 +118,11 @@ const createMcpServer = (documentResource: DocumentResource) => {
     const mcpConfig = [
         // `erd-designer://documents`
         mcpRegisterErdDocument(documentResource),
+        // `erd-designer://documents/{documentId}/tables`
+        mcpRegisterTable(documentResource),
+        // `erd-designer://documents/{documentId}/columns`
+        // `erd-designer://documents/{documentId}/column_shares/`
+        mcpRegisterColumn(documentResource),
         // `erd-designer://documents/{documentId}/perspectives`
         mcpRegisterPerspective(documentResource)
     ].reduce((merged, config) => ({
