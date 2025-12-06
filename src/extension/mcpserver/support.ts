@@ -3,7 +3,7 @@ import {
     ToolCallback
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ErrorCode, McpError, ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
-import { ZodRawShape } from "zod";
+import z, { ZodRawShape } from "zod";
 
 export const McpErrorCode = {
     ResourceNotFound: -32002,
@@ -46,8 +46,26 @@ export type McpRegisterConfig = {
     tools: McpServerRegisterToolArgs<any>[];
 };
 
+export const ColorValueSchema = {
+    red: z.number().int().min(0).max(255).describe("The red component of the color (0-255)."),
+    green: z.number().int().min(0).max(255).describe("The green component of the color (0-255)."),
+    blue: z.number().int().min(0).max(255).describe("The blue component of the color (0-255).")
+};
+
 export const initResourceNotFound = (url: URL, message: string = "Resource not found.") => {
     return new McpError(McpErrorCode.ResourceNotFound, message, { uri: url.href });
+};
+
+export const initResourceResponse = (url: URL, response: object) => {
+    return {
+        contents: [
+            {
+                uri: url.href,
+                text: JSON.stringify(response),
+                mimeType: "application/json"
+            }
+        ]
+    };
 };
 
 export const initInvalidParams = (message: string) => new McpError(McpErrorCode.InvalidParams, message);

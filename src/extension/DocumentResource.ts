@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 
 import ErdDocument from '~/models/ErdDocument';
+import DocumentBudget, { RectangleType } from '~/extension/mcpserver/DocumentBudget';
 
 type InnerErdBudget = {
     status: "ready";
@@ -156,13 +157,13 @@ export class DocumentResource {
         erdBudget.onUpdateDocument(JSON.stringify(erdDocument.toJSON()));
     }
 
-    public fetchDocuments(): ErdDocumentBudget[] {
+    public fetchDocuments(): DocumentBudget[] {
         return Array.from(this.idToBudgetMap.values())
             .map(budget => convertBudget(budget))
-            .filter((budget): budget is ErdDocumentBudget => (budget !== null));
+            .filter((budget): budget is DocumentBudget => (budget !== null));
     }
 
-    public findById(documentId: string): ErdDocumentBudget | null {
+    public findById(documentId: string): DocumentBudget | null {
         const budget = this.idToBudgetMap.get(documentId);
         if (!budget) {
             return null;
@@ -171,7 +172,7 @@ export class DocumentResource {
         return convertBudget(budget);
     }
 
-    public findByUri(uri: string): ErdDocumentBudget | null {
+    public findByUri(uri: string): DocumentBudget | null {
         const documentId = this.uriToIdMap.get(uri);
         if (!documentId) {
             return null;
@@ -185,13 +186,6 @@ export class DocumentResource {
     }
 }
 
-export type ErdDocumentBudget = {
-    documentId: string;
-    uri: string;
-    erdDocument: ErdDocument;
-    rectangles: Map<string, RectangleType>;
-};
-
 const parseErdDocument = (content: string): ErdDocument | null => {
     try {
         return ErdDocument.toObject(JSON.parse(content));
@@ -200,22 +194,15 @@ const parseErdDocument = (content: string): ErdDocument | null => {
     }
 };
 
-const convertBudget = (budget: InnerErdBudget): ErdDocumentBudget | null => {
+const convertBudget = (budget: InnerErdBudget): DocumentBudget | null => {
     if (budget.status !== "ready") {
         return null;
     }
 
-    return {
+    return new DocumentBudget({
         documentId: budget.documentId,
         uri: budget.uri.toString(),
         erdDocument: budget.erdDocument,
         rectangles: budget.drawnRectangles
-    };
+    });
 }
-
-export type RectangleType = {
-    positionX: number;
-    positionY: number;
-    width: number;
-    height: number;
-};

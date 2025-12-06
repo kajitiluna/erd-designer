@@ -1,14 +1,21 @@
-import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { ReadResourceTemplateCallback, ResourceTemplate, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
+import z from "zod";
 
-import { DocumentResource, RectangleType } from "~/extension/DocumentResource";
+import { DocumentResource } from "~/extension/DocumentResource";
+import { addingColumnModelSchema, addingColumnShareModelSchema, buildColumnShare } from "~/extension/mcpserver/columns";
+import DocumentBudget, { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
 import { toRelationSummary } from "~/extension/mcpserver/relations";
 import {
-    initResourceNotFound,
-    McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs,
-    searchParameters
+    ColorValueSchema, McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs,
+    initInvalidParams, initResourceNotFound, initResourceResponse, searchParameters, validatePhysicalName
 } from "~/extension/mcpserver/support";
+import ColorValue from "~/models/ColorValue";
 import { Database } from "~/models/database";
+import ColumnModel from "~/models/database/ColumnModel";
+import ColumnShareModel from "~/models/database/ColumnShareModel";
+import DbSchemaModel from "~/models/database/DbSchemaModel";
 import { overrideColumnName } from "~/models/database/support";
+import TableModel from "~/models/database/TableModel";
 import ErdDocument from "~/models/ErdDocument";
 import TableViewModel from "~/models/TableViewModel";
 
@@ -20,6 +27,7 @@ export const mcpRegisterTable = (documentResource: DocumentResource): McpRegiste
             mcpFindTable(documentResource)
         ],
         tools: [
+            mcpAddTable(documentResource)
         ] as McpServerRegisterToolArgs[]
     };
 };
@@ -114,39 +122,33 @@ const mcpListTables = (documentResource: DocumentResource): McpServerRegisterRes
     ].join(",");
 
     return [
-        "list_tables",
+        "list-tables",
         new ResourceTemplate(
-            "erd-designer://documents/{documentId}/tables" + `{?${queryParams}*}`,
+            uriTemplates.tables + `{?${queryParams}*}`,
             { list: undefined }
         ),
         {
             title: "List tables of a specified ERD document",
             description: descriptionList
         },
-        async (url, variables) => {
-            const documentId = variables.documentId as string;
-            const budget = documentResource.findById(documentId);
-            if (budget == null) {
-                throw initResourceNotFound(url);
-            }
-
-            const erdDocument = budget.erdDocument;
-            const tableViews = doFilterTableViews(url, erdDocument);
-            const responses = tableViews.map(tableView =>
-                toTableSummaryWithColumns(documentId, budget.rectangles, erdDocument, tableView));
-
-            return {
-                contents: [
-                    {
-                        uri: url.href,
-                        text: JSON.stringify(responses),
-                        mimeType: "application/json"
-
-                    }
-                ]
-            };
-        }
+        initCallbackForListTables(documentResource)
     ] as const;
+};
+
+const initCallbackForListTables = (documentResource: DocumentResource): ReadResourceTemplateCallback => {
+    return async (url, variables) => {
+        const documentId = variables.documentId as string;
+        const erdBudget = documentResource.findById(documentId);
+        if (erdBudget == null) {
+            throw initResourceNotFound(url);
+        }
+
+        const erdDocument = erdBudget.erdDocument;
+        const tableViews = doFilterTableViews(url, erdDocument);
+        const responses = tableViews.map(tableView => toTableSummaryWithColumns(erdBudget, tableView));
+
+        return initResourceResponse(url, responses);
+    };
 };
 
 const doFilterTableViews = (url: URL, erdDocument: ErdDocument) => {
@@ -276,51 +278,42 @@ An object containing detailed information about the specified table:
 
 const mcpFindTable = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
     return [
-        "find_table",
-        new ResourceTemplate(
-            "erd-designer://documents/{documentId}/tables/{tableId}",
-            { list: undefined }
-        ),
+        "find-table",
+        new ResourceTemplate(uriTemplates.tableDetail, { list: undefined }),
         {
             title: "Find a table of a specified ERD document",
             description: descriptionFind
         },
-        async (url, variables) => {
-            const documentId = variables.documentId as string;
-            const tableId = variables.tableId as string;
-            const budget = documentResource.findById(documentId);
-            if (budget == null) {
-                throw initResourceNotFound(url);
-            }
-
-            const erdDocument = budget.erdDocument;
-            const tableView = erdDocument.findTableViewModel(tableId);
-            if (tableView == null) {
-                throw initResourceNotFound(url);
-            }
-
-            const tableDetail = toTableDetail(documentId, budget.rectangles, erdDocument, tableView);
-
-            return {
-                contents: [
-                    {
-                        uri: url.href,
-                        text: JSON.stringify(tableDetail),
-                        mimeType: "application/json"
-                    }
-                ]
-            };
-        }
+        initCallbackForFindTable(documentResource)
     ] as const;
 };
 
-export const toTableSummary = (
-    documentId: string, tableView: TableViewModel, rectangles: Map<string, RectangleType>
-) => {
-    const rectangle = rectangles.get(tableView.tableId);
+const initCallbackForFindTable = (documentResource: DocumentResource): ReadResourceTemplateCallback => {
+    return async (url, variables) => {
+        const documentId = variables.documentId as string;
+        const tableId = variables.tableId as string;
+        const erdBudget = documentResource.findById(documentId);
+        if (erdBudget == null) {
+            throw initResourceNotFound(url);
+        }
+
+        const erdDocument = erdBudget.erdDocument;
+        const tableView = erdDocument.findTableViewModel(tableId);
+        if (tableView == null) {
+            throw initResourceNotFound(url);
+        }
+
+        const tableDetail = toTableDetail(erdBudget, tableView);
+
+        return initResourceResponse(url, tableDetail);
+    };
+};
+
+export const toTableSummary = (erdBudget: DocumentBudget, tableView: TableViewModel) => {
+    const rectangle = erdBudget.findRectangle(tableView.tableId);
 
     return {
-        uri: `erd-designer://documents/${documentId}/tables/${tableView.tableId}`,
+        uri: erdBudget.tableUri(tableView.tableId),
         tableId: tableView.tableId,
         tableName: {
             physical: tableView.tableModel.physicalName,
@@ -362,19 +355,17 @@ type TableColumn = {
     unique: boolean;
 };
 
-const toTableSummaryWithColumns = (
-    documentId: string, rectangles: Map<string, RectangleType>,
-    erdDocument: ErdDocument, tableView: TableViewModel
-) => {
-    const tableColumns = toTableColumns(tableView, documentId, erdDocument);
+const toTableSummaryWithColumns = (erdBudget: DocumentBudget, tableView: TableViewModel) => {
+    const tableColumns = toTableColumns(erdBudget, tableView);
 
     const columnMapping = new Map(tableColumns.map(column => [column.columnModelId, column]));
 
+    const erdDocument = erdBudget.erdDocument;
     const database = erdDocument.getDatabase();
     const uniqueConstraints = toTableUniqueConstraints(tableView, columnMapping);
     const tableIndices = toTableIndices(tableView, columnMapping, database);
 
-    const summary = toTableSummary(documentId, tableView, rectangles);
+    const summary = toTableSummary(erdBudget, tableView);
 
     return {
         ...summary,
@@ -384,45 +375,42 @@ const toTableSummaryWithColumns = (
     };
 };
 
-const toTableDetail = (
-    documentId: string, rectangles: Map<string, RectangleType>,
-    erdDocument: ErdDocument, tableView: TableViewModel
-) => {
-    const tableWithColumns = toTableSummaryWithColumns(
-        documentId, rectangles, erdDocument, tableView
-    );
+const toTableDetail = (erdBudget: DocumentBudget, tableView: TableViewModel) => {
+    const erdDocument = erdBudget.erdDocument;
+    const tableWithColumns = toTableSummaryWithColumns(erdBudget, tableView);
     const { parentRelations, childRelations } = erdDocument.findRelatedRelations(tableView.tableId);
-    const columnDefinitions = toTableColumnDefinitions(documentId, tableView);
+    const columnDefinitions = toTableColumnDefinitions(erdBudget, tableView);
 
     return {
         ...tableWithColumns,
-        parentRelations: parentRelations.map(relationView => toRelationSummary(documentId, relationView.relationModel)),
-        childRelations: childRelations.map(relationView => toRelationSummary(documentId, relationView.relationModel)),
+        parentRelations: parentRelations.map(relationView => toRelationSummary(erdBudget, relationView.relationModel)),
+        childRelations: childRelations.map(relationView => toRelationSummary(erdBudget, relationView.relationModel)),
         columnDefinitions: columnDefinitions
     };
 };
 
-const toTableColumnDefinitions = (documentId: string, tableView: TableViewModel) => {
+const toTableColumnDefinitions = (erdBudget: DocumentBudget, tableView: TableViewModel) => {
     const columns = tableView.tableModel.columns;
 
     return columns.map(column => {
         if (column.modelType === "group") {
             return {
-                uri: `erd-designer://documents/${documentId}/column_groups/${column.columnGroupId}`,
+                uri: erdBudget.columnGroupUri(column.columnGroupId),
                 columnGroupId: column.columnGroupId,
                 modelType: "group" as const
             };
         }
 
         return {
-            uri: `erd-designer://documents/${documentId}/columns/${column.columnModelId}`,
+            uri: erdBudget.columnUri(column.columnModelId),
             columnModelId: column.columnModelId,
             modelType: "single" as const
         }
     });
 };
 
-const toTableColumns = (tableView: TableViewModel, documentId: string, erdDocument: ErdDocument) => {
+const toTableColumns = (erdBudget: DocumentBudget, tableView: TableViewModel) => {
+    const erdDocument = erdBudget.erdDocument;
     const columnModels = erdDocument.toAllColumnModels(tableView.tableModel);
 
     return columnModels.flatMap(columnModel => {
@@ -437,7 +425,7 @@ const toTableColumns = (tableView: TableViewModel, documentId: string, erdDocume
 
         return [
             {
-                uri: `erd-designer://documents/${documentId}/columns/${columnModel.columnModelId}`,
+                uri: erdBudget.columnUri(columnModel.columnModelId),
                 columnModelId: columnModel.columnModelId,
                 columnName: {
                     physical: columnName.physicalName,
@@ -528,4 +516,234 @@ const toTableIndices = (
             }
         ];
     });
+};
+
+const descriptionAddTable = `\
+Adds a new table to a specified ERD document.
+You can create a table with columns by either referencing existing column-shares or creating new column-shares.
+The table will be positioned on the ERD canvas according to the specified coordinates.
+
+REQUEST:
+- documentId: The unique identifier of the ERD document to add the table to.
+  Can be obtained from 'erd-designer://documents' resource.
+- table: The table specification containing:
+  - tableName: Object containing table names:
+    - physical: The physical name of the new table (required).
+      Must start with a letter or underscore, followed by letters, digits, or underscores.
+    - logical: (optional) The logical name of the new table.
+  - schemaId: (optional) The schema ID where the table will be created.
+    Only applicable if the database type supports schemas.
+    Can be obtained from the document's schemas array.
+  - description: (optional) A description of the table.
+  - columns: An array of column specifications. Each column can be defined using one of two approaches:
+
+    APPROACH 1: Reference an existing column-share (recommended for reusing common column definitions):
+    - columnShareId: The ID of an existing column-share to base the column on (required).
+      Can be obtained from the column-shares list resource.
+    - overrideName: (optional) Override the column-share's names:
+      - physical: The overridden physical name (empty string to clear override).
+      - logical: The overridden logical name.
+    - primaryKey: (optional) Boolean indicating if this is a primary key.
+    - notNull: (optional) Boolean indicating if this column is NOT NULL.
+    - unique: (optional) Boolean indicating if this column has a unique constraint.
+    - autoIncrement: (optional) Boolean indicating if auto-increment is enabled.
+      Only applicable if the column type supports auto-increment.
+    - defaultValue: (optional) The default value for the column.
+
+    APPROACH 2: Create a new column-share (for unique column definitions):
+    - columnShare: Object defining the new column-share properties:
+      - columnName: Object containing names:
+        - physical: The physical name (required).
+          Must start with a letter or underscore, followed by letters, digits, or underscores.
+        - logical: (optional) The logical name.
+      - columnTypeId: The column type ID (required).
+        Must reference an existing column type from the database type definition.
+      - precision: (optional) The precision setting (required for types with precision).
+      - scale: (optional) The scale setting (required for types with scale).
+      - unsigned: (optional) Boolean indicating unsigned property (only for applicable types).
+      - isArray: (optional) Boolean indicating array type (only if database supports it).
+      - description: (optional) A description of the column-share.
+    - overrideName: (optional) Override the column-share's names.
+    - primaryKey: (optional) Boolean indicating if this is a primary key.
+    - notNull: (optional) Boolean indicating if this column is NOT NULL.
+    - unique: (optional) Boolean indicating if this column has a unique constraint.
+    - autoIncrement: (optional) Boolean indicating if auto-increment is enabled.
+    - defaultValue: (optional) The default value for the column.
+
+  - view: Display settings for the table:
+    - position: Object containing the table position on the ERD canvas:
+      - x: The x-coordinate of the top-left corner of the table (required).
+      - y: The y-coordinate of the top-left corner of the table (required).
+    - color: Object containing the table header colors:
+      - background: The background color in RGB format (required).
+        Object with red, green, and blue components (each 0-255).
+        Example: { red: 255, green: 255, blue: 255 } for white.
+      - foreground: The foreground/text color in RGB format (required).
+        Object with red, green, and blue components (each 0-255).
+        Example: { red: 0, green: 0, blue: 0 } for black.
+
+RESPONSE:
+A resource link object containing:
+- type: "resource_link"
+- uri: The URI of the newly created table (format: erd-designer://documents/{documentId}/tables/{tableId}).
+- name: The physical name of the new table.
+- mimeType: "application/json"
+`;
+
+const mcpAddTable = (documentResource: DocumentResource): McpServerRegisterToolArgs<typeof addTableInputSchema> => {
+    return [
+        "add-table",
+        {
+            title: "Add a new table to a specified ERD document",
+            description: descriptionAddTable,
+            inputSchema: addTableInputSchema
+        },
+        initCallbackForAddingTable(documentResource)
+    ] as const;
+};
+
+const addTableInputSchema = {
+    documentId: z.string().describe("The unique identifier of the document to update."),
+    table: z.object({
+        tableName: z.object({
+            physical: z.string()
+                .refine(validatePhysicalName, {
+                    message: "Physical name must start with a letter or underscore, followed by letters, digits, or underscores."
+                }).describe("The physical name of the new table."),
+            logical: z.string().optional().describe("The logical name of the new table."),
+        }).describe("The name of the new table."),
+        schemaId: z.string().optional()
+            .describe("The schema ID where the new table will be created. Only applicable if the RDBMS supports schemas."),
+        description: z.string().optional().describe("The description of the new table."),
+        columns: z.array(z.union([
+            z.object({
+                columnShareId: z.string().describe("The column share ID to base the new column on."),
+                ...addingColumnModelSchema
+            }).describe("The columns to add to the new table based on an existing column share."),
+            z.object({
+                columnShare: z.object(addingColumnShareModelSchema)
+                    .describe("The definition of the new column share to create the new column from scratch."),
+                ...addingColumnModelSchema
+            }).describe("The columns to add to the new table based on a new column share.")
+        ])).describe("The columns to add to the new table."),
+        view: z.object({
+            position: z.object({
+                x: z.number().describe("The x-coordinate of the top-left corner of the table."),
+                y: z.number().describe("The y-coordinate of the top-left corner of the table.")
+            }).describe("The position of the new table on the ERD canvas."),
+            color: z.object({
+                background: z.object(ColorValueSchema).describe("The background color of the new table header."),
+                foreground: z.object(ColorValueSchema).describe("The foreground color of the new table header.")
+            }).describe("The color settings for the new table header.")
+        }).describe("The view definition of the new table.")
+    }).describe("The table data to add.")
+} as const;
+
+const initCallbackForAddingTable = (documentResource: DocumentResource): ToolCallback<typeof addTableInputSchema> => {
+    return async ({ documentId, table }) => {
+        const erdBudget = documentResource.findById(documentId);
+        if (erdBudget == null) {
+            const url = new URL(uriTemplates.documentFor(documentId));
+            throw initResourceNotFound(url);
+        }
+
+        const previousDocument = erdBudget.erdDocument;
+
+        let schema: DbSchemaModel | null = null;
+        if (table.schemaId) {
+            const database = previousDocument.getDatabase();
+            if (!database.supportsSchema) {
+                throw initInvalidParams(`The database type '${database.databaseType}' does not support schemas.`);
+            }
+
+            schema = previousDocument.findSchema(table.schemaId);
+            if (schema == null) {
+                const url = new URL(erdBudget.schemaUri(table.schemaId));
+                throw initResourceNotFound(url);
+            }
+        }
+
+        const addingPairs = table.columns.map(addingColumn => {
+            let columnShare: ColumnShareModel;
+            if ("columnShareId" in addingColumn) {
+                const existedColumnShare = previousDocument.findColumnShareModel(addingColumn.columnShareId);
+                if (existedColumnShare == null) {
+                    const url = new URL(erdBudget.columnShareUri(addingColumn.columnShareId));
+                    throw initResourceNotFound(url);
+                }
+
+                columnShare = existedColumnShare;
+            } else {
+                columnShare = buildColumnShare(erdBudget, addingColumn.columnShare);
+            }
+
+            if (!columnShare.columnType.withAutoIncrement && (addingColumn.autoIncrement === true)) {
+                throw initInvalidParams(
+                    `Auto-increment must not be specified for the selected column type : ${columnShare.columnType.name}`
+                );
+            }
+
+            const column = new ColumnModel({
+                columnShareModelId: columnShare.columnShareModelId,
+                physicalName: addingColumn.overrideName?.physical || "",
+                logicalName: addingColumn.overrideName?.logical || "",
+                primaryKey: addingColumn.primaryKey || false,
+                notNull: addingColumn.notNull || false,
+                unique: addingColumn.unique || false,
+                autoIncrement: addingColumn.autoIncrement || false,
+                defaultValue: addingColumn.defaultValue || ""
+            });
+
+            return [column, ("columnShare" in addingColumn) ? columnShare : null] as const;
+        });
+
+        const [columns, columnShares] = addingPairs.reduce<[ColumnModel[], ColumnShareModel[]]>(
+            (previous, [column, columnShare]) => {
+                previous[0].push(column);
+                if (columnShare != null) {
+                    previous[1].push(columnShare);
+                }
+
+                return previous;
+            }, [[], []]
+        );
+
+        const addTable = new TableModel({
+            physicalName: table.tableName.physical,
+            logicalName: table.tableName.logical || table.tableName.physical,
+            schemaId: schema?.schemaId,
+            description: table.description || "",
+            columns: columns.map(column => ({
+                modelType: "single" as const,
+                columnModelId: column.columnModelId
+            })),
+        });
+
+        const addTableView = new TableViewModel({
+            tableModel: addTable,
+            corner: {
+                left: table.view.position.x,
+                top: table.view.position.y
+            },
+            headerColor: {
+                background: new ColorValue(table.view.color.background),
+                foreground: new ColorValue(table.view.color.foreground)
+            }
+        });
+
+        const nextColumnShareStorage = previousDocument.getColumnShareModelStorage().addModel(...columnShares);
+        const nextDocument = previousDocument.updateTableViewModel(addTableView, columns, nextColumnShareStorage);
+        documentResource.notify(documentId, nextDocument);
+
+        return {
+            content: [
+                {
+                    type: "resource_link",
+                    uri: erdBudget.tableUri(addTableView.tableId),
+                    name: addTable.physicalName,
+                    mimeType: "application/json"
+                }
+            ]
+        };
+    };
 };

@@ -1,10 +1,11 @@
-import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { ReadResourceTemplateCallback, ResourceTemplate, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
 import z from "zod";
 
 import { DocumentResource } from "~/extension/DocumentResource";
+import DocumentBudget, { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
 import {
-    initResourceNotFound, McpRegisterConfig, McpServerRegisterResourceTemplateArgs,
-    McpServerRegisterToolArgs
+    initResourceNotFound, initResourceResponse,
+    McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs
 } from "~/extension/mcpserver/support";
 import PerspectiveModel from "~/models/PerspectiveModel";
 
@@ -16,9 +17,9 @@ export const mcpRegisterPerspective = (documentResource: DocumentResource): McpR
             mcpFindPerspectiveById(documentResource)
         ],
         tools: [
-            mcpCreatePerspective(documentResource),
+            mcpAddPerspective(documentResource),
             mcpUpdatePerspective(documentResource),
-            mcpDeletePerspective(documentResource)
+            mcpRemovePerspective(documentResource)
         ] as McpServerRegisterToolArgs[]
     };
 };
@@ -45,37 +46,30 @@ An array of perspective objects, each containing:
 const mcpListPerspective = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
     return [
         "list-perspectives",
-        new ResourceTemplate(
-            "erd-designer://documents/{documentId}/perspectives",
-            { list: undefined }
-        ),
+        new ResourceTemplate(uriTemplates.perspectives, { list: undefined }),
         {
             title: "List perspectives of a specified ERD document",
             description: descriptionList
         },
-        async (url, variables) => {
-            const documentId = variables.documentId as string;
-            const budget = documentResource.findById(documentId);
-            if (budget == null) {
-                throw initResourceNotFound(url);
-            }
-
-            const erdDocument = budget.erdDocument;
-            const erdSetting = erdDocument.erdSettingModel;
-            const responses = erdSetting.getPerspectiveModels()
-                .map(perspective => toDetail(documentId, perspective));
-
-            return {
-                contents: [
-                    {
-                        uri: url.href,
-                        text: JSON.stringify(responses),
-                        mimeType: "application/json"
-                    }
-                ]
-            }
-        }
+        initCallbackForList(documentResource)
     ] as const;
+};
+
+const initCallbackForList = (documentResource: DocumentResource): ReadResourceTemplateCallback => {
+    return async (url, variables) => {
+        const documentId = variables.documentId as string;
+        const erdBudget = documentResource.findById(documentId);
+        if (erdBudget == null) {
+            throw initResourceNotFound(url);
+        }
+
+        const erdDocument = erdBudget.erdDocument;
+        const erdSetting = erdDocument.erdSettingModel;
+        const responses = erdSetting.getPerspectiveModels()
+            .map(perspective => toDetail(erdBudget, perspective));
+
+        return initResourceResponse(url, responses);
+    };
 };
 
 const descriptionFindById = `\
@@ -100,61 +94,45 @@ An object containing detailed information about the specified perspective:
 const mcpFindPerspectiveById = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
     return [
         "find-perspective-by-id",
-        new ResourceTemplate(
-            "erd-designer://documents/{documentId}/perspectives/{perspectiveId}",
-            { list: undefined }
-        ),
+        new ResourceTemplate(uriTemplates.perspectiveDetail, { list: undefined }),
         {
             title: "Find perspective by perspectiveId of a specified ERD document",
             description: descriptionFindById
         },
-        async (url, variables) => {
-            const documentId = variables.documentId as string;
-            const perspectiveId = variables.perspectiveId as string;
-            const budget = documentResource.findById(documentId);
-            if (budget == null) {
-                throw initResourceNotFound(url);
-            }
-
-            const erdDocument = budget.erdDocument;
-            const erdSetting = erdDocument.erdSettingModel;
-            const perspective = erdSetting.findPerspectiveModel(perspectiveId);
-            if (!perspective) {
-                throw initResourceNotFound(url);
-            }
-
-            const response = toDetail(documentId, perspective);
-
-            return {
-                contents: [
-                    {
-                        uri: url.href,
-                        text: JSON.stringify(response),
-                        mimeType: "application/json"
-                    }
-                ]
-            }
-        }
+        initCallbackForFind(documentResource)
     ] as const;
 }
 
-const toDetail = (documentId: string, perspective: PerspectiveModel) => {
+const initCallbackForFind = (documentResource: DocumentResource): ReadResourceTemplateCallback => {
+    return async (url, variables) => {
+        const documentId = variables.documentId as string;
+        const perspectiveId = variables.perspectiveId as string;
+        const erdBudget = documentResource.findById(documentId);
+        if (erdBudget == null) {
+            throw initResourceNotFound(url);
+        }
+
+        const erdDocument = erdBudget.erdDocument;
+        const erdSetting = erdDocument.erdSettingModel;
+        const perspective = erdSetting.findPerspectiveModel(perspectiveId);
+        if (!perspective) {
+            throw initResourceNotFound(url);
+        }
+
+        const response = toDetail(erdBudget, perspective);
+
+        return initResourceResponse(url, response);
+    };
+};
+
+const toDetail = (erdBudget: DocumentBudget, perspective: PerspectiveModel) => {
     return {
-        uri: `erd-designer://documents/${documentId}/perspectives/${perspective.perspectiveId}`,
+        uri: erdBudget.perspectiveUri(perspective.perspectiveId),
         perspectiveId: perspective.perspectiveId,
         perspectiveName: perspective.perspectiveName,
         description: perspective.description,
         containIds: perspective.getContainIds()
     };
-};
-
-type AddPerspectiveInput = {
-    readonly documentId: z.ZodString;
-    readonly perspective: z.ZodObject<{
-        perspectiveName: z.ZodString;
-        description: z.ZodOptional<z.ZodString>;
-        containIds: z.ZodArray<z.ZodString, "many">;
-    }>;
 };
 
 const descriptionCreate = `\
@@ -179,72 +157,69 @@ A resource link object containing:
 - mimeType: "application/json"
 `;
 
-const mcpCreatePerspective = (
+const mcpAddPerspective = (
     documentResource: DocumentResource
-): McpServerRegisterToolArgs<AddPerspectiveInput> => {
+): McpServerRegisterToolArgs<typeof addPerspectiveInputSchema> => {
     return [
-        "create-perspective",
+        "add-perspective",
         {
-            title: "Create a new perspective",
+            title: "Add a new perspective",
             description: descriptionCreate,
-            inputSchema: {
-                documentId: z.string()
-                    .describe("The documentId of the ERD document to which the perspective will be added. "
-                        + "This documentId can be obtained via 'erd-designer://documents' resource."),
-                perspective: z.object({
-                    perspectiveName: z.string().min(1)
-                        .describe("The name of the perspective to be added. Must be a non-empty string."),
-                    description: z.string().optional()
-                        .describe("The description of the perspective to be added. "
-                            + "Optional field that defaults to empty string if not provided."),
-                    containIds: z.array(z.string())
-                        .describe("An array of table ids and memo ids to be included in the perspective. "
-                            + "These ids must reference existing tables or memos in the document. "
-                            + "Can be empty array to create a perspective with no initial contents.")
-                })
-            }
+            inputSchema: addPerspectiveInputSchema
         },
-        async ({ documentId, perspective }) => {
-            const budget = documentResource.findById(documentId);
-            if (budget == null) {
-                const url = new URL(`erd-designer://documents/${documentId}`);
-                throw initResourceNotFound(url);
-            }
-
-            const previousDocument = budget.erdDocument;
-            const previousSetting = previousDocument.erdSettingModel;
-
-            const newPerspective = PerspectiveModel
-                .create(perspective.perspectiveName, perspective.description)
-                .updateAllContainIds(perspective.containIds);
-            const nextSetting = previousSetting.updatePerspective(newPerspective);
-            const nextDocument = previousDocument.updateErdSetting(nextSetting);
-
-            documentResource.notify(documentId, nextDocument);
-
-            return {
-                content: [
-                    {
-                        type: "resource_link",
-                        uri: `erd-designer://documents/${documentId}/perspectives/${newPerspective.perspectiveId}`,
-                        name: perspective.perspectiveName,
-                        mimeType: "application/json"
-                    }
-                ]
-            };
-        }
+        initCallbackForAddPerspective(documentResource)
     ] as const;
 };
 
-type UpdatePerspectiveInput = {
-    readonly documentId: z.ZodString;
-    readonly perspectiveId: z.ZodString;
-    readonly updating: z.ZodObject<{
-        perspectiveName: z.ZodOptional<z.ZodString>;
-        description: z.ZodOptional<z.ZodString>;
-        addingIds: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-        removingIds: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-    }>
+const addPerspectiveInputSchema = {
+    documentId: z.string()
+        .describe("The documentId of the ERD document to which the perspective will be added. "
+            + "This documentId can be obtained via 'erd-designer://documents' resource."),
+    perspective: z.object({
+        perspectiveName: z.string().min(1)
+            .describe("The name of the perspective to be added. Must be a non-empty string."),
+        description: z.string().optional()
+            .describe("The description of the perspective to be added. "
+                + "Optional field that defaults to empty string if not provided."),
+        containIds: z.array(z.string())
+            .describe("An array of table ids and memo ids to be included in the perspective. "
+                + "These ids must reference existing tables or memos in the document. "
+                + "Can be empty array to create a perspective with no initial contents.")
+    })
+} as const;
+
+const initCallbackForAddPerspective = (
+    documentResource: DocumentResource
+): ToolCallback<typeof addPerspectiveInputSchema> => {
+    return async ({ documentId, perspective }) => {
+        const erdBudget = documentResource.findById(documentId);
+        if (erdBudget == null) {
+            const url = new URL(uriTemplates.documentFor(documentId));
+            throw initResourceNotFound(url);
+        }
+
+        const previousDocument = erdBudget.erdDocument;
+        const previousSetting = previousDocument.erdSettingModel;
+
+        const newPerspective = PerspectiveModel
+            .create(perspective.perspectiveName, perspective.description)
+            .updateAllContainIds(perspective.containIds);
+        const nextSetting = previousSetting.updatePerspective(newPerspective);
+        const nextDocument = previousDocument.updateErdSetting(nextSetting);
+
+        documentResource.notify(documentId, nextDocument);
+
+        return {
+            content: [
+                {
+                    type: "resource_link",
+                    uri: erdBudget.perspectiveUri(newPerspective.perspectiveId),
+                    name: perspective.perspectiveName,
+                    mimeType: "application/json"
+                }
+            ]
+        };
+    };
 };
 
 const descriptionUpdate = `\
@@ -277,80 +252,83 @@ A resource link object containing:
 
 const mcpUpdatePerspective = (
     documentResource: DocumentResource
-): McpServerRegisterToolArgs<UpdatePerspectiveInput> => {
+): McpServerRegisterToolArgs<typeof updatePerspectiveInputSchema> => {
     return [
         "update-perspective",
         {
             title: "Update an existing perspective",
             description: descriptionUpdate,
-            inputSchema: {
-                documentId: z.string()
-                    .describe("The unique identifier of the ERD document containing the perspective to update."),
-                perspectiveId: z.string()
-                    .describe("The unique identifier of the perspective to update."),
-                updating: z.object({
-                    perspectiveName: z.string().min(1).optional()
-                        .describe("The new name for the perspective. Must be non-empty if provided."),
-                    description: z.string().optional()
-                        .describe("The new description for the perspective. "
-                            + "Can be empty string to clear the description."),
-                    addingIds: z.array(z.string()).optional()
-                        .describe("An array of table/memo ids to add to the perspective. "
-                            + "ids must reference existing tables or memos in the document."),
-                    removingIds: z.array(z.string()).optional()
-                        .describe("An array of table/memo ids to remove from the perspective. "
-                            + "Note: Removals are processed before additions.")
-                })
-            }
+            inputSchema: updatePerspectiveInputSchema
         },
-        async ({ documentId, perspectiveId, updating }) => {
-            const budget = documentResource.findById(documentId);
-            if (budget == null) {
-                const url = new URL(`erd-designer://documents/${documentId}`);
-                throw initResourceNotFound(url);
-            }
-
-            const previousDocument = budget.erdDocument;
-            const previousSetting = previousDocument.erdSettingModel;
-
-            const previousPerspective = previousSetting.findPerspectiveModel(perspectiveId);
-            if (!previousPerspective) {
-                const url = new URL(`erd-designer://documents/${documentId}/perspectives/${perspectiveId}`);
-                throw initResourceNotFound(url);
-            }
-
-            const updatingName = updating.perspectiveName ?? previousPerspective.perspectiveName;
-            const updatingDescription = updating.description ?? previousPerspective.description;
-
-            const containIds = new Set(previousPerspective.getContainIds());
-            updating.addingIds?.forEach(id => containIds.add(id));
-            updating.removingIds?.forEach(id => containIds.delete(id));
-
-            const nextPerspective = previousPerspective
-                .update(updatingName, updatingDescription)
-                .updateAllContainIds(Array.from(containIds));
-            const nextSetting = previousSetting.updatePerspective(nextPerspective);
-            const nextDocument = previousDocument.updateErdSetting(nextSetting);
-
-            documentResource.notify(documentId, nextDocument);
-
-            return {
-                content: [
-                    {
-                        type: "resource_link",
-                        uri: `erd-designer://documents/${documentId}/perspectives/${nextPerspective.perspectiveId}`,
-                        name: nextPerspective.perspectiveName,
-                        mimeType: "application/json"
-                    }
-                ]
-            };
-        }
+        initCallbackForUpdatingPerspective(documentResource)
     ] as const;
 };
 
-type DeletePerspectiveInput = {
-    readonly documentId: z.ZodString;
-    readonly perspectiveId: z.ZodString;
+const updatePerspectiveInputSchema = {
+    documentId: z.string()
+        .describe("The unique identifier of the ERD document containing the perspective to update."),
+    perspectiveId: z.string()
+        .describe("The unique identifier of the perspective to update."),
+    updating: z.object({
+        perspectiveName: z.string().min(1).optional()
+            .describe("The new name for the perspective. Must be non-empty if provided."),
+        description: z.string().optional()
+            .describe("The new description for the perspective. "
+                + "Can be empty string to clear the description."),
+        addingIds: z.array(z.string()).optional()
+            .describe("An array of table/memo ids to add to the perspective. "
+                + "ids must reference existing tables or memos in the document."),
+        removingIds: z.array(z.string()).optional()
+            .describe("An array of table/memo ids to remove from the perspective. "
+                + "Note: Removals are processed before additions.")
+    })
+} as const;
+
+const initCallbackForUpdatingPerspective = (
+    documentResource: DocumentResource
+): ToolCallback<typeof updatePerspectiveInputSchema> => {
+    return async ({ documentId, perspectiveId, updating }) => {
+        const erdBudget = documentResource.findById(documentId);
+        if (erdBudget == null) {
+            const url = new URL(uriTemplates.documentFor(documentId));
+            throw initResourceNotFound(url);
+        }
+
+        const previousDocument = erdBudget.erdDocument;
+        const previousSetting = previousDocument.erdSettingModel;
+
+        const previousPerspective = previousSetting.findPerspectiveModel(perspectiveId);
+        if (!previousPerspective) {
+            const url = new URL(erdBudget.perspectiveUri(perspectiveId));
+            throw initResourceNotFound(url);
+        }
+
+        const updatingName = updating.perspectiveName ?? previousPerspective.perspectiveName;
+        const updatingDescription = updating.description ?? previousPerspective.description;
+
+        const containIds = new Set(previousPerspective.getContainIds());
+        updating.addingIds?.forEach(id => containIds.add(id));
+        updating.removingIds?.forEach(id => containIds.delete(id));
+
+        const nextPerspective = previousPerspective
+            .update(updatingName, updatingDescription)
+            .updateAllContainIds(Array.from(containIds));
+        const nextSetting = previousSetting.updatePerspective(nextPerspective);
+        const nextDocument = previousDocument.updateErdSetting(nextSetting);
+
+        documentResource.notify(documentId, nextDocument);
+
+        return {
+            content: [
+                {
+                    type: "resource_link",
+                    uri: erdBudget.perspectiveUri(nextPerspective.perspectiveId),
+                    name: nextPerspective.perspectiveName,
+                    mimeType: "application/json"
+                }
+            ]
+        };
+    };
 };
 
 const descriptionDelete = `\
@@ -369,58 +347,66 @@ A text message indicating the result:
   Note: This operation does not return an error if the perspective doesn't exist.
 `;
 
-const mcpDeletePerspective = (
+const mcpRemovePerspective = (
     documentResource: DocumentResource
-): McpServerRegisterToolArgs<DeletePerspectiveInput> => {
+): McpServerRegisterToolArgs<typeof removePerspectiveInputSchema> => {
     return [
-        "delete-perspective",
+        "remove-perspective",
         {
-            title: "Delete an existing perspective",
+            title: "Remove an existing perspective",
             description: descriptionDelete,
-            inputSchema: {
-                documentId: z.string()
-                    .describe("The unique identifier of the ERD document containing the perspective to delete."),
-                perspectiveId: z.string()
-                    .describe("The unique identifier of the perspective to delete.")
-            }
+            inputSchema: removePerspectiveInputSchema
         },
-        async ({ documentId, perspectiveId }) => {
-            const budget = documentResource.findById(documentId);
-            if (budget == null) {
-                const url = new URL(`erd-designer://documents/${documentId}`);
-                throw initResourceNotFound(url);
-            }
+        initCallbackForDeletingPerspective(documentResource)
+    ] as const;
+};
 
-            const previousDocument = budget.erdDocument;
-            const previousSetting = previousDocument.erdSettingModel;
+const removePerspectiveInputSchema = {
+    documentId: z.string()
+        .describe("The unique identifier of the ERD document containing the perspective to delete."),
+    perspectiveId: z.string()
+        .describe("The unique identifier of the perspective to delete.")
+} as const;
 
-            const previousPerspective = previousSetting.findPerspectiveModel(perspectiveId);
-            if (!previousPerspective) {
-                return {
-                    content: [
-                        {
-                            type: "text",
-                            text: `The perspective with id '${perspectiveId}' does not exist.`
-                        }
-                    ]
-                };
-            }
+const initCallbackForDeletingPerspective = (
+    documentResource: DocumentResource
+): ToolCallback<typeof removePerspectiveInputSchema> => {
+    return async ({ documentId, perspectiveId }) => {
+        const erdBudget = documentResource.findById(documentId);
+        if (erdBudget == null) {
+            const url = new URL(uriTemplates.documentFor(documentId));
+            throw initResourceNotFound(url);
+        }
 
-            const nextPerspectives = previousSetting.getPerspectiveModels()
-                .filter(perspective => (perspective.perspectiveId !== perspectiveId));
-            const nextSetting = previousSetting.update({ perspectiveModels: nextPerspectives });
-            const nextDocument = previousDocument.updateErdSetting(nextSetting);
+        const previousDocument = erdBudget.erdDocument;
+        const previousSetting = previousDocument.erdSettingModel;
 
-            documentResource.notify(documentId, nextDocument);
-
+        const previousPerspective = previousSetting.findPerspectiveModel(perspectiveId);
+        if (!previousPerspective) {
             return {
                 content: [
                     {
                         type: "text",
-                        text: `The perspective '${previousPerspective.perspectiveName}' has been deleted.`
+                        text: `The perspective with id '${perspectiveId}' does not exist.`
                     }
                 ]
             };
         }
-    ] as const;
+
+        const nextPerspectives = previousSetting.getPerspectiveModels()
+            .filter(perspective => (perspective.perspectiveId !== perspectiveId));
+        const nextSetting = previousSetting.update({ perspectiveModels: nextPerspectives });
+        const nextDocument = previousDocument.updateErdSetting(nextSetting);
+
+        documentResource.notify(documentId, nextDocument);
+
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `The perspective '${previousPerspective.perspectiveName}' has been removed.`
+                }
+            ]
+        };
+    };
 };

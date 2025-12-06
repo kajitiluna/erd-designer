@@ -922,41 +922,34 @@ export default class ErdDocument {
     }
 
     /**
-     * カラムモデルを更新する。
+     * カラムモデル、および共有カラムモデルを追加、更新する。
      * (MCP Server 経由の利用を想定している)
      * 
-     * @param updatingModel 更新対象のカラムモデル
+     * @param columns 追加、更新対象のカラムモデル
+     * @param columnShares 追加、更新対象の共有カラムモデル
      * @returns 更新後のドキュメント
      */
-    public updateColumnModel(updatingModel: ColumnModel): ErdDocument {
-        const previousModel = this.columnModelMap.get(updatingModel.columnModelId);
-        if (previousModel == null) {
+    public updateColumnModels(columns: ColumnModel[], columnShares: ColumnShareModel[]): ErdDocument {
+        if ((columns.length === 0) && (columnShares.length === 0)) {
             return this;
+        }
+
+        const nextShareModelStorage = this.columnShareModelStorage.addModel(...columnShares);
+
+        if (columns.length === 0) {
+            return this.doUpdate({
+                columnShareModelStorage: nextShareModelStorage
+            });
         }
 
         const nextColumnModelMap = new Map(this.columnModelMap);
-        nextColumnModelMap.set(updatingModel.columnModelId, updatingModel);
-
-        return this.doUpdate({
-            columnModelMap: nextColumnModelMap
+        columns.forEach(columnModel => {
+            nextColumnModelMap.set(columnModel.columnModelId, columnModel);
         });
-    }
-
-    /**
-     * 共有カラムモデルを更新する。
-     * (MCP Server 経由の利用を想定している)
-     * 
-     * @param columnShare 更新対象の共有カラムモデル
-     * @returns 更新後のドキュメント
-     */
-    public updateColumnShareModel(columnShare: ColumnShareModel): ErdDocument {
-        const next = this.columnShareModelStorage.addModel(columnShare);
-        if (next === this.columnShareModelStorage) {
-            return this;
-        }
 
         return this.doUpdate({
-            columnShareModelStorage: next
+            columnModelMap: nextColumnModelMap,
+            columnShareModelStorage: nextShareModelStorage
         });
     }
 

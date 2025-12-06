@@ -1,10 +1,11 @@
-import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { ReadResourceTemplateCallback, ResourceTemplate, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
 import z from "zod";
 
-import { DocumentResource, ErdDocumentBudget } from "~/extension/DocumentResource";
+import { DocumentResource } from "~/extension/DocumentResource";
+import DocumentBudget, { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
 import {
-    initResourceNotFound, McpRegisterConfig, McpServerRegisterResourceArgs, McpServerRegisterResourceTemplateArgs,
-    McpServerRegisterToolArgs
+    initResourceNotFound, initResourceResponse,
+    McpRegisterConfig, McpServerRegisterResourceArgs, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs
 } from "~/extension/mcpserver/support";
 import { toTableSummary } from "~/extension/mcpserver/tables";
 import DisplayStyle from "~/models/database/DisplayStyle";
@@ -45,7 +46,7 @@ An array of document summary objects, each containing:
 const mcpListDocuments = (documentResource: DocumentResource): McpServerRegisterResourceArgs => {
     return [
         "list-documents",
-        "erd-designer://documents",
+        uriTemplates.documents,
         {
             title: "List ERD documents",
             description: descriptionList,
@@ -53,25 +54,18 @@ const mcpListDocuments = (documentResource: DocumentResource): McpServerRegister
         },
         async (url) => {
             const budgets = documentResource.fetchDocuments();
-            const responses = budgets.map(budget => toSummary(budget));
+            const responses = budgets.map(erdBudget => toSummary(erdBudget));
 
-            return {
-                contents: [
-                    {
-                        uri: url.href,
-                        text: JSON.stringify(responses)
-                    }
-                ]
-            };
+            return initResourceResponse(url, responses);
         }
     ] as const;
 };
 
-const toSummary = (budget: ErdDocumentBudget) => {
+const toSummary = (budget: DocumentBudget) => {
     return {
-        uri: `erd-designer://documents/${budget.documentId}`,
+        uri: budget.documentUri(),
         documentId: budget.documentId,
-        filePath: budget.uri,
+        filePath: budget.fileUri,
         documentName: budget.erdDocument.documentName,
         databaseName: budget.erdDocument.getDatabase().name,
         lastUpdatedAt: budget.erdDocument.lastUpdatedAt.toISOString()
@@ -131,44 +125,38 @@ An object containing detailed document information:
 const mcpFindDocumentById = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
     return [
         "find-document-by-id",
-        new ResourceTemplate("erd-designer://documents/{documentId}", { list: undefined }),
+        new ResourceTemplate(uriTemplates.documentDetail, { list: undefined }),
         {
             title: "Find ERD document by documentId",
             description: descriptionFindById
         },
-        async (url, variables) => {
-            const documentId = variables.documentId as string;
-            const budget = documentResource.findById(documentId);
-            if (budget == null) {
-                throw initResourceNotFound(url);
-            }
-
-            const response = toDetail(budget);
-            return {
-                contents: [
-                    {
-                        uri: url.href,
-                        text: JSON.stringify(response),
-                        mimeType: "application/json"
-                    }
-                ]
-            };
-        }
+        initCallbackForFindById(documentResource)
     ] as const;
 };
 
-const toDetail = (budget: ErdDocumentBudget) => {
-    const documentUri = `erd-designer://documents/${budget.documentId}`;
-    const documentId = budget.documentId;
-    const erdDocument = budget.erdDocument;
+const initCallbackForFindById = (documentResource: DocumentResource): ReadResourceTemplateCallback => {
+    return async (url, variables) => {
+        const documentId = variables.documentId as string;
+        const budget = documentResource.findById(documentId);
+        if (budget == null) {
+            throw initResourceNotFound(url);
+        }
+
+        const response = toDetail(budget);
+        return initResourceResponse(url, response);
+    };
+};
+
+const toDetail = (erdBudget: DocumentBudget) => {
+    const erdDocument = erdBudget.erdDocument;
 
     const tableViews = erdDocument.getTableViewModels()
-        .map(tableView => toTableSummary(documentId, tableView, budget.rectangles));
+        .map(tableView => toTableSummary(erdBudget, tableView));
 
     const relationModels = erdDocument.getRelationViewModels()
         .map(relationView => {
             return {
-                uri: `${documentUri}/relations/${relationView.relationId}`,
+                uri: erdBudget.relationUri(relationView.relationId),
                 relationId: relationView.relationId,
                 relationName: relationView.relationModel.relationName,
                 parentTableId: relationView.parentTableModelId,
@@ -180,7 +168,7 @@ const toDetail = (budget: ErdDocumentBudget) => {
     const memos = [...memoInfo.frontMemos, ...memoInfo.backMemos]
         .map(memoView => {
             return {
-                uri: `${documentUri}/memos/${memoView.memoId}`,
+                uri: erdBudget.memoUri(memoView.memoId),
                 memoId: memoView.memoId,
                 view: {
                     position: {
@@ -202,28 +190,22 @@ const toDetail = (budget: ErdDocumentBudget) => {
     const database = erdDocument.getDatabase();
 
     return {
-        uri: documentUri,
-        documentId: budget.documentId,
-        filePath: budget.uri,
+        uri: erdBudget.documentUri(),
+        documentId: erdBudget.documentId,
+        filePath: erdBudget.fileUri,
         documentName: erdDocument.documentName,
         database: {
-            uri: `${documentUri}/database`,
+            uri: erdBudget.databaseUri(),
             databaseName: database.name,
         },
         tables: tableViews,
         relations: relationModels,
         memos: memos,
         setting: {
-            perspectives: {
-                uri: `${documentUri}/perspectives`
-            },
-            columnGroups: {
-                uri: `${documentUri}/column_groups`
-            },
+            perspectives: { uri: erdBudget.perspectiveListUri() },
+            columnGroups: { uri: erdBudget.columnGroupListUri() },
             ...(database.supportsSchema && {
-                schemas: {
-                    uri: `${documentUri}/schemas`
-                }
+                schemas: { uri: erdBudget.schemaListUri() }
             })
         },
 
@@ -289,32 +271,28 @@ const mcpFindDocumentByUri = (documentResource: DocumentResource): McpServerRegi
             title: "Find ERD document by uri",
             description: descriptionFindByUri
         },
-        async (url) => {
-            const budget = documentResource.findByUri(url.href);
-            if (budget == null) {
-                throw initResourceNotFound(url);
-            }
-
-            const response = toDetail(budget);
-            return {
-                contents: [
-                    {
-                        uri: budget.uri,
-                        text: JSON.stringify(response),
-                        mimeType: "application/json"
-                    }
-                ]
-            };
-        }
+        initCallbackForFindByUri(documentResource)
     ] as const;
 };
 
-type UpdateDocumentInput = {
-    documentId: z.ZodString;
-    document: z.ZodObject<{
-        documentName: z.ZodOptional<z.ZodString>;
-        displayStyle: z.ZodOptional<z.ZodEnum<["both", "physical", "logical"]>>;
-    }>
+const initCallbackForFindByUri = (documentResource: DocumentResource): ReadResourceTemplateCallback => {
+    return async (url) => {
+        const erdBudget = documentResource.findByUri(url.href);
+        if (erdBudget == null) {
+            throw initResourceNotFound(url);
+        }
+
+        const response = toDetail(erdBudget);
+        return {
+            contents: [
+                {
+                    uri: erdBudget.fileUri,
+                    text: JSON.stringify(response),
+                    mimeType: "application/json"
+                }
+            ]
+        };
+    };
 };
 
 const descriptionUpdate = `\
@@ -342,56 +320,66 @@ A resource link object containing:
 - mimeType: "application/json"
 `;
 
-const mcpUpdateDocument = (documentResource: DocumentResource): McpServerRegisterToolArgs<UpdateDocumentInput> => {
+const mcpUpdateDocument = (
+    documentResource: DocumentResource
+): McpServerRegisterToolArgs<typeof updateDocumentInputSchema> => {
     return [
         "update-document",
         {
             title: "Update the name or display style of ERD document",
             description: descriptionUpdate,
-            inputSchema: {
-                documentId: z.string().describe("The unique identifier of the document to update."),
-                document: z.object({
-                    documentName: z.string().optional()
-                        .describe("The new name for the document."),
-                    displayStyle: z.enum(["both", "physical", "logical"]).optional()
-                        .describe("The new display style for the document ('physical', 'logical', or 'both').")
-                }).describe("The document properties to update.")
-            }
+            inputSchema: updateDocumentInputSchema
         },
-        async ({ documentId, document: inputDocument }) => {
-            const budget = documentResource.findById(documentId);
-            if (budget == null) {
-                const url = new URL(`erd-designer://documents/${documentId}`);
-                throw initResourceNotFound(url);
-            }
-
-            const previousDocument = budget.erdDocument;
-            const previousSetting = previousDocument.erdSettingModel;
-
-            let nextDocument = previousDocument;
-            if (inputDocument.documentName) {
-                nextDocument = nextDocument.updateDocumentName(inputDocument.documentName.trim());
-            }
-            if (inputDocument.displayStyle) {
-                const nextStyle = toDisplayStyle(inputDocument.displayStyle);
-                const nextSetting = previousSetting.update({ displayStyle: nextStyle });
-                nextDocument = nextDocument.updateErdSetting(nextSetting);
-            }
-
-            documentResource.notify(documentId, nextDocument);
-
-            return {
-                content: [
-                    {
-                        type: "resource_link",
-                        uri: `erd-designer://documents/${documentId}`,
-                        name: nextDocument.documentName,
-                        mimeType: "application/json"
-                    }
-                ]
-            };
-        }
+        initCallbackForUpdatingDocument(documentResource)
     ] as const;
+};
+
+const updateDocumentInputSchema = {
+    documentId: z.string().describe("The unique identifier of the document to update."),
+    document: z.object({
+        documentName: z.string().optional()
+            .describe("The new name for the document."),
+        displayStyle: z.enum(["both", "physical", "logical"]).optional()
+            .describe("The new display style for the document ('physical', 'logical', or 'both').")
+    }).describe("The document properties to update.")
+};
+
+const initCallbackForUpdatingDocument = (
+    documentResource: DocumentResource
+): ToolCallback<typeof updateDocumentInputSchema> => {
+    return async ({ documentId, document: inputDocument }) => {
+        const erdBudget = documentResource.findById(documentId);
+        if (erdBudget == null) {
+            const url = new URL(uriTemplates.documentFor(documentId));
+            throw initResourceNotFound(url);
+        }
+
+        const previousDocument = erdBudget.erdDocument;
+        const previousSetting = previousDocument.erdSettingModel;
+
+        let nextDocument = previousDocument;
+        if (inputDocument.documentName) {
+            nextDocument = nextDocument.updateDocumentName(inputDocument.documentName.trim());
+        }
+        if (inputDocument.displayStyle) {
+            const nextStyle = toDisplayStyle(inputDocument.displayStyle);
+            const nextSetting = previousSetting.update({ displayStyle: nextStyle });
+            nextDocument = nextDocument.updateErdSetting(nextSetting);
+        }
+
+        documentResource.notify(documentId, nextDocument);
+
+        return {
+            content: [
+                {
+                    type: "resource_link",
+                    uri: erdBudget.documentUri(),
+                    name: nextDocument.documentName,
+                    mimeType: "application/json"
+                }
+            ]
+        };
+    }
 };
 
 const toDisplayStyle = (style: "both" | "physical" | "logical"): DisplayStyle => {

@@ -1,8 +1,9 @@
+import DocumentBudget from "~/extension/mcpserver/DocumentBudget";
 import RelationModel from "~/models/database/RelationModel";
 
-export const toRelationSummary = (documentId: string, relationModel: RelationModel) => {
+export const toRelationSummary = (erdBudget: DocumentBudget, relationModel: RelationModel) => {
     return {
-        uri: `erd-designer://documents/${documentId}/relations/${relationModel.relationModelId}`,
+        uri: erdBudget.relationUri(relationModel.relationModelId),
         relationId: relationModel.relationModelId,
         relationName: relationModel.relationName,
         parentTableId: relationModel.parentTableModelId,

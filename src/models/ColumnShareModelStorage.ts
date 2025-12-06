@@ -50,6 +50,10 @@ export default class ColumnShareModelStorage {
     }
 
     addModel(...columnShareModels: ColumnShareModel[]): ColumnShareModelStorage {
+        if (columnShareModels.length === 0) {
+            return this;
+        }
+
         const nextShareModelMap = new Map(this.columnShareModelMap);
         columnShareModels.forEach(model =>
             nextShareModelMap.set(model.columnShareModelId, model));
