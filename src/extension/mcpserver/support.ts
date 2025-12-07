@@ -52,21 +52,38 @@ export type McpRegisterConfig = {
 export const colorValueSchema = z.string()
     .regex(/^#[0-9A-Fa-f]{6}$/, "Color must be in hex format (e.g., #FFFFFF).");
 
-export const initPositionSchema = <RECORD extends Record<string, z.ZodType>>(keyName: string, keyInfo: RECORD) => {
+type KeyInfoSchema = z.ZodObject<Record<string, z.ZodType>> | z.ZodUnion<[z.ZodObject<Record<string, z.ZodType>>, ...z.ZodObject<Record<string, z.ZodType>>[]]>;
+
+const buildKeyedPositionSchema = (type: "before" | "after", keyInfo: KeyInfoSchema) => {
+    if (keyInfo instanceof z.ZodUnion) {
+        const options = keyInfo.options as z.ZodObject<Record<string, z.ZodType>>[];
+        const schemas = options.map(option =>
+            z.object({
+                type: z.literal(type),
+                ...option.shape
+            }).strict()
+        );
+
+        return z.union(schemas as unknown as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]]);
+    }
+
+    return z.object({
+        type: z.literal(type),
+        ...keyInfo.shape
+    }).strict();
+};
+
+export const initPositionSchema = (keyName: string, keyInfo: KeyInfoSchema) => {
     return {
         position: z.union([
             z.object({ type: z.literal("start") }).strict()
                 .describe(`Add the new column at the start of the ${keyName} list.`),
             z.object({ type: z.literal("end") }).strict()
                 .describe(`Add the new column at the end of the ${keyName} list.`),
-            z.object({
-                type: z.literal("before"),
-                ...keyInfo
-            }).strict().describe(`Add the new ${keyName} before the specified existing ${keyName}.`),
-            z.object({
-                type: z.literal("after"),
-                ...keyInfo
-            }).strict().describe(`Add the new ${keyName} after the specified existing ${keyName}.`),
+            buildKeyedPositionSchema("before", keyInfo)
+                .describe(`Add the new ${keyName} before the specified existing ${keyName}.`),
+            buildKeyedPositionSchema("after", keyInfo)
+                .describe(`Add the new ${keyName} after the specified existing ${keyName}.`),
             z.object({
                 type: z.literal("index"),
                 index: z.number()
@@ -81,7 +98,7 @@ export const calculateIndexFromPosition = <KEY extends string>(
         | ({ type: "before" | "after" } & { [K in KEY]: string })
         | { type: "index"; index: number },
     keyName: KEY,
-    keyToIndex: Map<string, number>,
+    keyToIndex: (key: string) => number | null,
     length: number
 ) => {
     if (position.type === "start") {
@@ -103,7 +120,7 @@ export const calculateIndexFromPosition = <KEY extends string>(
     }
 
     const refId = (position as { [K in KEY]: string })[keyName];
-    const refIndex = keyToIndex.get(refId);
+    const refIndex = keyToIndex(refId);
     if (refIndex == null) {
         throw initInvalidParams(`${keyName} to add not found: ${refId}`);
     }

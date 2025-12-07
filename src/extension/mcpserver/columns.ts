@@ -30,6 +30,7 @@ export const mcpRegisterColumn = (documentResource: DocumentResource): McpRegist
             mcpAddColumnsToTable(documentResource),
             mcpUpdateColumn(documentResource),
             mcpUpdateColumnShare(documentResource),
+            mcpReorderColumnsInTable(documentResource),
             mcpRemoveColumnsFromTable(documentResource)
         ] as McpServerRegisterToolArgs[]
     };
@@ -188,7 +189,9 @@ REQUEST:
     - { type: "start" }: Add at the beginning of the column list.
     - { type: "end" }: Add at the end of the column list.
     - { type: "before", columnId: string }: Add before the specified column.
+    - { type: "before", columnGroupId: string }: Add before the specified column group.
     - { type: "after", columnId: string }: Add after the specified column.
+    - { type: "after", columnGroupId: string }: Add after the specified column group.
     - { type: "index", index: number }: Add at the specified zero-based index.
 
   APPROACH 2: Create a new column-share (for unique column definitions):
@@ -252,8 +255,10 @@ export const buildAddingColumnPairs = (erdBudget: DocumentBudget, columns: z.inf
     );
 };
 
-const positionSchema = initPositionSchema("column",
-    { columnId: z.string().describe("The column ID to add the new column.") });
+const positionSchema = initPositionSchema("column", z.union([
+    z.object({ columnId: z.string().describe("The column ID to add the new column.") }),
+    z.object({ columnGroupId: z.string().describe("The column group ID to add the new column.") })
+]));
 
 const addColumnsToTableInputSchema = {
     documentId: z.string().describe("The unique identifier of the document to update."),
@@ -266,7 +271,7 @@ const addColumnsToTableInputSchema = {
     ).describe("The columns to add to the table."),
 };
 
-type PositionType = Parameters<typeof calculateIndexFromPosition<"columnId">>[0];
+type PositionType = Parameters<typeof calculateIndexFromPosition<"columnId" | "columnGroupId">>[0];
 
 const initCallbackForAddColumnsToTable = (
     documentResource: DocumentResource
@@ -276,15 +281,23 @@ const initCallbackForAddColumnsToTable = (
             findDocumentAndTable(documentResource, documentId, tableId);
 
         const nextColumns = [...previousTableView.tableModel.columns];
-        const columnIdToIndex = new Map(nextColumns.map((col, idx) =>
-            [(col.modelType === "single") ? col.columnModelId : col.columnGroupId, idx]));
+        const columnIdToIndexMap = new Map(nextColumns.flatMap((col, idx) =>
+            (col.modelType === "single") ? [[col.columnModelId, idx]] : []));
+        const columnGroupIdToIndexMap = new Map(nextColumns.flatMap((col, idx) =>
+            (col.modelType === "group") ? [[col.columnGroupId, idx]] : []));
+
+        const columnIdToIndex = (columnId: string) => columnIdToIndexMap.get(columnId) ?? null;
+        const columnGroupIdToIndex = (columnGroupId: string) => columnGroupIdToIndexMap.get(columnGroupId) ?? null;
 
         const [addingColumns, addingColumnShares] = zipPairs(() =>
             columns.map(columnInfo => {
                 const addingPair = buildColumnPair(erdBudget, columnInfo.column);
-                const addIndex = calculateIndexFromPosition(
-                    columnInfo.position as PositionType, "columnId", columnIdToIndex, nextColumns.length
-                );
+                const addIndex = ("columnId" in columnInfo.position)
+                    ? calculateIndexFromPosition(
+                        columnInfo.position as PositionType, "columnId", columnIdToIndex, nextColumns.length
+                    ) : calculateIndexFromPosition(
+                        columnInfo.position as PositionType, "columnGroupId", columnGroupIdToIndex, nextColumns.length
+                    );
 
                 const addingColumn = {
                     modelType: "single" as const,
@@ -997,6 +1010,152 @@ const initCallbackForUpdatingColumnShare = (
                     type: "resource_link",
                     uri: erdBudget.columnShareUri(columnShareId),
                     name: nextColumnShare.physicalName,
+                    mimeType: "application/json"
+                }
+            ]
+        };
+    };
+};
+
+const descriptionReorderColumnsInTable = `\
+Reorders columns and column groups within an existing table in a specified ERD document.
+You can move one or more columns or column groups to new positions within the table's column list.
+Each reorder operation is processed sequentially, so later operations can reference positions
+that were affected by earlier operations in the same request.
+
+REQUEST:
+- documentId: The unique identifier of the ERD document containing the table.
+  Can be obtained from 'erd-designer://documents' resource.
+- tableId: The unique identifier of the table to reorder columns in.
+  Can be obtained from the tables list resource.
+- reorders: An array of reorder operations. Each operation moves a single column or column group.
+  Each reorder entry can be one of the following:
+
+  OPTION 1: Move a column
+  - columnId: The unique identifier of the column to move (required).
+    Can be obtained from the table's columns array.
+  - position: The target position to move the column to (required). One of:
+    - { type: "start" }: Move to the beginning of the column list.
+    - { type: "end" }: Move to the end of the column list.
+    - { type: "before", columnId: string }: Move before the specified column.
+    - { type: "before", columnGroupId: string }: Move before the specified column group.
+    - { type: "after", columnId: string }: Move after the specified column.
+    - { type: "after", columnGroupId: string }: Move after the specified column group.
+    - { type: "index", index: number }: Move to the specified zero-based index.
+
+  OPTION 2: Move a column group
+  - columnGroupId: The unique identifier of the column group to move (required).
+    Can be obtained from the table's columns array.
+  - position: The target position to move the column group to (required). Same options as above.
+
+IMPORTANT NOTES:
+- Reorder operations are processed in the order they appear in the array.
+- Each operation uses the column list state after all previous operations have been applied.
+- Moving a column or column group to its current position has no effect.
+- Invalid column IDs or column group IDs will result in an error.
+
+RESPONSE:
+A resource link object containing:
+- type: "resource_link"
+- uri: The URI of the updated table (format: erd-designer://documents/{documentId}/tables/{tableId}).
+- name: The physical name of the table.
+- mimeType: "application/json"
+`;
+
+const mcpReorderColumnsInTable = (
+    documentResource: DocumentResource
+): McpServerRegisterToolArgs<typeof reorderColumnsInTableInputSchema> => {
+    return [
+        "reorder-columns-in-table",
+        {
+            title: "Reorder columns in a specified table in an ERD document",
+            description: descriptionReorderColumnsInTable,
+            inputSchema: reorderColumnsInTableInputSchema
+        },
+        initReorderColumnsInTable(documentResource)
+    ] as const;
+};
+
+const reorderColumnsInTableInputSchema = {
+    documentId: z.string().describe("The unique identifier of the document to update."),
+    tableId: z.string().describe("The unique identifier of the table to update."),
+    reorders: z.array(z.union([
+        z.object({
+            columnId: z.string().describe("The unique identifier of the column to place at this position."),
+            ...positionSchema
+        }).describe("Place an existing column at this position."),
+        z.object({
+            columnGroupId: z.string().describe("The unique identifier of the column group to place at this position."),
+            ...positionSchema
+        }).describe("Place an existing column group at this position.")
+    ])).describe("An array defining the new order of columns and column groups in the table.")
+};
+
+const initReorderColumnsInTable = (
+    documentResource: DocumentResource
+): ToolCallback<typeof reorderColumnsInTableInputSchema> => {
+    return async ({ documentId, tableId, reorders }) => {
+        const { erdBudget, erdDocument: previousDocument, tableView: previousTableView } =
+            findDocumentAndTable(documentResource, documentId, tableId);
+
+        const nextColumns = [...previousTableView.tableModel.columns];
+
+        reorders.forEach(reorder => {
+            // 移動するカラム/カラムグループの現在位置を特定して削除
+            let currentIndex: number;
+            if ("columnId" in reorder) {
+                currentIndex = nextColumns.findIndex(column =>
+                    (column.modelType === "single") && (column.columnModelId === reorder.columnId));
+                if (currentIndex === -1) {
+                    throw initInvalidParams(`Column to reorder not found: ${reorder.columnId}`);
+                }
+            } else if ("columnGroupId" in reorder) {
+                currentIndex = nextColumns.findIndex(column =>
+                    (column.modelType === "group") && (column.columnGroupId === reorder.columnGroupId));
+                if (currentIndex === -1) {
+                    throw initInvalidParams(`Column group to reorder not found: ${reorder.columnGroupId}`);
+                }
+            } else {
+                throw initInvalidParams("Invalid reorder entry: missing columnId or columnGroupId");
+            }
+
+            // 移動先のインデックスを計算
+            let moveToIndex: number;
+            if ("columnId" in reorder.position) {
+                const columnIdToIndex = (columnId: string) => nextColumns
+                    .findIndex(column => (column.modelType === "single") && (column.columnModelId === columnId));
+                moveToIndex = calculateIndexFromPosition(
+                    reorder.position as PositionType, "columnId", columnIdToIndex, nextColumns.length);
+            } else {
+                const columnGroupIdToIndex = (columnGroupId: string) => nextColumns
+                    .findIndex(column => (column.modelType === "group") && (column.columnGroupId === columnGroupId));
+                moveToIndex = calculateIndexFromPosition(
+                    reorder.position as PositionType, "columnGroupId", columnGroupIdToIndex, nextColumns.length);
+            }
+
+            const movingColumn = nextColumns[currentIndex];
+            nextColumns.splice(currentIndex, 1);
+            // 移動先に挿入
+            nextColumns.splice(moveToIndex, 0, movingColumn);
+        });
+
+        const updatingTable = new TableViewModel({
+            ...previousTableView,
+            tableModel: new TableModel({
+                ...previousTableView.tableModel,
+                columns: nextColumns
+            })
+        });
+
+        const nextDocument = previousDocument.updateTableMeta(updatingTable);
+        documentResource.notify(documentId, nextDocument);
+
+        return {
+            content: [
+                {
+                    type: "resource_link",
+                    uri: erdBudget.tableUri(updatingTable.tableId),
+                    name: updatingTable.tableModel.physicalName,
                     mimeType: "application/json"
                 }
             ]
