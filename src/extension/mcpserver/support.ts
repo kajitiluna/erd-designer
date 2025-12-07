@@ -5,6 +5,9 @@ import {
 import { ErrorCode, McpError, ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import z, { ZodRawShape } from "zod";
 
+import { DocumentResource } from "~/extension/DocumentResource";
+import { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
+
 export const McpErrorCode = {
     ResourceNotFound: -32002,
     InvalidParams: ErrorCode.InvalidParams,
@@ -46,10 +49,84 @@ export type McpRegisterConfig = {
     tools: McpServerRegisterToolArgs<any>[];
 };
 
-export const ColorValueSchema = {
+export const colorValueSchema = {
     red: z.number().int().min(0).max(255).describe("The red component of the color (0-255)."),
     green: z.number().int().min(0).max(255).describe("The green component of the color (0-255)."),
     blue: z.number().int().min(0).max(255).describe("The blue component of the color (0-255).")
+};
+
+export const initPositionSchema = <RECORD extends Record<string, z.ZodType>>(keyName: string, keyInfo: RECORD) => {
+    return {
+        position: z.union([
+            z.object({ type: z.literal("start") }).describe(`Add the new column at the start of the ${keyName} list.`),
+            z.object({ type: z.literal("end") }).describe(`Add the new column at the end of the ${keyName} list.`),
+            z.object({
+                type: z.literal("before"),
+                ...keyInfo
+            }).describe(`Add the new ${keyName} before the specified existing ${keyName}.`),
+            z.object({
+                type: z.literal("after"),
+                ...keyInfo
+            }).describe(`Add the new ${keyName} after the specified existing ${keyName}.`),
+            z.object({
+                type: z.literal("index"),
+                index: z.number()
+                    .describe(`The zero-based index to insert the new ${keyName} at in the ${keyName} list.`)
+            }).describe(`Add the new ${keyName} at the specified index in the ${keyName} list.`)
+        ]).describe(`The position to add the new ${keyName} at in the ${keyName} list.`)
+    };
+};
+
+export const calculateIndexFromPosition = <KEY extends string>(
+    position: { type: "start" | "end" }
+        | ({ type: "before" | "after" } & { [K in KEY]: string })
+        | { type: "index"; index: number },
+    keyName: KEY,
+    keyToIndex: Map<string, number>,
+    length: number
+) => {
+    if (position.type === "start") {
+        return 0;
+    }
+    if (position.type === "end") {
+        return length;
+    }
+
+    if (position.type === "index") {
+        if (position.index < 0) {
+            return 0;
+        }
+        if (position.index > length) {
+            return length;
+        }
+
+        return position.index;
+    }
+
+    const refId = (position as { [K in KEY]: string })[keyName];
+    const refIndex = keyToIndex.get(refId);
+    if (refIndex == null) {
+        throw initInvalidParams(`${keyName} to add not found: ${refId}`);
+    }
+
+    return refIndex + (position.type === "before" ? 0 : 1);
+};
+
+export const findDocumentAndTable = (documentResource: DocumentResource, documentId: string, tableId: string) => {
+    const erdBudget = documentResource.findById(documentId);
+    if (erdBudget == null) {
+        const url = new URL(uriTemplates.documentFor(documentId));
+        throw initResourceNotFound(url);
+    }
+
+    const erdDocument = erdBudget.erdDocument;
+    const tableView = erdDocument.findTableViewModel(tableId);
+    if (tableView == null) {
+        const url = new URL(erdBudget.tableUri(tableId));
+        throw initResourceNotFound(url);
+    }
+
+    return { erdBudget, erdDocument, tableView }
 };
 
 export const initResourceNotFound = (url: URL, message: string = "Resource not found.") => {

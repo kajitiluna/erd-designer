@@ -4,7 +4,8 @@ import z from "zod";
 
 import { DocumentResource } from "~/extension/DocumentResource";
 import {
-    indent, initInvalidParams, initResourceNotFound, initResourceResponse,
+    calculateIndexFromPosition,
+    findDocumentAndTable, indent, initInvalidParams, initPositionSchema, initResourceNotFound, initResourceResponse,
     McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs,
     searchParameters, validatePhysicalName, validatePositiveNumber
 } from "~/extension/mcpserver/support";
@@ -14,6 +15,8 @@ import ColumnShareModel from "~/models/database/ColumnShareModel";
 import ErdDocument from "~/models/ErdDocument";
 import { overrideColumnName } from '~/models/database/support';
 import DocumentBudget, { uriTemplates } from '~/extension/mcpserver/DocumentBudget';
+import TableViewModel from '~/models/TableViewModel';
+import TableModel from '~/models/database/TableModel';
 
 export const mcpRegisterColumn = (documentResource: DocumentResource): McpRegisterConfig => {
     return {
@@ -24,6 +27,7 @@ export const mcpRegisterColumn = (documentResource: DocumentResource): McpRegist
             mcpFindColumnShare(documentResource)
         ],
         tools: [
+            mcpAddColumnsToTable(documentResource),
             mcpUpdateColumn(documentResource),
             mcpUpdateColumnShare(documentResource)
         ] as McpServerRegisterToolArgs[]
@@ -117,7 +121,7 @@ const toColumnDetail = (erdBudget: DocumentBudget, column: ColumnModel) => {
     };
 };
 
-export const addingColumnModelSchema = {
+const addingColumnModelSchema = {
     overrideName: z.object({
         physical: z.string()
             .refine(val => ((val === "") || validatePhysicalName(val)), {
@@ -133,7 +137,7 @@ export const addingColumnModelSchema = {
     defaultValue: z.string().optional().describe("The default value for this column.")
 };
 
-export const addingColumnShareModelSchema = {
+const addingColumnShareModelSchema = {
     columnName: z.object({
         physical: z.string()
             .refine(validatePhysicalName, {
@@ -154,6 +158,217 @@ export const addingColumnShareModelSchema = {
     isArray: z.boolean().optional().describe("The array type property for the new column-share."),
     description: z.string().optional().describe("The description for the new column-share."),
 } as const;
+
+const descriptionAddColumnsToTable = `\
+Adds new columns to an existing table in a specified ERD document.
+You can add columns by either referencing existing column-shares or creating new column-shares.
+Each column can be positioned at a specific location within the table's column list.
+
+REQUEST:
+- documentId: The unique identifier of the ERD document containing the table.
+  Can be obtained from 'erd-designer://documents' resource.
+- tableId: The unique identifier of the table to add columns to.
+  Can be obtained from the tables list resource.
+- columns: An array of column specifications. Each column can be defined using one of two approaches:
+
+  APPROACH 1: Reference an existing column-share (recommended for reusing common column definitions):
+  - columnShareId: The ID of an existing column-share to base the column on (required).
+    Can be obtained from the column-shares list resource.
+  - overrideName: (optional) Override the column-share's names:
+    - physical: The overridden physical name (empty string to clear override).
+    - logical: The overridden logical name.
+  - primaryKey: (optional) Boolean indicating if this is a primary key.
+  - notNull: (optional) Boolean indicating if this column is NOT NULL.
+  - unique: (optional) Boolean indicating if this column has a unique constraint.
+  - autoIncrement: (optional) Boolean indicating if auto-increment is enabled.
+    Only applicable if the column type supports auto-increment.
+  - defaultValue: (optional) The default value for the column.
+  - position: The position to add the new column at (required). One of:
+    - { type: "start" }: Add at the beginning of the column list.
+    - { type: "end" }: Add at the end of the column list.
+    - { type: "before", columnId: string }: Add before the specified column.
+    - { type: "after", columnId: string }: Add after the specified column.
+    - { type: "index", index: number }: Add at the specified zero-based index.
+
+  APPROACH 2: Create a new column-share (for unique column definitions):
+  - columnShare: Object defining the new column-share properties:
+    - columnName: Object containing names:
+      - physical: The physical name (required).
+        Must start with a letter or underscore, followed by letters, digits, or underscores.
+      - logical: (optional) The logical name.
+    - columnTypeId: The column type ID (required).
+      Must reference an existing column type from the database type definition.
+    - precision: (optional) The precision setting (required for types with precision).
+    - scale: (optional) The scale setting (required for types with scale).
+    - unsigned: (optional) Boolean indicating unsigned property (only for applicable types).
+    - isArray: (optional) Boolean indicating array type (only if database supports it).
+    - description: (optional) A description of the column-share.
+  - overrideName: (optional) Override the column-share's names.
+  - primaryKey: (optional) Boolean indicating if this is a primary key.
+  - notNull: (optional) Boolean indicating if this column is NOT NULL.
+  - unique: (optional) Boolean indicating if this column has a unique constraint.
+  - autoIncrement: (optional) Boolean indicating if auto-increment is enabled.
+  - defaultValue: (optional) The default value for the column.
+  - position: The position to add the new column at (required). Same options as above.
+
+RESPONSE:
+A resource link object containing:
+- type: "resource_link"
+- uri: The URI of the updated table (format: erd-designer://documents/{documentId}/tables/{tableId}).
+- name: The physical name of the table.
+- mimeType: "application/json"
+`;
+
+const mcpAddColumnsToTable = (
+    documentResource: DocumentResource
+): McpServerRegisterToolArgs<typeof addColumnsToTableInputSchema> => {
+    return [
+        "add-columns-to-table",
+        {
+            title: "Add new columns to an existing table of a specified ERD document",
+            description: descriptionAddColumnsToTable,
+            inputSchema: addColumnsToTableInputSchema
+        },
+        initCallbackForAddColumnsToTable(documentResource)
+    ] as const;
+};
+
+export const addColumnSchema = z.union([
+    z.object({
+        columnShareId: z.string().describe("The column share ID to base the new column on."),
+        ...addingColumnModelSchema
+    }).describe("The columns to add to the new table based on an existing column share."),
+    z.object({
+        columnShare: z.object(addingColumnShareModelSchema)
+            .describe("The definition of the new column share to create the new column from scratch."),
+        ...addingColumnModelSchema
+    }).describe("The columns to add to the table based on a new column share.")
+])
+
+export const buildAddingColumnPairs = (erdBudget: DocumentBudget, columns: z.infer<typeof addColumnSchema>[]) => {
+    return zipPairs(() =>
+        columns.map(column => buildColumnPair(erdBudget, column))
+    );
+};
+
+const positionSchema = initPositionSchema("column",
+    { columnId: z.string().describe("The column ID to add the new column.") });
+
+const addColumnsToTableInputSchema = {
+    documentId: z.string().describe("The unique identifier of the document to update."),
+    tableId: z.string().describe("The unique identifier of the table to update."),
+    columns: z.array(
+        z.object({
+            column: addColumnSchema,
+            ...positionSchema
+        })
+    ).describe("The columns to add to the table."),
+};
+
+const initCallbackForAddColumnsToTable = (
+    documentResource: DocumentResource
+): ToolCallback<typeof addColumnsToTableInputSchema> => {
+    return async ({ documentId, tableId, columns }) => {
+        const { erdBudget, erdDocument: previousDocument, tableView: previousTableView } =
+            findDocumentAndTable(documentResource, documentId, tableId);
+
+        const nextColumns = [...previousTableView.tableModel.columns];
+        const columnIdToIndex = new Map(nextColumns.map((col, idx) =>
+            [(col.modelType === "single") ? col.columnModelId : col.columnGroupId, idx]));
+
+        const [addingColumns, addingColumnShares] = zipPairs(() =>
+            columns.map(columnInfo => {
+                const addingPair = buildColumnPair(erdBudget, columnInfo.column);
+                const addIndex = calculateIndexFromPosition(
+                    columnInfo.position, "columnId", columnIdToIndex, nextColumns.length
+                );
+
+                const addingColumn = {
+                    modelType: "single" as const,
+                    columnModelId: addingPair[0].columnModelId
+                };
+                nextColumns.splice(addIndex, 0, addingColumn);
+
+                return addingPair;
+            })
+        );
+
+        const updatingTable = new TableViewModel({
+            ...previousTableView,
+            tableModel: new TableModel({
+                ...previousTableView.tableModel,
+                columns: nextColumns
+            })
+        });
+
+        const nextColumnShareStorage = previousDocument.getColumnShareModelStorage().addModel(...addingColumnShares);
+        const nextDocument = previousDocument.updateTableViewModel(updatingTable, addingColumns, nextColumnShareStorage);
+        documentResource.notify(documentId, nextDocument);
+
+        return {
+            content: [
+                {
+                    type: "resource_link",
+                    uri: erdBudget.tableUri(updatingTable.tableId),
+                    name: updatingTable.tableModel.physicalName,
+                    mimeType: "application/json"
+                }
+            ]
+        };
+    };
+};
+
+const zipPairs = (initPairs: () => (readonly [ColumnModel, ColumnShareModel | null])[]) => {
+    const addingPairs = initPairs();
+
+    return addingPairs.reduce<[ColumnModel[], ColumnShareModel[]]>(
+        (previous, [column, columnShare]) => {
+            previous[0].push(column);
+            if (columnShare != null) {
+                previous[1].push(columnShare);
+            }
+
+            return previous;
+        }, [[], []]
+    );
+};
+
+const buildColumnPair = (
+    erdBudget: DocumentBudget, addingColumn: z.infer<typeof addColumnSchema>
+) => {
+    let columnShare: ColumnShareModel;
+    if ("columnShareId" in addingColumn) {
+        const erdDocument = erdBudget.erdDocument;
+        const existedColumnShare = erdDocument.findColumnShareModel(addingColumn.columnShareId);
+        if (existedColumnShare == null) {
+            const url = new URL(erdBudget.columnShareUri(addingColumn.columnShareId));
+            throw initResourceNotFound(url);
+        }
+
+        columnShare = existedColumnShare;
+    } else {
+        columnShare = buildColumnShare(erdBudget, addingColumn.columnShare);
+    }
+
+    if (!columnShare.columnType.withAutoIncrement && (addingColumn.autoIncrement === true)) {
+        throw initInvalidParams(
+            `Auto-increment must not be specified for the selected column type : ${columnShare.columnType.name}`
+        );
+    }
+
+    const column = new ColumnModel({
+        columnShareModelId: columnShare.columnShareModelId,
+        physicalName: addingColumn.overrideName?.physical || "",
+        logicalName: addingColumn.overrideName?.logical || "",
+        primaryKey: addingColumn.primaryKey || false,
+        notNull: addingColumn.notNull || false,
+        unique: addingColumn.unique || false,
+        autoIncrement: addingColumn.autoIncrement || false,
+        defaultValue: addingColumn.defaultValue || ""
+    });
+
+    return [column, ("columnShare" in addingColumn) ? columnShare : null] as const;
+};
 
 const descriptionUpdateColumn = `\
 Updates an existing column of a specified ERD document.
@@ -340,7 +555,7 @@ const initCallbackForUpdatingColumn = (
     };
 };
 
-export const buildColumnShare = (
+const buildColumnShare = (
     erdBudget: DocumentBudget, input: z.infer<z.ZodObject<typeof addingColumnShareModelSchema>>
 ) => {
     const erdDocument = erdBudget.erdDocument;

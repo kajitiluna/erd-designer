@@ -2,18 +2,16 @@ import { ReadResourceTemplateCallback, ResourceTemplate, ToolCallback } from "@m
 import z from "zod";
 
 import { DocumentResource } from "~/extension/DocumentResource";
-import { addingColumnModelSchema, addingColumnShareModelSchema, buildColumnShare } from "~/extension/mcpserver/columns";
+import { addColumnSchema, buildAddingColumnPairs } from "~/extension/mcpserver/columns";
 import DocumentBudget, { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
 import { toRelationSummary } from "~/extension/mcpserver/relations";
 import {
-    ColorValueSchema, McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs,
-    initInvalidParams, initResourceNotFound, initResourceResponse, searchParameters, validatePhysicalName
+    colorValueSchema, McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs,
+    findDocumentAndTable, initInvalidParams, initResourceNotFound, initResourceResponse,
+    searchParameters, validatePhysicalName
 } from "~/extension/mcpserver/support";
 import ColorValue from "~/models/ColorValue";
 import { Database } from "~/models/database";
-import ColumnModel from "~/models/database/ColumnModel";
-import ColumnShareModel from "~/models/database/ColumnShareModel";
-import DbSchemaModel from "~/models/database/DbSchemaModel";
 import { overrideColumnName } from "~/models/database/support";
 import TableModel from "~/models/database/TableModel";
 import ErdDocument from "~/models/ErdDocument";
@@ -27,7 +25,8 @@ export const mcpRegisterTable = (documentResource: DocumentResource): McpRegiste
             mcpFindTable(documentResource)
         ],
         tools: [
-            mcpAddTable(documentResource)
+            mcpAddTable(documentResource),
+            mcpUpdateTable(documentResource)
         ] as McpServerRegisterToolArgs[]
     };
 };
@@ -598,7 +597,7 @@ const mcpAddTable = (documentResource: DocumentResource): McpServerRegisterToolA
             description: descriptionAddTable,
             inputSchema: addTableInputSchema
         },
-        initCallbackForAddingTable(documentResource)
+        initCallbackForAddTable(documentResource)
     ] as const;
 };
 
@@ -615,31 +614,21 @@ const addTableInputSchema = {
         schemaId: z.string().optional()
             .describe("The schema ID where the new table will be created. Only applicable if the RDBMS supports schemas."),
         description: z.string().optional().describe("The description of the new table."),
-        columns: z.array(z.union([
-            z.object({
-                columnShareId: z.string().describe("The column share ID to base the new column on."),
-                ...addingColumnModelSchema
-            }).describe("The columns to add to the new table based on an existing column share."),
-            z.object({
-                columnShare: z.object(addingColumnShareModelSchema)
-                    .describe("The definition of the new column share to create the new column from scratch."),
-                ...addingColumnModelSchema
-            }).describe("The columns to add to the new table based on a new column share.")
-        ])).describe("The columns to add to the new table."),
+        columns: z.array(addColumnSchema).describe("The columns to add to the new table."),
         view: z.object({
             position: z.object({
                 x: z.number().describe("The x-coordinate of the top-left corner of the table."),
                 y: z.number().describe("The y-coordinate of the top-left corner of the table.")
             }).describe("The position of the new table on the ERD canvas."),
             color: z.object({
-                background: z.object(ColorValueSchema).describe("The background color of the new table header."),
-                foreground: z.object(ColorValueSchema).describe("The foreground color of the new table header.")
+                background: z.object(colorValueSchema).describe("The background color of the new table header."),
+                foreground: z.object(colorValueSchema).describe("The foreground color of the new table header.")
             }).describe("The color settings for the new table header.")
         }).describe("The view definition of the new table.")
     }).describe("The table data to add.")
 } as const;
 
-const initCallbackForAddingTable = (documentResource: DocumentResource): ToolCallback<typeof addTableInputSchema> => {
+const initCallbackForAddTable = (documentResource: DocumentResource): ToolCallback<typeof addTableInputSchema> => {
     return async ({ documentId, table }) => {
         const erdBudget = documentResource.findById(documentId);
         if (erdBudget == null) {
@@ -648,70 +637,14 @@ const initCallbackForAddingTable = (documentResource: DocumentResource): ToolCal
         }
 
         const previousDocument = erdBudget.erdDocument;
+        const schemaId = validateSchemaId(erdBudget, table.schemaId);
 
-        let schema: DbSchemaModel | null = null;
-        if (table.schemaId) {
-            const database = previousDocument.getDatabase();
-            if (!database.supportsSchema) {
-                throw initInvalidParams(`The database type '${database.databaseType}' does not support schemas.`);
-            }
-
-            schema = previousDocument.findSchema(table.schemaId);
-            if (schema == null) {
-                const url = new URL(erdBudget.schemaUri(table.schemaId));
-                throw initResourceNotFound(url);
-            }
-        }
-
-        const addingPairs = table.columns.map(addingColumn => {
-            let columnShare: ColumnShareModel;
-            if ("columnShareId" in addingColumn) {
-                const existedColumnShare = previousDocument.findColumnShareModel(addingColumn.columnShareId);
-                if (existedColumnShare == null) {
-                    const url = new URL(erdBudget.columnShareUri(addingColumn.columnShareId));
-                    throw initResourceNotFound(url);
-                }
-
-                columnShare = existedColumnShare;
-            } else {
-                columnShare = buildColumnShare(erdBudget, addingColumn.columnShare);
-            }
-
-            if (!columnShare.columnType.withAutoIncrement && (addingColumn.autoIncrement === true)) {
-                throw initInvalidParams(
-                    `Auto-increment must not be specified for the selected column type : ${columnShare.columnType.name}`
-                );
-            }
-
-            const column = new ColumnModel({
-                columnShareModelId: columnShare.columnShareModelId,
-                physicalName: addingColumn.overrideName?.physical || "",
-                logicalName: addingColumn.overrideName?.logical || "",
-                primaryKey: addingColumn.primaryKey || false,
-                notNull: addingColumn.notNull || false,
-                unique: addingColumn.unique || false,
-                autoIncrement: addingColumn.autoIncrement || false,
-                defaultValue: addingColumn.defaultValue || ""
-            });
-
-            return [column, ("columnShare" in addingColumn) ? columnShare : null] as const;
-        });
-
-        const [columns, columnShares] = addingPairs.reduce<[ColumnModel[], ColumnShareModel[]]>(
-            (previous, [column, columnShare]) => {
-                previous[0].push(column);
-                if (columnShare != null) {
-                    previous[1].push(columnShare);
-                }
-
-                return previous;
-            }, [[], []]
-        );
+        const [columns, columnShares] = buildAddingColumnPairs(erdBudget, table.columns);
 
         const addTable = new TableModel({
             physicalName: table.tableName.physical,
             logicalName: table.tableName.logical || table.tableName.physical,
-            schemaId: schema?.schemaId,
+            schemaId: schemaId,
             description: table.description || "",
             columns: columns.map(column => ({
                 modelType: "single" as const,
@@ -741,6 +674,158 @@ const initCallbackForAddingTable = (documentResource: DocumentResource): ToolCal
                     type: "resource_link",
                     uri: erdBudget.tableUri(addTableView.tableId),
                     name: addTable.physicalName,
+                    mimeType: "application/json"
+                }
+            ]
+        };
+    };
+};
+
+const validateSchemaId = (erdBudget: DocumentBudget, schemaId: string | undefined, defaultValue: string = "") => {
+    if (!schemaId) {
+        return defaultValue;
+    }
+
+    const erdDocument = erdBudget.erdDocument;
+    const database = erdDocument.getDatabase();
+    if (!database.supportsSchema) {
+        throw initInvalidParams(`The database type '${database.databaseType}' does not support schemas.`);
+    }
+
+    const schema = erdDocument.findSchema(schemaId);
+    if (schema == null) {
+        const url = new URL(erdBudget.schemaUri(schemaId));
+        throw initResourceNotFound(url);
+    }
+
+    return schema.schemaId;
+};
+
+const descriptionUpdateTable = `\
+Updates an existing table in a specified ERD document.
+You can modify the table's name, description, schema assignment, and display settings.
+Only the properties you specify will be updated; other properties will remain unchanged.
+
+REQUEST:
+- documentId: The unique identifier of the ERD document containing the table.
+  Can be obtained from 'erd-designer://documents' resource.
+- tableId: The unique identifier of the table to update.
+  Can be obtained from the tables list resource.
+- table: The table properties to update (all fields are optional):
+  - tableName: Object containing table names to update:
+    - physical: (optional) The new physical name of the table.
+      Must start with a letter or underscore, followed by letters, digits, or underscores.
+    - logical: (optional) The new logical name of the table.
+  - schemaId: (optional) The schema ID to assign the table to.
+    Only applicable if the database type supports schemas.
+    Can be obtained from the document's schemas array.
+  - description: (optional) The new description of the table.
+  - view: (optional) Display settings to update:
+    - position: (optional) Object containing the new table position on the ERD canvas:
+      - x: (optional) The new x-coordinate of the top-left corner.
+      - y: (optional) The new y-coordinate of the top-left corner.
+    - color: (optional) Object containing the new table header colors:
+      - background: (optional) The new background color in RGB format.
+        Object with red, green, and blue components (each 0-255).
+        Example: { red: 255, green: 255, blue: 255 } for white.
+      - foreground: (optional) The new foreground/text color in RGB format.
+        Object with red, green, and blue components (each 0-255).
+        Example: { red: 0, green: 0, blue: 0 } for black.
+
+RESPONSE:
+A resource link object containing:
+- type: "resource_link"
+- uri: The URI of the updated table (format: erd-designer://documents/{documentId}/tables/{tableId}).
+- name: The physical name of the updated table.
+- mimeType: "application/json"
+`;
+
+const mcpUpdateTable = (documentResource: DocumentResource): McpServerRegisterToolArgs<typeof updateTableInputSchema> => {
+    return [
+        "update-table",
+        {
+            title: "Update an existing table of a specified ERD document",
+            description: descriptionUpdateTable,
+            inputSchema: updateTableInputSchema
+        },
+        initCallbackForUpdateTable(documentResource)
+    ] as const;
+}
+
+const updateTableInputSchema = {
+    documentId: z.string().describe("The unique identifier of the document to update."),
+    tableId: z.string().describe("The unique identifier of the table to update."),
+    table: z.object({
+        tableName: z.object({
+            physical: z.string()
+                .refine(validatePhysicalName, {
+                    message: "Physical name must start with a letter or underscore, followed by letters, digits, or underscores."
+                }).optional().describe("The physical name of the table to update."),
+            logical: z.string().optional().describe("The logical name of the table to update."),
+        }).optional().describe("The name of the table to update."),
+        schemaId: z.string().optional()
+            .describe("The schema ID where the table belongs. Only applicable if the RDBMS supports schemas."),
+        description: z.string().optional().describe("The description of the table to update."),
+        view: z.object({
+            position: z.object({
+                x: z.number().optional().describe("The x-coordinate of the top-left corner of the table."),
+                y: z.number().optional().describe("The y-coordinate of the top-left corner of the table.")
+            }).optional().describe("The position of the table to update on the ERD canvas."),
+            color: z.object({
+                background: z.object(colorValueSchema).optional()
+                    .describe("The background color of the table header to update."),
+                foreground: z.object(colorValueSchema).optional()
+                    .describe("The foreground color of the table header to update.")
+            }).optional().describe("The color settings for the table header to update.")
+        }).optional().describe("The view definition of the table to update.")
+    }).describe("The table data to update.")
+} as const;
+
+const initCallbackForUpdateTable = (documentResource: DocumentResource): ToolCallback<typeof updateTableInputSchema> => {
+    return async ({ documentId, tableId, table }) => {
+        const { erdBudget, erdDocument: previousDocument, tableView: previousTableView } =
+            findDocumentAndTable(documentResource, documentId, tableId);
+
+        const previousTable = previousTableView.tableModel;
+
+        const nextSchemaId = validateSchemaId(erdBudget, table.schemaId, previousTable.schemaId);
+        const nextTable = new TableModel({
+            ...previousTable,
+            physicalName: table.tableName?.physical || previousTable.physicalName,
+            logicalName: table.tableName?.logical || previousTable.logicalName,
+            schemaId: nextSchemaId,
+            description: table.description || previousTable.description,
+        });
+
+        const nextCorner = table.view?.position
+            ? {
+                left: table.view.position.x || previousTableView.corner.left,
+                top: table.view.position.y || previousTableView.corner.top
+            } : previousTableView.corner;
+        const nextHeaderColor = table.view?.color ? {
+            background: table.view.color.background
+                ? new ColorValue(table.view.color.background)
+                : previousTableView.headerColor.background,
+            foreground: table.view.color.foreground
+                ? new ColorValue(table.view.color.foreground)
+                : previousTableView.headerColor.foreground
+        } : previousTableView.headerColor;
+
+        const nextTableView = new TableViewModel({
+            tableModel: nextTable,
+            corner: nextCorner,
+            headerColor: nextHeaderColor
+        });
+
+        const nextDocument = previousDocument.updateTableViewModel(nextTableView);
+        documentResource.notify(documentId, nextDocument);
+
+        return {
+            content: [
+                {
+                    type: "resource_link",
+                    uri: erdBudget.tableUri(nextTableView.tableId),
+                    name: nextTable.physicalName,
                     mimeType: "application/json"
                 }
             ]

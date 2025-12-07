@@ -292,10 +292,11 @@ export default class ErdDocument {
      * @returns 操作後のモデル
      */
     public updateTableViewModel(
-        updatingTableViewModel: TableViewModel, updatingColumnModels: ColumnModel[],
-        updatingColumnShareModelStorage: ColumnShareModelStorage
+        updatingTableViewModel: TableViewModel, updatingColumnModels: ColumnModel[] = [],
+        inputColumnShareModelStorage: ColumnShareModelStorage | null = null
     ): ErdDocument {
 
+        const updatingColumnShareModelStorage = inputColumnShareModelStorage || this.columnShareModelStorage;
         const previousTableViewModel = this.tableViewModelMap.get(updatingTableViewModel.tableId);
         if (previousTableViewModel == null) {
             return this.doAddTableViewModel(

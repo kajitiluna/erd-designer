@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 
-import { DocumentResource, RectangleType } from '~/extension/DocumentResource';
+import { DocumentResource } from '~/extension/DocumentResource';
+import { RectangleType } from '~/extension/mcpserver/DocumentBudget';
 
 export class ExtensionProvider implements vscode.CustomTextEditorProvider {
 
