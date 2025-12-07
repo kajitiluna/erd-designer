@@ -49,30 +49,29 @@ export type McpRegisterConfig = {
     tools: McpServerRegisterToolArgs<any>[];
 };
 
-export const colorValueSchema = {
-    red: z.number().int().min(0).max(255).describe("The red component of the color (0-255)."),
-    green: z.number().int().min(0).max(255).describe("The green component of the color (0-255)."),
-    blue: z.number().int().min(0).max(255).describe("The blue component of the color (0-255).")
-};
+export const colorValueSchema = z.string()
+    .regex(/^#[0-9A-Fa-f]{6}$/, "Color must be in hex format (e.g., #FFFFFF).");
 
 export const initPositionSchema = <RECORD extends Record<string, z.ZodType>>(keyName: string, keyInfo: RECORD) => {
     return {
         position: z.union([
-            z.object({ type: z.literal("start") }).describe(`Add the new column at the start of the ${keyName} list.`),
-            z.object({ type: z.literal("end") }).describe(`Add the new column at the end of the ${keyName} list.`),
+            z.object({ type: z.literal("start") }).strict()
+                .describe(`Add the new column at the start of the ${keyName} list.`),
+            z.object({ type: z.literal("end") }).strict()
+                .describe(`Add the new column at the end of the ${keyName} list.`),
             z.object({
                 type: z.literal("before"),
                 ...keyInfo
-            }).describe(`Add the new ${keyName} before the specified existing ${keyName}.`),
+            }).strict().describe(`Add the new ${keyName} before the specified existing ${keyName}.`),
             z.object({
                 type: z.literal("after"),
                 ...keyInfo
-            }).describe(`Add the new ${keyName} after the specified existing ${keyName}.`),
+            }).strict().describe(`Add the new ${keyName} after the specified existing ${keyName}.`),
             z.object({
                 type: z.literal("index"),
                 index: z.number()
                     .describe(`The zero-based index to insert the new ${keyName} at in the ${keyName} list.`)
-            }).describe(`Add the new ${keyName} at the specified index in the ${keyName} list.`)
+            }).strict().describe(`Add the new ${keyName} at the specified index in the ${keyName} list.`)
         ]).describe(`The position to add the new ${keyName} at in the ${keyName} list.`)
     };
 };

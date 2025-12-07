@@ -4,8 +4,8 @@ import z from "zod";
 
 import { DocumentResource } from "~/extension/DocumentResource";
 import {
-    calculateIndexFromPosition,
-    findDocumentAndTable, indent, initInvalidParams, initPositionSchema, initResourceNotFound, initResourceResponse,
+    calculateIndexFromPosition, findDocumentAndTable, indent,
+    initInvalidParams, initPositionSchema, initResourceNotFound, initResourceResponse,
     McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs,
     searchParameters, validatePhysicalName, validatePositiveNumber
 } from "~/extension/mcpserver/support";
@@ -29,7 +29,8 @@ export const mcpRegisterColumn = (documentResource: DocumentResource): McpRegist
         tools: [
             mcpAddColumnsToTable(documentResource),
             mcpUpdateColumn(documentResource),
-            mcpUpdateColumnShare(documentResource)
+            mcpUpdateColumnShare(documentResource),
+            mcpRemoveColumnsFromTable(documentResource)
         ] as McpServerRegisterToolArgs[]
     };
 };
@@ -235,11 +236,11 @@ const mcpAddColumnsToTable = (
 
 export const addColumnSchema = z.union([
     z.object({
-        columnShareId: z.string().describe("The column share ID to base the new column on."),
+        columnShareId: z.string().nonempty().describe("The column share ID to base the new column on."),
         ...addingColumnModelSchema
     }).describe("The columns to add to the new table based on an existing column share."),
     z.object({
-        columnShare: z.object(addingColumnShareModelSchema)
+        columnShare: z.object(addingColumnShareModelSchema).strict()
             .describe("The definition of the new column share to create the new column from scratch."),
         ...addingColumnModelSchema
     }).describe("The columns to add to the table based on a new column share.")
@@ -265,6 +266,8 @@ const addColumnsToTableInputSchema = {
     ).describe("The columns to add to the table."),
 };
 
+type PositionType = Parameters<typeof calculateIndexFromPosition<"columnId">>[0];
+
 const initCallbackForAddColumnsToTable = (
     documentResource: DocumentResource
 ): ToolCallback<typeof addColumnsToTableInputSchema> => {
@@ -280,7 +283,7 @@ const initCallbackForAddColumnsToTable = (
             columns.map(columnInfo => {
                 const addingPair = buildColumnPair(erdBudget, columnInfo.column);
                 const addIndex = calculateIndexFromPosition(
-                    columnInfo.position, "columnId", columnIdToIndex, nextColumns.length
+                    columnInfo.position as PositionType, "columnId", columnIdToIndex, nextColumns.length
                 );
 
                 const addingColumn = {
@@ -293,6 +296,20 @@ const initCallbackForAddColumnsToTable = (
             })
         );
 
+        const updatingColumnModels = previousTableView.tableModel.columns
+            .flatMap(column => {
+                if (column.modelType === "group") {
+                    return [];
+                }
+
+                const columnModel = previousDocument.findColumnModel(column.columnModelId);
+                if (columnModel == null) {
+                    return [];
+                }
+
+                return [columnModel];
+            }).concat(addingColumns);
+
         const updatingTable = new TableViewModel({
             ...previousTableView,
             tableModel: new TableModel({
@@ -302,7 +319,9 @@ const initCallbackForAddColumnsToTable = (
         });
 
         const nextColumnShareStorage = previousDocument.getColumnShareModelStorage().addModel(...addingColumnShares);
-        const nextDocument = previousDocument.updateTableViewModel(updatingTable, addingColumns, nextColumnShareStorage);
+        const nextDocument = previousDocument.updateTableViewWithColumns(
+            updatingTable, updatingColumnModels, nextColumnShareStorage
+        );
         documentResource.notify(documentId, nextDocument);
 
         return {
@@ -346,8 +365,10 @@ const buildColumnPair = (
         }
 
         columnShare = existedColumnShare;
-    } else {
+    } else if ("columnShare" in addingColumn) {
         columnShare = buildColumnShare(erdBudget, addingColumn.columnShare);
+    } else {
+        throw initInvalidParams("Either columnShareId or columnShare must be provided.");
     }
 
     if (!columnShare.columnType.withAutoIncrement && (addingColumn.autoIncrement === true)) {
@@ -980,5 +1001,112 @@ const initCallbackForUpdatingColumnShare = (
                 }
             ]
         };
+    };
+};
+
+const descriptionRemoveColumnsFromTable = `\
+Removes specified columns from an existing table in a specified ERD document.
+You can remove one or more columns by providing their column IDs.
+The column-share models associated with the removed columns will remain in the document for potential reuse.
+
+REQUEST:
+- documentId: The unique identifier of the ERD document containing the table.
+  Can be obtained from 'erd-designer://documents' resource.
+- tableId: The unique identifier of the table to remove columns from.
+  Can be obtained from the tables list resource.
+- columnIds: An array of column IDs to be removed from the table.
+  Each column ID can be obtained from the table's columns array or column definitions.
+  Note: If a column ID does not exist in the table, it will be silently ignored.
+
+IMPORTANT NOTES:
+- Removing a column does not delete the associated column-share model.
+  The column-share can still be used by other columns or for creating new columns.
+- Be cautious when removing columns that are part of:
+  - Primary keys
+  - Unique constraints
+  - Table indices
+  - Relations (foreign key columns)
+  These constraints may become invalid after removing the referenced columns.
+
+RESPONSE:
+A resource link object containing:
+- type: "resource_link"
+- uri: The URI of the updated table (format: erd-designer://documents/{documentId}/tables/{tableId}).
+- name: The physical name of the table.
+- mimeType: "application/json"
+`;
+
+const mcpRemoveColumnsFromTable = (
+    documentResource: DocumentResource
+): McpServerRegisterToolArgs<typeof removeColumnsFromTableInputSchema> => {
+    return [
+        "remove-columns-from-table",
+        {
+            title: "Remove columns from a specified table in an ERD document",
+            description: descriptionRemoveColumnsFromTable,
+            inputSchema: removeColumnsFromTableInputSchema
+        },
+        initCallbackForRemoveColumnsFromTable(documentResource)
+    ] as const;
+};
+
+const removeColumnsFromTableInputSchema = {
+    documentId: z.string().describe("The unique identifier of the document to update."),
+    tableId: z.string().describe("The unique identifier of the table to update."),
+    columnIds: z.array(z.string())
+        .describe("An array of unique identifiers of the columns to be removed from the table.")
+};
+
+const initCallbackForRemoveColumnsFromTable = (
+    documentResource: DocumentResource
+): ToolCallback<typeof removeColumnsFromTableInputSchema> => {
+    return async ({ documentId, tableId, columnIds }) => {
+        const { erdBudget, erdDocument: previousDocument, tableView: previousTableView } =
+            findDocumentAndTable(documentResource, documentId, tableId);
+
+        const deletingColumnIds = new Set(columnIds);
+        const nextColumns = previousTableView.tableModel.columns
+            .filter(column => {
+                if (column.modelType === "group") {
+                    return true;
+                }
+
+                return !deletingColumnIds.has(column.columnModelId);
+            });
+
+        const updatingColumnModels = nextColumns.flatMap(column => {
+            if (column.modelType === "group") {
+                return [];
+            }
+
+            const previousColumn = previousDocument.findColumnModel(column.columnModelId);
+            if (previousColumn == null) {
+                return [];
+            }
+
+            return [previousColumn];
+        });
+
+        const updatingTable = new TableViewModel({
+            ...previousTableView,
+            tableModel: new TableModel({
+                ...previousTableView.tableModel,
+                columns: nextColumns
+            })
+        });
+
+        const nextDocument = previousDocument.updateTableViewWithColumns(updatingTable, updatingColumnModels);
+        documentResource.notify(documentId, nextDocument);
+
+        return {
+            content: [
+                {
+                    type: "resource_link",
+                    uri: erdBudget.tableUri(updatingTable.tableId),
+                    name: updatingTable.tableModel.physicalName,
+                    mimeType: "application/json"
+                }
+            ]
+        }
     };
 };

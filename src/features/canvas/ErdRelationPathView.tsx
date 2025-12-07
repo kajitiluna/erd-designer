@@ -629,7 +629,7 @@ const useStraightLineView = (
             path: (
                 <g key={`relation-line_${relationView.relationId}`}>
                     <path d={lineSegment.drawingPath} fill="none"
-                        stroke={lineViewModel.color.toHex()}
+                        stroke={lineViewModel.color.toRgba()}
                         strokeWidth={lineViewModel.strokeWidth}
                         markerStart={parentMarker} markerEnd={childMarker}
                         className={initPathCss(relationView, selected)} />
@@ -833,7 +833,7 @@ const useOrthogonalLine = (
             path: (
                 <g key={`relation-line_${relationView.relationId}`}>
                     <path d={drawingLine} fill="none"
-                        stroke={relationView.lineViewModel.color.toHex()}
+                        stroke={relationView.lineViewModel.color.toRgba()}
                         strokeWidth={relationView.lineViewModel.strokeWidth}
                         markerStart={toMarkerId(relationModel.parentCardinality)}
                         markerEnd={toMarkerId(relationModel.childCardinality)}

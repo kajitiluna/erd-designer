@@ -523,8 +523,8 @@ const InnerErdTableView = ({
         paddingBottom: "4px",
         border: "2px solid black",
         borderRadius: "10px",
-        backgroundColor: tableViewModel.headerColor.background.toHex(),
-        color: tableViewModel.headerColor.foreground.toHex()
+        backgroundColor: tableViewModel.headerColor.background.toRgba(),
+        color: tableViewModel.headerColor.foreground.toRgba()
     };
 
     const tableClassName = selected ?

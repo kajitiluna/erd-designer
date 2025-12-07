@@ -619,14 +619,14 @@ const addTableInputSchema = {
             position: z.object({
                 x: z.number().describe("The x-coordinate of the top-left corner of the table."),
                 y: z.number().describe("The y-coordinate of the top-left corner of the table.")
-            }).describe("The position of the new table on the ERD canvas."),
+            }).strict().describe("The position of the new table on the ERD canvas."),
             color: z.object({
-                background: z.object(colorValueSchema).describe("The background color of the new table header."),
-                foreground: z.object(colorValueSchema).describe("The foreground color of the new table header.")
-            }).describe("The color settings for the new table header.")
-        }).describe("The view definition of the new table.")
-    }).describe("The table data to add.")
-} as const;
+                background: colorValueSchema.describe("The background color of the new table header in hex format (e.g., #FFFFFF)."),
+                foreground: colorValueSchema.describe("The foreground color of the new table header in hex format (e.g., #000000).")
+            }).strict().describe("The color settings for the new table header.")
+        }).strict().describe("The view definition of the new table.")
+    }).strict().describe("The table data to add.")
+};
 
 const initCallbackForAddTable = (documentResource: DocumentResource): ToolCallback<typeof addTableInputSchema> => {
     return async ({ documentId, table }) => {
@@ -659,13 +659,13 @@ const initCallbackForAddTable = (documentResource: DocumentResource): ToolCallba
                 top: table.view.position.y
             },
             headerColor: {
-                background: new ColorValue(table.view.color.background),
-                foreground: new ColorValue(table.view.color.foreground)
+                background: ColorValue.fromHex(table.view.color.background),
+                foreground: ColorValue.fromHex(table.view.color.foreground)
             }
         });
 
         const nextColumnShareStorage = previousDocument.getColumnShareModelStorage().addModel(...columnShares);
-        const nextDocument = previousDocument.updateTableViewModel(addTableView, columns, nextColumnShareStorage);
+        const nextDocument = previousDocument.updateTableViewWithColumns(addTableView, columns, nextColumnShareStorage);
         documentResource.notify(documentId, nextDocument);
 
         return {
@@ -772,10 +772,10 @@ const updateTableInputSchema = {
                 y: z.number().optional().describe("The y-coordinate of the top-left corner of the table.")
             }).optional().describe("The position of the table to update on the ERD canvas."),
             color: z.object({
-                background: z.object(colorValueSchema).optional()
-                    .describe("The background color of the table header to update."),
-                foreground: z.object(colorValueSchema).optional()
-                    .describe("The foreground color of the table header to update.")
+                background: colorValueSchema.optional()
+                    .describe("The background color of the table header to update in hex format (e.g., #FFFFFF)."),
+                foreground: colorValueSchema.optional()
+                    .describe("The foreground color of the table header to update in hex format (e.g., #000000).")
             }).optional().describe("The color settings for the table header to update.")
         }).optional().describe("The view definition of the table to update.")
     }).describe("The table data to update.")
@@ -804,10 +804,10 @@ const initCallbackForUpdateTable = (documentResource: DocumentResource): ToolCal
             } : previousTableView.corner;
         const nextHeaderColor = table.view?.color ? {
             background: table.view.color.background
-                ? new ColorValue(table.view.color.background)
+                ? ColorValue.fromHex(table.view.color.background)
                 : previousTableView.headerColor.background,
             foreground: table.view.color.foreground
-                ? new ColorValue(table.view.color.foreground)
+                ? ColorValue.fromHex(table.view.color.foreground)
                 : previousTableView.headerColor.foreground
         } : previousTableView.headerColor;
 
@@ -817,7 +817,7 @@ const initCallbackForUpdateTable = (documentResource: DocumentResource): ToolCal
             headerColor: nextHeaderColor
         });
 
-        const nextDocument = previousDocument.updateTableViewModel(nextTableView);
+        const nextDocument = previousDocument.updateTableMeta(nextTableView);
         documentResource.notify(documentId, nextDocument);
 
         return {

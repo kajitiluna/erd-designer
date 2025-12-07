@@ -284,74 +284,90 @@ export default class ErdDocument {
     }
 
     /**
+     * 指定されたテーブルの情報を更新する。
+     * このメソッドは、カラムの追加・削除・更新を伴わない、テーブルメタ情報のみが更新される場合に使用する。
+     * (MCP Server 経由の利用を想定している)
+     */
+    public updateTableMeta(...updatingTables: TableViewModel[]): ErdDocument {
+        const nextTableViewMap = new Map(this.tableViewModelMap);
+        updatingTables.forEach(updating => {
+            nextTableViewMap.set(updating.tableId, updating);
+        });
+
+        return this.doUpdate({
+            tableViewModelMap: nextTableViewMap
+        });
+    }
+
+    /**
      * 指定されたテーブルおよびカラム共有モデルを反映する。
      * 
-     * @param updatingTableViewModel 更新後のテーブルモデル
-     * @param updatingColumnModels 更新後のカラムモデル
+     * @param updatingTableView 更新後のテーブルモデル
+     * @param updatingColumns 更新後のカラムモデル
      * @param updatingColumnShareModelStorage 更新後のカラム共有モデル
      * @returns 操作後のモデル
      */
-    public updateTableViewModel(
-        updatingTableViewModel: TableViewModel, updatingColumnModels: ColumnModel[] = [],
+    public updateTableViewWithColumns(
+        updatingTableView: TableViewModel, updatingColumns: ColumnModel[],
         inputColumnShareModelStorage: ColumnShareModelStorage | null = null
     ): ErdDocument {
 
         const updatingColumnShareModelStorage = inputColumnShareModelStorage || this.columnShareModelStorage;
-        const previousTableViewModel = this.tableViewModelMap.get(updatingTableViewModel.tableId);
-        if (previousTableViewModel == null) {
+        const previousTableView = this.tableViewModelMap.get(updatingTableView.tableId);
+        if (previousTableView == null) {
             return this.doAddTableViewModel(
-                updatingTableViewModel, updatingColumnModels, updatingColumnShareModelStorage
+                updatingTableView, updatingColumns, updatingColumnShareModelStorage
             );
         }
 
         // 更新対象のテーブルに relation が親として定義されている場合、子テーブルに PK の変更を反映する
         const {
             nextTableViewModels,
-            nextColumnModelMap: updatingColumnModelMap,
+            nextColumnModelMap: updatingColumnMap,
             nextRelationViewModelStorage
         } = this.doUpdateTableViewModelWithRelation(
-            previousTableViewModel, updatingTableViewModel, updatingColumnModels
+            previousTableView, updatingTableView, updatingColumns
         );
 
-        const nextTableViewModelMap = new Map(this.tableViewModelMap);
+        const nextTableViewMap = new Map(this.tableViewModelMap);
         nextTableViewModels.forEach(nextTableViewModel => {
-            nextTableViewModelMap.set(nextTableViewModel.tableId, nextTableViewModel);
+            nextTableViewMap.set(nextTableViewModel.tableId, nextTableViewModel);
         });
 
-        const nextColumnModelMap = new Map(this.columnModelMap);
-        previousTableViewModel.tableModel.columns.forEach(column => {
+        const nextColumnMap = new Map(this.columnModelMap);
+        previousTableView.tableModel.columns.forEach(column => {
             if (column.modelType === "single") {
-                nextColumnModelMap.delete(column.columnModelId);
+                nextColumnMap.delete(column.columnModelId);
             }
         });
-        updatingColumnModelMap.forEach(columnModel =>
-            nextColumnModelMap.set(columnModel.columnModelId, columnModel)
+        updatingColumnMap.forEach(columnModel =>
+            nextColumnMap.set(columnModel.columnModelId, columnModel)
         );
 
         // 更新時に他で利用されていない columnShareModel を削除する
-        const nextExistsColumnShareModelIds = new Set(
-            Array.from(nextColumnModelMap.values())
+        const nextExistsColumnShareIds = new Set(
+            Array.from(nextColumnMap.values())
                 .map(columnModel => columnModel.columnShareModelId)
         );
-        const deletingColumnShareModelIds = previousTableViewModel.tableModel.columns
+        const deletingColumnShareIds = previousTableView.tableModel.columns
             .flatMap(column => {
                 if (column.modelType === "single") {
                     return [column.columnModelId];
                 }
 
-                const columnGroupModel = this.columnGroupModelMap.get(column.columnGroupId) as ColumnGroupModel;
-                return columnGroupModel.columnModelIds;
+                const columnGroup = this.columnGroupModelMap.get(column.columnGroupId) as ColumnGroupModel;
+                return columnGroup.columnModelIds;
             }).map(columnModelId => this.findColumnModel(columnModelId) as ColumnModel)
-            .filter(columnModel => nextExistsColumnShareModelIds.has(columnModel.columnShareModelId) === false)
+            .filter(columnModel => nextExistsColumnShareIds.has(columnModel.columnShareModelId) === false)
             .map(columnModel => columnModel.columnShareModelId);
 
-        const nextColumnShareModelStorage = (deletingColumnShareModelIds.length > 0)
-            ? updatingColumnShareModelStorage.deleteModels(deletingColumnShareModelIds)
+        const nextColumnShareModelStorage = (deletingColumnShareIds.length > 0)
+            ? updatingColumnShareModelStorage.deleteModels(deletingColumnShareIds)
             : updatingColumnShareModelStorage.copy();
 
         return this.doUpdate({
-            tableViewModelMap: nextTableViewModelMap,
-            columnModelMap: nextColumnModelMap,
+            tableViewModelMap: nextTableViewMap,
+            columnModelMap: nextColumnMap,
             columnShareModelStorage: nextColumnShareModelStorage,
             relationViewModelStorage: nextRelationViewModelStorage
         });
@@ -384,7 +400,7 @@ export default class ErdDocument {
         updatingTableViewModel: TableViewModel,
         updatingColumnModels: ColumnModel[]
     ) {
-        const nextColumnModelMap = new Map(updatingColumnModels
+        const nextColumnMap = new Map(updatingColumnModels
             .map(model => [model.columnModelId, model]));
 
         const relationViewModels = this.relationViewModelStorage
@@ -394,7 +410,7 @@ export default class ErdDocument {
         if (relationViewModels.length === 0) {
             return {
                 nextTableViewModels: [updatingTableViewModel],
-                nextColumnModelMap: nextColumnModelMap,
+                nextColumnModelMap: nextColumnMap,
                 nextRelationViewModelStorage: this.relationViewModelStorage
             };
         }
@@ -402,7 +418,7 @@ export default class ErdDocument {
         const updatingPrimaryKeys = updatingTableViewModel.tableModel.columns
             .flatMap(column => {
                 if (column.modelType === "single") {
-                    return [nextColumnModelMap.get(column.columnModelId) as ColumnModel]
+                    return [nextColumnMap.get(column.columnModelId) as ColumnModel]
                 }
 
                 // GroupColumn は参照のみなので、変更前の ErdDocument から取得する
@@ -439,7 +455,7 @@ export default class ErdDocument {
         if ((deletingPrimaryKeyIds.length === 0) && (addingPrimaryKeys.length === 0)) {
             return {
                 nextTableViewModels: [updatingTableViewModel],
-                nextColumnModelMap: nextColumnModelMap,
+                nextColumnModelMap: nextColumnMap,
                 nextRelationViewModelStorage: this.relationViewModelStorage
             };
         }
@@ -447,7 +463,7 @@ export default class ErdDocument {
         const nextTableViewModels = new Map([[updatingTableViewModel.tableId, updatingTableViewModel]]);
 
         return this.doUpdateRelationWithPrimaryKeyChanged(
-            relationViewModels, nextTableViewModels, nextColumnModelMap,
+            relationViewModels, nextTableViewModels, nextColumnMap,
             addingPrimaryKeys, deletingPrimaryKeyIds
         );
     }

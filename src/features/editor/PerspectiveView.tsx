@@ -470,8 +470,8 @@ const initTitleStyle = (
         ...BASE_CELL_STYLE,
         minWidth: `${width}px`,
         maxWidth: `${width}px`,
-        backgroundColor: backgroundColor.toHex(),
-        color: foregroundColor.toHex()
+        backgroundColor: backgroundColor.toRgba(),
+        color: foregroundColor.toRgba()
     };
 };
 

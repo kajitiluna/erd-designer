@@ -4,6 +4,8 @@ type ColorModelOptions = {
     red: number, green: number, blue: number
 }
 
+const hexColorRegex = /^#[0-9A-Fa-f]{6}$/;
+
 export default class ColorValue {
 
     public static readonly WHITE = new ColorValue({ red: 255, green: 255, blue: 255 });
@@ -19,7 +21,26 @@ export default class ColorValue {
         this.blue = blue;
     }
 
-    public toHex(alpha: number = 1): string {
+    public static fromHex(color: string): ColorValue {
+        if (!hexColorRegex.test(color)) {
+            throw new Error(`Invalid color hex string: ${color}`);
+        }
+
+        const red = parseInt(color.substring(1, 3), 16);
+        const green = parseInt(color.substring(3, 5), 16);
+        const blue = parseInt(color.substring(5, 7), 16);
+        return new ColorValue({ red, green, blue });
+    }
+
+    public toHex(): string {
+        const rHex = this.red.toString(16).padStart(2, "0");
+        const gHex = this.green.toString(16).padStart(2, "0");
+        const bHex = this.blue.toString(16).padStart(2, "0");
+
+        return `#${rHex}${gHex}${bHex}`.toUpperCase();
+    }
+
+    public toRgba(alpha: number = 1): string {
         return `rgba(${this.red}, ${this.green}, ${this.blue}, ${alpha})`
     }
 

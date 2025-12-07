@@ -199,7 +199,7 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
             const textAreaStyle: React.CSSProperties = {
                 width: `${currentRectangle.width - STICKY_PADDING * 2}px`,
                 height: `${currentRectangle.height - STICKY_PADDING * 2}px`,
-                color: memoViewModel.foregroundColor.toHex(),
+                color: memoViewModel.foregroundColor.toRgba(),
                 fontSize: `${memoViewModel.fontSize / 10}em`, lineHeight: "1.0",
                 border: "none", background: "transparent", resize: "none", fontFamily: "inherit",
                 textAlign: memoViewModel.horizontalAlign,
@@ -218,7 +218,7 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
         const memoLines = memoViewModel.memo.split("\n");
         const baseStyle: React.CSSProperties = {
             width: "100%", height: "100%",
-            color: memoViewModel.foregroundColor.toHex(),
+            color: memoViewModel.foregroundColor.toRgba(),
             fontSize: `${memoViewModel.fontSize / 10}em`, lineHeight: "1.0",
             border: "none", background: "transparent", resize: "none", fontFamily: "inherit",
             display: "flex", flexDirection: "column",
@@ -279,7 +279,7 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
     const stickyStyle: React.CSSProperties = {
         width: `${currentRectangle.width}px`,
         height: `${currentRectangle.height}px`,
-        backgroundColor: memoViewModel.backgroundColor.toHex(),
+        backgroundColor: memoViewModel.backgroundColor.toRgba(),
         // "&::-webkit-scrollbar": { display: "none" },
         msOverflowStyle: "none", scrollbarWidth: "none"
     };

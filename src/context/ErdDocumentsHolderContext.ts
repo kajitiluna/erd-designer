@@ -129,7 +129,7 @@ export class ErdDocumentsHolder {
         updatingColumnModels: ColumnModel[],
         columnShareModelStorage: ColumnShareModelStorage
     ) {
-        this.doUpdate(previous => previous.updateTableViewModel(
+        this.doUpdate(previous => previous.updateTableViewWithColumns(
             updatingModel, updatingColumnModels, columnShareModelStorage
         ));
     }
