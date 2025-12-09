@@ -380,14 +380,12 @@ type CreateDefinition = NonNullable<Create["create_definitions"]>[number];
 type CreateColumnDefinition = Extract<CreateDefinition, { resource: 'column' }>;
 
 const loadCreateTableDdl = (query: Create): ([TableBaseDefinition, null] | [null, LoadFailure]) => {
-    if ((query.table == null) || (query.table.length === 0)) {
-        return [null, fail("Table name is not specified in create table query.")];
-    }
-    if (query.table.length > 1) {
-        return [null, fail("Unsupported multiple table names in create table query.")];
+    const [tableObj, failure] = doFindTableObj(query);
+    if (failure != null) {
+        return [null, failure];
     }
 
-    const tableName = query.table?.[0].table || "";
+    const tableName = tableObj.table || "";
     if (tableName === "") {
         return [null, fail("Table name is not specified in create table query.")];
     }
@@ -476,6 +474,25 @@ const loadCreateTableDdl = (query: Create): ([TableBaseDefinition, null] | [null
         },
         null
     ];
+};
+
+const doFindTableObj = (query: Create): ([{ db: string | null; table: string }, null] | [null, LoadFailure]) => {
+    if (query.table == null) {
+        return [null, fail("Table name is not specified in create table query.")];
+    }
+
+    if (!Array.isArray(query.table)) {
+        return [query.table, null];
+    }
+
+    if (query.table.length === 0) {
+        return [null, fail("Table name is not specified in create table query.")];
+    }
+    if (query.table.length > 1) {
+        return [null, fail("Unsupported multiple table names in create table query.")];
+    }
+
+    return [query.table[0], null];
 };
 
 const loadCreateColumnDefinition = (
@@ -776,15 +793,10 @@ const loadCreateIndexDdl = (query: Create): (
     [{ tableName: string, indexDefinition: TableIndexDefinition }, null] | [null, LoadFailure]
 ) => {
 
-    if (query.table == null) {
-        return [null, fail("Table name is not specified in create table query.")];
+    const [tableObj, failure] = doFindTableObj(query);
+    if (failure != null) {
+        return [null, failure];
     }
-    if ((query.table.length > 1)) {
-        return [null, fail("Unsupported multiple table names in create table query.")];
-    }
-
-    // ライブラリの型定義と実際のオブジェクトの形式が異なるため、強制的に型アサーションを適用
-    const tableObj = query.table as unknown as { db: string; table: string };
 
     const tableName = tableObj.table || "";
     if (tableName === "") {
@@ -808,7 +820,7 @@ const loadCreateIndexDdl = (query: Create): (
                 + `create_definitions[${index}].column.column : ${JSON.stringify(column)}`)];
         }
 
-        const sortOrderType: SortOrderType = indexColumn.order_by?.toUpperCase() || "";
+        const sortOrderType = (indexColumn.order_by?.toUpperCase() || "") as SortOrderType;
         let nullsOrderType: NullsOrderType = "";
         if (("nulls" in indexColumn) && (indexColumn.nulls != null)) {
             const nullsValue = indexColumn.nulls as string;
@@ -822,7 +834,9 @@ const loadCreateIndexDdl = (query: Create): (
         indexColumns.push({ columnName, sortOrderType, nullsOrderType, });
     }
 
-    const indexName = query.index || "";
+    // TODO 現状、CREATE INDEX 文でスキーマ指定されたインデクスは読み込みできないので、スキーマは未対応
+    const indexName = ((query.index != null) && (typeof query.index === "object"))
+        ? query.index.name : (query.index || "") as string;
     const queryIndexType = query.index_type?.toUpperCase() || "";
     const usingIndexType = query.index_using?.type.toUpperCase() || "";
 
