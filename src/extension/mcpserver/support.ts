@@ -49,6 +49,10 @@ export type McpRegisterConfig = {
     tools: McpServerRegisterToolArgs<any>[];
 };
 
+export const DESCRIPTION_DOCUMENT_ID = "The unique identifier of the document to update. "
+    + "Can be obtained from 'erd-designer://documents' resource (list-documents) "
+    + "or from find-document-by-uri resource response.";
+
 export const colorValueSchema = z.string()
     .regex(/^#[0-9A-Fa-f]{6}$/, "Color must be in hex format (e.g., #FFFFFF).");
 

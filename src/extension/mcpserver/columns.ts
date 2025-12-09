@@ -4,7 +4,7 @@ import z from "zod";
 
 import { DocumentResource } from "~/extension/DocumentResource";
 import {
-    calculateIndexFromPosition, findDocumentAndTable, indent,
+    calculateIndexFromPosition, DESCRIPTION_DOCUMENT_ID, findDocumentAndTable, indent,
     initInvalidParams, initPositionSchema, initResourceNotFound, initResourceResponse,
     McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs,
     searchParameters, validatePhysicalName, validatePositiveNumber
@@ -261,7 +261,7 @@ const positionSchema = initPositionSchema("column", z.union([
 ]));
 
 const addColumnsToTableInputSchema = {
-    documentId: z.string().describe("The unique identifier of the document to update."),
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
     tableId: z.string().describe("The unique identifier of the table to update."),
     columns: z.array(
         z.object({
@@ -488,7 +488,7 @@ const updatingColumnModelSchema = {
 } as const;
 
 const updateColumnInputSchema = {
-    documentId: z.string().describe("The unique identifier of the document to update."),
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
     columnId: z.string().describe("The unique identifier of the column model to update."),
     column: z.union([
         z.object({
@@ -913,7 +913,7 @@ const mcpUpdateColumnShare = (
 };
 
 const updateColumnShareInputSchema = {
-    documentId: z.string().describe("The unique identifier of the document to update."),
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
     columnShareId: z.string().describe("The unique identifier of the column-share model to update."),
     columnShare: z.object({
         columnName: z.object({
@@ -1077,7 +1077,7 @@ const mcpReorderColumnsInTable = (
 };
 
 const reorderColumnsInTableInputSchema = {
-    documentId: z.string().describe("The unique identifier of the document to update."),
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
     tableId: z.string().describe("The unique identifier of the table to update."),
     reorders: z.array(z.union([
         z.object({
@@ -1210,7 +1210,7 @@ const mcpRemoveColumnsFromTable = (
 };
 
 const removeColumnsFromTableInputSchema = {
-    documentId: z.string().describe("The unique identifier of the document to update."),
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
     tableId: z.string().describe("The unique identifier of the table to update."),
     columnIds: z.array(z.string())
         .describe("An array of unique identifiers of the columns to be removed from the table.")

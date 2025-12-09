@@ -6,7 +6,7 @@ import { addColumnSchema, buildAddingColumnPairs } from "~/extension/mcpserver/c
 import DocumentBudget, { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
 import { toRelationSummary } from "~/extension/mcpserver/relations";
 import {
-    colorValueSchema, McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs,
+    colorValueSchema, DESCRIPTION_DOCUMENT_ID, McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs,
     findDocumentAndTable, initInvalidParams, initResourceNotFound, initResourceResponse,
     searchParameters, validatePhysicalName
 } from "~/extension/mcpserver/support";
@@ -602,7 +602,7 @@ const mcpAddTable = (documentResource: DocumentResource): McpServerRegisterToolA
 };
 
 const addTableInputSchema = {
-    documentId: z.string().describe("The unique identifier of the document to update."),
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
     table: z.object({
         tableName: z.object({
             physical: z.string()
@@ -753,7 +753,7 @@ const mcpUpdateTable = (documentResource: DocumentResource): McpServerRegisterTo
 }
 
 const updateTableInputSchema = {
-    documentId: z.string().describe("The unique identifier of the document to update."),
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
     tableId: z.string().describe("The unique identifier of the table to update."),
     table: z.object({
         tableName: z.object({

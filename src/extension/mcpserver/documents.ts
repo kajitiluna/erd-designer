@@ -4,7 +4,7 @@ import z from "zod";
 import { DocumentResource } from "~/extension/DocumentResource";
 import DocumentBudget, { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
 import {
-    initResourceNotFound, initResourceResponse,
+    DESCRIPTION_DOCUMENT_ID, initResourceNotFound, initResourceResponse,
     McpRegisterConfig, McpServerRegisterResourceArgs, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs
 } from "~/extension/mcpserver/support";
 import { toTableSummary } from "~/extension/mcpserver/tables";
@@ -335,7 +335,7 @@ const mcpUpdateDocument = (
 };
 
 const updateDocumentInputSchema = {
-    documentId: z.string().describe("The unique identifier of the document to update."),
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
     document: z.object({
         documentName: z.string().optional()
             .describe("The new name for the document."),

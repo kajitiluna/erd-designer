@@ -4,7 +4,7 @@ import z from "zod";
 import { DocumentResource } from "~/extension/DocumentResource";
 import DocumentBudget, { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
 import {
-    initResourceNotFound, initResourceResponse,
+    DESCRIPTION_DOCUMENT_ID, initResourceNotFound, initResourceResponse,
     McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs
 } from "~/extension/mcpserver/support";
 import PerspectiveModel from "~/models/PerspectiveModel";
@@ -172,9 +172,7 @@ const mcpAddPerspective = (
 };
 
 const addPerspectiveInputSchema = {
-    documentId: z.string()
-        .describe("The documentId of the ERD document to which the perspective will be added. "
-            + "This documentId can be obtained via 'erd-designer://documents' resource."),
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
     perspective: z.object({
         perspectiveName: z.string().min(1)
             .describe("The name of the perspective to be added. Must be a non-empty string."),
@@ -265,8 +263,7 @@ const mcpUpdatePerspective = (
 };
 
 const updatePerspectiveInputSchema = {
-    documentId: z.string()
-        .describe("The unique identifier of the ERD document containing the perspective to update."),
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
     perspectiveId: z.string()
         .describe("The unique identifier of the perspective to update."),
     updating: z.object({
@@ -362,8 +359,7 @@ const mcpRemovePerspective = (
 };
 
 const removePerspectiveInputSchema = {
-    documentId: z.string()
-        .describe("The unique identifier of the ERD document containing the perspective to delete."),
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
     perspectiveId: z.string()
         .describe("The unique identifier of the perspective to delete.")
 } as const;

@@ -51,6 +51,42 @@ This tool is inspired by [ERMaster](https://ermaster.sourceforge.net/index.html)
 - Group related tables by feature or module
 - Apply colors to tables and memos for visual organization
 
+### Use MCP Server (Experimental)
+
+ERD Designer includes an experimental MCP (Model Context Protocol) Server that allows AI assistants to interact with your ERD files.
+
+#### Setup
+
+1. **Enable MCP Server in VS Code Settings**
+   - Open VS Code Settings (Cmd+, on macOS)
+   - Search for "ERD Designer"
+   - Check "Enable MCP Server"
+
+2. **Configure MCP Server**
+   - Create or edit `.vscode/mcp.json` in your workspace
+   - Add the following configuration:
+   ```json
+   {
+     "servers": {
+       "erd-designer-mcp": {
+         "type": "http",
+         "url": "http://localhost:53753/mcp"
+       }
+     }
+   }
+   ```
+
+3. **Start Using**
+   - Once configured, AI assistants with MCP support can access and modify your ERD files
+   - The server runs locally on port 53753 when enabled
+
+#### Important Notes
+
+- This feature is experimental and subject to change
+- The MCP Server only runs when VS Code is active
+- Only ERD files currently open in VS Code can be accessed and modified
+- Ensure the port 53753 is not blocked by firewall settings
+
 ## Documentation
 
 For detailed documentation and advanced features, please visit the [Wiki](https://github.com/kajitiluna/erd-designer/wiki).
