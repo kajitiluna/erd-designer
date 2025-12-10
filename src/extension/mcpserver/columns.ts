@@ -247,7 +247,7 @@ export const addColumnSchema = z.union([
             .describe("The definition of the new column share to create the new column from scratch."),
         ...addingColumnModelSchema
     }).describe("The columns to add to the table based on a new column share.")
-])
+]);
 
 export const buildAddingColumnPairs = (erdBudget: DocumentBudget, columns: z.infer<typeof addColumnSchema>[]) => {
     return zipPairs(() =>
@@ -542,7 +542,7 @@ const initCallbackForUpdatingColumn = (
         } else if ("columnShare" in updatingColumn) {
             const nextColumnShare = buildColumnShare(erdBudget, updatingColumn.columnShare);
 
-            nextColumnShareId = nextColumnShare.columnShareModelId
+            nextColumnShareId = nextColumnShare.columnShareModelId;
             nextColumnType = nextColumnShare.columnType;
             addingColumnShares.push(nextColumnShare);
         }

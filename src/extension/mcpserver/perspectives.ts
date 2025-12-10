@@ -101,7 +101,7 @@ const mcpFindPerspectiveById = (documentResource: DocumentResource): McpServerRe
         },
         initCallbackForFind(documentResource)
     ] as const;
-}
+};
 
 const initCallbackForFind = (documentResource: DocumentResource): ReadResourceTemplateCallback => {
     return async (url, variables) => {

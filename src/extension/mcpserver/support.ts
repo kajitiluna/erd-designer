@@ -183,4 +183,4 @@ export const indent = (text: string, indentation: number) => {
 
     const indentString = "  ".repeat(indentation);
     return text.split("\n").map(line => indentString + line).join("\n");
-}
+};

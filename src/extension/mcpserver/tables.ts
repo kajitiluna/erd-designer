@@ -750,7 +750,7 @@ const mcpUpdateTable = (documentResource: DocumentResource): McpServerRegisterTo
         },
         initCallbackForUpdateTable(documentResource)
     ] as const;
-}
+};
 
 const updateTableInputSchema = {
     documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
