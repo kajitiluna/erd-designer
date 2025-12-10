@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-
+import * as cheerio from 'cheerio';
 import { DocumentResource } from '~/extension/DocumentResource';
 import { RectangleType } from '~/extension/mcpserver/DocumentBudget';
 
@@ -168,35 +168,37 @@ const initWebViewHtml = (context: vscode.ExtensionContext, webview: vscode.Webvi
     ].join('; ');
 
     // HTMLを書き換え：VSCode API とCSPを追加、パスを置換
-    htmlContent = htmlContent
-        // 元のscriptタグを削除
-        .replace(/<script[^>]*src="[^"]*"[^>]*><\/script>/g, '')
-        // 元のlinkタグを削除
-        .replace(/<link[^>]*rel="stylesheet"[^>]*>/g, '')
-        // CSPを追加
-        .replace('</head>', `
-    <meta http-equiv="Content-Security-Policy" content="${cspContent};">
-    <link rel="stylesheet" href="${styleUri}">
-    <style nonce="${nonce}">
-        :root {
-            font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif !important;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-        body {
-            font-size: 16px !important;
-        }
-    </style>
-    <script nonce="${nonce}">
-        const vscodeApi = acquireVsCodeApi();
-        window.vscodeApi = vscodeApi;
+    // 安全なHTMLパースとタグ削除のためcheerioを使用
+    const $ = cheerio.load(htmlContent);
+    // script[src]タグを削除
+    $('script[src]').remove();
+    // link[rel="stylesheet"]タグを削除
+    $('link[rel="stylesheet"]').remove();
+    // headに必要な要素を追加
+    $('head').append(`
+        <meta http-equiv="Content-Security-Policy" content="${cspContent};">
+        <link rel="stylesheet" href="${styleUri}">
+        <style nonce="${nonce}">
+            :root {
+                font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif !important;
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
+            }
+            body {
+                font-size: 16px !important;
+            }
+        </style>
+        <script nonce="${nonce}">
+            const vscodeApi = acquireVsCodeApi();
+            window.vscodeApi = vscodeApi;
 
-        document.addEventListener('contextmenu', (event) => {
-            event.preventDefault();
-        });
-    </script>
-    <script type="module" nonce="${nonce}" src="${scriptUri}"></script>
-  </head>`);
+            document.addEventListener('contextmenu', (event) => {
+                event.preventDefault();
+            });
+        </script>
+        <script type="module" nonce="${nonce}" src="${scriptUri}"></script>
+    `);
+    htmlContent = $.html();
 
     return htmlContent;
 };

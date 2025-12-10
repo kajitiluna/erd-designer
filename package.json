@@ -90,7 +90,8 @@
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.5.2",
     "uuid": "^11.0.3",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "cheerio": "^1.1.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
