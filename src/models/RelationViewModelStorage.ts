@@ -226,6 +226,21 @@ export default class RelationViewModelStorage {
 
         return new RelationViewModelStorage(nextRelations);
     }
+
+    public equals(other: RelationViewModelStorage): boolean {
+        if (this.relationIdMap.size !== other.relationIdMap.size) {
+            return false;
+        }
+
+        for (const [relationId, model] of this.relationIdMap) {
+            const otherModel = other.relationIdMap.get(relationId);
+            if ((otherModel == null) || (!model.equals(otherModel))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }
 
 type ParentRelation = {

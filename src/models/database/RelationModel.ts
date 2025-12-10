@@ -1,5 +1,4 @@
 import { v4 as uuidV4 } from 'uuid';
-import { instanceToPlain } from 'class-transformer';
 
 import RelationPair from '~/models/database/RelationPair';
 import { PropertyNotExistsError } from '~/models/exceptions';
@@ -51,7 +50,17 @@ export default class RelationModel {
     }
 
     public toJSON(): Record<string, unknown> {
-        return instanceToPlain(this);
+        return {
+            relationModelId: this.relationModelId,
+            ...((this.relationName !== "") && { relationName: this.relationName }),
+            parentTableModelId: this.parentTableModelId,
+            parentCardinality: this.parentCardinality,
+            childTableModelId: this.childTableModelId,
+            childCardinality: this.childCardinality,
+            relationPairs: this.relationPairs.map(item => item.toJSON()),
+            onUpdateAction: this.onUpdateAction,
+            onDeleteAction: this.onDeleteAction
+        };
     }
 
     public static toObject(obj: object): RelationModel {
@@ -84,5 +93,44 @@ export default class RelationModel {
             onDeleteAction: (("onDeleteAction" in obj)
                 ? obj.onDeleteAction as TableReferenceActionType : "RESTRICT")
         });
+    }
+
+    public equals(other: RelationModel): boolean {
+        if (this.relationModelId !== other.relationModelId) {
+            return false;
+        }
+        if (this.relationName !== other.relationName) {
+            return false;
+        }
+        if (this.parentTableModelId !== other.parentTableModelId) {
+            return false;
+        }
+        if (this.parentCardinality !== other.parentCardinality) {
+            return false;
+        }
+        if (this.childTableModelId !== other.childTableModelId) {
+            return false;
+        }
+        if (this.childCardinality !== other.childCardinality) {
+            return false;
+        }
+
+        if (this.relationPairs.length !== other.relationPairs.length) {
+            return false;
+        }
+        for (let index = 0; index < this.relationPairs.length; index++) {
+            if (!this.relationPairs[index].equals(other.relationPairs[index])) {
+                return false;
+            }
+        }
+
+        if (this.onUpdateAction !== other.onUpdateAction) {
+            return false;
+        }
+        if (this.onDeleteAction !== other.onDeleteAction) {
+            return false;
+        }
+
+        return true;
     }
 }

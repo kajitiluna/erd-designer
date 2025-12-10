@@ -50,6 +50,10 @@ export default class ColumnShareModelStorage {
     }
 
     addModel(...columnShareModels: ColumnShareModel[]): ColumnShareModelStorage {
+        if (columnShareModels.length === 0) {
+            return this;
+        }
+
         const nextShareModelMap = new Map(this.columnShareModelMap);
         columnShareModels.forEach(model =>
             nextShareModelMap.set(model.columnShareModelId, model));
@@ -68,5 +72,20 @@ export default class ColumnShareModelStorage {
 
     copy(): ColumnShareModelStorage {
         return new ColumnShareModelStorage(new Map(this.columnShareModelMap));
+    }
+
+    public equals(other: ColumnShareModelStorage): boolean {
+        if (this.columnShareModelMap.size !== other.columnShareModelMap.size) {
+            return false;
+        }
+
+        for (const [key, value] of this.columnShareModelMap) {
+            const otherValue = other.columnShareModelMap.get(key);
+            if (otherValue == null || !value.equals(otherValue)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

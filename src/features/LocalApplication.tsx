@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React from "react";
 import { Container, Paper, Typography } from "@mui/material";
 
 import ErdDocument from "~/models/ErdDocument";
@@ -11,9 +11,9 @@ import exportExcelFormatSpecification from "~/features/spec/ExcelFormatSpecifica
 import download from "~/components/file-downloader";
 
 const LocalApplication = () => {
-    const [documentStorage, setDocumentStorage] = useState<ErdDocumentStorage | null>(null);
-    const [erdDocument, setErdDocument] = useState<ErdDocument | null>(null);
-    const [storageHandler, setStorageHandler] = useState<StorageHandler>({ handle: () => { } });
+    const [documentStorage, setDocumentStorage] = React.useState<ErdDocumentStorage | null>(null);
+    const [erdDocument, setErdDocument] = React.useState<ErdDocument | null>(null);
+    const [storageHandler, setStorageHandler] = React.useState<StorageHandler>({ handle: () => { } });
 
     if (documentStorage == null) {
         initializeErdDocumentDB().then(storage => setDocumentStorage(storage));

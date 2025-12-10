@@ -5,10 +5,14 @@
         "fulltext",
         "Gdrive",
         "kajitiluna",
+        "mcpserver",
+        "modelcontextprotocol",
         "officedocument",
         "openxmlformats",
+        "rdbms",
         "spgist",
         "spreadsheetml",
+        "streamable",
         "testrun",
 
         // sql-node-parser

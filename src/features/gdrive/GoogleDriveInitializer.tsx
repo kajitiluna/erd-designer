@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React from "react";
 import { Box, Button, CircularProgress, Stack, Typography } from "@mui/material";
 import { useSearchParams } from "react-router-dom";
 
@@ -15,8 +15,8 @@ type GoogleDriveInitializerProp = {
 };
 
 const GoogleDriveInitializer = ({ implicitToken, authorize, onInitialize }: GoogleDriveInitializerProp) => {
-    const [gdriveFolderId, setGdriveFolderId] = useState<string | null>(null);
-    const [erdDocument, setErdDocument] = useState<ErdDocument | null>(null);
+    const [gdriveFolderId, setGdriveFolderId] = React.useState<string | null>(null);
+    const [erdDocument, setErdDocument] = React.useState<ErdDocument | null>(null);
 
     const gdriveState = useGdriveStateParam();
 
@@ -28,7 +28,7 @@ const GoogleDriveInitializer = ({ implicitToken, authorize, onInitialize }: Goog
         setErdDocument(erdDocument);
     };
 
-    useEffect(() => {
+    React.useEffect(() => {
         const currentDate = new Date().getTime();
         if (implicitToken.expiresAt < currentDate) {
             return;
@@ -50,7 +50,7 @@ const GoogleDriveInitializer = ({ implicitToken, authorize, onInitialize }: Goog
     }, [implicitToken, gdriveState, authorize, onInitialize]);
 
     // GoogleDrive にファイルを新規作成する
-    useEffect(() => {
+    React.useEffect(() => {
         if ((erdDocument == null) || (gdriveFolderId == null)) {
             return;
         }

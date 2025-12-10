@@ -11,7 +11,7 @@ import ErdRelationPathView, { ErdRelationTooltipRef } from "~/features/canvas/Er
 import ErdTableView, { ERD_TABLE_VIEW_CLASS_NAME } from "~/features/canvas/ErdTableView";
 import {
     CANVAS_AREA, CARDINALITY_MARKER, DRAWABLE_AREA,
-    getLogicalMousePosition, toNextOrthogonalLines, withMultiSelectKey
+    getLogicalMousePosition, getScroll, toNextOrthogonalLines, withMultiSelectKey
 } from "~/features/canvas/support";
 import RelationEditView from "~/features/editor/RelationEditView";
 import TableEditView from "~/features/editor/TableEditView";
@@ -24,6 +24,7 @@ import StickyMemoView, { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/Stic
 import { LocalSetting, LocalSettingContext } from "~/context/LocalSettingContext";
 import PerspectiveModel from "~/models/PerspectiveModel";
 import PerspectiveSettingView from "~/features/editor/PerspectiveSettingView";
+import ErdDocument from "~/models/ErdDocument";
 
 type RectangleArea = {
     tableRectangles: Map<string, RectangleViewModel>,
@@ -281,6 +282,18 @@ const ErdCanvas = () => {
         // Canvas 描画領域の初期化
         const rectangleArea = initRectangleArea(erdCanvas, displayScale);
         setRectangleArea(rectangleArea);
+
+        if (rectangleArea.tableRectangles.size === 0) {
+            return;
+        }
+
+        // 描画変更をイベント通知 (VSCode 拡張機能側で利用できるよう、VsCodeExtensionApplication にて制御する)
+        const customEvent = new CustomEvent("canvasRectanglesDrawn", {
+            detail: {
+                tableRectangles: rectangleArea.tableRectangles
+            }
+        });
+        window.dispatchEvent(customEvent);
     }, [erdDocument.lastUpdatedAt, displayScale, dragState.status, currentPerspective]);
 
     // // リレーションの線情報を更新
@@ -342,6 +355,29 @@ const ErdCanvas = () => {
 
         return initEffectOfKeyDownOnCanvas(handlers);
     }, [editAction.editType, selectState, dispatchSelectAction, dispatchEditMode, documentsHolder]);
+
+    // 外部からの変更を Canvas の表示に反映する
+    React.useEffect(() => {
+        const handleExternalDocumentChange = (event: Event) => {
+            const customEvent = event as CustomEvent;
+            const eventDetail = customEvent.detail;
+            if (!("erdDocument" in eventDetail)) {
+                console.warn(`Unexpected event detail structure: ${JSON.stringify(eventDetail)}`);
+                return;
+            }
+
+            const erdDocument = eventDetail.erdDocument as ErdDocument;
+            documentsHolder.update(erdDocument);
+            console.info("ErdCanvas: External document change has been applied.");
+        };
+
+        window.addEventListener("externalDocumentChanged", handleExternalDocumentChange);
+
+        return () => {
+            window.removeEventListener("externalDocumentChanged", handleExternalDocumentChange);
+        };
+    }, [documentsHolder]);
+
 
     const canvasStyle = initCanvasStyle(displayScale);
     const svgStyle: React.CSSProperties = {
@@ -691,26 +727,44 @@ const initRectangleArea = (erdCanvas: HTMLDivElement, displayScale: number) => {
 
         const tableElements = element.getElementsByClassName(ERD_TABLE_VIEW_CLASS_NAME);
         if ((tableElements != null) && (tableElements.length > 0)) {
-            tableRectangles.set(tableElements[0].id, initRectangleWithoutScale(tableElements[0], displayScale));
+            const rectangle = initRectangleWithoutScale(tableElements[0], erdCanvas, displayScale);
+            tableRectangles.set(tableElements[0].id, rectangle);
         }
 
         const memoElements = element.getElementsByClassName(ERD_MEMO_VIEW_CLASS_NAME);
         if ((memoElements != null) && (memoElements.length > 0)) {
-            memoRectangles.set(memoElements[0].id, initRectangleWithoutScale(memoElements[0], displayScale));
+            const rectangle = initRectangleWithoutScale(memoElements[0], erdCanvas, displayScale)
+            memoRectangles.set(memoElements[0].id, rectangle);
         }
     });
 
     return { tableRectangles, memoRectangles };
 };
 
-const initRectangleWithoutScale = (element: Element, displayScale: number) => {
-    const rectangle = element.getBoundingClientRect();
+const initRectangleWithoutScale = (element: Element, erdCanvas: HTMLDivElement, displayScale: number) => {
+    const elementRect = element.getBoundingClientRect();
+    const canvasRect = erdCanvas.getBoundingClientRect();
+    const { scrollX, scrollY } = getScroll();
+
+    // viewport上の絶対位置
+    const elementAbsoluteLeft = elementRect.left + scrollX;
+    const elementAbsoluteTop = elementRect.top + scrollY;
+    const canvasAbsoluteLeft = canvasRect.left + scrollX;
+    const canvasAbsoluteTop = canvasRect.top + scrollY;
+
+    // Canvas の中心位置（transform適用後の表示サイズでの中心）
+    const canvasCenterX = canvasAbsoluteLeft + canvasRect.width / 2;
+    const canvasCenterY = canvasAbsoluteTop + canvasRect.height / 2;
+
+    // Canvas の中心からの相対位置（transform適用後のピクセル値）
+    const relativeToCenterX = elementAbsoluteLeft - canvasCenterX;
+    const relativeToCenterY = elementAbsoluteTop - canvasCenterY;
 
     return new RectangleViewModel({
-        positionX: (rectangle.left + window.scrollX - DRAWABLE_AREA.width / 2) / displayScale,
-        positionY: (rectangle.top + window.scrollY - DRAWABLE_AREA.height / 2) / displayScale,
-        width: rectangle.width / displayScale,
-        height: rectangle.height / displayScale
+        positionX: relativeToCenterX / displayScale,
+        positionY: relativeToCenterY / displayScale,
+        width: elementRect.width / displayScale,
+        height: elementRect.height / displayScale
     });
 };
 
@@ -745,26 +799,28 @@ const findMouseCursorIcon = (editMode: EditMode) => {
 
 const initEffectOfScrollOnCanvas = (displayScale: number) => {
     const moveEdge = () => {
+        const { scrollX, scrollY } = getScroll();
+
         const leftEdge = (DRAWABLE_AREA.width - CANVAS_AREA.width * displayScale) / 2;
         const rightEdge = (DRAWABLE_AREA.width + CANVAS_AREA.width * displayScale) / 2 - window.innerWidth;
         const topEdge = (DRAWABLE_AREA.height - CANVAS_AREA.height * displayScale) / 2;
         const bottomEdge = (DRAWABLE_AREA.height + CANVAS_AREA.height * displayScale) / 2 - window.innerHeight;
 
         let modifyScroll = false;
-        let nextScrollX = window.scrollX;
-        let nextScrollY = window.scrollY;
+        let nextScrollX = scrollX;
+        let nextScrollY = scrollY;
 
-        if (window.scrollX < leftEdge) {
+        if (scrollX < leftEdge) {
             modifyScroll = true;
             nextScrollX = leftEdge;
-        } else if (window.scrollX > rightEdge) {
+        } else if (scrollX > rightEdge) {
             modifyScroll = true;
             nextScrollX = rightEdge;
         }
-        if (window.scrollY < topEdge) {
+        if (scrollY < topEdge) {
             modifyScroll = true;
             nextScrollY = topEdge;
-        } else if (window.scrollY > bottomEdge) {
+        } else if (scrollY > bottomEdge) {
             modifyScroll = true;
             nextScrollY = bottomEdge;
         }
@@ -781,12 +837,15 @@ const initEffectOfScrollOnCanvas = (displayScale: number) => {
 };
 
 type KeyEventHandler = {
+
     isMatching: (event: KeyboardEvent) => boolean,
+
     /**
      * Handles the keyboard event. 
      * 
-     * @returns {boolean} - Return `true` to prevent event propagation (e.g., calling `event.preventDefault()` and `event.stopPropagation()`).
-     *                     Return `false` to allow the event to propagate further.
+     * @returns {boolean}
+     *      Return `true` to prevent event propagation (e.g., calling `event.preventDefault()` and `event.stopPropagation()`).
+     *      Return `false` to allow the event to propagate further.
      */
     handle: () => boolean
 };

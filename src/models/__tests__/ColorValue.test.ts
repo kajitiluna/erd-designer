@@ -38,23 +38,23 @@ describe('ColorValue', () => {
         test('should convert to rgba format with default alpha', () => {
             const color = new ColorValue({ red: 255, green: 128, blue: 64 });
 
-            expect(color.toHex()).toBe('rgba(255, 128, 64, 1)');
+            expect(color.toRgba()).toBe('rgba(255, 128, 64, 1)');
         });
 
         test('should convert to rgba format with custom alpha', () => {
             const color = new ColorValue({ red: 255, green: 128, blue: 64 });
 
-            expect(color.toHex(0.5)).toBe('rgba(255, 128, 64, 0.5)');
-            expect(color.toHex(0)).toBe('rgba(255, 128, 64, 0)');
-            expect(color.toHex(0.75)).toBe('rgba(255, 128, 64, 0.75)');
+            expect(color.toRgba(0.5)).toBe('rgba(255, 128, 64, 0.5)');
+            expect(color.toRgba(0)).toBe('rgba(255, 128, 64, 0)');
+            expect(color.toRgba(0.75)).toBe('rgba(255, 128, 64, 0.75)');
         });
 
         test('should handle edge case RGB values', () => {
             const black = new ColorValue({ red: 0, green: 0, blue: 0 });
             const white = new ColorValue({ red: 255, green: 255, blue: 255 });
 
-            expect(black.toHex()).toBe('rgba(0, 0, 0, 1)');
-            expect(white.toHex()).toBe('rgba(255, 255, 255, 1)');
+            expect(black.toRgba()).toBe('rgba(0, 0, 0, 1)');
+            expect(white.toRgba()).toBe('rgba(255, 255, 255, 1)');
         });
     });
 

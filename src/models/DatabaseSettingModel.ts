@@ -71,4 +71,20 @@ export default class DatabaseSettingModel {
             version: CURRENT_VERSION
         });
     }
+
+    public equals(other: DatabaseSettingModel): boolean {
+        if (this.databaseType !== other.databaseType) {
+            return false;
+        }
+        if (this.columnTypes.length !== other.columnTypes.length) {
+            return false;
+        }
+        for (let index = 0; index < this.columnTypes.length; index++) {
+            if (!this.columnTypes[index].equals(other.columnTypes[index])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

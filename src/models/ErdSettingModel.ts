@@ -62,6 +62,19 @@ export default class ErdSettingModel {
         });
     }
 
+    public updatePerspective(updating: PerspectiveModel): ErdSettingModel {
+        const nextPerspectiveStorage = this.perspectiveModelStorage.updateModel(updating);
+        if (nextPerspectiveStorage === this.perspectiveModelStorage) {
+            return this;
+        }
+
+        return new ErdSettingModel({
+            displayStyle: this.displayStyle,
+            exportDdlSetting: this.exportDdlSetting,
+            perspectiveModelStorage: nextPerspectiveStorage
+        });
+    }
+
     public toJSON(): Record<string, unknown> {
         const perspectiveModels = this.perspectiveModelStorage.getModels().map(model => model.toJSON());
 
@@ -88,5 +101,19 @@ export default class ErdSettingModel {
             exportDdlSetting,
             perspectiveModelStorage: new PerspectiveModelStorage(perspectiveModels)
         });
+    }
+
+    public equals(other: ErdSettingModel): boolean {
+        if (!this.displayStyle.equals(other.displayStyle)) {
+            return false;
+        }
+        if (!this.exportDdlSetting.equals(other.exportDdlSetting)) {
+            return false;
+        }
+        if (!this.perspectiveModelStorage.equals(other.perspectiveModelStorage)) {
+            return false;
+        }
+
+        return true;
     }
 }

@@ -58,6 +58,15 @@ export class ErdDocumentsHolder {
         this.updateDocument(this.erdDocuments, this.cursor - 1);
     }
 
+    public update(updating: ErdDocument) {
+        const previous: ErdDocument = this.current();
+        if (previous.equals(updating)) {
+            return;
+        }
+
+        this.doUpdate(() => updating);
+    }
+
     private doUpdate(updateFunction: (erdDocument: ErdDocument) => ErdDocument) {
         const previous: ErdDocument = this.current();
         const next = updateFunction(previous);
@@ -120,7 +129,7 @@ export class ErdDocumentsHolder {
         updatingColumnModels: ColumnModel[],
         columnShareModelStorage: ColumnShareModelStorage
     ) {
-        this.doUpdate(previous => previous.updateTableViewModel(
+        this.doUpdate(previous => previous.updateTableViewWithColumns(
             updatingModel, updatingColumnModels, columnShareModelStorage
         ));
     }

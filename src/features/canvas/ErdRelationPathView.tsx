@@ -1,4 +1,4 @@
-import React, { JSX, MouseEvent, useImperativeHandle } from "react";
+import React from "react";
 import {
     Button, ButtonGroup, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
     Divider, IconButton, Popover, Stack, Tooltip
@@ -31,7 +31,7 @@ import LineOrthogonalIcon from "~/components/icons/LineOrthogonalIcon";
 import { OrthogonalDirection } from "~/models/LineViewModel";
 
 export type ErdRelationTooltipRef = {
-    svgElements: () => { tableIds: string[], path: JSX.Element }[]
+    svgElements: () => { tableIds: string[], path: React.JSX.Element }[]
 };
 
 type ErdRelationPathViewProps = {
@@ -53,7 +53,7 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
     const [deletingRelation, setDeletingRelation] = React.useState<RelationViewModel | null>(null);
     const [lineEditElement, setLineEditElement] = React.useState<HTMLElement | null>(null);
 
-    const handleOpenEditDialog = (event: MouseEvent, relationView: RelationViewModel) => {
+    const handleOpenEditDialog = (event: React.MouseEvent, relationView: RelationViewModel) => {
         if (editMode !== EditModeType.SELECT) {
             return;
         }
@@ -205,20 +205,20 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         );
     }).find(tooltip => (tooltip != null)) ?? (<></>);
 
-    useImperativeHandle(ref, () => {
+    React.useImperativeHandle(ref, () => {
         return {
             svgElements: () => [...straightLinePaths, ...orthogonalLinePaths]
         };
     }, [straightLinePaths, orthogonalLinePaths]);
 
-    const handleDeleteRelation = (event: MouseEvent, relationView: RelationViewModel) => {
+    const handleDeleteRelation = (event: React.MouseEvent, relationView: RelationViewModel) => {
         event.stopPropagation();
 
         documentsHolder.deleteRelation(relationView.relationId);
         setDeletingRelation(null);
     };
 
-    const handleCloseDeleteDialog = (event: MouseEvent) => {
+    const handleCloseDeleteDialog = (event: React.MouseEvent) => {
         event.stopPropagation();
         setDeletingRelation(null);
     };
@@ -255,7 +255,7 @@ type Point = { x: number, y: number };
 const useStraightLineView = (
     relationViews: RelationViewModel[], rectangleMap: Map<string, RectangleViewModel>,
     setClickedPosition: (position: { x: number, y: number }) => void,
-    handleOpenEditDialog: (event: MouseEvent, relationView: RelationViewModel) => void,
+    handleOpenEditDialog: (event: React.MouseEvent, relationView: RelationViewModel) => void,
     onDragAction: (dragAction: DragAction) => void
 ) => {
 
@@ -346,7 +346,7 @@ const useStraightLineView = (
             .map((value, index) => [value, relationEdges[index + 1]]);
 
         const relationLineSegments = relationLinePairs.map((pair, index) => {
-            const baseSvgPath: JSX.Element = initBaseSvgPath(relationView, index, pair);
+            const baseSvgPath: React.JSX.Element = initBaseSvgPath(relationView, index, pair);
             const drawingLine: string = initDrawingLine(relationView, index, pair);
 
             return { baseSvgPath, drawingLine };
@@ -371,7 +371,7 @@ const useStraightLineView = (
             return (<></>);
         }
 
-        const handleDragStart = (event: MouseEvent) => {
+        const handleDragStart = (event: React.MouseEvent) => {
             // 左クリック以外は無視
             if (event.button !== 0) {
                 return;
@@ -391,7 +391,7 @@ const useStraightLineView = (
         };
 
         const initActiveDragModification = (majorChanging: boolean) => {
-            return (event: MouseEvent) => {
+            return (event: React.MouseEvent) => {
                 if (dragState.status === "none") {
                     return;
                 }
@@ -410,7 +410,7 @@ const useStraightLineView = (
             };
         };
 
-        const handleDragEnd = (event: MouseEvent) => {
+        const handleDragEnd = (event: React.MouseEvent) => {
             // 左クリック以外は無視
             if (event.button !== 0) {
                 return;
@@ -425,7 +425,7 @@ const useStraightLineView = (
             onDragAction({ type: "clear" });
         };
 
-        const handleDoubleClick = (event: MouseEvent) => {
+        const handleDoubleClick = (event: React.MouseEvent) => {
             // 左クリック以外は無視
             if (event.button !== 0) {
                 return;
@@ -480,7 +480,7 @@ const useStraightLineView = (
     };
 
     const initHandleDragEdgeStart = (relationId: string, index: number) => {
-        return (event: MouseEvent) => {
+        return (event: React.MouseEvent) => {
             // 左クリック以外は無視
             if (event.button !== 0) {
                 return;
@@ -547,7 +547,7 @@ const useStraightLineView = (
             + ` L ${childEdge.x + DRAWABLE_AREA.width / 2},${childEdge.y + DRAWABLE_AREA.height / 2}`;
 
         const initActiveDragModification = (majorChanging: boolean) => {
-            return (event: MouseEvent) => {
+            return (event: React.MouseEvent) => {
                 event.stopPropagation();
 
                 if (selectState.edgeId == null) {
@@ -558,7 +558,7 @@ const useStraightLineView = (
             };
         };
 
-        const handleDragEnd = (event: MouseEvent) => {
+        const handleDragEnd = (event: React.MouseEvent) => {
             // 左クリック以外は無視
             if (event.button !== 0) {
                 return;
@@ -629,7 +629,7 @@ const useStraightLineView = (
             path: (
                 <g key={`relation-line_${relationView.relationId}`}>
                     <path d={lineSegment.drawingPath} fill="none"
-                        stroke={lineViewModel.color.toHex()}
+                        stroke={lineViewModel.color.toRgba()}
                         strokeWidth={lineViewModel.strokeWidth}
                         markerStart={parentMarker} markerEnd={childMarker}
                         className={initPathCss(relationView, selected)} />
@@ -716,7 +716,7 @@ const initOrthogonalLine = (
 const useOrthogonalLine = (
     relationViews: RelationViewModel[], rectangleMap: Map<string, RectangleViewModel>,
     setClickedPosition: (position: { x: number, y: number }) => void,
-    handleOpenEditDialog: (event: MouseEvent, relationView: RelationViewModel) => void,
+    handleOpenEditDialog: (event: React.MouseEvent, relationView: RelationViewModel) => void,
     onDragAction: (dragAction: DragAction) => void
 ) => {
     const { editMode } = React.useContext(EditModeContext);
@@ -764,7 +764,7 @@ const useOrthogonalLine = (
                 return (<></>);
             }
 
-            const handleDragStart = (event: MouseEvent) => {
+            const handleDragStart = (event: React.MouseEvent) => {
                 // 左クリック以外は無視
                 if (event.button !== 0) {
                     return;
@@ -783,7 +783,7 @@ const useOrthogonalLine = (
                 onDragAction({ type: "start_dragging", start: mousePosition });
             };
 
-            const handleDragEnd = (event: MouseEvent) => {
+            const handleDragEnd = (event: React.MouseEvent) => {
                 // 左クリック以外は無視
                 if (event.button !== 0) {
                     return;
@@ -797,7 +797,7 @@ const useOrthogonalLine = (
                 onDragAction({ type: "clear" });
             };
 
-            const handleDoubleClick = (event: MouseEvent) => {
+            const handleDoubleClick = (event: React.MouseEvent) => {
                 // 左クリック以外は無視
                 if (event.button !== 0) {
                     return;
@@ -833,7 +833,7 @@ const useOrthogonalLine = (
             path: (
                 <g key={`relation-line_${relationView.relationId}`}>
                     <path d={drawingLine} fill="none"
-                        stroke={relationView.lineViewModel.color.toHex()}
+                        stroke={relationView.lineViewModel.color.toRgba()}
                         strokeWidth={relationView.lineViewModel.strokeWidth}
                         markerStart={toMarkerId(relationModel.parentCardinality)}
                         markerEnd={toMarkerId(relationModel.childCardinality)}
@@ -889,7 +889,7 @@ const calculateRectangleEdge = (rectangle: RectangleViewModel, dualPoint: Point)
     return { edge, position };
 };
 
-const handleClickIgnored = (event: MouseEvent) => {
+const handleClickIgnored = (event: React.MouseEvent) => {
     // 左クリック以外は無視
     if (event.button !== 0) {
         return;

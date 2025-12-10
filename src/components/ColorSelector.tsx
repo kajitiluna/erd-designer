@@ -1,4 +1,4 @@
-import { MouseEvent, useState } from "react";
+import React from "react";
 import { Box, IconButton, Popover, Stack } from "@mui/material";
 import CircleIcon from '@mui/icons-material/Circle';
 
@@ -13,7 +13,7 @@ type ColorSelectorProps = {
 
 const ColorSelector = ({ color = ColorValue.WHITE, shape = "circle", callback }: ColorSelectorProps) => {
 
-    const [anchorElement, setAnchorElement] = useState<HTMLButtonElement | HTMLDivElement | null>(null);
+    const [anchorElement, setAnchorElement] = React.useState<HTMLButtonElement | HTMLDivElement | null>(null);
     const innerCallback = (background: ColorValue, foreground: ColorValue) => {
         callback(background, foreground);
         setAnchorElement(null);
@@ -27,15 +27,15 @@ const ColorSelector = ({ color = ColorValue.WHITE, shape = "circle", callback }:
     const selectorButton = (shape === "circle") ? (
         <IconButton onMouseDown={handleClick}>
             <CircleIcon sx={{
-                color: color.toHex(),
-                stroke: color.reverseGrayscale().toHex(), strokeWidth: "1px"
+                color: color.toRgba(),
+                stroke: color.reverseGrayscale().toRgba(), strokeWidth: "1px"
             }} />
         </IconButton>
     ) : (
         <Box onClick={handleClick} sx={{
             height: "30px",
-            backgroundColor: color.toHex(),
-            border: `1px solid ${color.reverseGrayscale().toHex()}`,
+            backgroundColor: color.toRgba(),
+            border: `1px solid ${color.reverseGrayscale().toRgba()}`,
             borderRadius: "5px",
             margin: "10px"
         }} className={ColorSelectorStyle.colorSelector} />
@@ -69,7 +69,7 @@ const initColorPanel = (
 ) => {
 
     const selected = backgroundColor.equals(currentColor);
-    const handleClicked = (event: MouseEvent) => {
+    const handleClicked = (event: React.MouseEvent) => {
         event.stopPropagation();
         callback(backgroundColor, foregroundColor)
     };
@@ -80,7 +80,7 @@ const initColorPanel = (
         height: `${20 - (selected ? 4 * 2 : 0)}px`,
         border: (selected ? "4px solid rgba(73, 76, 218, 1)" : ""),
         borderRadius: "1px",
-        backgroundColor: backgroundColor.toHex(alpha)
+        backgroundColor: backgroundColor.toRgba(alpha)
     };
 
     return (

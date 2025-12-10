@@ -114,6 +114,39 @@ export default class MemoViewModelStorage {
             ((direction === "back") ? [memoId, ...nextBacks] : nextBacks)
         );
     }
+
+    public equals(other: MemoViewModelStorage): boolean {
+        if (this.memoIdMap.size !== other.memoIdMap.size) {
+            return false;
+        }
+
+        for (const [memoId, memo] of this.memoIdMap) {
+            const otherMemo = other.memoIdMap.get(memoId);
+            if ((otherMemo == null) || !memo.equals(otherMemo)) {
+                return false;
+            }
+        }
+
+        if (this.foregroundIds.length !== other.foregroundIds.length) {
+            return false;
+        }
+        for (let index = 0; index < this.foregroundIds.length; index++) {
+            if (this.foregroundIds[index] !== other.foregroundIds[index]) {
+                return false;
+            }
+        }
+
+        if (this.backgroundIds.length !== other.backgroundIds.length) {
+            return false;
+        }
+        for (let index = 0; index < this.backgroundIds.length; index++) {
+            if (this.backgroundIds[index] !== other.backgroundIds[index]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }
 
 const removeElement = <TYPE>(array: TYPE[] | readonly TYPE[], index: number) => {

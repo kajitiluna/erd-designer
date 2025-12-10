@@ -11,6 +11,18 @@ export const CANVAS_AREA = { width: 25000, height: 25000 } as const;
 export const DRAWABLE_AREA = { width: CANVAS_AREA.width * 2, height: CANVAS_AREA.height * 2 } as const;
 
 /**
+ * ブラウザおよび WebView いずれで実行されている場合も適切なスクロール位置を取得する。
+ * 
+ * @returns  スクロール量
+ */
+export const getScroll = () => {
+    const scrollX = document.documentElement.scrollLeft || document.body.scrollLeft || window.scrollX || 0;
+    const scrollY = document.documentElement.scrollTop || document.body.scrollTop || window.scrollY || 0;
+
+    return { scrollX, scrollY };
+};
+
+/**
  * displayScale の表示拡大率を無視した、論理的な点座標を取得する。
  * なお、論理的な点座標とは、キャンバス中央を (0, 0) とした座標を指す。
  * 
@@ -19,9 +31,11 @@ export const DRAWABLE_AREA = { width: CANVAS_AREA.width * 2, height: CANVAS_AREA
  * @returns 
  */
 export const getLogicalMousePosition = (event: React.MouseEvent | MouseEvent, displayScale: number) => {
+    const { scrollX, scrollY } = getScroll();
+    
     const logicalPosition = {
-        x: (event.clientX + window.scrollX - DRAWABLE_AREA.width / 2) / displayScale,
-        y: (event.clientY + window.scrollY - DRAWABLE_AREA.height / 2) / displayScale
+        x: (event.clientX + scrollX - DRAWABLE_AREA.width / 2) / displayScale,
+        y: (event.clientY + scrollY - DRAWABLE_AREA.height / 2) / displayScale
     };
 
     const validatedX = Math.min(Math.max(CANVAS_AREA.width * (-1) / 2, logicalPosition.x), CANVAS_AREA.width / 2);

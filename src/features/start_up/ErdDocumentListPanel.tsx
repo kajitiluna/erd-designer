@@ -1,10 +1,11 @@
-import { useState } from "react";
+import React from "react";
 import {
     Box, Button, CircularProgress, Container,
     Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
     IconButton, List, ListItem, ListItemButton, ListItemText, Paper, Stack, Typography
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+
 import ErdDocumentStorage from "~/features/storage/ErdDocumentStorage";
 import ErdDocument from "~/models/ErdDocument";
 import ErdDocumentSummary from "~/features/storage/ErdDocumentSummary";
@@ -17,9 +18,9 @@ type ErdDocumentListPanelProp = {
 
 const ErdDocumentListPanel = ({ documentStorage, onOpenDocument }: ErdDocumentListPanelProp) => {
 
-    const [erdSummaries, setErdSummaries] = useState<ErdDocumentSummary[] | null>(null);
+    const [erdSummaries, setErdSummaries] = React.useState<ErdDocumentSummary[] | null>(null);
     // 削除対象として選択された ErdDocument のキー
-    const [deletingDocument, setDeletingDocument] = useState<ErdDocumentSummary | null>(null);
+    const [deletingDocument, setDeletingDocument] = React.useState<ErdDocumentSummary | null>(null);
 
     if (erdSummaries == null) {
         documentStorage.findAll().then(documents => setErdSummaries(documents));

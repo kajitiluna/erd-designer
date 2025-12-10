@@ -52,4 +52,14 @@ export default class ColumnGroupModel {
             description: ("description" in obj) ? obj.description as string : ""
         });
     }
+
+    public equals(other: ColumnGroupModel): boolean {
+        return (
+            (this.columnGroupId === other.columnGroupId)
+            && (this.groupName === other.groupName)
+            && (this.description === other.description)
+            && (this.columnModelIds.length === other.columnModelIds.length)
+            && this.columnModelIds.every((value, index) => (value === other.columnModelIds[index]))
+        );
+    }
 }

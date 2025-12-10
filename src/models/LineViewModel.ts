@@ -1,5 +1,3 @@
-import { instanceToPlain } from "class-transformer";
-
 import ColorValue from "~/models/ColorValue";
 import { PropertyNotExistsError } from "~/models/exceptions";
 
@@ -126,7 +124,12 @@ export default class LineViewModel {
     }
 
     public toJSON(): Record<string, unknown> {
-        return instanceToPlain(this);
+        return {
+            strokeWidth: this.strokeWidth,
+            edges: this.edges,
+            orthogonalLines: this.orthogonalLines,
+            color: this.color.toJSON()
+        };
     }
 
     public static toObject(obj: object): LineViewModel {

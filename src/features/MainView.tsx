@@ -1,4 +1,4 @@
-import { useReducer, useState } from "react";
+import React from "react";
 import { Box } from "@mui/material";
 
 import DisplayScaleContext from "~/context/DisplayScaleContext";
@@ -29,11 +29,11 @@ type ErdDocumentsHolderOptions = {
 
 const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) => {
 
-    const [holderProps, setHolderProps] = useState<ErdDocumentsHolderOptions>({ erdDocuments: [erdDocument], cursor: 0 });
-    const [selectState, dispatchSelectAction] = useReducer(reduceSelectAction, EMPTY_SELECT_STATE);
-    const [editMode, dispatchEditMode] = useReducer(initReduceEditMode(dispatchSelectAction), EditModeType.SELECT);
-    const [localSetting, dispatchLocalSetting] = useReducer(reduceLocalSetting, DEFAULT_LOCAL_SETTING);
-    const [scale, setScale] = useState<number>(1);
+    const [holderProps, setHolderProps] = React.useState<ErdDocumentsHolderOptions>({ erdDocuments: [erdDocument], cursor: 0 });
+    const [selectState, dispatchSelectAction] = React.useReducer(reduceSelectAction, EMPTY_SELECT_STATE);
+    const [editMode, dispatchEditMode] = React.useReducer(initReduceEditMode(dispatchSelectAction), EditModeType.SELECT);
+    const [localSetting, dispatchLocalSetting] = React.useReducer(reduceLocalSetting, DEFAULT_LOCAL_SETTING);
+    const [scale, setScale] = React.useState<number>(1);
 
     const handleOnSave = (documents: ErdDocument[], cursor: number) => {
         if ((cursor < 0) || (cursor >= documents.length)) {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React from "react";
 import {
     Alert, AlertTitle, Box, Button, Container, CssBaseline,
     Dialog, DialogActions, DialogContent, DialogTitle, Divider, Stack, Typography
@@ -22,7 +22,7 @@ type StartUpProp = {
 type DiagramName = "new_file" | "load_file" | ""
 
 const StartUp = ({ documentStorage, onOpenDocument }: StartUpProp) => {
-    const [openDialogName, setOpenDialogName] = useState<DiagramName>("");
+    const [openDialogName, setOpenDialogName] = React.useState<DiagramName>("");
 
     const handleCloseDialog = () => setOpenDialogName("");
 
@@ -103,9 +103,9 @@ const ELEMENT_FILE_ID = "input_erd_file";
 
 const LoadFileDialog = ({ isOpen, onLoadDocument, onClose }: LoadFileDialogProp) => {
 
-    const [fileName, setFileName] = useState("");
-    const [erdDocument, setErdDocument] = useState<ErdDocument | null>(null);
-    const [failureMessage, setFailureMessage] = useState("");
+    const [fileName, setFileName] = React.useState("");
+    const [erdDocument, setErdDocument] = React.useState<ErdDocument | null>(null);
+    const [failureMessage, setFailureMessage] = React.useState("");
 
     // ファイル選択画面を表示する
     const handleSelectFileDialog = () => {

@@ -1,4 +1,3 @@
-import { instanceToPlain } from 'class-transformer';
 import { PropertyNotExistsError } from '~/models/exceptions';
 
 type ColumnTypeOptions = {
@@ -82,7 +81,18 @@ export default class ColumnType {
     }
 
     public toJSON(): Record<string, unknown> {
-        return instanceToPlain(this);
+        return {
+            id: this.id,
+            name: this.name,
+            description: this.description,
+            baseQuery: this.baseQuery,
+            withPrecision: this.withPrecision,
+            withScale: this.withScale,
+            withUnsigned: this.withUnsigned,
+            withAutoIncrement: this.withAutoIncrement,
+            ...((this.foreignColumn != null) && { foreignColumn: this.foreignColumn.toJSON() }),
+            defaultValueCandidates: this.defaultValueCandidates
+        };
     }
 
     public static toObject(obj: object): ColumnType {
@@ -130,5 +140,25 @@ export default class ColumnType {
             foreignColumn: foreignColumn,
             defaultValueCandidates: defaultValueCandidates
         });
+    }
+
+    public equals(other: ColumnType): boolean {
+        return (
+            (this.id === other.id) &&
+            (this.name === other.name) &&
+            (this.description === other.description) &&
+            (this.baseQuery === other.baseQuery) &&
+            (this.withPrecision === other.withPrecision) &&
+            (this.withScale === other.withScale) &&
+            (this.withUnsigned === other.withUnsigned) &&
+            (this.withAutoIncrement === other.withAutoIncrement) &&
+            (
+                ((this.foreignColumn === null) && (other.foreignColumn === null))
+                || ((this.foreignColumn !== null) && (other.foreignColumn !== null) &&
+                    this.foreignColumn.equals(other.foreignColumn))
+            ) &&
+            (this.defaultValueCandidates.length === other.defaultValueCandidates.length) &&
+            this.defaultValueCandidates.every((value, index) => (value === other.defaultValueCandidates[index]))
+        );
     }
 }

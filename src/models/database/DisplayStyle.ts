@@ -39,4 +39,8 @@ export default class DisplayStyle {
 
         return DisplayStyle.BOTH;
     }
+
+    public equals(other: DisplayStyle): boolean {
+        return this.name === other.name;
+    }
 }

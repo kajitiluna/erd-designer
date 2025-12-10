@@ -1,13 +1,72 @@
 {
   "name": "erd-designer",
+  "displayName": "ERD Designer",
+  "description": "ERD Designer is a VSCode extension for visually designing database Entity Relationship Diagrams",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kajitiluna/erd-designer"
+  },
+  "icon": "images/icon.png",
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "engines": {
+    "vscode": "^1.105.0"
+  },
+  "publisher": "kajitiluna",
+  "version": "0.0.1",
+  "main": "./out/extension/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "erdDesigner.erdEditor",
+        "displayName": "ERD Designer",
+        "selector": [
+          {
+            "filenamePattern": "*.erd"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "configuration": {
+      "title": "ERD Designer",
+      "properties": {
+        "erdDesigner.mcpServer.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable MCP Server for ERD Designer functionality"
+        },
+        "erdDesigner.mcpServer.port": {
+          "type": "number",
+          "default": 53753,
+          "description": "MCP Server port number",
+          "minimum": 1024,
+          "maximum": 65535
+        }
+      }
+    }
+  },
   "homepage": "https://kajitiluna.github.io/erd-designer",
   "private": true,
-  "version": "0.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "clean": "rm -rf dist out *.vsix",
+    "watch:extension": "concurrently \"tsc -p ./tsconfig.extension.json --watch --noEmit\" \"tsc-alias -p ./tsconfig.extension.json --watch\"",
+    "build": "npm run clean && npm run build:webview && npm run check:extension && npm run bundle:extension",
+    "build:webview": "tsc -b && vite build",
+    "check:extension": "tsc -p ./tsconfig.extension.json --noEmit",
+    "bundle:extension": "esbuild src/extension/extension.ts --bundle --platform=node --format=cjs --target=node22 --external:vscode --tsconfig=tsconfig.extension.json --outfile=out/extension/extension.js --minify && echo '{\"type\":\"commonjs\"}' > out/package.json",
     "postbuild": "cp dist/index.html dist/404.html",
+    "package": "npm run package:extension",
+    "package:extension": "npm run package:prep && npx vsce package; npm run package:cleanup",
+    "package:prep": "test -f README.md && mv README.md README_repo.md.bak || true && cp README_extension.md README.md",
+    "package:cleanup": "test -f README_repo.md.bak && mv README_repo.md.bak README.md || true",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest",
@@ -17,11 +76,12 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@fontsource/roboto": "^5.1.1",
+    "@modelcontextprotocol/sdk": "^1.20.2",
     "@mui/icons-material": "^6.3.0",
     "@mui/material": "^6.3.0",
     "@react-oauth/google": "^0.12.1",
-    "class-transformer": "^0.5.1",
     "exceljs": "^4.4.0",
+    "express": "^5.1.0",
     "google-auth-library": "^9.15.1",
     "html2canvas": "^1.4.1",
     "node-sql-parser": "^5.3.10",
@@ -29,17 +89,25 @@
     "react-dom": "^19",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.5.2",
-    "uuid": "^11.0.3"
+    "uuid": "^11.0.3",
+    "zod": "^3.25.76",
+    "cheerio": "^1.1.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
+    "@types/express": "^5.0.5",
     "@types/node": "^22.10.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/vscode": "^1.105.0",
     "@vitejs/plugin-react-swc": "^3.5.0",
     "@vitest/coverage-v8": "^3.0.5",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.6.2",
+    "concurrently": "^9.2.1",
+    "esbuild": "^0.27.1",
     "eslint": "^9.17.0",
     "eslint-plugin-jest-dom": "^5.5.0",
     "eslint-plugin-react": "^7.37.3",
@@ -48,6 +116,7 @@
     "eslint-plugin-testing-library": "^7.1.1",
     "globals": "^15.14.0",
     "jsdom": "^26.0.0",
+    "tsc-alias": "^1.8.16",
     "typescript": "~5.6.2",
     "typescript-eslint": "^8.18.2",
     "vite": "^6.4.1",

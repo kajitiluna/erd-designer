@@ -109,4 +109,18 @@ export default class ColumnShareModel {
             createdAt: ("createdAt" in obj) ? toDateTime(obj.createdAt) : new Date()
         });
     }
+
+    public equals(other: ColumnShareModel): boolean {
+        return (
+            (this.columnShareModelId === other.columnShareModelId)
+            && (this.physicalName === other.physicalName)
+            && (this.logicalName === other.logicalName)
+            && (this.columnType.id === other.columnType.id)
+            && (this.precision === other.precision)
+            && (this.scale === other.scale)
+            && (this.unsigned === other.unsigned)
+            && (this.isArray === other.isArray)
+            && (this.description === other.description)
+        );
+    }
 }

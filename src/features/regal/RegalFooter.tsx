@@ -1,4 +1,5 @@
 import { Box, Link, Stack, Typography } from "@mui/material";
+
 import appVersionSetting from "~/config/AppVersionSetting";
 
 const RegalFooter = () => {
