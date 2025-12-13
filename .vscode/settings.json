@@ -14,6 +14,7 @@
         "spreadsheetml",
         "streamable",
         "testrun",
+        "vite",
 
         // sql-node-parser
         "astify",
