@@ -24,7 +24,6 @@ vitest.setup.ts
 **/.DS_Store
 index.html
 *.md
-!README.md
 *.bak
 *.log
 
