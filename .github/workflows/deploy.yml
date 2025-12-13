@@ -65,7 +65,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: vscode-extension
-          path: ./*.vsix
+          path: "*.vsix"
 
       - name: Push git tag
         run: |
@@ -107,6 +107,6 @@ jobs:
           path: ./
 
       - name: Publish VSCode Extension
-        run: npx vsce publish --packagePath *.vsix --pat ${VSCE_PAT}
+        run: npx @vscode/vsce publish --packagePath erd-designer-*.vsix --pat ${VSCE_PAT}
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
