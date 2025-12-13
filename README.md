@@ -27,6 +27,15 @@ By installing the ERD Designer app from the [Google Workspace Marketplace](https
 - If a file on Google Drive is shared, it can be viewed simultaneously in ERD Designer; however, simultaneous editing is not supported. Due to optimistic concurrency control, the content saved first will be preserved.
 - While the online tool allowed the Specification Document to be downloaded as an Excel file, the Google Drive App now exports it as a spreadsheet.
 
+## VSCode Extension
+
+ERD Designer is also available as a VSCode extension.  
+By installing the ERD Designer extension from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=kajitiluna.erd-designer) into your VSCode, you can save and edit `.erd` files in your local file system using ERD Designer.
+
+### Important Notes for the VSCode Extension
+
+- The MCP (Model Context Protocol) Server feature is currently experimental and under active development. Please be aware that functionality and behavior may change in future releases.
+
 ## Manual
 
 Please refer to the [Wiki](https://github.com/kajitiluna/erd-designer/wiki) for detailed documentation.
