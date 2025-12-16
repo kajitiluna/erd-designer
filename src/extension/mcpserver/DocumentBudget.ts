@@ -91,6 +91,10 @@ export default class DocumentBudget {
     public findRectangle(tableId: string): RectangleType | null {
         return this.rectangles.get(tableId) || null;
     }
+
+    public getRectangles(): Map<string, RectangleType> {
+        return new Map(this.rectangles);
+    }
 }
 
 export type RectangleType = {

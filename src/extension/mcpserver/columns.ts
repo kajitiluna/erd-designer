@@ -167,8 +167,7 @@ You can add columns by either referencing existing column-shares or creating new
 Each column can be positioned at a specific location within the table's column list.
 
 REQUEST:
-- documentId: The unique identifier of the ERD document containing the table.
-  Can be obtained from 'erd-designer://documents' resource.
+- documentId: ${DESCRIPTION_DOCUMENT_ID}
 - tableId: The unique identifier of the table to add columns to.
   Can be obtained from the tables list resource.
 - columns: An array of column specifications. Each column can be defined using one of two approaches:
@@ -410,8 +409,7 @@ You can update the column by either referencing an existing column-share or crea
 Additionally, you can override column properties such as names, constraints, and default values.
 
 REQUEST:
-- documentId: The unique identifier of the ERD document containing the column to be updated.
-  Can be obtained from 'erd-designer://documents' resource.
+- documentId: ${DESCRIPTION_DOCUMENT_ID}
 - columnId: The unique identifier of the column to be updated.
   Can be obtained from the table's columns array or column definitions.
 - column: The column update specification with one of the following approaches:
@@ -867,8 +865,7 @@ You can update the column-share's names, type, precision, scale, unsigned proper
 All columns that reference this column-share will automatically reflect the changes.
 
 REQUEST:
-- documentId: The unique identifier of the ERD document containing the column-share to be updated.
-  Can be obtained from 'erd-designer://documents' resource.
+- documentId: ${DESCRIPTION_DOCUMENT_ID}
 - columnShareId: The unique identifier of the column-share to be updated.
   Can be obtained from the column-shares list resource or from a column's columnShare reference.
 - columnShare: An object containing the fields to be updated (all fields are optional):
@@ -1024,8 +1021,7 @@ Each reorder operation is processed sequentially, so later operations can refere
 that were affected by earlier operations in the same request.
 
 REQUEST:
-- documentId: The unique identifier of the ERD document containing the table.
-  Can be obtained from 'erd-designer://documents' resource.
+- documentId: ${DESCRIPTION_DOCUMENT_ID}
 - tableId: The unique identifier of the table to reorder columns in.
   Can be obtained from the tables list resource.
 - reorders: An array of reorder operations. Each operation moves a single column or column group.
@@ -1169,8 +1165,7 @@ You can remove one or more columns by providing their column IDs.
 The column-share models associated with the removed columns will remain in the document for potential reuse.
 
 REQUEST:
-- documentId: The unique identifier of the ERD document containing the table.
-  Can be obtained from 'erd-designer://documents' resource.
+- documentId: ${DESCRIPTION_DOCUMENT_ID}
 - tableId: The unique identifier of the table to remove columns from.
   Can be obtained from the tables list resource.
 - columnIds: An array of column IDs to be removed from the table.

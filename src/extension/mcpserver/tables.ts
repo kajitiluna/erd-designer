@@ -523,8 +523,7 @@ You can create a table with columns by either referencing existing column-shares
 The table will be positioned on the ERD canvas according to the specified coordinates.
 
 REQUEST:
-- documentId: The unique identifier of the ERD document to add the table to.
-  Can be obtained from 'erd-designer://documents' resource.
+- documentId: ${DESCRIPTION_DOCUMENT_ID}
 - table: The table specification containing:
   - tableName: Object containing table names:
     - physical: The physical name of the new table (required).
@@ -707,8 +706,7 @@ You can modify the table's name, description, schema assignment, and display set
 Only the properties you specify will be updated; other properties will remain unchanged.
 
 REQUEST:
-- documentId: The unique identifier of the ERD document containing the table.
-  Can be obtained from 'erd-designer://documents' resource.
+- documentId: ${DESCRIPTION_DOCUMENT_ID}
 - tableId: The unique identifier of the table to update.
   Can be obtained from the tables list resource.
 - table: The table properties to update (all fields are optional):

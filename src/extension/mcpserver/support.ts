@@ -49,9 +49,14 @@ export type McpRegisterConfig = {
     tools: McpServerRegisterToolArgs<any>[];
 };
 
-export const DESCRIPTION_DOCUMENT_ID = "The unique identifier of the document to update. "
-    + "Can be obtained from 'erd-designer://documents' resource (list-documents) "
-    + "or from find-document-by-uri resource response.";
+export const DESCRIPTION_DOCUMENT_ID =
+    "The unique identifier (16-character alphanumeric string) of the document - NOT a file path or file name. "
+    + "To obtain the documentId value, use MCP Server resources/read operation: "
+    + "First, read the resource 'erd-designer://documents' which returns a list of all currently open ERD documents. "
+    + "Each document object in the response contains a 'documentId' field "
+    + "- extract this alphanumeric string value to use as the documentId parameter. "
+    + "Alternatively, read the resource template 'file://{filepath}' (replace {filepath} with the actual file path) "
+    + "to find a specific document, then extract the 'documentId' field from the response.";
 
 export const colorValueSchema = z.string()
     .regex(/^#[0-9A-Fa-f]{6}$/, "Color must be in hex format (e.g., #FFFFFF).");

@@ -140,8 +140,7 @@ Creates a new perspective for a specified ERD document.
 A new perspectiveId will be automatically generated for the created perspective.
 
 REQUEST:
-- documentId: The unique identifier of the ERD document to which the perspective will be added.
-  Can be obtained from 'erd-designer://documents' resource.
+- documentId: ${DESCRIPTION_DOCUMENT_ID}
 - perspective: An object containing details of the perspective to be created:
   - perspectiveName: The name of the perspective (required, must be non-empty).
   - description: A brief description of the perspective (optional, defaults to empty string).
@@ -225,8 +224,7 @@ Updates an existing perspective of a specified ERD document.
 You can update the name, description, and/or the set of contained table and memo ids.
 
 REQUEST:
-- documentId: The unique identifier of the ERD document containing the perspective to be updated.
-  Can be obtained from 'erd-designer://documents' resource.
+- documentId: ${DESCRIPTION_DOCUMENT_ID}
 - perspectiveId: The unique identifier of the perspective to be updated.
   Can be obtained from the perspectives list resource.
 - updating: An object containing the fields to be updated (all fields are optional):
@@ -332,8 +330,7 @@ const descriptionDelete = `\
 Deletes an existing perspective of a specified ERD document.
 
 REQUEST:
-- documentId: The unique identifier of the ERD document containing the perspective to be deleted.
-  Can be obtained from 'erd-designer://documents' resource.
+- documentId: ${DESCRIPTION_DOCUMENT_ID}
 - perspectiveId: The unique identifier of the perspective to be deleted.
   Can be obtained from the perspectives list resource.
 

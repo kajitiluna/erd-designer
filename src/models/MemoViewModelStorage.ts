@@ -74,7 +74,7 @@ export default class MemoViewModelStorage {
         return new MemoViewModelStorage(nextMemoIdMap, nextFronts, nextBacks);
     }
 
-    public moveMemo(memoIds: string[], moving: { x: number, y: number }): MemoViewModelStorage {
+    public moveMemo(memoIds: Set<string>, moving: { x: number, y: number }): MemoViewModelStorage {
         const nextMemoIdMap = new Map(this.memoIdMap);
         memoIds.forEach(memoId => {
             const current = nextMemoIdMap.get(memoId);
