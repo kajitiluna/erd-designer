@@ -263,6 +263,10 @@ export default class ErdDocument {
         return { parentRelations, childRelations };
     }
 
+    public findMemoViewModel(memoId: string): MemoViewModel | null {
+        return this.memoViewModelStorage.find(memoId);
+    }
+
     public getMemoViewModels(): { frontMemos: MemoViewModel[], backMemos: MemoViewModel[] } {
         return this.memoViewModelStorage.getMemos();
     }
@@ -1229,8 +1233,8 @@ export default class ErdDocument {
      * @param moving 移動距離
      * @returns 操作後のモデル
      */
-    public moveMemoView(memoIds: string[], moving: { x: number, y: number }): ErdDocument {
-        if (memoIds.length === 0) {
+    public moveMemoView(memoIds: Set<string>, moving: { x: number, y: number }): ErdDocument {
+        if (memoIds.size === 0) {
             return this;
         }
 

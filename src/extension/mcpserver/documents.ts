@@ -1,6 +1,8 @@
 import { ReadResourceTemplateCallback, ResourceTemplate, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
 import z from "zod";
 
+import { DragState } from "~/context/DragActionContext";
+import { SelectState } from "~/context/SelectEntityContext";
 import { DocumentResource } from "~/extension/DocumentResource";
 import DocumentBudget, { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
 import {
@@ -8,7 +10,9 @@ import {
     McpRegisterConfig, McpServerRegisterResourceArgs, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs
 } from "~/extension/mcpserver/support";
 import { toTableSummary } from "~/extension/mcpserver/tables";
+import { toNextOrthogonalLines } from "~/features/canvas/support";
 import DisplayStyle from "~/models/database/DisplayStyle";
+import RectangleViewModel from "~/models/RectangleViewModel";
 
 export const mcpRegisterErdDocument = (documentResource: DocumentResource): McpRegisterConfig => {
     return {
@@ -20,7 +24,8 @@ export const mcpRegisterErdDocument = (documentResource: DocumentResource): McpR
             mcpFindDocumentByUri(documentResource)
         ],
         tools: [
-            mcpUpdateDocument(documentResource)
+            mcpUpdateDocument(documentResource),
+            mcpMoveRectangle(documentResource)
         ] as McpServerRegisterToolArgs[]
     };
 };
@@ -391,4 +396,135 @@ const toDisplayStyle = (style: "both" | "physical" | "logical"): DisplayStyle =>
         case "logical":
             return DisplayStyle.LOGICAL;
     }
+};
+
+const descriptionMoveRectangle = `\
+Moves tables and memos within an ERD document by applying RELATIVE offsets to their current positions.
+This is a relative movement operation - the x and y values specify how far to move from each element's 
+current position, NOT absolute coordinates. This allows you to reposition multiple tables and memos 
+simultaneously while maintaining their relative positions to each other.
+
+IMPORTANT: This tool performs RELATIVE MOVEMENT, not absolute positioning.
+- To move elements 100 pixels to the right from their current positions: x = 100
+- To move elements 50 pixels up from their current positions: y = -50
+- The elements' final positions = current positions + movement offsets
+
+COORDINATE SYSTEM:
+All position coordinates in this document use a canvas coordinate system where:
+- The origin (0, 0) is at the center of the canvas
+- X-axis: increases to the right (positive values = right of center, negative values = left of center)
+- Y-axis: increases downward (positive values = below center, negative values = above center)
+
+REQUEST:
+- documentId: The unique identifier of the document containing the elements to move.
+  Can be obtained from 'erd-designer://documents' resource.
+- tableIds (optional): An array of table IDs to be moved.
+  If omitted or empty, no tables will be moved.
+- memoIds (optional): An array of memo IDs to be moved.
+  If omitted or empty, no memos will be moved.
+- moving: An object specifying the RELATIVE movement offsets (not absolute positions):
+  - x: The offset distance to move along the X-axis (positive = right, negative = left).
+  - y: The offset distance to move along the Y-axis (positive = down, negative = up).
+  
+  Examples of relative movement:
+  - { x: 100, y: 0 }: Move 100 pixels to the right
+  - { x: 0, y: -50 }: Move 50 pixels up
+  - { x: -200, y: 100 }: Move 200 pixels left and 100 pixels down
+  
+  Note: At least one of tableIds or memoIds should be provided with non-empty values.
+  All specified elements will move by the same offset, maintaining their relative positions to each other.
+
+RESPONSE:
+A text message and resource link containing:
+- A summary of the movement operation (number of tables and memos moved).
+- A resource link to the updated document.
+`;
+
+const mcpMoveRectangle = (
+    documentResource: DocumentResource
+): McpServerRegisterToolArgs<typeof moveRectangleInputSchema> => {
+    return [
+        "move-rectangle",
+        {
+            title: "Move tables and memos by relative offset in ERD document",
+            description: descriptionMoveRectangle,
+            inputSchema: moveRectangleInputSchema
+        },
+        initCallbackForMoveRectangle(documentResource)
+    ] as const;
+};
+
+const moveRectangleInputSchema = {
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
+    tableIds: z.array(z.string()).optional().describe("The IDs of the tables to move."),
+    memoIds: z.array(z.string()).optional().describe("The IDs of the memos to move."),
+    moving: z.object({
+        x: z.number().describe("The distance to move along the X-axis."),
+        y: z.number().describe("The distance to move along the Y-axis.")
+    }).describe("The distances to move along the X and Y axes.")
+};
+
+const initCallbackForMoveRectangle = (
+    documentResource: DocumentResource
+): ToolCallback<typeof moveRectangleInputSchema> => {
+    return async ({ documentId, tableIds, memoIds, moving: movingArg }) => {
+        const erdBudget = documentResource.findById(documentId);
+        if (erdBudget == null) {
+            const url = new URL(uriTemplates.documentFor(documentId));
+            throw initResourceNotFound(url);
+        }
+
+        const previousDocument = erdBudget.erdDocument;
+
+        const relationViews = previousDocument.fetchRelationsByTableIds(tableIds || [])
+            .filter(relation => relation.lineViewModel.lineType === "orthogonal");
+        const tableRectangles = new Map(
+            Array.from(erdBudget.getRectangles().entries()).map(entry => {
+                const [key, rectangle] = entry;
+                const rectangleView = new RectangleViewModel({ ...rectangle });
+                return [key, rectangleView];
+            })
+        );
+
+        const moving = { x: movingArg.x, y: movingArg.y };
+        const tableIdSet = new Set(tableIds || []);
+        const memoIdSet = new Set(memoIds || []);
+        const selectState: SelectState = {
+            status: "selected",
+            tableIds: tableIdSet,
+            memoIds: memoIdSet
+        };
+        // toNextOrthogonalLines の引数にわたす際に、relation が選択状態になっていないので、必要な情報は移動差分のみ
+        const dragState: DragState = {
+            status: "on_dragging",
+            start: { x: 0, y: 0 },
+            current: { x: moving.x, y: moving.y },
+            delta: () => ({ x: moving.x, y: moving.y })
+        };
+
+        const nextOrthogonal = toNextOrthogonalLines({
+            relationViews, tableRectangles, selectState, dragState
+        });
+
+        const nextDocument = previousDocument
+            .moveTableView(tableIdSet, moving, nextOrthogonal)
+            .moveMemoView(memoIdSet, moving);
+
+        documentResource.notify(documentId, nextDocument);
+
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `Moved ${tableIdSet.size} tables and ${memoIdSet.size} memos.`
+                },
+                {
+                    type: "resource_link",
+                    uri: erdBudget.documentUri(),
+                    name: nextDocument.documentName,
+                    mimeType: "application/json"
+                }
+            ]
+        };
+    };
 };

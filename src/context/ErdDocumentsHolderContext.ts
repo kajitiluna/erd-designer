@@ -320,7 +320,7 @@ export class ErdDocumentsHolder {
     ) {
         this.doUpdate(previous => previous
             .moveTableView(tableIds, moving, nextOrthogonalObjects)
-            .moveMemoView([...memoIds], moving)
+            .moveMemoView(memoIds, moving)
         );
     }
 
