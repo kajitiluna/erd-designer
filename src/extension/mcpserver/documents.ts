@@ -305,8 +305,7 @@ Updates the name or display style of an existing ERD document.
 You can update either the document name, the display style, or both properties simultaneously.
 
 REQUEST:
-- documentId: The unique identifier of the document to be updated.
-  Can be obtained from 'erd-designer://documents' resource.
+- documentId: ${DESCRIPTION_DOCUMENT_ID}
 - document: An object containing the fields to be updated (all fields are optional):
   - documentName: The new name for the document. Leading and trailing whitespace will be trimmed.
   - displayStyle: The new display style for the document. Must be one of:
@@ -416,8 +415,7 @@ All position coordinates in this document use a canvas coordinate system where:
 - Y-axis: increases downward (positive values = below center, negative values = above center)
 
 REQUEST:
-- documentId: The unique identifier of the document containing the elements to move.
-  Can be obtained from 'erd-designer://documents' resource.
+- documentId: ${DESCRIPTION_DOCUMENT_ID}
 - tableIds (optional): An array of table IDs to be moved.
   If omitted or empty, no tables will be moved.
 - memoIds (optional): An array of memo IDs to be moved.
