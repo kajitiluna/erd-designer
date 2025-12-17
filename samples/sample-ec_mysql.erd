@@ -1,0 +1,1442 @@
+{
+    "documentName": "sample-ec",
+    "lastUpdatedAt": "2025-12-17T16:00:10.083Z",
+    "tableViewModels": [
+        {
+            "tableModel": {
+                "tableModelId": "0a9be169-5bc0-449f-92c3-14edc4874a03",
+                "physicalName": "user",
+                "logicalName": "ユーザ",
+                "columnModelIds": [
+                    "bfcf57b6-6a58-4f00-8c9e-a68fd3a043f3",
+                    "91920bff-68b6-4beb-a2c8-a21a93b787ea",
+                    "7edea2af-ea34-4c43-b7af-26e911a0b9a5",
+                    "d379ee4e-cac3-4a3b-8d68-6e1472a72339",
+                    "group:d4e8b725-1563-4864-aea4-2479fd517ee2"
+                ],
+                "tableIndexModels": [
+                    {
+                        "tableIndexModelId": "64cb7cf6-dd6b-4b40-99bf-d820c5f02d7d",
+                        "physicalName": "idx_user__name",
+                        "indexColumnModels": [
+                            {
+                                "columnModelId": "91920bff-68b6-4beb-a2c8-a21a93b787ea"
+                            }
+                        ]
+                    }
+                ],
+                "description": "ユーザの情報を表す"
+            },
+            "top": -196.7,
+            "left": -229.6500000000001,
+            "headerBackgroundColor": {
+                "red": 144,
+                "green": 202,
+                "blue": 249
+            },
+            "headerForegroundColor": {
+                "red": 0,
+                "green": 0,
+                "blue": 0
+            },
+            "createdAt": "2025-12-17T15:59:47.620Z"
+        },
+        {
+            "tableModel": {
+                "tableModelId": "eafce229-d019-48b2-8c67-b44c3035c6a8",
+                "physicalName": "user_sign_in",
+                "logicalName": "ユーザサインイン",
+                "columnModelIds": [
+                    "03211e7d-ae73-469d-b1ca-5823206a2f67",
+                    "3d1af8e4-87fb-458a-a1a6-f5f768322ecc",
+                    "bf4671a4-1b25-4220-bad7-cda63ad2b2c6",
+                    "group:d4e8b725-1563-4864-aea4-2479fd517ee2"
+                ],
+                "tableIndexModels": [
+                    {
+                        "tableIndexModelId": "062b7817-86e4-48e3-abb1-b2d17d52cf68",
+                        "physicalName": "idx_user_sign_in__user_id",
+                        "indexColumnModels": [
+                            {
+                                "columnModelId": "bf4671a4-1b25-4220-bad7-cda63ad2b2c6"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "top": -169.11,
+            "left": 364.94,
+            "headerBackgroundColor": {
+                "red": 144,
+                "green": 202,
+                "blue": 249
+            },
+            "headerForegroundColor": {
+                "red": 0,
+                "green": 0,
+                "blue": 0
+            },
+            "createdAt": "2025-12-17T16:00:06.175Z"
+        },
+        {
+            "tableModel": {
+                "tableModelId": "f5e4fd69-7b77-4545-989c-cc2b5b98bda9",
+                "physicalName": "shop",
+                "logicalName": "店舗",
+                "columnModelIds": [
+                    "4108198a-3a8c-4186-a9fd-fb328ec488e0",
+                    "6d2d07c4-64c9-4460-b00d-94e7f02aa5e0",
+                    "85ba3c76-7605-42ee-a320-f1fcf9fb4f84",
+                    "4ff1c4be-cb5d-43f8-b7e5-aa48f0526ea1"
+                ],
+                "uniqueKeysModels": [
+                    {
+                        "tableUniqueKeysModelId": "8544ad3f-e77a-4ab4-88c4-a089c08b2af5",
+                        "physicalName": "unique_shop_name",
+                        "uniqueKeysColumnModels": [
+                            {
+                                "columnModelId": "6d2d07c4-64c9-4460-b00d-94e7f02aa5e0"
+                            },
+                            {
+                                "columnModelId": "4ff1c4be-cb5d-43f8-b7e5-aa48f0526ea1"
+                            }
+                        ]
+                    }
+                ],
+                "tableIndexModels": [
+                    {
+                        "tableIndexModelId": "aeb3bcc5-991a-44fb-996e-fff898db7830",
+                        "physicalName": "index_shop__name",
+                        "indexColumnModels": [
+                            {
+                                "columnModelId": "6d2d07c4-64c9-4460-b00d-94e7f02aa5e0"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "top": 448.5,
+            "left": -274.5,
+            "headerBackgroundColor": {
+                "red": 206,
+                "green": 147,
+                "blue": 216
+            },
+            "headerForegroundColor": {
+                "red": 0,
+                "green": 0,
+                "blue": 0
+            },
+            "createdAt": "2025-11-01T06:06:00.635Z"
+        },
+        {
+            "tableModel": {
+                "tableModelId": "6082b33b-9fbf-4fd1-8895-8e7c2d589510",
+                "physicalName": "order",
+                "logicalName": "注文",
+                "columnModelIds": [
+                    "b35a3ded-e0c0-406e-b570-746dfb2ed927",
+                    "e1d161d5-7477-40bb-90ff-7ed6fc8613b1",
+                    "0b5251d0-8e0b-4a37-82c5-5e5686008f75",
+                    "f168bb36-aadf-41c4-98a0-17498ec8326e"
+                ],
+                "tableIndexModels": [
+                    {
+                        "tableIndexModelId": "0a3ae4c8-96fe-43ba-a0dc-02fb00192a71",
+                        "physicalName": "idx_order__user",
+                        "indexColumnModels": [
+                            {
+                                "columnModelId": "e1d161d5-7477-40bb-90ff-7ed6fc8613b1"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "top": 177,
+            "left": -3,
+            "headerBackgroundColor": {
+                "red": 165,
+                "green": 214,
+                "blue": 167
+            },
+            "headerForegroundColor": {
+                "red": 0,
+                "green": 0,
+                "blue": 0
+            },
+            "createdAt": "2025-11-01T06:04:16.229Z"
+        },
+        {
+            "tableModel": {
+                "tableModelId": "9a4a941b-eff5-463e-9965-09066daeb171",
+                "physicalName": "order_item",
+                "logicalName": "注文商品",
+                "columnModelIds": [
+                    "5a897911-dfd7-4692-8b75-fcc8b83e73c9",
+                    "2a9b12f7-964b-40c0-a4f2-0bffbc77b4e7",
+                    "7e3a66c8-7fa7-4557-a6ce-fe0c2070bd70",
+                    "a7f7fac4-dec8-4140-8247-44798fe62820",
+                    "356b6d46-3587-4bd7-9e9f-2c5a1cc04c67",
+                    "56d0f824-7163-419a-b236-45a47d0a23fa"
+                ],
+                "tableIndexModels": [
+                    {
+                        "tableIndexModelId": "1eb1fed0-4b72-41d1-9432-27a794cbb28a",
+                        "physicalName": "idx_order_item__order_id",
+                        "indexColumnModels": [
+                            {
+                                "columnModelId": "2a9b12f7-964b-40c0-a4f2-0bffbc77b4e7"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "top": 116,
+            "left": 601,
+            "headerBackgroundColor": {
+                "red": 165,
+                "green": 214,
+                "blue": 167
+            },
+            "headerForegroundColor": {
+                "red": 0,
+                "green": 0,
+                "blue": 0
+            },
+            "createdAt": "2025-11-01T06:26:04.428Z"
+        },
+        {
+            "tableModel": {
+                "tableModelId": "6497ae5a-cfb5-4679-b973-880ec5ebb502",
+                "physicalName": "shop_item",
+                "logicalName": "店舗商品",
+                "columnModelIds": [
+                    "19213e09-a292-49e6-bf03-c4eb5714a38d",
+                    "35fc88e7-5fbb-4243-b391-bd8b63f36ecb",
+                    "2b62e539-c212-4ca9-9450-ba430104eb70",
+                    "33d606e3-ca5d-4ca1-9ab2-aaf60003d87d",
+                    "6331ef07-9a64-4f5c-ada8-715891ce1f58",
+                    "6e767158-cb8c-41d1-8a90-36eb5907b9f5"
+                ]
+            },
+            "top": 498,
+            "left": 327,
+            "headerBackgroundColor": {
+                "red": 206,
+                "green": 147,
+                "blue": 216
+            },
+            "headerForegroundColor": {
+                "red": 0,
+                "green": 0,
+                "blue": 0
+            },
+            "createdAt": "2025-11-01T06:10:42.080Z"
+        }
+    ],
+    "columnGroupModels": [
+        {
+            "columnGroupId": "d4e8b725-1563-4864-aea4-2479fd517ee2",
+            "groupName": "audit_timestamp",
+            "columnModelIds": [
+                "7fadabf3-ba45-4b0a-930b-ad22781926da",
+                "00747d88-4da2-4160-b846-9550573adc92"
+            ]
+        }
+    ],
+    "columnModels": [
+        {
+            "columnModelId": "00747d88-4da2-4160-b846-9550573adc92",
+            "columnShareModelId": "2838db4c-4342-4c42-a18d-ae3c4911b4bb",
+            "notNull": true,
+            "defaultValue": "CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"
+        },
+        {
+            "columnModelId": "03211e7d-ae73-469d-b1ca-5823206a2f67",
+            "columnShareModelId": "28ba529e-425e-4657-a650-62ca1c39a0b8",
+            "primaryKey": true,
+            "notNull": true,
+            "unique": true
+        },
+        {
+            "columnModelId": "0b5251d0-8e0b-4a37-82c5-5e5686008f75",
+            "columnShareModelId": "c2349e7c-cdea-4571-9f29-e337c89730ad",
+            "notNull": true
+        },
+        {
+            "columnModelId": "19213e09-a292-49e6-bf03-c4eb5714a38d",
+            "columnShareModelId": "f976cabb-b34a-4522-9864-e75298f1da50",
+            "primaryKey": true,
+            "notNull": true
+        },
+        {
+            "columnModelId": "2a9b12f7-964b-40c0-a4f2-0bffbc77b4e7",
+            "columnShareModelId": "8ba1a0ce-3b84-467e-aa0f-7bc0469fb29c",
+            "notNull": true
+        },
+        {
+            "columnModelId": "2b62e539-c212-4ca9-9450-ba430104eb70",
+            "columnShareModelId": "a410ead5-291a-4a16-8f36-e4f42a90573f",
+            "notNull": true
+        },
+        {
+            "columnModelId": "33d606e3-ca5d-4ca1-9ab2-aaf60003d87d",
+            "columnShareModelId": "f4615f26-6525-4a6e-825e-599505736a28"
+        },
+        {
+            "columnModelId": "356b6d46-3587-4bd7-9e9f-2c5a1cc04c67",
+            "columnShareModelId": "774fe63c-2c9a-4043-b40c-63d1d1ee3244",
+            "logicalName": "注文時商品名"
+        },
+        {
+            "columnModelId": "35fc88e7-5fbb-4243-b391-bd8b63f36ecb",
+            "columnShareModelId": "774fe63c-2c9a-4043-b40c-63d1d1ee3244",
+            "notNull": true
+        },
+        {
+            "columnModelId": "3d1af8e4-87fb-458a-a1a6-f5f768322ecc",
+            "columnShareModelId": "d307b279-214d-459c-8ce0-09e3a2c984db",
+            "notNull": true
+        },
+        {
+            "columnModelId": "4108198a-3a8c-4186-a9fd-fb328ec488e0",
+            "columnShareModelId": "f4615f26-6525-4a6e-825e-599505736a28",
+            "primaryKey": true,
+            "notNull": true,
+            "unique": true,
+            "autoIncrement": true
+        },
+        {
+            "columnModelId": "4ff1c4be-cb5d-43f8-b7e5-aa48f0526ea1",
+            "columnShareModelId": "b388026c-cd70-4c09-a4d7-126de130e857"
+        },
+        {
+            "columnModelId": "56d0f824-7163-419a-b236-45a47d0a23fa",
+            "columnShareModelId": "5bec3690-83bc-43ac-a53c-3ca39f1d1c5a",
+            "logicalName": "注文時単価",
+            "notNull": true
+        },
+        {
+            "columnModelId": "5a897911-dfd7-4692-8b75-fcc8b83e73c9",
+            "columnShareModelId": "38bba63c-98db-42ff-a41a-3b8e19a3cc2f",
+            "primaryKey": true,
+            "notNull": true
+        },
+        {
+            "columnModelId": "6331ef07-9a64-4f5c-ada8-715891ce1f58",
+            "columnShareModelId": "364c37a1-15fa-45fd-8f7c-09716784146d"
+        },
+        {
+            "columnModelId": "6d2d07c4-64c9-4460-b00d-94e7f02aa5e0",
+            "columnShareModelId": "d4dc7d64-5af5-4349-8181-af553331ef26",
+            "notNull": true
+        },
+        {
+            "columnModelId": "6e767158-cb8c-41d1-8a90-36eb5907b9f5",
+            "columnShareModelId": "5bec3690-83bc-43ac-a53c-3ca39f1d1c5a",
+            "notNull": true
+        },
+        {
+            "columnModelId": "7e3a66c8-7fa7-4557-a6ce-fe0c2070bd70",
+            "columnShareModelId": "f976cabb-b34a-4522-9864-e75298f1da50"
+        },
+        {
+            "columnModelId": "7edea2af-ea34-4c43-b7af-26e911a0b9a5",
+            "columnShareModelId": "4dfb16c0-e716-4e8b-aebd-834cc0eb20e8",
+            "notNull": true
+        },
+        {
+            "columnModelId": "7fadabf3-ba45-4b0a-930b-ad22781926da",
+            "columnShareModelId": "abd4f8fb-2cf9-471a-8d77-a4ba8b86252d",
+            "notNull": true,
+            "defaultValue": "CURRENT_TIMESTAMP"
+        },
+        {
+            "columnModelId": "85ba3c76-7605-42ee-a320-f1fcf9fb4f84",
+            "columnShareModelId": "481ce9cc-c5ee-40f3-98f9-25720ee4525d"
+        },
+        {
+            "columnModelId": "91920bff-68b6-4beb-a2c8-a21a93b787ea",
+            "columnShareModelId": "38702401-1840-4a7c-9e0c-083f7cef6621",
+            "notNull": true
+        },
+        {
+            "columnModelId": "a7f7fac4-dec8-4140-8247-44798fe62820",
+            "columnShareModelId": "e492f55e-7f12-4baf-b9a0-9e7a5707848c",
+            "notNull": true
+        },
+        {
+            "columnModelId": "b35a3ded-e0c0-406e-b570-746dfb2ed927",
+            "columnShareModelId": "8ba1a0ce-3b84-467e-aa0f-7bc0469fb29c",
+            "primaryKey": true,
+            "notNull": true,
+            "autoIncrement": true
+        },
+        {
+            "columnModelId": "bf4671a4-1b25-4220-bad7-cda63ad2b2c6",
+            "columnShareModelId": "3472230d-1a57-40c2-a217-f62b3ff652bd",
+            "notNull": true
+        },
+        {
+            "columnModelId": "bfcf57b6-6a58-4f00-8c9e-a68fd3a043f3",
+            "columnShareModelId": "3472230d-1a57-40c2-a217-f62b3ff652bd",
+            "primaryKey": true,
+            "notNull": true,
+            "unique": true,
+            "autoIncrement": true
+        },
+        {
+            "columnModelId": "d379ee4e-cac3-4a3b-8d68-6e1472a72339",
+            "columnShareModelId": "372c29f1-b54e-4cde-b181-573fac970116"
+        },
+        {
+            "columnModelId": "e1d161d5-7477-40bb-90ff-7ed6fc8613b1",
+            "columnShareModelId": "3472230d-1a57-40c2-a217-f62b3ff652bd"
+        },
+        {
+            "columnModelId": "f168bb36-aadf-41c4-98a0-17498ec8326e",
+            "columnShareModelId": "99906dc2-b617-45bb-a007-027a3c79bfd1"
+        }
+    ],
+    "columnShareModels": [
+        {
+            "columnShareModelId": "b388026c-cd70-4c09-a4d7-126de130e857",
+            "physicalName": "address",
+            "logicalName": "住所",
+            "columnTypeId": 323,
+            "createdAt": "2025-01-11T12:51:54.367Z"
+        },
+        {
+            "columnShareModelId": "4dfb16c0-e716-4e8b-aebd-834cc0eb20e8",
+            "physicalName": "age",
+            "logicalName": "年齢",
+            "columnTypeId": 15,
+            "unsigned": true,
+            "createdAt": "2025-01-11T04:35:52.103Z"
+        },
+        {
+            "columnShareModelId": "5bec3690-83bc-43ac-a53c-3ca39f1d1c5a",
+            "physicalName": "amount_unit",
+            "logicalName": "単価",
+            "columnTypeId": 15,
+            "unsigned": true,
+            "createdAt": "2025-11-01T06:10:11.164Z"
+        },
+        {
+            "columnShareModelId": "abd4f8fb-2cf9-471a-8d77-a4ba8b86252d",
+            "physicalName": "created_at",
+            "logicalName": "作成日時",
+            "columnTypeId": 112,
+            "createdAt": "2025-12-17T15:59:07.862Z"
+        },
+        {
+            "columnShareModelId": "372c29f1-b54e-4cde-b181-573fac970116",
+            "physicalName": "gender",
+            "logicalName": "性別",
+            "columnTypeId": 312,
+            "precision": "16",
+            "description": "male : 男性\nfemale : 女性\nother : その他",
+            "createdAt": "2025-01-13T05:05:48.098Z"
+        },
+        {
+            "columnShareModelId": "d307b279-214d-459c-8ce0-09e3a2c984db",
+            "physicalName": "hashed_password",
+            "logicalName": "パスワード",
+            "columnTypeId": 323,
+            "createdAt": "2025-11-01T05:54:39.711Z"
+        },
+        {
+            "columnShareModelId": "e492f55e-7f12-4baf-b9a0-9e7a5707848c",
+            "physicalName": "item_count",
+            "logicalName": "数量",
+            "columnTypeId": 15,
+            "unsigned": true,
+            "createdAt": "2025-11-01T06:01:12.311Z"
+        },
+        {
+            "columnShareModelId": "364c37a1-15fa-45fd-8f7c-09716784146d",
+            "physicalName": "item_description",
+            "logicalName": "商品説明",
+            "columnTypeId": 325,
+            "createdAt": "2025-11-01T06:08:05.387Z"
+        },
+        {
+            "columnShareModelId": "774fe63c-2c9a-4043-b40c-63d1d1ee3244",
+            "physicalName": "item_name",
+            "logicalName": "商品名",
+            "columnTypeId": 312,
+            "precision": "256",
+            "createdAt": "2025-11-01T06:08:42.264Z"
+        },
+        {
+            "columnShareModelId": "a410ead5-291a-4a16-8f36-e4f42a90573f",
+            "physicalName": "item_status",
+            "logicalName": "商品状態",
+            "columnTypeId": 312,
+            "precision": "16",
+            "createdAt": "2025-11-01T06:09:07.360Z"
+        },
+        {
+            "columnShareModelId": "8ba1a0ce-3b84-467e-aa0f-7bc0469fb29c",
+            "physicalName": "order_id",
+            "logicalName": "注文ID",
+            "columnTypeId": 17,
+            "createdAt": "2025-11-01T05:55:58.365Z"
+        },
+        {
+            "columnShareModelId": "38bba63c-98db-42ff-a41a-3b8e19a3cc2f",
+            "physicalName": "order_item_id",
+            "logicalName": "注文商品ID",
+            "columnTypeId": 17,
+            "createdAt": "2025-11-01T06:00:10.902Z"
+        },
+        {
+            "columnShareModelId": "c2349e7c-cdea-4571-9f29-e337c89730ad",
+            "physicalName": "order_status",
+            "logicalName": "注文状態",
+            "columnTypeId": 312,
+            "precision": "16",
+            "createdAt": "2025-11-01T05:59:13.240Z"
+        },
+        {
+            "columnShareModelId": "99906dc2-b617-45bb-a007-027a3c79bfd1",
+            "physicalName": "ordered_at",
+            "logicalName": "注文日時",
+            "columnTypeId": 112,
+            "createdAt": "2025-11-01T05:58:54.121Z"
+        },
+        {
+            "columnShareModelId": "f4615f26-6525-4a6e-825e-599505736a28",
+            "physicalName": "shop_id",
+            "logicalName": "店舗ID",
+            "columnTypeId": 17,
+            "unsigned": true,
+            "createdAt": "2025-01-11T12:50:59.066Z"
+        },
+        {
+            "columnShareModelId": "f976cabb-b34a-4522-9864-e75298f1da50",
+            "physicalName": "shop_item_id",
+            "logicalName": "店舗商品ID",
+            "columnTypeId": 17,
+            "createdAt": "2025-11-01T06:07:04.259Z"
+        },
+        {
+            "columnShareModelId": "d4dc7d64-5af5-4349-8181-af553331ef26",
+            "physicalName": "shop_name",
+            "logicalName": "店舗名",
+            "columnTypeId": 312,
+            "precision": "255",
+            "createdAt": "2025-01-11T12:51:15.595Z"
+        },
+        {
+            "columnShareModelId": "28ba529e-425e-4657-a650-62ca1c39a0b8",
+            "physicalName": "sign_in_id",
+            "logicalName": "サインインID",
+            "columnTypeId": 312,
+            "precision": "255",
+            "createdAt": "2025-01-11T04:38:02.395Z"
+        },
+        {
+            "columnShareModelId": "481ce9cc-c5ee-40f3-98f9-25720ee4525d",
+            "physicalName": "telephone",
+            "logicalName": "電話番号",
+            "columnTypeId": 312,
+            "precision": "16",
+            "createdAt": "2025-01-11T12:51:38.473Z"
+        },
+        {
+            "columnShareModelId": "2838db4c-4342-4c42-a18d-ae3c4911b4bb",
+            "physicalName": "updated_at",
+            "logicalName": "更新日時",
+            "columnTypeId": 112,
+            "createdAt": "2025-12-17T15:59:34.262Z"
+        },
+        {
+            "columnShareModelId": "3472230d-1a57-40c2-a217-f62b3ff652bd",
+            "physicalName": "user_id",
+            "logicalName": "ユーザID",
+            "columnTypeId": 17,
+            "unsigned": true,
+            "createdAt": "2025-01-11T04:39:11.238Z"
+        },
+        {
+            "columnShareModelId": "38702401-1840-4a7c-9e0c-083f7cef6621",
+            "physicalName": "user_name",
+            "logicalName": "ユーザ名",
+            "columnTypeId": 312,
+            "precision": "128",
+            "createdAt": "2025-01-11T04:35:30.675Z"
+        }
+    ],
+    "relationViewModels": [
+        {
+            "relationModel": {
+                "relationModelId": "03cb858f-9593-40cb-a76b-ee859a75bb1b",
+                "parentTableModelId": "f5e4fd69-7b77-4545-989c-cc2b5b98bda9",
+                "parentCardinality": "1",
+                "childTableModelId": "6497ae5a-cfb5-4679-b973-880ec5ebb502",
+                "childCardinality": "0..N",
+                "relationPairs": [
+                    {
+                        "parentColumnModelId": "4108198a-3a8c-4186-a9fd-fb328ec488e0",
+                        "childColumnModelId": "33d606e3-ca5d-4ca1-9ab2-aaf60003d87d"
+                    }
+                ],
+                "onUpdateAction": "CASCADE",
+                "onDeleteAction": "CASCADE"
+            },
+            "lineViewModel": {
+                "strokeWidth": 1,
+                "edges": [],
+                "orthogonalLines": [],
+                "color": {
+                    "red": 194,
+                    "green": 24,
+                    "blue": 91
+                }
+            },
+            "createdAt": "2025-12-17T15:57:13.177Z"
+        },
+        {
+            "relationModel": {
+                "relationModelId": "0caff7bc-399b-452d-991e-a87bc766382d",
+                "parentTableModelId": "0a9be169-5bc0-449f-92c3-14edc4874a03",
+                "parentCardinality": "1",
+                "childTableModelId": "6082b33b-9fbf-4fd1-8895-8e7c2d589510",
+                "childCardinality": "0..N",
+                "relationPairs": [
+                    {
+                        "parentColumnModelId": "bfcf57b6-6a58-4f00-8c9e-a68fd3a043f3",
+                        "childColumnModelId": "e1d161d5-7477-40bb-90ff-7ed6fc8613b1"
+                    }
+                ],
+                "onUpdateAction": "CASCADE",
+                "onDeleteAction": "CASCADE"
+            },
+            "lineViewModel": {
+                "strokeWidth": 1,
+                "edges": [],
+                "orthogonalLines": [],
+                "color": {
+                    "red": 0,
+                    "green": 0,
+                    "blue": 0
+                }
+            },
+            "createdAt": "2025-11-01T05:57:11.913Z"
+        },
+        {
+            "relationModel": {
+                "relationModelId": "46f69c92-fb9a-44bd-b922-e32eef457999",
+                "parentTableModelId": "0a9be169-5bc0-449f-92c3-14edc4874a03",
+                "parentCardinality": "1",
+                "childTableModelId": "eafce229-d019-48b2-8c67-b44c3035c6a8",
+                "childCardinality": "0..N",
+                "relationPairs": [
+                    {
+                        "parentColumnModelId": "bfcf57b6-6a58-4f00-8c9e-a68fd3a043f3",
+                        "childColumnModelId": "bf4671a4-1b25-4220-bad7-cda63ad2b2c6"
+                    }
+                ],
+                "onUpdateAction": "CASCADE",
+                "onDeleteAction": "CASCADE"
+            },
+            "lineViewModel": {
+                "strokeWidth": 2,
+                "edges": [],
+                "orthogonalLines": [
+                    {
+                        "direction": "horizontal",
+                        "position": -66.7734375
+                    }
+                ],
+                "color": {
+                    "red": 63,
+                    "green": 81,
+                    "blue": 181
+                }
+            },
+            "createdAt": "2025-12-17T15:56:46.987Z"
+        },
+        {
+            "relationModel": {
+                "relationModelId": "6d2f56eb-3321-4391-8664-bdf6f673a56e",
+                "parentTableModelId": "6497ae5a-cfb5-4679-b973-880ec5ebb502",
+                "parentCardinality": "0..1",
+                "childTableModelId": "9a4a941b-eff5-463e-9965-09066daeb171",
+                "childCardinality": "0..N",
+                "relationPairs": [
+                    {
+                        "parentColumnModelId": "19213e09-a292-49e6-bf03-c4eb5714a38d",
+                        "childColumnModelId": "7e3a66c8-7fa7-4557-a6ce-fe0c2070bd70"
+                    }
+                ],
+                "onUpdateAction": "CASCADE",
+                "onDeleteAction": "CASCADE"
+            },
+            "lineViewModel": {
+                "strokeWidth": 1,
+                "edges": [],
+                "orthogonalLines": [
+                    {
+                        "direction": "horizontal",
+                        "position": 606
+                    },
+                    {
+                        "direction": "vertical",
+                        "position": 874
+                    }
+                ],
+                "color": {
+                    "red": 0,
+                    "green": 0,
+                    "blue": 0
+                }
+            },
+            "createdAt": "2025-11-01T06:11:27.575Z"
+        },
+        {
+            "relationModel": {
+                "relationModelId": "ad855904-88b5-45b5-a9df-b42271e85ad9",
+                "parentTableModelId": "6082b33b-9fbf-4fd1-8895-8e7c2d589510",
+                "parentCardinality": "1",
+                "childTableModelId": "9a4a941b-eff5-463e-9965-09066daeb171",
+                "childCardinality": "1..N",
+                "relationPairs": [
+                    {
+                        "parentColumnModelId": "b35a3ded-e0c0-406e-b570-746dfb2ed927",
+                        "childColumnModelId": "2a9b12f7-964b-40c0-a4f2-0bffbc77b4e7"
+                    }
+                ],
+                "onUpdateAction": "CASCADE",
+                "onDeleteAction": "CASCADE"
+            },
+            "lineViewModel": {
+                "strokeWidth": 1,
+                "edges": [],
+                "orthogonalLines": [],
+                "color": {
+                    "red": 0,
+                    "green": 0,
+                    "blue": 0
+                }
+            },
+            "createdAt": "2025-11-01T06:00:42.155Z"
+        }
+    ],
+    "foregroundMemos": [
+        {
+            "memoId": "f224cff4-2593-44a1-abde-10f657fd788b",
+            "memo": "user information",
+            "rectangleViewModel": {
+                "positionX": 234,
+                "positionY": -280,
+                "width": 236,
+                "height": 86
+            },
+            "backgroundColor": {
+                "red": 227,
+                "green": 242,
+                "blue": 253
+            },
+            "foregroundColor": {
+                "red": 0,
+                "green": 0,
+                "blue": 0
+            },
+            "verticalAlign": "center",
+            "horizontalAlign": "center",
+            "fontSize": 12,
+            "createdAt": "2025-11-01T06:12:53.459Z"
+        }
+    ],
+    "backgroundMemos": [
+        {
+            "memoId": "c52d89d7-336c-4a8d-a268-55213e889496",
+            "memo": "shop information",
+            "rectangleViewModel": {
+                "positionX": -302,
+                "positionY": 404,
+                "width": 1128,
+                "height": 367
+            },
+            "backgroundColor": {
+                "red": 243,
+                "green": 229,
+                "blue": 245
+            },
+            "foregroundColor": {
+                "red": 0,
+                "green": 0,
+                "blue": 0
+            },
+            "verticalAlign": "start",
+            "horizontalAlign": "center",
+            "fontSize": 9,
+            "createdAt": "2025-11-01T06:11:59.638Z"
+        }
+    ],
+    "erdSettingModel": {
+        "displayStyle": {
+            "styleName": "Both"
+        },
+        "exportDdlSetting": {
+            "fileName": "sample",
+            "withTable": true,
+            "withIndex": true,
+            "withForeignKey": true,
+            "withComment": true,
+            "withSchema": false
+        },
+        "perspectiveModels": [
+            {
+                "perspectiveId": "fb14df13-e198-4ce6-b2ee-ceaf88b3d76e",
+                "perspectiveName": "user",
+                "description": "user's tables",
+                "containIds": [
+                    "0a9be169-5bc0-449f-92c3-14edc4874a03",
+                    "eafce229-d019-48b2-8c67-b44c3035c6a8",
+                    "f224cff4-2593-44a1-abde-10f657fd788b"
+                ]
+            },
+            {
+                "perspectiveId": "349c90d8-b724-4d2b-b904-60d3bb50ffba",
+                "perspectiveName": "order",
+                "containIds": [
+                    "6082b33b-9fbf-4fd1-8895-8e7c2d589510",
+                    "9a4a941b-eff5-463e-9965-09066daeb171"
+                ]
+            },
+            {
+                "perspectiveId": "1da113a1-8dcc-4aab-8391-50de6059c9d6",
+                "perspectiveName": "shop",
+                "containIds": [
+                    "6497ae5a-cfb5-4679-b973-880ec5ebb502",
+                    "c52d89d7-336c-4a8d-a268-55213e889496",
+                    "f5e4fd69-7b77-4545-989c-cc2b5b98bda9"
+                ]
+            }
+        ]
+    },
+    "databaseSetting": {
+        "databaseType": "mysql",
+        "columnTypes": [
+            {
+                "id": 1,
+                "name": "bit",
+                "description": "ビット値型",
+                "baseQuery": "BIT",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 2,
+                "name": "bit (m)",
+                "description": "ビット値型",
+                "baseQuery": "BIT[[PARAM]]",
+                "withPrecision": true,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 6,
+                "name": "boolean",
+                "description": "TINYINT(1) のシノニム",
+                "baseQuery": "BOOLEAN",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 10,
+                "name": "tinyint",
+                "description": "非常に小さい整数。 符号付きの範囲は -128 から 127 です。 符号なしの範囲は 0 から 255 です。",
+                "baseQuery": "TINYINT",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": true,
+                "withAutoIncrement": true,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 11,
+                "name": "smallint",
+                "description": "小さい整数。 符号付きの範囲は -32768 から 32767 です。 符号なしの範囲は 0 から 65535 です。",
+                "baseQuery": "SMALLINT",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": true,
+                "withAutoIncrement": true,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 13,
+                "name": "mediumint",
+                "description": "中間サイズの整数。 符号付きの範囲は -8388608 から 8388607 です。 符号なしの範囲は 0 から 16777215 です。",
+                "baseQuery": "MEDIUMINT",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": true,
+                "withAutoIncrement": true,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 15,
+                "name": "int",
+                "description": "普通サイズの整数。 符号付きの範囲は -2147483648 から 2147483647 です。 符号なしの範囲は 0 から 4294967295 です。",
+                "baseQuery": "INT",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": true,
+                "withAutoIncrement": true,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 17,
+                "name": "bigint",
+                "description": "大きい整数。 符号付きの範囲は -9223372036854775808 から 9223372036854775807 です。 符号なしの範囲は 0 から 18446744073709551615 です。",
+                "baseQuery": "BIGINT",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": true,
+                "withAutoIncrement": true,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 20,
+                "name": "tinyint (m)",
+                "description": "非常に小さい整数。 符号付きの範囲は -128 から 127 です。 符号なしの範囲は 0 から 255 です。",
+                "baseQuery": "TINYINT[[PARAM]]",
+                "withPrecision": true,
+                "withScale": false,
+                "withUnsigned": true,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 21,
+                "name": "smallint (m)",
+                "description": "小さい整数。 符号付きの範囲は -32768 から 32767 です。 符号なしの範囲は 0 から 65535 です。",
+                "baseQuery": "SMALLINT[[PARAM]]",
+                "withPrecision": true,
+                "withScale": false,
+                "withUnsigned": true,
+                "withAutoIncrement": true,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 23,
+                "name": "mediumint (m)",
+                "description": "中間サイズの整数。 符号付きの範囲は -8388608 から 8388607 です。 符号なしの範囲は 0 から 16777215 です。",
+                "baseQuery": "MEDIUMINT[[PARAM]]",
+                "withPrecision": true,
+                "withScale": false,
+                "withUnsigned": true,
+                "withAutoIncrement": true,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 25,
+                "name": "int (m)",
+                "description": "普通サイズの整数。 符号付きの範囲は -2147483648 から 2147483647 です。 符号なしの範囲は 0 から 4294967295 です。",
+                "baseQuery": "INT[[PARAM]]",
+                "withPrecision": true,
+                "withScale": false,
+                "withUnsigned": true,
+                "withAutoIncrement": true,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 27,
+                "name": "bigint (m)",
+                "description": "大きい整数。 符号付きの範囲は -9223372036854775808 から 9223372036854775807 です。 符号なしの範囲は 0 から 18446744073709551615 です。",
+                "baseQuery": "BIGINT[[PARAM]]",
+                "withPrecision": true,
+                "withScale": false,
+                "withUnsigned": true,
+                "withAutoIncrement": true,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 31,
+                "name": "float",
+                "description": "小さい (単精度) 浮動小数点数。 許可される値は、-3.402823466E+38 から -1.175494351E-38、0、および 1.175494351E-38 から 3.402823466E+38 です。",
+                "baseQuery": "FLOAT",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": true,
+                "withAutoIncrement": true,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 33,
+                "name": "double",
+                "description": "普通サイズ (倍精度) の浮動小数点数。 許可されている値は、-1.7976931348623157E+308 から -2.2250738585072014E-308、0、および 2.2250738585072014E-308 から 1.7976931348623157E+308 です。",
+                "baseQuery": "DOUBLE",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": true,
+                "withAutoIncrement": true,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 35,
+                "name": "decimal",
+                "description": "固定小数点数。 桁数10 (精度) で、小数点以下の桁数0です。",
+                "baseQuery": "DECIMAL",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": true,
+                "withAutoIncrement": true,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 41,
+                "name": "float (m, d)",
+                "description": "小さい (単精度) 浮動小数点数。 許可される値は、-3.402823466E+38 から -1.175494351E-38、0、および 1.175494351E-38 から 3.402823466E+38 です。",
+                "baseQuery": "FLOAT[[PARAM]]",
+                "withPrecision": true,
+                "withScale": true,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 42,
+                "name": "float (p)",
+                "description": "浮動小数点数です。p は精度をビットで表現します。",
+                "baseQuery": "FLOAT[[PARAM]]",
+                "withPrecision": true,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 43,
+                "name": "double (m, d)",
+                "description": "普通サイズ (倍精度) の浮動小数点数。 許可されている値は、-1.7976931348623157E+308 から -2.2250738585072014E-308、0、および 2.2250738585072014E-308 から 1.7976931348623157E+308 です。",
+                "baseQuery": "DOUBLE[[PARAM]]",
+                "withPrecision": true,
+                "withScale": true,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 45,
+                "name": "decimal (m, d)",
+                "description": "固定小数点数。 M は桁数の合計 (精度) で、D は小数点以下の桁数 (スケール) です。",
+                "baseQuery": "DECIMAL[[PARAM]]",
+                "withPrecision": true,
+                "withScale": true,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 101,
+                "name": "date",
+                "description": "日付です。 サポートしている範囲は \"1000-01-01\" から \"9999-12-31\" です。",
+                "baseQuery": "DATE",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": [
+                    "CURRENT_DATE",
+                    "CURRENT_DATE ON UPDATE CURRENT_DATE"
+                ]
+            },
+            {
+                "id": 131,
+                "name": "time",
+                "description": "時間です。 範囲は、\"-838:59:59.000000\" から \"838:59:59.000000\" です。",
+                "baseQuery": "TIME",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": [
+                    "CURRENT_TIME",
+                    "CURRENT_TIME ON UPDATE CURRENT_TIME"
+                ]
+            },
+            {
+                "id": 141,
+                "name": "time (p)",
+                "description": "時間です。 範囲は、\"-838:59:59.000000\" から \"838:59:59.000000\" です。",
+                "baseQuery": "TIME[[PARAM]]",
+                "withPrecision": true,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": [
+                    "CURRENT_TIME",
+                    "CURRENT_TIME ON UPDATE CURRENT_TIME"
+                ]
+            },
+            {
+                "id": 112,
+                "name": "datetime",
+                "description": "日付と時間の組み合わせです。 サポートしている範囲は \"1000-01-01 00:00:00.000000\" から \"9999-12-31 23:59:59.999999\" です。",
+                "baseQuery": "DATETIME",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": [
+                    "CURRENT_TIMESTAMP",
+                    "CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"
+                ]
+            },
+            {
+                "id": 115,
+                "name": "timestamp",
+                "description": "タイムスタンプです。 範囲は \"1970-01-01 00:00:01.000000\" UTC から \"2038-01-19 03:14:07.999999\" UTC です。",
+                "baseQuery": "TIMESTAMP",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": [
+                    "CURRENT_TIMESTAMP",
+                    "CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"
+                ]
+            },
+            {
+                "id": 122,
+                "name": "datetime (p)",
+                "description": "日付と時間の組み合わせです。 サポートしている範囲は \"1000-01-01 00:00:00.000000\" から \"9999-12-31 23:59:59.999999\" です。",
+                "baseQuery": "DATETIME[[PARAM]]",
+                "withPrecision": true,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": [
+                    "CURRENT_TIMESTAMP",
+                    "CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"
+                ]
+            },
+            {
+                "id": 125,
+                "name": "timestamp (p)",
+                "description": "タイムスタンプです。 範囲は \"1970-01-01 00:00:01.000000\" UTC から \"2038-01-19 03:14:07.999999\" UTC です。",
+                "baseQuery": "TIMESTAMP[[PARAM]]",
+                "withPrecision": true,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": [
+                    "CURRENT_TIMESTAMP",
+                    "CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"
+                ]
+            },
+            {
+                "id": 151,
+                "name": "year",
+                "description": "4 桁形式の年。",
+                "baseQuery": "YEAR",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 301,
+                "name": "char",
+                "description": "格納時に必ず、指定された長さになるように右側がスペースで埋められる固定長文字列です。",
+                "baseQuery": "CHAR",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 311,
+                "name": "char (m)",
+                "description": "格納時に必ず、指定された長さになるように右側がスペースで埋められる固定長文字列です。",
+                "baseQuery": "CHAR[[PARAM]]",
+                "withPrecision": true,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 312,
+                "name": "varchar (m)",
+                "description": "可変長文字列です。",
+                "baseQuery": "VARCHAR[[PARAM]]",
+                "withPrecision": true,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 321,
+                "name": "tinytext",
+                "description": "最大長が 255 文字の TEXT カラム。",
+                "baseQuery": "TINYTEXT",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 323,
+                "name": "text",
+                "description": "最大長が 65,535 文字の TEXT カラム。",
+                "baseQuery": "TEXT",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 324,
+                "name": "text (m)",
+                "description": "最大長が 65,535 文字の TEXT カラム。",
+                "baseQuery": "TEXT[[PARAM]]",
+                "withPrecision": true,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 325,
+                "name": "longtext",
+                "description": "最大長が 4G 文字の TEXT カラム。",
+                "baseQuery": "LONGTEXT",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 3,
+                "name": "binary (m)",
+                "description": "バイナリバイト文字列を格納します。",
+                "baseQuery": "BINARY[[PARAM]]",
+                "withPrecision": true,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 5,
+                "name": "varbinary (m)",
+                "description": "バイナリバイト文字列を格納します。",
+                "baseQuery": "VARBINARY[[PARAM]]",
+                "withPrecision": true,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 361,
+                "name": "tinyblob",
+                "description": "最大長が 255 バイトの BLOB カラム。",
+                "baseQuery": "TINYBLOB",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 363,
+                "name": "blob",
+                "description": "最大長が 65,535 バイトの BLOB カラム。",
+                "baseQuery": "BLOB",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 364,
+                "name": "blob (m)",
+                "description": "最大長が 65,535 バイトの BLOB カラム。",
+                "baseQuery": "BLOB[[PARAM]]",
+                "withPrecision": true,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 365,
+                "name": "mediumblob",
+                "description": "最大長が 16,777,215 バイトの BLOB カラム。",
+                "baseQuery": "MEDIUMBLOB",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 367,
+                "name": "longblob",
+                "description": "最大長が 4G バイトの BLOB カラム。",
+                "baseQuery": "LONGBLOB",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 422,
+                "name": "json",
+                "description": "文書の型式であるJSONデータを格納するために使用されるデータ型。",
+                "baseQuery": "JSON",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 2001,
+                "name": "geometry",
+                "description": "空間データを格納するために使用されるデータ型。点、線、多角形、およびその他の形状を含めることができます。",
+                "baseQuery": "GEOMETRY",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 2011,
+                "name": "point",
+                "description": "GEOMETRYデータ型の1つであり、2次元空間上の単一の点を表します。",
+                "baseQuery": "POINT",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 2012,
+                "name": "linestring",
+                "description": "GEOMETRYデータ型の1つであり、2次元空間上の複数の点を結ぶ直線セグメントの連続したセットを表します。",
+                "baseQuery": "LINESTRING",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 2013,
+                "name": "polygon",
+                "description": "GEOMETRYデータ型の1つであり、2次元平面上の単一の領域を表す閉じたループの集合です。",
+                "baseQuery": "POLYGON",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 2021,
+                "name": "multipoint",
+                "description": "GEOMETRYデータ型の1つであり、複数の点を表す複数のPOINTオブジェクトの集合です。",
+                "baseQuery": "MULTIPOINT",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 2022,
+                "name": "multilinestring",
+                "description": "GEOMETRYデータ型の1つであり、複数の線分を表す複数のLINESTRINGオブジェクトの集合です。",
+                "baseQuery": "MULTILINESTRING",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 2023,
+                "name": "multipolygon",
+                "description": "GEOMETRYデータ型の1つであり、複数のポリゴンを表す複数のPOLYGONオブジェクトの集合です。",
+                "baseQuery": "MULTIPOLYGON",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 2031,
+                "name": "geometrycollection",
+                "description": "GEOMETRYデータ型の1つであり、複数のGEOMETRYオブジェクトの集合を表します。",
+                "baseQuery": "GEOMETRYCOLLECTION",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 2101,
+                "name": "enum",
+                "description": "文字列のリストの中から1つを選択するために使用されるデータ型。",
+                "baseQuery": "ENUM",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 2102,
+                "name": "set",
+                "description": "ENUMの拡張版であり、文字列のリストから複数の選択肢を選択するために使用されるデータ型。",
+                "baseQuery": "SET",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            },
+            {
+                "id": 0,
+                "name": "",
+                "description": "",
+                "baseQuery": "",
+                "withPrecision": false,
+                "withScale": false,
+                "withUnsigned": false,
+                "withAutoIncrement": false,
+                "defaultValueCandidates": []
+            }
+        ],
+        "version": 20251130
+    }
+}

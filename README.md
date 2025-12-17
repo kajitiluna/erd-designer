@@ -40,6 +40,15 @@ By installing the ERD Designer extension from the [Visual Studio Marketplace](ht
 
 Please refer to the [Wiki](https://github.com/kajitiluna/erd-designer/wiki) for detailed documentation.
 
+## Sample file
+
+You can use the sample ERD file as a reference for your designs:
+- [sample-ec_mysql.erd](https://github.com/kajitiluna/erd-designer/raw/main/samples/sample-ec_mysql.erd)
+
+**How to use:**
+- **Online Tool**: Download the file and import it into ERD Designer
+- **Google Drive App / VSCode Extension**: Open the downloaded file directly
+
 ## Installation and Usage
 
 ### Local Installation
