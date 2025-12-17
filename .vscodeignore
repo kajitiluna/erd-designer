@@ -7,6 +7,7 @@
 images/**
 !images/icon.png
 public/favicon.ico
+samples/**
 src/**
 
 node_modules/**

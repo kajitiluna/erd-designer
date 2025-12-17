@@ -9,6 +9,7 @@ on:
       - '.github/pull_request_template.md'
       - '.github/dependabot.yml'
       - '.vscode/**'
+      - 'samples/**'
       - '*.md'
       - 'LICENSE'
   workflow_dispatch:
