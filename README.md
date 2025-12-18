@@ -43,7 +43,7 @@ Please refer to the [Wiki](https://github.com/kajitiluna/erd-designer/wiki) for 
 ## Sample file
 
 You can use the sample ERD file as a reference for your designs:
-- [sample-ec_mysql.erd](https://github.com/kajitiluna/erd-designer/raw/main/samples/sample-ec_mysql.erd)
+- [sample-ec_mysql.erd](https://github.com/kajitiluna/erd-designer/raw/main/samples/sample-ec_mysql.erd) (Right-click and select "Save link as...")
 
 **How to use:**
 - **Online Tool**: Download the file and import it into ERD Designer
