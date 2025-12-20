@@ -153,7 +153,7 @@ const ImportFromDdlView = ({ isOpen, onClose }: ImportFromDdlViewProps) => {
     }
 
     return (
-        <Dialog fullWidth maxWidth="lg" open={isOpen && (loadResult != null)} onClose={onClose}>
+        <Dialog fullWidth maxWidth="lg" open={isOpen && (loadResult != null)} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>Import from DDL (Experimental)</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>
@@ -167,15 +167,17 @@ const ImportFromDdlView = ({ isOpen, onClose }: ImportFromDdlViewProps) => {
             </DialogContent>
             <DialogActions>
                 <Stack direction="column" alignItems="stretch" spacing={2}
-                    sx={{ width: "100%", paddingLeft: 2, paddingRight: 2 }}>
+                    sx={{ width: "100%", paddingLeft: 2, paddingRight: 2, userSelect: "none" }}>
                     <Alert severity="warning" sx={{ margin: 2 }}>
                         This is an experimental feature. Please note the following limitations:
                         <ul>
-                            <li>Import processing is limited to the DDL statements in itself. References to existing tables that are not defined in the imported DDL are not supported.</li>
+                            <li>Import processing is limited to the DDL statements in itself.
+                                References to existing tables that are not defined in the imported DDL are not supported.</li>
                             <li>Not all DDL statements are currently supported.</li>
                         </ul>
-                        If the import results differ from what you expected,
-                        please submit an issue on <a href="https://github.com/kajitiluna/erd-designer/issues" target="_blank" rel="noreferrer">GitHub</a> with the following information:
+                        If the import results differ from what you expected, please submit an issue on
+                        <a href="https://github.com/kajitiluna/erd-designer/issues" target="_blank" rel="noreferrer">GitHub</a>
+                        with the following information:
                         <ul>
                             <li>The DDL you attempted to import</li>
                             <li>Your expected results and the actual outcome or error messages that occurred</li>
