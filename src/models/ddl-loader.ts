@@ -315,7 +315,7 @@ type ColumnBaseDefinition = {
     timezone: "with time zone" | "without time zone" | "";
     unsigned: boolean;
     zeroFill: boolean;
-    precision: number | null;
+    precision: number | "max" | null;
     scale: number | null;
     primaryKey: boolean;
     notNull: boolean;
@@ -1208,15 +1208,25 @@ class ColumnTypeResolver {
 
         const columnTypes = findDatabaseColumns(this.databaseType);
         const targetColumnType = columnTypes.find(target => {
-            const indexOfSpace = target.name.indexOf(" ");
-            const columnTypeName = (indexOfSpace >= 0)
-                ? target.name.substring(0, target.name.indexOf(" ")) : target.name;
-            if (columnTypeName.toLowerCase() !== columnDefinition.columnType.toLowerCase()) {
+            const columnTypeName = target.baseQuery.replace("[[PARAM]]", "").toUpperCase();
+            const definedColumnType = (columnDefinition.columnType
+                + ((columnDefinition.timezone !== "") ? ` ${columnDefinition.timezone}` : "")
+                // MS SQL Server の場合、`NVARCHAR(MAX)` 型などは precision に `max` が指定される
+                + ((columnDefinition.precision === "max") ? "(MAX)" : "")).toUpperCase();
+
+            if (columnTypeName !== definedColumnType) {
                 return false;
             }
 
-            if ((columnDefinition.timezone !== "")
-                && (target.name.includes(columnDefinition.timezone) === false)) {
+            // MS SQL Server の `NVARCHAR(MAX)` 型などは、以降のチェックは不要
+            if (columnDefinition.precision === "max") {
+                return true;
+            }
+
+            if ((columnDefinition.precision != null) && (target.withPrecision === false)) {
+                return false;
+            }
+            if ((columnDefinition.scale != null) && (target.withScale === false)) {
                 return false;
             }
 
