@@ -175,7 +175,7 @@ const doFilterTableViews = (url: URL, erdDocument: ErdDocument) => {
         const allColumns = erdDocument.toAllColumnModels(tableView.tableModel);
 
         const matchedColumnIds = (columnIds.length === 0)
-            || allColumns.some(column => columnIds.every(filtering => column.columnModelId === filtering));
+            || columnIds.every(filtering => allColumns.some(column => column.columnModelId === filtering));
         if (!matchedColumnIds) {
             return false;
         };

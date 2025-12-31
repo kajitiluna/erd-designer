@@ -104,11 +104,17 @@ erd-designer://documents/doc123/tables?columnId=abc-123&columnId=def-456
 ```
 
 #### 実装ステータス
-- [ ] 未着手
+- [x] 実装済み
+
+#### 実装済みファイル
+- `src/extension/mcpserver/tables.ts` (クエリパラメータ対応済み)
 
 #### 備考
-- 大文字小文字の扱いについては実装時に検討が必要
+- 大文字小文字は区別する実装
 - パフォーマンスが問題になる場合はインデックス機能の追加を検討
+- **既知の不具合**: `columnId` の複数指定時のAND条件が正しく動作していない（Line 176-178）
+  - 現在の実装: `.some(column => columnIds.every(filtering => column.columnModelId === filtering))`
+  - 期待される実装: `columnIds.every(filtering => allColumns.some(column => column.columnModelId === filtering))`
 
 ---
 
@@ -174,11 +180,14 @@ erd-designer://documents/doc123/tables?columnId=abc-123&columnId=def-456
 - [ ] `defaultValue` が未設定の場合、undefined が返却される
 
 #### 実装ステータス
-- [ ] 未着手
+- [x] 実装済み
+
+#### 実装済みファイル
+- `src/extension/mcpserver/columns.ts` (Line 69-106)
 
 #### 備考
-- カラムは複数のテーブルに存在する可能性があるため、全テーブルを検索する必要がある
-- パフォーマンスが問題になる場合は、カラムIDのインデックスを作成することを検討
+- カラムは複数のテーブルに存在する可能性があるため、全テーブルを検索する実装になっている
+- レスポンスには `overrideName` が適切に処理されている（空文字列の場合はnull、物理名/論理名が個別に設定されている場合は該当プロパティのみ返却）
 
 ---
 
@@ -270,10 +279,15 @@ erd-designer://documents/doc123/share_columns?columnName.physical.contains=user&
 ```
 
 #### 実装ステータス
-- [ ] 未着手
+- [x] 実装済み
+
+#### 実装済みファイル
+- `src/extension/mcpserver/columns.ts` (Line 696-771)
 
 #### 備考
-- 大文字小文字の扱いについては実装時に検討が必要
+- 大文字小文字は区別する実装
+- クエリパラメータのサポート: `columnName.physical.contains`, `columnName.logical.contains`, `columnTypeId`
+- AND条件による複数条件の絞り込みに対応
 
 ---
 
@@ -344,10 +358,14 @@ erd-designer://documents/doc123/share_columns?columnName.physical.contains=user&
 - [ ] 存在しないドキュメントIDで404エラーが返る
 
 #### 実装ステータス
-- [ ] 未着手
+- [x] 実装済み
+
+#### 実装済みファイル
+- `src/extension/mcpserver/columns.ts` (Line 813-851)
 
 #### 備考
-- 共有カラムモデルは `columnShareModelStorage` から取得する
+- 共有カラムモデルは `columnShareModelStorage` から取得
+- `referencedColumns` プロパティで、この共有カラムモデルを参照するすべてのカラムを返却
 
 ---
 
