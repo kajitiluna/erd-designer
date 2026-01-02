@@ -175,7 +175,7 @@ const doFilterTableViews = (url: URL, erdDocument: ErdDocument) => {
         const allColumns = erdDocument.toAllColumnModels(tableView.tableModel);
 
         const matchedColumnIds = (columnIds.length === 0)
-            || allColumns.some(column => columnIds.every(filtering => column.columnModelId === filtering));
+            || columnIds.every(filtering => allColumns.some(column => column.columnModelId === filtering));
         if (!matchedColumnIds) {
             return false;
         };
@@ -556,6 +556,7 @@ REQUEST:
         - logical: (optional) The logical name.
       - columnTypeId: The column type ID (required).
         Must reference an existing column type from the database type definition.
+        Available column types can be obtained from 'erd-designer://documents/{documentId}/database' resource's columnTypes array.
       - precision: (optional) The precision setting (required for types with precision).
       - scale: (optional) The scale setting (required for types with scale).
       - unsigned: (optional) Boolean indicating unsigned property (only for applicable types).

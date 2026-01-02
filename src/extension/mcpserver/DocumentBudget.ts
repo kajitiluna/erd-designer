@@ -4,6 +4,7 @@ export const uriTemplates = {
     documents: "erd-designer://documents",
     documentDetail: "erd-designer://documents/{documentId}",
     documentFor: (documentId: string) => `erd-designer://documents/${documentId}`,
+    database: "erd-designer://documents/{documentId}/database",
     tables: "erd-designer://documents/{documentId}/tables",
     tableDetail: "erd-designer://documents/{documentId}/tables/{tableId}",
     columnDetail: "erd-designer://documents/{documentId}/columns/{columnId}",

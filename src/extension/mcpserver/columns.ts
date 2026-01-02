@@ -147,7 +147,8 @@ const addingColumnShareModelSchema = {
             }).describe("The physical name for the new column-share."),
         logical: z.string().optional().describe("The logical name for the new column-share."),
     }).describe("The names for the new column-share."),
-    columnTypeId: z.number().describe("The column type ID for the new column-share."),
+    columnTypeId: z.number().describe("The column type ID for the new column-share. "
+        + "Available column types can be obtained from 'erd-designer://documents/{documentId}/database' resource's columnTypes array."),
     precision: z.string()
         .refine(validatePositiveNumber, {
             message: "Precision must be empty string or a non-negative integer"
@@ -201,6 +202,7 @@ REQUEST:
       - logical: (optional) The logical name.
     - columnTypeId: The column type ID (required).
       Must reference an existing column type from the database type definition.
+      Available column types can be obtained from 'erd-designer://documents/{documentId}/database' resource's columnTypes array.
     - precision: (optional) The precision setting (required for types with precision).
     - scale: (optional) The scale setting (required for types with scale).
     - unsigned: (optional) Boolean indicating unsigned property (only for applicable types).
@@ -433,6 +435,7 @@ REQUEST:
         Must start with a letter or underscore, followed by letters, digits, or underscores.
       - logical: (optional) The logical name.
     - columnTypeId: The column type ID (required). Must reference an existing column type.
+      Available column types can be obtained from 'erd-designer://documents/{documentId}/database' resource's columnTypes array.
     - precision: (optional) The precision setting (required for types with precision).
     - scale: (optional) The scale setting (required for types with scale).
     - unsigned: (optional) Boolean indicating unsigned property (only for applicable types).
@@ -874,6 +877,7 @@ REQUEST:
       Must start with a letter or underscore, followed by letters, digits, or underscores.
     - logical: The new logical name for the column-share.
   - columnTypeId: The new column type ID. Must reference an existing column type in the database.
+    Available column types can be obtained from 'erd-designer://documents/{documentId}/database' resource's columnTypes array.
   - precision: The new precision setting (empty string to clear, non-negative integer only).
     Only applicable if the column type supports precision.
   - scale: The new scale setting (empty string to clear, non-negative integer only).

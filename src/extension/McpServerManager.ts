@@ -5,6 +5,7 @@ import { Server } from "http";
 
 import { DocumentResource } from "~/extension/DocumentResource";
 import { mcpRegisterColumn } from "~/extension/mcpserver/columns";
+import { mcpRegisterDatabase } from "~/extension/mcpserver/database";
 import { mcpRegisterErdDocument } from "~/extension/mcpserver/documents";
 import { mcpRegisterPerspective } from "~/extension/mcpserver/perspectives";
 import { McpErrorCode } from "~/extension/mcpserver/support";
@@ -118,6 +119,8 @@ const createMcpServer = (documentResource: DocumentResource) => {
     const mcpConfig = [
         // `erd-designer://documents`
         mcpRegisterErdDocument(documentResource),
+        // `erd-designer://documents/{documentId}/database`
+        mcpRegisterDatabase(documentResource),
         // `erd-designer://documents/{documentId}/tables`
         mcpRegisterTable(documentResource),
         // `erd-designer://documents/{documentId}/columns`
