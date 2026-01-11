@@ -270,7 +270,7 @@ const initUniqueKeysMarkers = (
 
     return (
         <TableCell sx={STYLE_MARKER_CELL}>
-            <Grid2 container columns={uniqueKeysModels.length} spacing="1">
+            <Grid2 container columns={uniqueKeysModels.length} spacing="1" sx={{ flexWrap: 'nowrap' }}>
                 {uniqueKeysModels.map(uniqueKeysModel => doInitIndexMarker(uniqueKeysModel))}
             </Grid2>
         </TableCell>
@@ -305,7 +305,7 @@ const initTableIndexMarkers = (
 
     return (
         <TableCell sx={STYLE_MARKER_CELL}>
-            <Grid2 container columns={tableIndexModels.length} spacing="1">
+            <Grid2 container columns={tableIndexModels.length} spacing="1" sx={{ flexWrap: 'nowrap' }}>
                 {tableIndexModels.map(tableIndex => doInitIndexMarker(tableIndex))}
             </Grid2>
         </TableCell>
