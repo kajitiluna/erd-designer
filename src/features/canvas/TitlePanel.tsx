@@ -65,14 +65,6 @@ const TitlePanel = () => {
         };
     };
 
-    const handleLeavingPreference = () => {
-        if (displayStyleElement !== null) {
-            return;
-        }
-
-        handleClosePreference();
-    };
-
     const handleCloseMenu = () => {
         setSelectedMenu("");
         handleClosePreference();
@@ -90,8 +82,7 @@ const TitlePanel = () => {
                 <SettingsIcon />
             </IconButton>
 
-            <Menu anchorEl={preferenceElement} open={isSettingOpen} onClose={handleClosePreference}
-                slotProps={{ list: { onMouseLeave: handleLeavingPreference } }}>
+            <Menu anchorEl={preferenceElement} open={isSettingOpen} onClose={handleClosePreference}>
                 <MenuItem sx={{ paddingRight: "4px" }}
                     onClick={event => setDisplayStyleElement(event.currentTarget)}>
                     Display Style : {erdSetting.displayStyle.name} <ArrowRightIcon />
@@ -107,8 +98,7 @@ const TitlePanel = () => {
             <Menu anchorEl={displayStyleElement} open={Boolean(displayStyleElement)}
                 anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                onClose={handleCloseDisplayStyle}
-                slotProps={{ list: { onMouseLeave: handleCloseDisplayStyle } }}>
+                onClose={handleCloseDisplayStyle}>
                 {DisplayStyle.values().map(displayStyle => (
                     <MenuItem key={displayStyle.name} value={displayStyle.name}
                         selected={displayStyle.name === erdSetting.displayStyle.name}

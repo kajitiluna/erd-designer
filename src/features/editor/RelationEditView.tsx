@@ -25,31 +25,39 @@ type RelationEditViewProps = {
     onClose: () => void
 };
 
-const RelationEditView = ({ isOpen, relationViewModel, parentTableModel, childTableModel, onClose }: RelationEditViewProps) => {
+const RelationEditView = ({
+    isOpen, relationViewModel, parentTableModel, childTableModel, onClose
+}: RelationEditViewProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const erdDocument: ErdDocument = documentsHolder.current();
 
     const relationModel: RelationModel = relationViewModel.relationModel;
-
-    const parentPrimaryColumns: ColumnModel[] =
-        erdDocument.toAllColumnModels(parentTableModel)
-            .filter(columnModel => columnModel.primaryKey);
-
-    const previousRelationMap = new Map(relationModel.relationPairs
-        .map(pair => [pair.parentColumnModelId, pair.childColumnModelId])
-    );
+    const parentPrimaryColumns: ColumnModel[] = erdDocument.toAllColumnModels(parentTableModel)
+        .filter(columnModel => columnModel.primaryKey);
 
     const [relationName, setRelationName] = React.useState<string>(relationModel.relationName);
-    const [relationPairs, setRelationPairs] = React.useState<RelationPair[]>(
-        parentPrimaryColumns.map(primaryColumn => new RelationPair({
+    const [relationPairs, setRelationPairs] = React.useState<RelationPair[]>(() => {
+        const previousRelationMap = new Map(relationModel.relationPairs
+            .map(pair => [pair.parentColumnModelId, pair.childColumnModelId])
+        );
+
+        return parentPrimaryColumns.map(primaryColumn => new RelationPair({
             parentColumnModelId: primaryColumn.columnModelId,
             childColumnModelId: previousRelationMap.get(primaryColumn.columnModelId) || ""
-        }))
-    );
+        }));
+    });
     const [parentCardinality, setParentCardinality] = React.useState<CardinalityType>(relationModel.parentCardinality);
     const [childCardinality, setChildCardinality] = React.useState<CardinalityType>(relationModel.childCardinality);
     const [updateActionType, setUpdateActionType] = React.useState<TableReferenceActionType>(relationModel.onUpdateAction);
     const [deleteActionType, setDeleteActionType] = React.useState<TableReferenceActionType>(relationModel.onDeleteAction);
+
+    const existedPairs = React.useMemo(() => {
+        return new Set(
+            erdDocument.getRelationViewModels()
+                .filter(relation => (relation.relationId !== relationViewModel.relationId))
+                .map(relation => initComparableValue(relation.relationModel.relationPairs))
+        );
+    }, []);
 
     if (parentPrimaryColumns.length === 0) {
         // 親テーブルに primary key が存在しないので中断
@@ -60,7 +68,8 @@ const RelationEditView = ({ isOpen, relationViewModel, parentTableModel, childTa
     }
 
     const editValueValidated = (relationPairs.length > 0)
-        && relationPairs.every((pair) => pair.childColumnModelId !== "");
+        && relationPairs.every(pair => pair.childColumnModelId !== "")
+        && (existedPairs.has(initComparableValue(relationPairs)) === false);
 
     const handleCompleted = () => {
         if (editValueValidated === false) {
@@ -129,6 +138,11 @@ const RelationEditView = ({ isOpen, relationViewModel, parentTableModel, childTa
     );
 };
 
+const initComparableValue = (relationPairs: readonly RelationPair[]) =>
+    [...relationPairs].sort((first, second) => first.parentColumnModelId.localeCompare(second.parentColumnModelId))
+        .map(pair => `${pair.parentColumnModelId}:${pair.childColumnModelId}`)
+        .join(",");
+
 type RelationReferencesPanelProps = {
     erdDocument: ErdDocument,
     parentTableModel: TableModel,
@@ -139,10 +153,10 @@ type RelationReferencesPanelProps = {
 };
 
 const RelationReferencesPanel = ({
-    erdDocument, parentTableModel, childTableModel, parentPrimaryColumns,
-    relationPairs, updateRelationPairs
+    erdDocument, parentTableModel, childTableModel, parentPrimaryColumns, relationPairs, updateRelationPairs
 }: RelationReferencesPanelProps) => {
 
+    const displayStyle = erdDocument.getDisplayStyle();
     const childColumnDetails = erdDocument.toAllColumnModels(childTableModel)
         .map(columnModel => {
             const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
@@ -156,7 +170,7 @@ const RelationReferencesPanel = ({
         })
         .filter(pair => (pair != null));
 
-    const initRelationRow = (primaryColumn: ColumnModel, index: number) => {
+    const initRelationRow = (primaryColumn: ColumnModel, targetIndex: number) => {
         const parentColumnShareModel = erdDocument.findColumnShareModel(primaryColumn.columnShareModelId)
         if (parentColumnShareModel == null) {
             return (<></>);
@@ -168,7 +182,7 @@ const RelationReferencesPanel = ({
         // 既に親カラムと同じカラムが存在する場合は、新規作成できないよう制限する
         const creatableNewColumn = (
             childColumnDetails.some(childColumn =>
-                childColumn.columnName.physicalName === parentColumnName.physicalName
+                (childColumn.columnName.physicalName === parentColumnName.physicalName)
             ) === false
         )
 
@@ -180,7 +194,7 @@ const RelationReferencesPanel = ({
         const labelId = `label-${primaryColumn.columnShareModelId}`
         const handleChangeForeign = (event: SelectChangeEvent<string>) => {
             updateRelationPairs(previousPairs => {
-                const nextPairs = previousPairs.map((pair) => {
+                const nextPairs = previousPairs.map(pair => {
                     if (pair.parentColumnModelId !== primaryColumn.columnModelId) {
                         return pair
                     }
@@ -199,7 +213,7 @@ const RelationReferencesPanel = ({
             <FormControl fullWidth>
                 <InputLabel id={labelId} required>Foreign column</InputLabel>
                 <Select size="small" labelId={labelId} id={`selector-${primaryColumn.columnShareModelId}`}
-                    label="Foreign column" value={relationPairs[index].childColumnModelId}
+                    label="Foreign column" value={relationPairs[targetIndex].childColumnModelId}
                     sx={{ fontSize: "0.95em" }} onChange={handleChangeForeign}>
                     {creatableNewColumn &&
                         <MenuItem value={INDICATING_FOR_NEW_COLUMN}>(Create new column)</MenuItem>
@@ -207,7 +221,8 @@ const RelationReferencesPanel = ({
                     {foreignDetails.map(childColumn => (
                         <MenuItem key={childColumn.columnModel.columnModelId}
                             value={childColumn.columnModel.columnModelId}>
-                            {childColumn.columnName.logicalName} / {childColumn.columnName.physicalName}
+                            {displayStyle.displayName(
+                                childColumn.columnName.physicalName, childColumn.columnName.logicalName)}
                         </MenuItem>
                     ))}
                 </Select>
@@ -216,7 +231,9 @@ const RelationReferencesPanel = ({
 
         return (
             <TableRow key={primaryColumn.columnShareModelId}>
-                <TableCell>{parentColumnShareModel.logicalName} / {parentColumnShareModel.physicalName}</TableCell>
+                <TableCell>
+                    {displayStyle.displayName(parentColumnName.physicalName, parentColumnName.logicalName)}
+                </TableCell>
                 <TableCell>{selector}</TableCell>
             </TableRow>
         );
@@ -229,12 +246,12 @@ const RelationReferencesPanel = ({
                 <Grid container>
                     <Grid size={{ xs: 6 }}>
                         <Typography variant="body2" gutterBottom>
-                            {parentTableModel.logicalName} / {parentTableModel.physicalName}
+                            {displayStyle.displayName(parentTableModel.physicalName, parentTableModel.logicalName)}
                         </Typography>
                     </Grid>
                     <Grid size={{ xs: 6 }}>
                         <Typography variant="body2" gutterBottom>
-                            {childTableModel.logicalName} / {childTableModel.physicalName}
+                            {displayStyle.displayName(childTableModel.physicalName, childTableModel.logicalName)}
                         </Typography>
                     </Grid>
                 </Grid>
