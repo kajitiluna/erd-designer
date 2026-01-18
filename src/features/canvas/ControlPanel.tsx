@@ -39,7 +39,7 @@ const ControlPanel = ({ erdExportable }: ControlPanelProps) => {
         <Box sx={PANEL_STYLE}>
             <EditModePanel />
             <ActionPanel />
-            <SubMenuButton erdExportable={erdExportable} />
+            <SubMenuPanel erdExportable={erdExportable} />
         </Box>
     );
 };
@@ -211,7 +211,7 @@ type SubMenuButtonProps = {
     erdExportable: boolean
 };
 
-const SubMenuButton = ({ erdExportable }: SubMenuButtonProps) => {
+const SubMenuPanel = ({ erdExportable }: SubMenuButtonProps) => {
     const { dispatchSelectAction } = React.useContext(SelectEntityContext);
     const [configureElement, setConfigureElement] = React.useState<HTMLElement | null>();
     const [selectedMenu, setSelectedMenu] = React.useState<"export_ddl" | "">("");
@@ -247,14 +247,6 @@ const SubMenuButton = ({ erdExportable }: SubMenuButtonProps) => {
 
     const isConfigureOpen = Boolean(configureElement);
 
-    const handleLeavingMenu = () => {
-        if (selectedMenu !== "") {
-            return;
-        }
-
-        handleCloseMenu();
-    };
-
     return (
         <>
             <Box sx={SUBMENU_BUTTON_STYLE}>
@@ -267,10 +259,7 @@ const SubMenuButton = ({ erdExportable }: SubMenuButtonProps) => {
             </Box>
 
             <Menu anchorEl={configureElement} open={isConfigureOpen} onClose={handleCloseMenu}
-                slotProps={{
-                    paper: { 'aria-labelledby': 'basic-button', },
-                    list: { onMouseLeave: handleLeavingMenu }
-                }}>
+                slotProps={{ paper: { 'aria-labelledby': 'basic-button', } }}>
                 <MenuItem onClick={() => setSelectedMenu("export_ddl")}>Export DDL</MenuItem>
                 <MenuItem onClick={handleSaveAsImage}>Save as image</MenuItem>
                 <MenuItem onClick={handleExportSpecification}>Export specification</MenuItem>
@@ -343,7 +332,7 @@ const exportDiagramImage = (erdCanvas: HTMLElement, exportImage: (contents: Imag
 
 const doCalculateImageArea = (erdCanvas: HTMLElement) => {
     const { scrollX, scrollY } = getScroll();
-    
+
     let leftEdge = Number.MAX_SAFE_INTEGER;
     let topEdge = Number.MAX_SAFE_INTEGER;
     let rightEdge = 0;
