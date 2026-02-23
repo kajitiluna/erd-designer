@@ -99,7 +99,7 @@ export default class RelationViewModelStorage {
         return this.childColumnModelIdMap.get(`${childTableModelId}:${childColumnModelId}`) ?? null;
     }
 
-    public updataeRelationView(updating: RelationViewModel): RelationViewModelStorage {
+    public updateRelationView(updating: RelationViewModel): RelationViewModelStorage {
         return this.update([updating]);
     }
 

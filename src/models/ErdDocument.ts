@@ -1047,7 +1047,7 @@ export default class ErdDocument {
         return this.doUpdate({
             tableViewModelMap: nextTableViewModelMap,
             columnModelMap: nextColumnModelMap,
-            relationViewModelStorage: this.relationViewModelStorage.updataeRelationView(updatingView)
+            relationViewModelStorage: this.relationViewModelStorage.updateRelationView(updatingView)
         });
     }
 

@@ -331,7 +331,7 @@ const STYLE_MARKER_GRID = {
 const STYLE_MARKER_MARGIN = { margin: "2.8px" };
 
 // 自己関連を作成する制御にあたり、１つ目のテーブル選択時に自己関連を作成しないように制御するための状態
-type SelfSelectableMode = "none" | "start_selecting" | "self_selctable";
+type SelfSelectableMode = "none" | "start_selecting" | "self_selectable";
 
 type InnerErdTableViewProps = {
     tableViewModel: TableViewModel,
@@ -434,7 +434,7 @@ const InnerErdTableView = ({
             const parentTableId = selectState.tableIds.values().next().value as string;
             // 選択を開始した直後に限り、親と子が同じテーブルの場合は無視する
             if ((parentTableId === tableViewModel.tableId) && (selfSelectableMode === "start_selecting")) {
-                setSelfSelectableMode("self_selctable");
+                setSelfSelectableMode("self_selectable");
                 return;
             }
 
