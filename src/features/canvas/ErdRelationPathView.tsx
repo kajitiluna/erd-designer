@@ -124,8 +124,11 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
                 );
             });
 
+            const relationModel = relationView.relationModel;
+
             const handleLineStraight = () => {
-                if (lineView.lineType === "straight") {
+                if ((lineView.lineType === "straight") ||
+                    (relationModel.parentTableModelId === relationModel.childTableModelId)) {
                     return;
                 }
 
@@ -159,6 +162,7 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
                         <Stack direction="row" alignItems="center">{widthButtons}</Stack>
                         <Stack direction="row" alignItems="center">
                             <IconButton color={(lineView.lineType === "straight") ? "primary" : "default"}
+                                disabled={relationModel.parentTableModelId === relationModel.childTableModelId}
                                 onClick={handleLineStraight}>
                                 <LineStraightIcon />
                             </IconButton>

@@ -99,6 +99,10 @@ export default class RelationViewModelStorage {
         return this.childColumnModelIdMap.get(`${childTableModelId}:${childColumnModelId}`) ?? null;
     }
 
+    public updataeRelationView(updating: RelationViewModel): RelationViewModelStorage {
+        return this.update([updating]);
+    }
+
     public updateRelationModel(updatingModels: RelationModel[]): RelationViewModelStorage {
         if (updatingModels.length === 0) {
             return this;
@@ -111,7 +115,7 @@ export default class RelationViewModelStorage {
                 ? currentViewModel.updateRelationModel(updatingModel)
                 : new RelationViewModel({
                     relationModel: updatingModel,
-                    lineViewModel: new LineViewModel({ strokeWidth: 1 })
+                    lineViewModel: new LineViewModel({})
                 });
         });
 

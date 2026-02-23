@@ -98,8 +98,13 @@ const RelationEditView = ({
             onUpdateAction: updateActionType,
             onDeleteAction: deleteActionType
         });
+        const nextRelationView = new RelationViewModel({
+            relationModel: nextRelationModel,
+            lineViewModel: relationViewModel.lineViewModel,
+            createdAt: relationViewModel.createdAt
+        });
 
-        documentsHolder.updateRelationModel(nextRelationModel);
+        documentsHolder.updateRelation(nextRelationView);
         onClose();
     };
 
@@ -122,6 +127,12 @@ const RelationEditView = ({
                         parentPrimaryColumns={parentPrimaryColumns}
                         relationPairs={relationPairs}
                         updateRelationPairs={setRelationPairs} />
+                    {(parentTableModel.tableModelId === childTableModel.tableModelId) && (
+                        <Alert>
+                            To create a self-referencing relation,
+                            add the child column to this table first, then link it here.
+                        </Alert>
+                    )}
                     <RelationCardinalityPanel
                         parentCardinality={parentCardinality} onUpdateParentCardinality={setParentCardinality}
                         childCardinality={childCardinality} onUpdateChildCardinality={setChildCardinality} />

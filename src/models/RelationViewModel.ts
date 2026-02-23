@@ -13,7 +13,7 @@ export default class RelationViewModel {
 
     public readonly relationModel: RelationModel;
     public readonly lineViewModel: LineViewModel;
-    private readonly createdAt: Date;
+    public readonly createdAt: Date;
 
     constructor({ relationModel, lineViewModel, createdAt = null }: RelationViewModelOptions) {
         this.relationModel = relationModel;

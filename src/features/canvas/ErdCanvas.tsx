@@ -25,6 +25,8 @@ import { LocalSetting, LocalSettingContext } from "~/context/LocalSettingContext
 import PerspectiveModel from "~/models/PerspectiveModel";
 import PerspectiveSettingView from "~/features/editor/PerspectiveSettingView";
 import ErdDocument from "~/models/ErdDocument";
+import { OrthogonalDirection } from "~/models/LineViewModel";
+import RelationViewModel from "~/models/RelationViewModel";
 
 type RectangleArea = {
     tableRectangles: Map<string, RectangleViewModel>,
@@ -419,26 +421,68 @@ const ErdCanvas = () => {
                 rectangleMap={rectangleArea.tableRectangles}
                 onEditAction={setEditAction} onDragAction={dispatchDragAction} />
 
-            {(editAction.editType === "table") && (
-                <TableEditView isOpen={editAction.editType === "table"}
-                    tableViewModel={editAction.tableViewModel}
-                    onClose={handleCloseEditDialog} />
-            )}
-            {(editAction.editType === "relation") && (
-                <RelationEditView isOpen={editAction.editType === "relation"}
-                    relationViewModel={editAction.relationViewModel}
-                    parentTableModel={editAction.parentTable}
-                    childTableModel={editAction.childTable}
-                    onClose={handleCloseEditDialog} />
-            )}
-            {(editAction.editType === "perspective") && (
-                <PerspectiveSettingView
-                    isOpen={editAction.editType === "perspective"}
-                    targetId={editAction.targetId}
-                    onClose={handleCloseEditDialog} />
-            )}
+            {initEditView(editAction, rectangleArea, handleCloseEditDialog)}
         </DragActionContext.Provider>
     );
+};
+
+const initEditView = (editAction: EditAction, rectangleArea: RectangleArea, onClose: () => void) => {
+    if (editAction.editType === "none") {
+        return (<></>);
+    }
+
+    if (editAction.editType === "table") {
+        return (
+            <TableEditView isOpen={editAction.editType === "table"}
+                tableViewModel={editAction.tableViewModel}
+                onClose={onClose} />
+        );
+    }
+
+    if (editAction.editType === "perspective") {
+        return (
+            <PerspectiveSettingView
+                isOpen={editAction.editType === "perspective"}
+                targetId={editAction.targetId}
+                onClose={onClose} />
+        );
+    }
+
+    if (editAction.editType === "relation") {
+        // 自己関連かつ、新規作成か否かを判断する
+        const relationView = doCreateSelfRelation(editAction, rectangleArea);
+
+        return (
+            <RelationEditView isOpen={editAction.editType === "relation"}
+                relationViewModel={relationView}
+                parentTableModel={editAction.parentTable}
+                childTableModel={editAction.childTable}
+                onClose={onClose} />
+        );
+    }
+
+    return (<></>);
+};
+
+const doCreateSelfRelation = (editAction: EditAction & { editType: "relation" }, rectangleArea: RectangleArea) => {
+    const lineViewModel = editAction.relationViewModel.lineViewModel;
+    const parentTableId = editAction.parentTable.tableModelId;
+    const childTableId = editAction.childTable.tableModelId;
+
+    if ((parentTableId !== childTableId) || (lineViewModel.orthogonalLines.length >= 3)) {
+        return editAction.relationViewModel;
+    }
+
+    const rectangle = rectangleArea.tableRectangles.get(parentTableId) as RectangleViewModel;
+    const orthogonalLines: OrthogonalDirection[] = [
+        { direction: "horizontal", position: rectangle.bottom - rectangle.height / 4 },
+        { direction: "vertical", position: rectangle.right + 70 },
+        { direction: "horizontal", position: rectangle.bottom + 70 },
+        { direction: "vertical", position: rectangle.right - rectangle.width / 4 }
+    ];
+    const nextLineViewModel = lineViewModel.updateOrthogonalLines(orthogonalLines);
+
+    return new RelationViewModel({ ...editAction.relationViewModel, lineViewModel: nextLineViewModel });
 };
 
 const useGrabbing = (editMode: EditMode, displayScale: number) => {
@@ -599,18 +643,39 @@ const initCreatingRelationLine = ({
     }
 
     const parentTableId = selectState.tableIds.values().next().value as string;
-    const parentTable = tableRectangles.get(parentTableId);
-    if (parentTable == null) {
+    const parentRectangle = tableRectangles.get(parentTableId);
+    if (parentRectangle == null) {
         return (<></>);
     }
 
+    if (parentRectangle.contains(relationEdge) === false) {
+        return (
+            <line
+                x1={parentRectangle.xCenter + DRAWABLE_AREA.width / 2}
+                y1={parentRectangle.yCenter + DRAWABLE_AREA.height / 2}
+                x2={relationEdge.x + DRAWABLE_AREA.width / 2}
+                y2={relationEdge.y + DRAWABLE_AREA.height / 2}
+                stroke={SELECTED_LINE_COLOR} strokeDasharray="4" strokeWidth="3">
+                <animate attributeName="stroke-dashoffset" from="24" to="0" dur="1s" repeatCount="indefinite" />
+            </line>
+        );
+    }
+
+    const drawingPoints = [
+        { x: parentRectangle.right, y: parentRectangle.yCenter + parentRectangle.height / 4 },
+        { x: parentRectangle.right + 70, y: parentRectangle.yCenter + parentRectangle.height / 4 },
+        { x: parentRectangle.right + 70, y: parentRectangle.bottom + 70 },
+        { x: parentRectangle.xCenter + parentRectangle.width / 4, y: parentRectangle.bottom + 70 },
+        { x: parentRectangle.xCenter + parentRectangle.width / 4, y: parentRectangle.bottom }
+    ];
+    const drawingLine = "M" + drawingPoints.map(point =>
+        `${point.x + DRAWABLE_AREA.width / 2},${point.y + DRAWABLE_AREA.height / 2}`
+    ).join(" L");
+
     return (
-        <line
-            x1={parentTable.xCenter + DRAWABLE_AREA.width / 2}
-            y1={parentTable.yCenter + DRAWABLE_AREA.height / 2}
-            x2={relationEdge.x + DRAWABLE_AREA.width / 2}
-            y2={relationEdge.y + DRAWABLE_AREA.height / 2}
-            stroke={SELECTED_LINE_COLOR} strokeDasharray="4" strokeWidth="3" />
+        <path d={drawingLine} fill="none" stroke={SELECTED_LINE_COLOR} strokeDasharray="4" strokeWidth="3">
+            <animate attributeName="stroke-dashoffset" from="24" to="0" dur="1s" repeatCount="indefinite" />
+        </path>
     );
 };
 

@@ -188,8 +188,8 @@ export class ErdDocumentsHolder {
      * 
      * @param updatingModel 更新対象のリレーション
      */
-    public updateRelationModel(updatingModel: RelationModel) {
-        this.doUpdate(previous => previous.updateRelationModel(updatingModel));
+    public updateRelation(updatingModel: RelationViewModel) {
+        this.doUpdate(previous => previous.updateRelation(updatingModel));
     }
 
     /**

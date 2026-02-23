@@ -142,10 +142,15 @@ type ToDraggedOrthogonalPointsArgs = {
 export const toDraggedOrthogonalPoints = ({
     relationView, points, parentTable, childTable, selectState, dragState
 }: ToDraggedOrthogonalPointsArgs): { draggedPoints: Point[], isReducedLine: boolean } => {
+    const parentTableId = relationView.relationModel.parentTableModelId;
+    const childTableId = relationView.relationModel.childTableModelId;
+    const orthogonalLines = relationView.lineViewModel.orthogonalLines;
+    const ignoreReduce = (parentTableId === childTableId) && (orthogonalLines.length <= 3);
+
     let isReducedLine: boolean = false;
 
     const draggedPoints = points
-        .map((point, index) => {
+        .flatMap((point, index) => {
             if ((dragState.status !== "on_dragging")) {
                 return [point];
             }
@@ -371,9 +376,8 @@ export const toDraggedOrthogonalPoints = ({
                 y: (direction === "horizontal") ? dragState.current.y : point.y
             }];
         })
-        .flatMap(point => point)
         .map((point, index, draggingPoints) => {
-            if ((index === 0) || (index === draggingPoints.length - 1)) {
+            if ((index === 0) || (index === draggingPoints.length - 1) || ignoreReduce) {
                 return point;
             }
 
@@ -386,8 +390,11 @@ export const toDraggedOrthogonalPoints = ({
             }
 
             return point;
-        })
-        .filter(point => (point != null));
+        });
+
+    if ((parentTableId === childTableId) && (draggedPoints.length < 3)) {
+        return { draggedPoints: points, isReducedLine: false };
+    }
 
     return { draggedPoints, isReducedLine };
 };
@@ -405,8 +412,11 @@ export const toNextOrthogonalLines = (
     { relationViews, tableRectangles, selectState, dragState }: ToNextOrthogonalLinesArgs
 ): { relationId: string, orthogonalLines: OrthogonalDirection[] }[] => {
     return relationViews.map(relationView => {
-        const parentTable = tableRectangles.get(relationView.relationModel.parentTableModelId);
-        const childTable = tableRectangles.get(relationView.relationModel.childTableModelId);
+        const parentTableId = relationView.relationModel.parentTableModelId;
+        const childTableId = relationView.relationModel.childTableModelId;
+
+        const parentTable = tableRectangles.get(parentTableId);
+        const childTable = tableRectangles.get(childTableId);
         if ((parentTable == null) || (childTable == null)) {
             return null;
         }
@@ -419,13 +429,15 @@ export const toNextOrthogonalLines = (
 
         const draggedPairs = draggedPoints.slice(0, -1)
             .map((value, index) => [value, draggedPoints[index + 1]]);
+        const ignoreReduce = (parentTableId === childTableId) && (orthogonalLines.length <= 3);
 
         const nextOrthogonalLines = draggedPairs
             .map((pair, index) => {
                 const direction: "vertical" | "horizontal" = (pair[0].x === pair[1].x) ? "vertical" : "horizontal";
                 const position = (direction === "vertical") ? pair[0].x : pair[0].y;
 
-                if ((index > 0) && (index < draggedPairs.length - 1)) {
+                // 自己関連の場合は、線分の数が3以下の場合は減らしてはならない
+                if ((index > 0) && (index < draggedPairs.length - 1) && (ignoreReduce === false)) {
                     const delta = (direction === "vertical") ? pair[1].y - pair[0].y : pair[1].x - pair[0].x;
                     // 前後の線分と同じ位置にある場合は、無視する
                     if (Math.abs(delta) < ORTHOGONAL_THRESHOLD) {
