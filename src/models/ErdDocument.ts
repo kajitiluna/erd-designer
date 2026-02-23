@@ -977,10 +977,11 @@ export default class ErdDocument {
     /**
      * リレーションを更新する。
      * 
-     * @param updatingModel 更新対象のリレーションモデル
+     * @param updatingView 更新対象のリレーションビューモデル
      * @returns 更新後のドキュメント
      */
-    public updateRelationModel(updatingModel: RelationModel): ErdDocument {
+    public updateRelation(updatingView: RelationViewModel): ErdDocument {
+        const updatingModel = updatingView.relationModel;
         const tempChildTableViewModel = this.tableViewModelMap.get(updatingModel.childTableModelId);
         if (tempChildTableViewModel == null) {
             return this;
@@ -1046,7 +1047,7 @@ export default class ErdDocument {
         return this.doUpdate({
             tableViewModelMap: nextTableViewModelMap,
             columnModelMap: nextColumnModelMap,
-            relationViewModelStorage: this.relationViewModelStorage.updateRelationModel([updatingModel])
+            relationViewModelStorage: this.relationViewModelStorage.updateRelationView(updatingView)
         });
     }
 

@@ -5,7 +5,6 @@ import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
-import RelationModel from "~/models/database/RelationModel";
 import DbSchemaConfig from "~/models/DbSchemaConfig";
 import ErdDocument from "~/models/ErdDocument";
 import ErdSettingModel from "~/models/ErdSettingModel";
@@ -188,8 +187,8 @@ export class ErdDocumentsHolder {
      * 
      * @param updatingModel 更新対象のリレーション
      */
-    public updateRelationModel(updatingModel: RelationModel) {
-        this.doUpdate(previous => previous.updateRelationModel(updatingModel));
+    public updateRelation(updatingModel: RelationViewModel) {
+        this.doUpdate(previous => previous.updateRelation(updatingModel));
     }
 
     /**
