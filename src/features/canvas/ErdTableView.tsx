@@ -449,7 +449,6 @@ const InnerErdTableView = ({
                 parentTableModelId: parentTableId,
                 childTableModelId: tableViewModel.tableId
             });
-            // TODO 自己関連の場合の制御
             const lineViewModel = new LineViewModel({});
 
             onEditAction({
