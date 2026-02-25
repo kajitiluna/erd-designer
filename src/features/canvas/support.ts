@@ -429,7 +429,7 @@ export const toNextOrthogonalLines = (
 
         const draggedPairs = draggedPoints.slice(0, -1)
             .map((value, index) => [value, draggedPoints[index + 1]]);
-        const ignoreReduce = (parentTableId === childTableId) && (orthogonalLines.length <= 3);
+        const ignoreReduce = (parentTableId === childTableId) && (draggedPairs.length <= 3);
 
         const nextOrthogonalLines = draggedPairs
             .map((pair, index) => {
