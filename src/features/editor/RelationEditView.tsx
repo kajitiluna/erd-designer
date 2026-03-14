@@ -197,9 +197,10 @@ const RelationReferencesPanel = ({
             ) === false
         )
 
-        // 外部キー制約を指定できるのは、型定義が同一のカラムのみ
+        // 外部キー制約を指定できるのは、型定義が同一のカラムのみ。ただし、自己参照の場合、同じカラムは指定できない。
         const foreignDetails = childColumnDetails.filter(childPair =>
-            childPair.columnShareModel.matchForReferenceType(parentColumnShareModel)
+            childPair.columnShareModel.matchForReferenceType(parentColumnShareModel) &&
+            (primaryColumn.columnModelId !== childPair.columnModel.columnModelId)
         );
 
         const labelId = `label-${primaryColumn.columnShareModelId}`
