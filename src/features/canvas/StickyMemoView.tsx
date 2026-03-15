@@ -439,14 +439,14 @@ const StickyControlPane = ({ memoViewModel, onSettingAction }: StickyControlPane
             return;
         }
 
-        const loggingMessage = `Update memo color. memoId: ${JSON.stringify({
+        const loggingMessage = "Update memo color: " + JSON.stringify({
             memoId: memoViewModel.memoId,
             before: {
                 background: memoViewModel.backgroundColor.toHex(),
                 foreground: memoViewModel.foregroundColor.toHex()
             },
             after: { background: background.toHex(), foreground: foreground.toHex() }
-        })},`;
+        });
         documentsHolder.updateMemo(nextMemoViewModel, loggingMessage);
     }
 
@@ -459,7 +459,7 @@ const StickyControlPane = ({ memoViewModel, onSettingAction }: StickyControlPane
             return;
         }
 
-        const loggingMessage = `Update memo font size. ${JSON.stringify({
+        const loggingMessage = `Update memo font size: ${JSON.stringify({
             memoId: memoViewModel.memoId,
             before: memoViewModel.fontSize,
             after: nextFontSize
@@ -494,7 +494,7 @@ const StickyControlPane = ({ memoViewModel, onSettingAction }: StickyControlPane
                 return;
             }
 
-            const loggingMessage = `Update memo vertical align. ${JSON.stringify({
+            const loggingMessage = `Update memo vertical align: ${JSON.stringify({
                 memoId: memoViewModel.memoId,
                 before: memoViewModel.verticalAlign,
                 after: verticalAlign
@@ -510,7 +510,7 @@ const StickyControlPane = ({ memoViewModel, onSettingAction }: StickyControlPane
                 return;
             }
 
-            const loggingMessage = `Update memo horizontal align. ${JSON.stringify({
+            const loggingMessage = `Update memo horizontal align: ${JSON.stringify({
                 memoId: memoViewModel.memoId,
                 before: memoViewModel.horizontalAlign,
                 after: horizontalAlign

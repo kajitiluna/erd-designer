@@ -132,8 +132,11 @@ class IndexedDBStorage implements ErdDocumentStorage {
             };
 
             updateRequest.onerror = (event) => {
-                console.error(`Failed to save document. ${loggingMessage}, detail : ${event}`);
-                reject(event);
+                const request = event.target as IDBRequest | null;
+                const error = updateRequest.error || request?.error || event;
+                console.error(`Failed to save document. ${loggingMessage}`, error);
+
+                reject(error);
             };
         });
     }
@@ -150,7 +153,11 @@ class IndexedDBStorage implements ErdDocumentStorage {
             };
 
             updateRequest.onerror = (event) => {
-                reject(event);
+                const request = event.target as IDBRequest | null;
+                const error = updateRequest.error || request?.error || event;
+                console.error(`Failed to delete document. key : ${key}`, error);
+
+                reject(error);
             };
         });
     }

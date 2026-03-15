@@ -505,7 +505,7 @@ const InnerErdTableView = ({
     const handleSetColor = (background: ColorValue, foreground: ColorValue) => {
         dispatchLocalSetting({ type: "defaultColor", color: { background, foreground } });
 
-        const beforeColor = tableViewModel.headerColor
+        const beforeColor = tableViewModel.headerColor;
         const loggingMessage = `Update table color. ${JSON.stringify({
             tableId: tableViewModel.tableId,
             before: { background: beforeColor.background.toHex(), foreground: beforeColor.foreground.toHex() },

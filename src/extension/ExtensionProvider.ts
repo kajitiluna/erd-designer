@@ -99,7 +99,7 @@ const handleResolvingTextEditor = (
             const loggingMessage = ("loggingMessage" in message) ? message.loggingMessage as string : "";
 
             documentResource.update(textDocument, JSON.stringify(updating));
-            saveDocument(textDocument, updating, loggingMessage);
+            await saveDocument(textDocument, updating, loggingMessage);
             return;
         }
     };
