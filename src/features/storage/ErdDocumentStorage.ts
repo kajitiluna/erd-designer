@@ -9,7 +9,7 @@ export default interface ErdDocumentStorage {
 
     find(key: string): Promise<ErdDocument | null>
 
-    save(key: string, erdDocument: ErdDocument): Promise<void>
+    save(key: string, erdDocument: ErdDocument, loggingMessage: string): Promise<void>
 
     delete(key: string): Promise<void>
 };

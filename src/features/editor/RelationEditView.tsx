@@ -104,7 +104,9 @@ const RelationEditView = ({
             createdAt: relationViewModel.createdAt
         });
 
-        documentsHolder.updateRelation(nextRelationView);
+        const loggingMessage = "Update Relation. " +
+            JSON.stringify({ before: relationModel, after: nextRelationModel });
+        documentsHolder.updateRelation(nextRelationView, loggingMessage);
         onClose();
     };
 

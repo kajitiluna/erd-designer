@@ -57,7 +57,10 @@ const ExportDdlView = ({ documentsHolder, isViewOpen, onClose }: ExportDdlViewPr
         // 設定が変更された場合のみ保存する
         if (nextExportSetting.equals(exportSetting) === false) {
             const nextErSetting = erdSetting.update({ exportDdlSetting: nextExportSetting });
-            documentsHolder.updateErdSetting(nextErSetting);
+
+            const loggingMessage = "Update Export DDL Setting. " +
+                JSON.stringify({ before: exportSetting, after: nextExportSetting });
+            documentsHolder.updateErdSetting(nextErSetting, loggingMessage);
         }
 
         onClose();

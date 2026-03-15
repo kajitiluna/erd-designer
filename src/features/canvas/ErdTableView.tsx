@@ -505,11 +505,18 @@ const InnerErdTableView = ({
     const handleSetColor = (background: ColorValue, foreground: ColorValue) => {
         dispatchLocalSetting({ type: "defaultColor", color: { background, foreground } });
 
-        documentsHolder.updateTableViewColor([tableViewModel.tableId], background, foreground);
+        const beforeColor = tableViewModel.headerColor
+        const loggingMessage = `Update table color. ${JSON.stringify({
+            tableId: tableViewModel.tableId,
+            before: { background: beforeColor.background.toHex(), foreground: beforeColor.foreground.toHex() },
+            after: { background: background.toHex(), foreground: foreground.toHex() }
+        })}`;
+        documentsHolder.updateTableViewColor([tableViewModel.tableId], background, foreground, loggingMessage);
     };
 
     const handleDeleteTable = (event: React.MouseEvent) => {
-        documentsHolder.deleteTable(tableViewModel.tableId);
+        const loggingMessage = `Delete table: ${JSON.stringify(tableViewModel)}`;
+        documentsHolder.deleteTable(tableViewModel.tableId, loggingMessage);
         handleCloseDeletingDialog(event);
     };
 

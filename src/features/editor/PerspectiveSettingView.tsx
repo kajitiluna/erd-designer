@@ -87,6 +87,7 @@ const PerspectiveSettingView = ({ isOpen, targetId, onClose }: PerspectiveSettin
     );
 
     const handleCompleted = () => {
+        const changedPerspectives: { before: PerspectiveModel, after: PerspectiveModel }[] = [];
         const nextPerspectives = perspectives.map(perspective => {
             const beforeContained = perspective.containsModel(targetId);
             const afterContained = selectedPerspectiveIds.has(perspective.perspectiveId);
@@ -95,11 +96,19 @@ const PerspectiveSettingView = ({ isOpen, targetId, onClose }: PerspectiveSettin
             }
 
             const action = afterContained ? "add" : "remove";
-            return perspective.updateContainId(targetId, action);
+            const nextPerspective = perspective.updateContainId(targetId, action);
+            changedPerspectives.push({ before: perspective, after: nextPerspective });
+
+            return nextPerspective;
         });
 
-        const nextErdSettingModel = erdSettingModel.update({ perspectiveModels: nextPerspectives });
-        documentsHolder.updateErdSetting(nextErdSettingModel);
+        if (changedPerspectives.length > 0) {
+            const nextErdSettingModel = erdSettingModel.update({ perspectiveModels: nextPerspectives });
+
+            const loggingMessage = "Update perspective setting: " +
+                JSON.stringify({ perspectives: changedPerspectives });
+            documentsHolder.updateErdSetting(nextErdSettingModel, loggingMessage);
+        }
 
         onClose();
     };

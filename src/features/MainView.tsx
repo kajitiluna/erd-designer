@@ -18,7 +18,7 @@ import TitlePanel from "~/features/canvas/TitlePanel";
 
 type MainViewProps = {
     erdDocument: ErdDocument,
-    onSave: (updating: ErdDocument) => void,
+    onSave: (updating: ErdDocument, loggingMessage: string) => void,
     erdExportable?: boolean
 };
 
@@ -35,13 +35,13 @@ const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) 
     const [localSetting, dispatchLocalSetting] = React.useReducer(reduceLocalSetting, DEFAULT_LOCAL_SETTING);
     const [scale, setScale] = React.useState<number>(1);
 
-    const handleOnSave = (documents: ErdDocument[], cursor: number) => {
+    const handleOnSave = (documents: ErdDocument[], cursor: number, loggingMessage: string) => {
         if ((cursor < 0) || (cursor >= documents.length)) {
             console.warn(`Invalid cursor value. documents.length: ${documents.length}, cursor: ${cursor}`);
             return;
         }
 
-        onSave(documents[cursor]);
+        onSave(documents[cursor], loggingMessage);
         setHolderProps({ erdDocuments: documents, cursor });
     };
 

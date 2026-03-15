@@ -112,7 +112,7 @@ class IndexedDBStorage implements ErdDocumentStorage {
         });
     }
 
-    save(key: string, erdDocument: ErdDocument): Promise<void> {
+    save(key: string, erdDocument: ErdDocument, loggingMessage: string): Promise<void> {
         return new Promise<void>((resolve, reject) => {
             const jsonDocument: InternalDocument = {
                 key: key,
@@ -126,11 +126,13 @@ class IndexedDBStorage implements ErdDocumentStorage {
             const updateRequest = objectStore.put(jsonDocument);
 
             updateRequest.onsuccess = () => {
-                console.info(`Succeed to save document. ${JSON.stringify(jsonDocument)}`);
+                console.info(`Succeed to save document (${JSON.stringify(
+                    jsonDocument, ["key", "documentName", "lastUpdatedAt"])}): ${loggingMessage}`);
                 resolve();
             };
 
             updateRequest.onerror = (event) => {
+                console.error(`Failed to save document. ${loggingMessage}, detail : ${event}`);
                 reject(event);
             };
         });
@@ -170,7 +172,7 @@ class NoOperationStorage implements ErdDocumentStorage {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    save(_key: string, _erdDocument: ErdDocument): Promise<void> {
+    save(_key: string, _erdDocument: ErdDocument, _loggingMessage: string): Promise<void> {
         return Promise.resolve();
     }
 

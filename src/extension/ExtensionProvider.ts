@@ -96,8 +96,10 @@ const handleResolvingTextEditor = (
             }
 
             const updating = message.erdDocument as Record<string, unknown>;
+            const loggingMessage = ("loggingMessage" in message) ? message.loggingMessage as string : "";
+
             documentResource.update(textDocument, JSON.stringify(updating));
-            saveDocument(textDocument, updating);
+            saveDocument(textDocument, updating, loggingMessage);
             return;
         }
     };
@@ -113,7 +115,7 @@ const handleResolvingTextEditor = (
 };
 
 const saveDocument = async (
-    textDocument: vscode.TextDocument, content: Record<string, unknown>
+    textDocument: vscode.TextDocument, content: Record<string, unknown>, loggingMessage: string
 ) => {
     const jsonContent = JSON.stringify(content, null, 4);
     const editRange = new vscode.Range(0, 0, textDocument.lineCount, 0);
@@ -128,7 +130,14 @@ const saveDocument = async (
         return;
     }
 
-    await textDocument.save();
+    const result = await textDocument.save();
+    if (!result) {
+        // ファイル保存が失敗した場合にエラーメッセージを表示
+        vscode.window.showErrorMessage(`Failed to save erd file : ${textDocument.fileName}`);
+        return;
+    }
+
+    console.info(`Succeed to save document: ${textDocument.uri.toString()}. ${loggingMessage}`);
 };
 
 const initWebViewHtml = (context: vscode.ExtensionContext, webview: vscode.Webview) => {

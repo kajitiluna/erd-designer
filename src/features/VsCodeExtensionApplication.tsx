@@ -138,20 +138,21 @@ const VsCodeExtensionApplication = (prop: { vscodeApi: VsCodeApi }) => {
     }
 
     // VSCode 上のファイル保存処理
-    const handleSaveDocument = (updating: ErdDocument) => {
+    const handleSaveDocument = (updating: ErdDocument, loggingMessage: string) => {
         // ファイル保存は VSCode 側に処理を委譲する
         vscodeApi.postMessage({
             eventSource: "erd-designer",
             messageType: "save",
             documentUri: documentUri,
-            erdDocument: updating.toJSON()
+            erdDocument: updating.toJSON(),
+            loggingMessage: loggingMessage
         });
     };
 
     if (initDocument === null) {
         const handleCreated = (erdDocument: ErdDocument) => {
             setInitDocument(erdDocument);
-            handleSaveDocument(erdDocument);
+            handleSaveDocument(erdDocument, "Created new erd document.");
         };
 
         return (

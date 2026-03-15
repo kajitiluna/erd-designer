@@ -31,12 +31,6 @@ export const EMPTY_SELECT_STATE: SelectState = {
 export const RELEASE_ACTION: SelectAction = { type: "none" };
 
 export const reduceSelectAction = (currentStatus: SelectState, action: SelectAction): SelectState => {
-    console.debug(`SELECTED : ${JSON.stringify(action)}, CURRENT_STATUS : ${JSON.stringify({
-        ...currentStatus,
-        tableIds: [...currentStatus.tableIds],
-        memoIds: [...currentStatus.memoIds]
-    })}`);
-
     if (action.type === "none") {
         return EMPTY_SELECT_STATE;
     }

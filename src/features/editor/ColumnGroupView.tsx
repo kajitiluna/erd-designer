@@ -251,7 +251,8 @@ const ColumnGroupView = ({ isOpen, viewMode, onSelect = () => { }, onClose }: Co
             return;
         }
 
-        documentsHolder.deleteColumnGroup(selectedColumnGroup.columnGroupId);
+        const loggingMessage = `Delete Column Group: ${JSON.stringify(selectedColumnGroup)}`;
+        documentsHolder.deleteColumnGroup(selectedColumnGroup.columnGroupId, loggingMessage);
 
         handleCloseEditDialog();
     };

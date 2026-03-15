@@ -31,7 +31,9 @@ const TitlePanel = () => {
     const databaseIcon = databaseTypeIcons[database.databaseType];
 
     const handleOnSave = () => {
-        documentsHolder.updateDocumentName(title);
+        const loggingMessage = "Update document name. " +
+            JSON.stringify({ before: erdDocument.documentName, after: title });
+        documentsHolder.updateDocumentName(title, loggingMessage);
     }
 
     const isSettingOpen = Boolean(preferenceElement);
@@ -59,7 +61,10 @@ const TitlePanel = () => {
             }
 
             const nextErdSetting = erdSetting.update({ displayStyle: displayStyle });
-            documentsHolder.updateErdSetting(nextErdSetting);
+
+            const loggingMessage = "Update display style. " +
+                JSON.stringify({ before: erdSetting.displayStyle.name, after: displayStyle.name });
+            documentsHolder.updateErdSetting(nextErdSetting, loggingMessage);
 
             handleCloseDisplayStyle();
         };
