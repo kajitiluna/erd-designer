@@ -44,8 +44,10 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
             description: description
         });
 
+        const loggingMessage = "Update Column Group. " +
+            JSON.stringify({ before: columnGroup, after: updatingColumnGroup });
         documentsHolder.updateColumnGroup(
-            updatingColumnGroup, updatingColumnModels, columnShareModelStorage
+            updatingColumnGroup, updatingColumnModels, columnShareModelStorage, loggingMessage
         );
 
         onClose();

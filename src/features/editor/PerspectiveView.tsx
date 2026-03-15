@@ -382,7 +382,10 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
 
     const handleCompleted = () => {
         const nextErdSettingModel = erdSettingModel.update({ perspectiveModels });
-        documentsHolder.updateErdSetting(nextErdSettingModel);
+
+        const loggingMessage = "Update perspective setting: " +
+            JSON.stringify({ before: erdSettingModel.getPerspectiveModels(), after: perspectiveModels });
+        documentsHolder.updateErdSetting(nextErdSettingModel, loggingMessage);
 
         onClose();
     };

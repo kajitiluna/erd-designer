@@ -16,7 +16,7 @@ import ExplanationPanel from "~/features/regal/ExplanationPanel";
 
 type StartUpProp = {
     documentStorage: ErdDocumentStorage,
-    onOpenDocument: (openDocument: ErdDocument, onSave: (document: ErdDocument) => void) => void
+    onOpenDocument: (openDocument: ErdDocument, onSave: (document: ErdDocument, message: string) => void) => void
 };
 
 type DiagramName = "new_file" | "load_file" | ""
@@ -28,18 +28,20 @@ const StartUp = ({ documentStorage, onOpenDocument }: StartUpProp) => {
 
     const handleCreateDocument = (erdDocument: ErdDocument) => {
         const documentKey = uuidV4();
-        documentStorage.save(documentKey, erdDocument);
+        documentStorage.save(documentKey, erdDocument, "Create new erd document.");
 
-        const handleOnSave = (updating: ErdDocument) => documentStorage.save(documentKey, updating);
+        const handleOnSave = (updating: ErdDocument, loggingMessage: string) =>
+            documentStorage.save(documentKey, updating, loggingMessage);
 
         onOpenDocument(erdDocument, handleOnSave);
     };
 
     const handleLoadDocument = (erdDocument: ErdDocument) => {
         const documentKey = uuidV4();
-        documentStorage.save(documentKey, erdDocument);
+        documentStorage.save(documentKey, erdDocument, "Load erd document from file.");
 
-        const handleOnSave = (updating: ErdDocument) => documentStorage.save(documentKey, updating);
+        const handleOnSave = (updating: ErdDocument, loggingMessage: string) =>
+            documentStorage.save(documentKey, updating, loggingMessage);
 
         onOpenDocument(erdDocument, handleOnSave);
     };

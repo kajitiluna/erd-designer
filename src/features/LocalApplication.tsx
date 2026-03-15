@@ -34,7 +34,10 @@ const LocalApplication = () => {
         );
     }
 
-    const handleOpenDocument = (openDocument: ErdDocument, onSave: (document: ErdDocument) => void) => {
+    const handleOpenDocument = (
+        openDocument: ErdDocument, 
+        onSave: (document: ErdDocument, loggingMessage: string) => void
+    ) => {
         setStorageHandler({ handle: onSave });
         setErdDocument(openDocument);
     };
@@ -60,7 +63,7 @@ const LocalApplication = () => {
 };
 
 type StorageHandler = {
-    handle: (updating: ErdDocument) => void
+    handle: (updating: ErdDocument, loggingMessage: string) => void
 };
 
 export default LocalApplication;

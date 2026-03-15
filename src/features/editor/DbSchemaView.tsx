@@ -240,7 +240,8 @@ const DbSchemaView = ({ isOpen, onClose }: DbSchemaViewProps) => {
             schemas: schemaModels
         });
 
-        documentsHolder.updateSchema(nextSchemaConfig);
+        const message = `Update schema config. ${JSON.stringify({ before: schemaConfig, after: nextSchemaConfig })}`;
+        documentsHolder.updateSchema(nextSchemaConfig, message);
         onClose();
     };
 

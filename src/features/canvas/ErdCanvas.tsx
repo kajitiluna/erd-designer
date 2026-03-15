@@ -369,7 +369,7 @@ const ErdCanvas = () => {
             }
 
             const erdDocument = eventDetail.erdDocument as ErdDocument;
-            documentsHolder.update(erdDocument);
+            documentsHolder.update(erdDocument, `Update document from external change: ${JSON.stringify(erdDocument)}`);
             console.info("ErdCanvas: External document change has been applied.");
         };
 

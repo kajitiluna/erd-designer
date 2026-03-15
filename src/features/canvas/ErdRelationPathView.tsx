@@ -100,7 +100,12 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         }
 
         const handleSetColor = (background: ColorValue) => {
-            documentsHolder.updateRelationColor(relationView.relationId, background);
+            const loggingMessage = `Update relation color. ${JSON.stringify({
+                relationId: relationView.relationId,
+                before: relationView.lineViewModel.color.toHex(),
+                after: background.toHex()
+            })}`;
+            documentsHolder.updateRelationColor(relationView.relationId, background, loggingMessage);
 
             dispatchSelectAction(RELEASE_ACTION);
         };
@@ -109,7 +114,12 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
             const lineView = relationView.lineViewModel;
             const widthButtons = [1, 2, 3].map((width, index) => {
                 const handleClick = () => {
-                    documentsHolder.updateRelationWidth(relationView.relationId, width);
+                    const loggingMessage = `Update relation line width. ${JSON.stringify({
+                        relationId: relationView.relationId,
+                        before: lineView.strokeWidth,
+                        after: width
+                    })}`;
+                    documentsHolder.updateRelationWidth(relationView.relationId, width, loggingMessage);
 
                     setLineEditElement(null);
                     dispatchSelectAction(RELEASE_ACTION);
@@ -218,7 +228,8 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
     const handleDeleteRelation = (event: React.MouseEvent, relationView: RelationViewModel) => {
         event.stopPropagation();
 
-        documentsHolder.deleteRelation(relationView.relationId);
+        const loggingMessage = `Delete Relation: ${JSON.stringify(relationView.relationModel)}`;
+        documentsHolder.deleteRelation(relationView.relationId, loggingMessage);
         setDeletingRelation(null);
     };
 

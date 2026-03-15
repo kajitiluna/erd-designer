@@ -112,7 +112,7 @@ class IndexedDBStorage implements ErdDocumentStorage {
         });
     }
 
-    save(key: string, erdDocument: ErdDocument): Promise<void> {
+    save(key: string, erdDocument: ErdDocument, loggingMessage: string): Promise<void> {
         return new Promise<void>((resolve, reject) => {
             const jsonDocument: InternalDocument = {
                 key: key,
@@ -126,12 +126,17 @@ class IndexedDBStorage implements ErdDocumentStorage {
             const updateRequest = objectStore.put(jsonDocument);
 
             updateRequest.onsuccess = () => {
-                console.info(`Succeed to save document. ${JSON.stringify(jsonDocument)}`);
+                console.info(`Succeed to save document (${JSON.stringify(
+                    jsonDocument, ["key", "documentName", "lastUpdatedAt"])}): ${loggingMessage}`);
                 resolve();
             };
 
             updateRequest.onerror = (event) => {
-                reject(event);
+                const request = event.target as IDBRequest | null;
+                const error = updateRequest.error || request?.error || event;
+                console.error(`Failed to save document. ${loggingMessage}`, error);
+
+                reject(error);
             };
         });
     }
@@ -148,7 +153,11 @@ class IndexedDBStorage implements ErdDocumentStorage {
             };
 
             updateRequest.onerror = (event) => {
-                reject(event);
+                const request = event.target as IDBRequest | null;
+                const error = updateRequest.error || request?.error || event;
+                console.error(`Failed to delete document. key : ${key}`, error);
+
+                reject(error);
             };
         });
     }
@@ -170,7 +179,7 @@ class NoOperationStorage implements ErdDocumentStorage {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    save(_key: string, _erdDocument: ErdDocument): Promise<void> {
+    save(_key: string, _erdDocument: ErdDocument, _loggingMessage: string): Promise<void> {
         return Promise.resolve();
     }
 

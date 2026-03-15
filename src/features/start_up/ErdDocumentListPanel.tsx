@@ -13,7 +13,7 @@ import ErdDocumentSummary from "~/features/storage/ErdDocumentSummary";
 
 type ErdDocumentListPanelProp = {
     documentStorage: ErdDocumentStorage,
-    onOpenDocument: (openDocument: ErdDocument, onSave: (document: ErdDocument) => void) => void
+    onOpenDocument: (openDocument: ErdDocument, onSave: (document: ErdDocument, message: string) => void) => void
 };
 
 const ErdDocumentListPanel = ({ documentStorage, onOpenDocument }: ErdDocumentListPanelProp) => {
@@ -39,7 +39,8 @@ const ErdDocumentListPanel = ({ documentStorage, onOpenDocument }: ErdDocumentLi
                 return;
             }
 
-            const handleOnSave = (updating: ErdDocument) => documentStorage.save(key, updating);
+            const handleOnSave = (updating: ErdDocument, loggingMessage: string) =>
+                documentStorage.save(key, updating, loggingMessage);
 
             onOpenDocument(document, handleOnSave);
         });

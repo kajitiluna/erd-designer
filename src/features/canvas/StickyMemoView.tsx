@@ -155,7 +155,11 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
             size: { width: nextRectangle.width, height: nextRectangle.height }
         });
         const nextMemo = memoViewModel.updateRectangle(nextRectangle)
-        documentsHolder.updateMemo(nextMemo);
+
+        const loggingMessage = `Update memo size. ${JSON.stringify({
+            memoId: memoViewModel.memoId, before: memoViewModel.rectangleViewModel, after: nextRectangle
+        })}`;
+        documentsHolder.updateMemo(nextMemo, loggingMessage);
 
         setTextEdit(false);
         setResizingDirection(ResizingDirection.NO_RESIZING);
@@ -187,7 +191,10 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
             return;
         }
 
-        documentsHolder.updateMemo(nextMemo);
+        const loggingMessage = `Update memo text. ${JSON.stringify({
+            memoId: memoViewModel.memoId, before: memoViewModel.memo, after: nextMemo.memo
+        })}`;
+        documentsHolder.updateMemo(nextMemo, loggingMessage);
     };
 
     const moving = (
@@ -432,7 +439,15 @@ const StickyControlPane = ({ memoViewModel, onSettingAction }: StickyControlPane
             return;
         }
 
-        documentsHolder.updateMemo(nextMemoViewModel);
+        const loggingMessage = "Update memo color: " + JSON.stringify({
+            memoId: memoViewModel.memoId,
+            before: {
+                background: memoViewModel.backgroundColor.toHex(),
+                foreground: memoViewModel.foregroundColor.toHex()
+            },
+            after: { background: background.toHex(), foreground: foreground.toHex() }
+        });
+        documentsHolder.updateMemo(nextMemoViewModel, loggingMessage);
     }
 
     const handleChangeFontSize = (event: SelectChangeEvent<number>) => {
@@ -444,7 +459,12 @@ const StickyControlPane = ({ memoViewModel, onSettingAction }: StickyControlPane
             return;
         }
 
-        documentsHolder.updateMemo(nextMemoViewModel);
+        const loggingMessage = `Update memo font size: ${JSON.stringify({
+            memoId: memoViewModel.memoId,
+            before: memoViewModel.fontSize,
+            after: nextFontSize
+        })}`;
+        documentsHolder.updateMemo(nextMemoViewModel, loggingMessage);
     };
 
 
@@ -474,7 +494,12 @@ const StickyControlPane = ({ memoViewModel, onSettingAction }: StickyControlPane
                 return;
             }
 
-            documentsHolder.updateMemo(nextMemoViewModel);
+            const loggingMessage = `Update memo vertical align: ${JSON.stringify({
+                memoId: memoViewModel.memoId,
+                before: memoViewModel.verticalAlign,
+                after: verticalAlign
+            })}`;
+            documentsHolder.updateMemo(nextMemoViewModel, loggingMessage);
         };
     };
 
@@ -485,7 +510,12 @@ const StickyControlPane = ({ memoViewModel, onSettingAction }: StickyControlPane
                 return;
             }
 
-            documentsHolder.updateMemo(nextMemoViewModel);
+            const loggingMessage = `Update memo horizontal align: ${JSON.stringify({
+                memoId: memoViewModel.memoId,
+                before: memoViewModel.horizontalAlign,
+                after: horizontalAlign
+            })}`;
+            documentsHolder.updateMemo(nextMemoViewModel, loggingMessage);
         };
     };
 
@@ -538,7 +568,8 @@ const StickyControlPane = ({ memoViewModel, onSettingAction }: StickyControlPane
     const handleDeleteMemo = (event: React.MouseEvent) => {
         event.stopPropagation();
 
-        documentsHolder.deleteMemo(memoViewModel.memoId)
+        const loggingMessage = `Delete memo: ${JSON.stringify(memoViewModel)}`;
+        documentsHolder.deleteMemo(memoViewModel.memoId, loggingMessage);
     };
 
     const deleteDialog = (

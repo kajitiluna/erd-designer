@@ -25,16 +25,16 @@ const GoogleDriveFile = ({ implicitToken, authorize }: GoogleDriveFileProp) => {
 
     const gdriveFileId = sessionStorage.getItem("gdriveFileId");
 
-    const handleSave = (erdDocument: ErdDocument) => {
+    const handleSave = (erdDocument: ErdDocument, message: string) => {
         if (sessionDocument == null) {
             return;
         }
 
-        const updateFunction = async (currentVersion: string) => doUpdateDocument(currentVersion, erdDocument);
+        const updateFunction = async (currentVersion: string) => doUpdateDocument(currentVersion, erdDocument, message);
         updateQueueRef.current = updateQueueRef.current.then(updateFunction);
     };
 
-    const doUpdateDocument = async (currentVersion: string, nextDocument: ErdDocument) => {
+    const doUpdateDocument = async (currentVersion: string, nextDocument: ErdDocument, loggingMessage: string) => {
         if (gdriveFileId == null) {
             return currentVersion;
         }
@@ -74,7 +74,7 @@ const GoogleDriveFile = ({ implicitToken, authorize }: GoogleDriveFileProp) => {
             erdDocument: nextDocument, withName: withUpdateName
         });
 
-        console.info(`Succeed to update gdrive file. ${JSON.stringify(result)}`);
+        console.info(`Succeed to update gdrive file (${JSON.stringify(result)}). ${loggingMessage}`);
 
         return result.version;
     };

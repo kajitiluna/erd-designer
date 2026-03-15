@@ -21,9 +21,12 @@ export class ErdDocumentsHolder {
 
     private cursor: number;
 
-    private readonly updateDocument: (documents: ErdDocument[], cursor: number) => void;
+    private readonly updateDocument: (documents: ErdDocument[], cursor: number, loggingMessage: string) => void;
 
-    constructor(erdDocuments: ErdDocument[], cursor: number, updateDocument: (documents: ErdDocument[], cursor: number) => void) {
+    constructor(
+        erdDocuments: ErdDocument[], cursor: number,
+        updateDocument: (documents: ErdDocument[], cursor: number, loggingMessage: string) => void
+    ) {
         this.erdDocuments = erdDocuments;
         this.cursor = cursor;
         this.updateDocument = updateDocument;
@@ -42,7 +45,7 @@ export class ErdDocumentsHolder {
             return;
         }
 
-        this.updateDocument(this.erdDocuments, this.cursor + 1);
+        this.updateDocument(this.erdDocuments, this.cursor + 1, `Undo to cursor : ${this.cursor + 1}`);
     }
 
     public canRedo(): boolean {
@@ -54,19 +57,19 @@ export class ErdDocumentsHolder {
             return;
         }
 
-        this.updateDocument(this.erdDocuments, this.cursor - 1);
+        this.updateDocument(this.erdDocuments, this.cursor - 1, `Redo to cursor : ${this.cursor - 1}`);
     }
 
-    public update(updating: ErdDocument) {
+    public update(updating: ErdDocument, loggingMessage: string) {
         const previous: ErdDocument = this.current();
         if (previous.equals(updating)) {
             return;
         }
 
-        this.doUpdate(() => updating);
+        this.doUpdate(() => updating, loggingMessage);
     }
 
-    private doUpdate(updateFunction: (erdDocument: ErdDocument) => ErdDocument) {
+    private doUpdate(updateFunction: (erdDocument: ErdDocument) => ErdDocument, loggingMessage: string) {
         const previous: ErdDocument = this.current();
         const next = updateFunction(previous);
         if (previous === next) {
@@ -77,16 +80,17 @@ export class ErdDocumentsHolder {
         const nextHistory = this.erdDocuments.slice(this.cursor, lastIndex);
         nextHistory.unshift(next);
 
-        this.updateDocument(nextHistory, 0);
+        this.updateDocument(nextHistory, 0, loggingMessage);
     }
 
     /**
      * DBスキーマ設定を更新する。
      * 
      * @param next 更新後の状態
+     * @param loggingMessage ログメッセージ
      */
-    public updateSchema(next: DbSchemaConfig) {
-        this.doUpdate(previous => previous.updateSchema(next));
+    public updateSchema(next: DbSchemaConfig, loggingMessage: string) {
+        this.doUpdate(previous => previous.updateSchema(next), loggingMessage);
     }
 
     /**
@@ -112,7 +116,7 @@ export class ErdDocumentsHolder {
             return next;
         };
 
-        this.doUpdate(doDelete);
+        this.doUpdate(doDelete, `Delete elements: ${JSON.stringify(selectState)}`);
     }
 
     /**
@@ -121,25 +125,28 @@ export class ErdDocumentsHolder {
      * @param updatingTableViewModel テーブルモデル
      * @param updatingColumnModels 更新後のカラムモデル
      * @param columnShareModelStorage カラム共有モデル
+     * @param loggingMessage ログメッセージ
      * @returns 操作後のモデル
      */
     public updateTableViewModel(
         updatingModel: TableViewModel,
         updatingColumnModels: ColumnModel[],
-        columnShareModelStorage: ColumnShareModelStorage
+        columnShareModelStorage: ColumnShareModelStorage,
+        loggingMessage: string
     ) {
         this.doUpdate(previous => previous.updateTableViewWithColumns(
             updatingModel, updatingColumnModels, columnShareModelStorage
-        ));
+        ), loggingMessage);
     }
 
     /**
      * 指定されたテーブルを削除する。
      * 
      * @param tableId 削除対象の tableId
+     * @param loggingMessage ログメッセージ
      */
-    public deleteTable(tableId: string) {
-        this.doUpdate(previous => previous.deleteTable(tableId));
+    public deleteTable(tableId: string, loggingMessage: string) {
+        this.doUpdate(previous => previous.deleteTable(tableId), loggingMessage);
     }
 
     /**
@@ -148,10 +155,14 @@ export class ErdDocumentsHolder {
      * @param tableIds 変更対象のテーブルID一覧
      * @param background 背景色
      * @param foreground 前景色
+     * @param loggingMessage ログメッセージ
      */
-    public updateTableViewColor(tableIds: string[], background: ColorValue, foreground: ColorValue) {
-        this.doUpdate(previous =>
-            previous.updateTableViewColor(tableIds, background, foreground)
+    public updateTableViewColor(
+        tableIds: string[], background: ColorValue, foreground: ColorValue, loggingMessage: string
+    ) {
+        this.doUpdate(
+            previous => previous.updateTableViewColor(tableIds, background, foreground),
+            loggingMessage
         );
     }
 
@@ -161,15 +172,17 @@ export class ErdDocumentsHolder {
      * @param updatingModel 更新対象
      * @param updatingColumnModels 更新カラム
      * @param columnShareModelStorage 更新後のカラム共有モデルストレージ 
+     * @param loggingMessage ログメッセージ
      */
     public updateColumnGroup(
         updatingModel: ColumnGroupModel,
         updatingColumnModels: ColumnModel[],
-        columnShareModelStorage: ColumnShareModelStorage
+        columnShareModelStorage: ColumnShareModelStorage,
+        loggingMessage: string
     ) {
-        this.doUpdate(previous =>
-            previous.updateColumnGroup(
-                updatingModel, updatingColumnModels, columnShareModelStorage)
+        this.doUpdate(
+            previous => previous.updateColumnGroup(updatingModel, updatingColumnModels, columnShareModelStorage),
+            loggingMessage
         );
     }
 
@@ -177,27 +190,30 @@ export class ErdDocumentsHolder {
      * 指定したカラムグループを削除する。
      * 
      * @param columnGroupId 削除対象のカラムグループID
+     * @param loggingMessage ログメッセージ
      */
-    public deleteColumnGroup(columnGroupId: string) {
-        this.doUpdate(previous => previous.deleteColumnGroup(columnGroupId));
+    public deleteColumnGroup(columnGroupId: string, loggingMessage: string) {
+        this.doUpdate(previous => previous.deleteColumnGroup(columnGroupId), loggingMessage);
     }
 
     /**
      * 指定されたリレーションを更新する。
      * 
      * @param updatingModel 更新対象のリレーション
+     * @param loggingMessage ログメッセージ
      */
-    public updateRelation(updatingModel: RelationViewModel) {
-        this.doUpdate(previous => previous.updateRelation(updatingModel));
+    public updateRelation(updatingModel: RelationViewModel, loggingMessage: string) {
+        this.doUpdate(previous => previous.updateRelation(updatingModel), loggingMessage);
     }
 
     /**
      * 指定されたリレーションを削除する。
      * 
      * @param relationId 削除対象のリレーションID
+     * @param loggingMessage ログメッセージ
      */
-    public deleteRelation(relationId: string) {
-        this.doUpdate(previous => previous.deleteRelation(relationId));
+    public deleteRelation(relationId: string, loggingMessage: string) {
+        this.doUpdate(previous => previous.deleteRelation(relationId), loggingMessage);
     }
 
     /**
@@ -207,7 +223,10 @@ export class ErdDocumentsHolder {
      * @param updating 更新内容
      */
     public updateRelationEdge(relationId: string, updating: UpdateRelationEdgeArgs) {
-        this.doUpdateRelationEdge({ relationId, updateFunction: (previous => previous.updateEdge(updating)) })
+        this.doUpdateRelationEdge(
+            `Updated relation edge: ${JSON.stringify({ relationId, ...updating })}`,
+            { relationId, updateFunction: (previous => previous.updateEdge(updating)) }
+        )
     }
 
     /**
@@ -224,7 +243,8 @@ export class ErdDocumentsHolder {
             }
         ));
 
-        this.doUpdateRelationEdge(...updateArgs);
+        const loggingMessage = `Update relation orthogonal lines: ${JSON.stringify(args)}`;
+        this.doUpdateRelationEdge(loggingMessage, ...updateArgs);
     }
 
     /**
@@ -232,9 +252,13 @@ export class ErdDocumentsHolder {
      * 
      * @param relationId リレーションID
      * @param updating 更新内容
+     * @param loggingMessage ログメッセージ
      */
-    public updateRelationColor(relationId: string, updating: ColorValue) {
-        this.doUpdateRelationEdge({ relationId, updateFunction: (previous => previous.updateColor(updating)) })
+    public updateRelationColor(relationId: string, updating: ColorValue, loggingMessage: string) {
+        this.doUpdateRelationEdge(
+            loggingMessage,
+            { relationId, updateFunction: (previous => previous.updateColor(updating)) }
+        );
     }
 
     /**
@@ -242,9 +266,13 @@ export class ErdDocumentsHolder {
      * 
      * @param relationId リレーションID
      * @param updating 更新内容
+     * @param loggingMessage ログメッセージ
      */
-    public updateRelationWidth(relationId: string, updating: number) {
-        this.doUpdateRelationEdge({ relationId, updateFunction: (previous => previous.updateStrokeWidth(updating)) });
+    public updateRelationWidth(relationId: string, updating: number, loggingMessage: string) {
+        this.doUpdateRelationEdge(
+            loggingMessage,
+            { relationId, updateFunction: (previous => previous.updateStrokeWidth(updating)) }
+        );
     }
 
     /**
@@ -254,10 +282,13 @@ export class ErdDocumentsHolder {
      * @param edgeId 削除対象の Edge
      */
     public deleteRelationEdge(relationId: string, edgeId: number) {
-        this.doUpdateRelationEdge({ relationId, updateFunction: (previous => previous.deleteEdge(edgeId)) });
+        this.doUpdateRelationEdge(
+            `Delete relation edge: ${JSON.stringify({ relationId, edgeId })}`,
+            { relationId, updateFunction: (previous => previous.deleteEdge(edgeId)) }
+        );
     }
 
-    private doUpdateRelationEdge(...args: DoUpdateRelationEdgeArgs[]) {
+    private doUpdateRelationEdge(loggingMessage: string, ...args: DoUpdateRelationEdgeArgs[]) {
         const updateRelation = (previous: ErdDocument): ErdDocument => {
             return args.reduce((erdDocument, { relationId, updateFunction }) => {
                 const previousRelation = erdDocument.findRelationViewModel(relationId);
@@ -275,7 +306,7 @@ export class ErdDocumentsHolder {
             }, previous);
         };
 
-        this.doUpdate(updateRelation);
+        this.doUpdate(updateRelation, loggingMessage);
     }
 
     /**
@@ -284,25 +315,27 @@ export class ErdDocumentsHolder {
      * @param adding 追加するメモ
      */
     public addMemo(adding: MemoViewModel) {
-        this.doUpdate(previous => previous.addMemo(adding));
+        this.doUpdate(previous => previous.addMemo(adding), `Add memo: ${JSON.stringify(adding)}`);
     }
 
     /**
      * メモを更新する。
      * 
      * @param updating 更新内容
+     * @param loggingMessage ログメッセージ
      */
-    public updateMemo(updating: MemoViewModel) {
-        this.doUpdate(previous => previous.updateMemo(updating));
+    public updateMemo(updating: MemoViewModel, loggingMessage: string) {
+        this.doUpdate(previous => previous.updateMemo(updating), loggingMessage);
     }
 
     /**
      * メモを削除する。
      * 
      * @param memoId 削除対象のメモID
+     * @param loggingMessage ログメッセージ
      */
-    public deleteMemo(memoId: string) {
-        this.doUpdate(previous => previous.deleteMemo(memoId));
+    public deleteMemo(memoId: string, loggingMessage: string) {
+        this.doUpdate(previous => previous.deleteMemo(memoId), loggingMessage);
     }
 
     /**
@@ -317,9 +350,11 @@ export class ErdDocumentsHolder {
         moving: { x: number, y: number },
         nextOrthogonalObjects: { relationId: string, orthogonalLines: OrthogonalDirection[] }[]
     ) {
-        this.doUpdate(previous => previous
-            .moveTableView(tableIds, moving, nextOrthogonalObjects)
-            .moveMemoView(memoIds, moving)
+        this.doUpdate(
+            previous => previous
+                .moveTableView(tableIds, moving, nextOrthogonalObjects)
+                .moveMemoView(memoIds, moving),
+            `Move rectangles: ${JSON.stringify({ tableIds: [...tableIds], memoIds: [...memoIds], moving })}`
         );
     }
 
@@ -330,25 +365,30 @@ export class ErdDocumentsHolder {
      * @param direction 変更方向
      */
     public arrangeMemo(memoId: string, direction: "front" | "back") {
-        this.doUpdate(previous => previous.arrangeMemo(memoId, direction));
+        this.doUpdate(
+            previous => previous.arrangeMemo(memoId, direction),
+            `Arrange memo: ${JSON.stringify({ memoId, direction })}`
+        );
     }
 
     /**
      * ドキュメント名を更新する。
      * 
      * @param updating 更新後のドキュメント名
+     * @param loggingMessage ログメッセージ
      */
-    public updateDocumentName(updating: string) {
-        this.doUpdate(previous => previous.updateDocumentName(updating));
+    public updateDocumentName(updating: string, loggingMessage: string) {
+        this.doUpdate(previous => previous.updateDocumentName(updating), loggingMessage);
     }
 
     /**
      * ErdSetting を更新する。
      * 
      * @param updating 更新後の内容
+     * @param loggingMessage ログメッセージ
      */
-    public updateErdSetting(updating: ErdSettingModel): void {
-        this.doUpdate(previous => previous.updateErdSetting(updating));
+    public updateErdSetting(updating: ErdSettingModel, loggingMessage: string): void {
+        this.doUpdate(previous => previous.updateErdSetting(updating), loggingMessage);
     }
 
     /**
@@ -357,7 +397,7 @@ export class ErdDocumentsHolder {
      * @param params インポート内容
      */
     public importDdl(params: ImportDdlArgs) {
-        this.doUpdate(previous => previous.importDdl(params));
+        this.doUpdate(previous => previous.importDdl(params), `Import DDL: ${JSON.stringify(params)}`);
     }
 }
 

@@ -124,8 +124,10 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             headerColor: tableViewModel.headerColor
         });
 
+        const message = "Update table model. " +
+            JSON.stringify({ before: tableViewModel.tableModel, after: nextTableModel });
         documentsHolder.updateTableViewModel(
-            nextTableViewModel, updatingColumnModels, columnShareModelStorage
+            nextTableViewModel, updatingColumnModels, columnShareModelStorage, message
         );
 
         onClose();
