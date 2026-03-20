@@ -89,13 +89,12 @@ const databaseColumns: { [key in DatabaseType]: ColumnType[] } = {
         new ColumnType({ id: 45, name: 'decimal (m, d)', description: '固定小数点数。 M は桁数の合計 (精度) で、D は小数点以下の桁数 (スケール) です。', baseQuery: 'DECIMAL[[PARAM]]', withPrecision: true, withScale: true, withUnsigned: false, withAutoIncrement: false }),
         new ColumnType({ id: 46, name: 'numeric (m, d)', description: 'DECIMAL のシノニムです。固定小数点数。 M は桁数の合計 (精度) で、D は小数点以下の桁数 (スケール) です。', baseQuery: 'NUMERIC[[PARAM]]', withPrecision: true, withScale: true, withUnsigned: false, withAutoIncrement: false }),
         new ColumnType({ id: 101, name: 'date', description: '日付です。 サポートしている範囲は "1000-01-01" から "9999-12-31" です。', baseQuery: 'DATE', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false, defaultValueCandidates: ['CURRENT_DATE', 'CURRENT_DATE ON UPDATE CURRENT_DATE'] }),
-        new ColumnType({ id: 131, name: 'time', description: '時間です。 範囲は、"-838:59:59.000000" から "838:59:59.000000" です。', baseQuery: 'TIME', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false, defaultValueCandidates: ['CURRENT_TIME', 'CURRENT_TIME ON UPDATE CURRENT_TIME'] }),
-        new ColumnType({ id: 141, name: 'time (p)', description: '時間です。 範囲は、"-838:59:59.000000" から "838:59:59.000000" です。', baseQuery: 'TIME[[PARAM]]', withPrecision: true, withScale: false, withUnsigned: false, withAutoIncrement: false, defaultValueCandidates: ['CURRENT_TIME', 'CURRENT_TIME ON UPDATE CURRENT_TIME'] }),
+        new ColumnType({ id: 131, name: 'time', description: '時間です。 範囲は、"-838:59:59.000000" から "838:59:59.000000" です。', baseQuery: 'TIME', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false, defaultValueCandidates: ['(CURRENT_TIME)', '(CURRENT_TIME) ON UPDATE (CURRENT_TIME)'] }),
+        new ColumnType({ id: 141, name: 'time (p)', description: '時間です。 範囲は、"-838:59:59.000000" から "838:59:59.000000" です。', baseQuery: 'TIME[[PARAM]]', withPrecision: true, withScale: false, withUnsigned: false, withAutoIncrement: false, defaultValueCandidates: ['(CURRENT_TIME)', '(CURRENT_TIME) ON UPDATE (CURRENT_TIME)'] }),
         new ColumnType({ id: 112, name: 'datetime', description: '日付と時間の組み合わせです。 サポートしている範囲は "1000-01-01 00:00:00.000000" から "9999-12-31 23:59:59.999999" です。', baseQuery: 'DATETIME', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false, defaultValueCandidates: ['CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'] }),
         new ColumnType({ id: 115, name: 'timestamp', description: 'タイムスタンプです。 範囲は "1970-01-01 00:00:01.000000" UTC から "2038-01-19 03:14:07.999999" UTC です。', baseQuery: 'TIMESTAMP', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false, defaultValueCandidates: ['CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'] }),
-        new ColumnType({ id: 122, name: 'datetime (p)', description: '日付と時間の組み合わせです。 サポートしている範囲は "1000-01-01 00:00:00.000000" から "9999-12-31 23:59:59.999999" です。', baseQuery: 'DATETIME[[PARAM]]', withPrecision: true, withScale: false, withUnsigned: false, withAutoIncrement: false, defaultValueCandidates: ['CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'] }),
-        new ColumnType({ id: 125, name: 'timestamp (p)', description: 'タイムスタンプです。 範囲は "1970-01-01 00:00:01.000000" UTC から "2038-01-19 03:14:07.999999" UTC です。', baseQuery: 'TIMESTAMP[[PARAM]]', withPrecision: true, withScale: false, withUnsigned: false, withAutoIncrement: false, defaultValueCandidates: ['CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'] }),
-        new ColumnType({ id: 151, name: 'year', description: '4 桁形式の年。', baseQuery: 'YEAR', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 122, name: 'datetime (p)', description: '日付と時間の組み合わせです。 サポートしている範囲は "1000-01-01 00:00:00.000000" から "9999-12-31 23:59:59.999999" です。', baseQuery: 'DATETIME[[PARAM]]', withPrecision: true, withScale: false, withUnsigned: false, withAutoIncrement: false, defaultValueCandidates: ['CURRENT_TIMESTAMP[[PARAM]]', 'CURRENT_TIMESTAMP[[PARAM]] ON UPDATE CURRENT_TIMESTAMP[[PARAM]]'] }),
+        new ColumnType({ id: 125, name: 'timestamp (p)', description: 'タイムスタンプです。 範囲は "1970-01-01 00:00:01.000000" UTC から "2038-01-19 03:14:07.999999" UTC です。', baseQuery: 'TIMESTAMP[[PARAM]]', withPrecision: true, withScale: false, withUnsigned: false, withAutoIncrement: false, defaultValueCandidates: ['CURRENT_TIMESTAMP[[PARAM]]', 'CURRENT_TIMESTAMP[[PARAM]] ON UPDATE CURRENT_TIMESTAMP[[PARAM]]'] }), new ColumnType({ id: 151, name: 'year', description: '4 桁形式の年。', baseQuery: 'YEAR', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
         new ColumnType({ id: 301, name: 'char', description: '格納時に必ず、指定された長さになるように右側がスペースで埋められる固定長文字列です。', baseQuery: 'CHAR', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
         new ColumnType({ id: 311, name: 'char (m)', description: '格納時に必ず、指定された長さになるように右側がスペースで埋められる固定長文字列です。', baseQuery: 'CHAR[[PARAM]]', withPrecision: true, withScale: false, withUnsigned: false, withAutoIncrement: false }),
         new ColumnType({ id: 312, name: 'varchar (m)', description: '可変長文字列です。', baseQuery: 'VARCHAR[[PARAM]]', withPrecision: true, withScale: false, withUnsigned: false, withAutoIncrement: false }),
@@ -190,24 +189,16 @@ export const migrateColumns = (databaseType: DatabaseType, orgColumnTypes: Colum
 
     let nextColumnTypes = orgColumnTypes;
 
-    // ColumnType に defaultValueCandidates プロパティを追加
-    if (orgVersion < 20250612) {
+    // orgVersion < 20250612 : ColumnType に defaultValueCandidates プロパティを追加
+    // orgVersion < 20260321 : ColumnType の defaultValueCandidates プロパティに動的項目を追加
+    if (orgVersion < 20260321) {
         nextColumnTypes = nextColumnTypes.map(columnType => {
             const latestColumnType = latestColumnTypeMap.get(columnType.id);
             if (latestColumnType == null) {
                 return columnType;
             }
-            if (columnType.name !== latestColumnType.name) {
-                return columnType;
-            }
-            if (latestColumnType.defaultValueCandidates.length === 0) {
-                return columnType;
-            }
 
-            return new ColumnType({
-                ...columnType,
-                defaultValueCandidates: [...latestColumnType.defaultValueCandidates]
-            });
+            return ColumnType.migrateDefaultValueCandidates(columnType, latestColumnType, orgVersion);
         });
     }
 

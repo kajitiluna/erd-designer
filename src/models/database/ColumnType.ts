@@ -28,7 +28,7 @@ export default class ColumnType {
     public readonly withUnsigned: boolean;
     public readonly withAutoIncrement: boolean;
     public readonly foreignColumn: ColumnType | null;
-    public readonly defaultValueCandidates: string[];
+    private readonly defaultValueCandidates: string[];
 
     /**
      * コンストラクタ。
@@ -73,11 +73,25 @@ export default class ColumnType {
             return this.baseQuery + (isArray ? "[]" : "");
         }
 
-        const param = (scale && this.withScale)
+        const param = this.initTypeParam(precision, scale);
+        return this.baseQuery.replace("[[PARAM]]", param) + (isArray ? "[]" : "");
+    }
+
+    public candidateDefaultValues(precision: string, scale: string): string[] {
+        return this.defaultValueCandidates.map(candidate => {
+            if (candidate.indexOf("[[PARAM]]") < 0) {
+                return candidate;
+            }
+
+            const param = this.initTypeParam(precision, scale);
+            return candidate.replaceAll("[[PARAM]]", param);
+        });
+    }
+
+    private initTypeParam(precision: string, scale: string) {
+        return (scale && this.withScale)
             ? `(${precision}, ${scale})`
             : ((precision && this.withPrecision) ? `(${precision})` : "");
-
-        return this.baseQuery.replace("[[PARAM]]", param) + (isArray ? "[]" : "");
     }
 
     public toJSON(): Record<string, unknown> {
@@ -160,5 +174,36 @@ export default class ColumnType {
             (this.defaultValueCandidates.length === other.defaultValueCandidates.length) &&
             this.defaultValueCandidates.every((value, index) => (value === other.defaultValueCandidates[index]))
         );
+    }
+
+    public static migrateDefaultValueCandidates(source: ColumnType, latest: ColumnType, orgVersion: number) {
+        if (source.name !== latest.name) {
+            return source;
+        }
+
+        if (latest.defaultValueCandidates.length === 0) {
+            return source;
+        }
+
+        // ColumnType に defaultValueCandidates プロパティを追加
+        if (orgVersion < 20250612) {
+            return new ColumnType({
+                ...source,
+                defaultValueCandidates: [...latest.defaultValueCandidates]
+            });
+        }
+
+        // ColumnType の defaultValueCandidates プロパティに動的項目を追加
+        if (orgVersion < 20260321) {
+            const sourceCandidates = new Set(source.defaultValueCandidates);
+            if (latest.defaultValueCandidates.some(candidate => !sourceCandidates.has(candidate))) {
+                return new ColumnType({
+                    ...source,
+                    defaultValueCandidates: [...latest.defaultValueCandidates]
+                });
+            }
+        }
+
+        return source;
     }
 }
