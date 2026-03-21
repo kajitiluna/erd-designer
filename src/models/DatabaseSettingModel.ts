@@ -10,7 +10,7 @@ type DatabaseSettingModelType = {
     version: number
 };
 
-const CURRENT_VERSION = 20251130;
+const CURRENT_VERSION = 20260321;
 
 export default class DatabaseSettingModel {
 

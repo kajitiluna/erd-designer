@@ -250,8 +250,7 @@ const ColumnEditDialog = ({
         </Paper>
     );
 
-    const defaultValueCandidates = (columnTypeAttribute != null)
-        ? columnTypeAttribute.columnType.defaultValueCandidates : [];
+    const defaultValueCandidates = initDefaultValueCandidates(columnTypeAttribute)
 
     return (
         <Dialog fullWidth maxWidth="md" sx={{ userSelect: "none" }}
@@ -312,6 +311,14 @@ const validateColumnTypeAttribute = (value: ColumnTypeAttribute | null): boolean
     }
 
     return !!value.precision;
+};
+
+const initDefaultValueCandidates = (attribute: ColumnTypeAttribute | null) => {
+    if (attribute == null) {
+        return [];
+    }
+
+    return attribute.columnType.candidateDefaultValues(attribute.precision, attribute.scale);
 };
 
 type ColumnModelPanelProps = {
