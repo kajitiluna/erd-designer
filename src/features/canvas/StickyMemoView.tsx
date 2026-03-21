@@ -22,10 +22,8 @@ import EditModeContext from "~/context/EditModeContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { LocalSettingContext } from "~/context/LocalSettingContext";
 import { RELEASE_ACTION, SelectEntityContext, SelectState } from "~/context/SelectEntityContext";
-import {
-    DRAWABLE_AREA, getLogicalMousePosition,
-    handlePreventMouseEvent, withMultiSelectKey
-} from "~/features/canvas/support";
+import CanvasPositionContext from "~/context/CanvasPositionContext";
+import { DRAWABLE_AREA, handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
 import MemoViewModel, { AlignType } from "~/models/MemoViewModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import { EditModeType } from "~/models/EditMode";
@@ -50,6 +48,7 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
     const dragState = React.useContext(DragActionContext);
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
     const displayScale = React.useContext(DisplayScaleContext);
+    const positionResolver = React.useContext(CanvasPositionContext);
 
     const textAreaRef = React.useRef<HTMLTextAreaElement>(null);
     const [isTextEdit, setTextEdit] = React.useState<boolean>(false);
@@ -89,7 +88,7 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
 
         event.stopPropagation();
 
-        const mousePosition = getLogicalMousePosition(event, displayScale);
+        const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
         onDragAction({ type: "start_dragging", start: mousePosition });
 
         if (!selected) {
@@ -114,7 +113,7 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
             return;
         }
 
-        const mousePosition = getLogicalMousePosition(event, displayScale);
+        const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
         const direction = getResizingDirection(currentRectangle, mousePosition, selectState);
         const nextStyle = initMouseCursorStyle(direction);
         setMouseCursorStyle(nextStyle);

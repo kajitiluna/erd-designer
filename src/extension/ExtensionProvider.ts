@@ -195,6 +195,8 @@ const initWebViewHtml = (context: vscode.ExtensionContext, webview: vscode.Webvi
             }
             body {
                 font-size: 16px !important;
+                padding: 0 !important;
+                margin: 0 !important;
             }
         </style>
         <script nonce="${nonce}">

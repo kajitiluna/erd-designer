@@ -6,27 +6,28 @@ import { DragActionContext, DragState, NO_DRAGGING, reduceDragAction } from "~/c
 import EditModeContext from "~/context/EditModeContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { RELEASE_ACTION, SelectAction, SelectEntityContext, SelectState } from "~/context/SelectEntityContext";
-import EditAction from "~/features/canvas/EditAction";
-import ErdRelationPathView, { ErdRelationTooltipRef } from "~/features/canvas/ErdRelationPathView";
-import ErdTableView, { ERD_TABLE_VIEW_CLASS_NAME } from "~/features/canvas/ErdTableView";
-import {
-    CANVAS_AREA, CARDINALITY_MARKER, DRAWABLE_AREA,
-    getLogicalMousePosition, getScroll, toNextOrthogonalLines, withMultiSelectKey
-} from "~/features/canvas/support";
-import RelationEditView from "~/features/editor/RelationEditView";
-import TableEditView from "~/features/editor/TableEditView";
+import { LocalSetting, LocalSettingContext } from "~/context/LocalSettingContext";
+import CanvasPositionContext, { CanvasPositionResolver } from "~/context/CanvasPositionContext";
 import TableModel from "~/models/database/TableModel";
 import EditMode, { EditModeType } from "~/models/EditMode";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import TableViewModel from "~/models/TableViewModel";
 import MemoViewModel from "~/models/MemoViewModel";
-import StickyMemoView, { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
-import { LocalSetting, LocalSettingContext } from "~/context/LocalSettingContext";
 import PerspectiveModel from "~/models/PerspectiveModel";
-import PerspectiveSettingView from "~/features/editor/PerspectiveSettingView";
 import ErdDocument from "~/models/ErdDocument";
 import { OrthogonalDirection } from "~/models/LineViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
+import {
+    CANVAS_AREA, CARDINALITY_MARKER, DRAWABLE_AREA,
+    getScroll, toNextOrthogonalLines, withMultiSelectKey
+} from "~/features/canvas/support";
+import EditAction from "~/features/canvas/EditAction";
+import ErdRelationPathView, { ErdRelationTooltipRef } from "~/features/canvas/ErdRelationPathView";
+import ErdTableView, { ERD_TABLE_VIEW_CLASS_NAME } from "~/features/canvas/ErdTableView";
+import PerspectiveSettingView from "~/features/editor/PerspectiveSettingView";
+import RelationEditView from "~/features/editor/RelationEditView";
+import TableEditView from "~/features/editor/TableEditView";
+import StickyMemoView, { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
 
 type RectangleArea = {
     tableRectangles: Map<string, RectangleViewModel>,
@@ -57,8 +58,10 @@ const ErdCanvas = () => {
     const [relationEdge, setRelationEdge] = React.useState<Point | null>(null);
     // FireFox の場合、ドラッグ完了後に click イベントが発生するため、ドラッグ距離を保持して、ドラッグ後のイベントを制御する
     const [dragDistance, setDragDistance] = React.useState<number>(0);
+
+    const positionResolver = new CanvasPositionResolver(erdCanvasRef.current);
     // Grab 操作に関する制御
-    const { grabbingPanel, startGrabbing } = useGrabbing(editMode, displayScale);
+    const { grabbingPanel, startGrabbing } = useGrabbing(editMode, displayScale, positionResolver);
 
     const erdDocument = documentsHolder.current();
 
@@ -114,7 +117,7 @@ const ErdCanvas = () => {
             return;
         }
 
-        const mousePosition = getLogicalMousePosition(event, displayScale);
+        const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
 
         if (editMode === EditModeType.CREATE_TABLE) {
             const tableViewModel = createNewTable(mousePosition, localSetting);
@@ -149,7 +152,7 @@ const ErdCanvas = () => {
     // ドラッグが開始されたときの制御
     const handleDragStart = (event: React.MouseEvent) => {
         setDragDistance(0);
-        const mousePosition = getLogicalMousePosition(event, displayScale);
+        const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
 
         // 右クリックもしくは中クリックの場合は、grab 操作を開始する
         if ((event.button === 1) || (event.button === 2)) {
@@ -180,7 +183,7 @@ const ErdCanvas = () => {
     };
 
     const handleMoveMouseOnCanvas = (event: React.MouseEvent) => {
-        const mousePosition = getLogicalMousePosition(event, displayScale);
+        const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
 
         if (editMode === EditModeType.CREATE_RELATION) {
             setRelationEdge((selectState.tableIds.size === 1) ? mousePosition : null);
@@ -206,7 +209,7 @@ const ErdCanvas = () => {
             return;
         }
 
-        const mousePosition = getLogicalMousePosition(event, displayScale);
+        const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
         dispatchDragAction({ type: "clear" });
 
         // テーブルもしくはメモを選択状態でドラッグが完了した場合の制御
@@ -391,6 +394,7 @@ const ErdCanvas = () => {
 
     return (
         <DragActionContext.Provider value={dragState}>
+        <CanvasPositionContext.Provider value={positionResolver}>
             <div id="erd-canvas" ref={erdCanvasRef} style={canvasStyle}
                 onClick={handleClickOnCanvas} onMouseMove={handleMoveMouseOnCanvas}
                 onMouseDown={handleDragStart} onMouseUp={handleDragEnd}>
@@ -422,6 +426,7 @@ const ErdCanvas = () => {
                 onEditAction={setEditAction} onDragAction={dispatchDragAction} />
 
             {initEditView(editAction, rectangleArea, handleCloseEditDialog)}
+        </CanvasPositionContext.Provider>
         </DragActionContext.Provider>
     );
 };
@@ -485,7 +490,7 @@ const doCreateSelfRelation = (editAction: EditAction & { editType: "relation" },
     return new RelationViewModel({ ...editAction.relationViewModel, lineViewModel: nextLineViewModel });
 };
 
-const useGrabbing = (editMode: EditMode, displayScale: number) => {
+const useGrabbing = (editMode: EditMode, displayScale: number, positionResolver: CanvasPositionResolver) => {
     const grabbingPanelRef = React.useRef<HTMLDivElement>(null);
     const [availableGrabbing, setAvailableGrabbing] = React.useState<boolean>(false);
 
@@ -501,16 +506,16 @@ const useGrabbing = (editMode: EditMode, displayScale: number) => {
         event.preventDefault();
         event.stopPropagation();
 
-        const startPosition = getLogicalMousePosition(event, displayScale);
+        const startPosition = positionResolver.getLogicalPosition(event, displayScale);
         setGrabbing(true);
 
         performGrabbing({
-            grabbingPanelRef, grabbingAnimationRef, startPosition, displayScale,
+            grabbingPanelRef, grabbingAnimationRef, startPosition, displayScale, positionResolver,
             onGrabEnd: () => {
                 setGrabbing(false);
             }
         });
-    }, [displayScale]);
+    }, [displayScale, positionResolver]);
 
 
     const grabPanelStyle: React.CSSProperties = {
@@ -531,7 +536,7 @@ const useGrabbing = (editMode: EditMode, displayScale: number) => {
         setAvailableGrabbing(true);
 
         performGrabbing({
-            grabbingPanelRef, grabbingAnimationRef, startPosition: position, displayScale,
+            grabbingPanelRef, grabbingAnimationRef, startPosition: position, displayScale, positionResolver,
             onGrabEnd: () => {
                 setGrabbing(false);
                 setAvailableGrabbing(false);
@@ -546,12 +551,12 @@ type PerformGrabbingArgs = {
     grabbingPanelRef: React.RefObject<HTMLDivElement | null>,
     grabbingAnimationRef: React.RefObject<number | null>,
     startPosition: Point, displayScale: number,
+    positionResolver: CanvasPositionResolver,
     onGrabEnd: () => void
 };
 
 const performGrabbing = ({
-    grabbingPanelRef, grabbingAnimationRef,
-    startPosition, displayScale, onGrabEnd
+    grabbingPanelRef, grabbingAnimationRef, startPosition, displayScale, positionResolver, onGrabEnd
 }: PerformGrabbingArgs) => {
 
     if (grabbingPanelRef.current == null) {
@@ -567,7 +572,7 @@ const performGrabbing = ({
             cancelAnimationFrame(grabbingAnimationRef.current);
         }
 
-        const mousePosition = getLogicalMousePosition(event, displayScale);
+        const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
 
         grabbingAnimationRef.current = requestAnimationFrame(() => {
             // Canvas の表示サイズに合わせて、スクロール位置を調整する

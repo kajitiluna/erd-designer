@@ -21,7 +21,8 @@ import { LocalSettingContext } from "~/context/LocalSettingContext";
 import { RELEASE_ACTION, SelectEntityContext, SelectState } from "~/context/SelectEntityContext";
 import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
 import EditAction from "~/features/canvas/EditAction";
-import { DRAWABLE_AREA, getLogicalMousePosition, handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
+import CanvasPositionContext from "~/context/CanvasPositionContext";
+import { DRAWABLE_AREA, handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
 import TableViewModel from "~/models/TableViewModel";
 import ColorValue from "~/models/ColorValue";
 import { EditModeType } from "~/models/EditMode";
@@ -353,8 +354,9 @@ const InnerErdTableView = ({
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
-    const displayScale = React.useContext(DisplayScaleContext);
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
+    const displayScale = React.useContext(DisplayScaleContext);
+    const positionResolver = React.useContext(CanvasPositionContext);
 
     const [selfSelectableMode, setSelfSelectableMode] = React.useState<SelfSelectableMode>("none");
 
@@ -370,7 +372,7 @@ const InnerErdTableView = ({
             return;
         }
 
-        const mousePosition = getLogicalMousePosition(event, displayScale);
+        const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
         if (editMode === EditModeType.SELECT) {
             event.stopPropagation();
 
