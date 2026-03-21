@@ -44,10 +44,6 @@ const ErdCanvas = () => {
     const { localSetting, dispatchLocalSetting } = React.useContext(LocalSettingContext);
     const displayScale = React.useContext(DisplayScaleContext);
 
-    const positionResolver = React.useMemo(() => {
-        return new CanvasPositionResolver(erdCanvasRef.current);
-    }, [erdCanvasRef.current]);
-
     // Canvas に描画されている短形の情報を保持する
     const [rectangleArea, setRectangleArea] = React.useState<RectangleArea>(
         { tableRectangles: new Map(), memoRectangles: new Map() }
@@ -62,6 +58,8 @@ const ErdCanvas = () => {
     const [relationEdge, setRelationEdge] = React.useState<Point | null>(null);
     // FireFox の場合、ドラッグ完了後に click イベントが発生するため、ドラッグ距離を保持して、ドラッグ後のイベントを制御する
     const [dragDistance, setDragDistance] = React.useState<number>(0);
+
+    const positionResolver = new CanvasPositionResolver(erdCanvasRef.current);
     // Grab 操作に関する制御
     const { grabbingPanel, startGrabbing } = useGrabbing(editMode, displayScale, positionResolver);
 
