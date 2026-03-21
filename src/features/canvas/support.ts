@@ -31,12 +31,7 @@ export const getScroll = () => {
  * @returns 
  */
 export const getLogicalMousePosition = (event: React.MouseEvent | MouseEvent, displayScale: number) => {
-    const { scrollX, scrollY } = getScroll();
-    
-    const logicalPosition = {
-        x: (event.clientX + scrollX - DRAWABLE_AREA.width / 2) / displayScale,
-        y: (event.clientY + scrollY - DRAWABLE_AREA.height / 2) / displayScale
-    };
+    const logicalPosition = initLogicalPosition(event, displayScale);
 
     const validatedX = Math.min(Math.max(CANVAS_AREA.width * (-1) / 2, logicalPosition.x), CANVAS_AREA.width / 2);
     const validatedY = Math.min(Math.max(CANVAS_AREA.height * (-1) / 2, logicalPosition.y), CANVAS_AREA.height / 2);
@@ -44,6 +39,30 @@ export const getLogicalMousePosition = (event: React.MouseEvent | MouseEvent, di
     return {
         x: Math.floor(validatedX * 100) / 100,
         y: Math.floor(validatedY * 100) / 100
+    };
+};
+
+const initLogicalPosition = (event: React.MouseEvent | MouseEvent, displayScale: number) => {
+    const erdCanvas = document.getElementById('erd-canvas');
+    if (!erdCanvas) {
+        const { scrollX, scrollY } = getScroll();
+
+        return {
+            x: (event.clientX + scrollX - DRAWABLE_AREA.width / 2) / displayScale,
+            y: (event.clientY + scrollY - DRAWABLE_AREA.height / 2) / displayScale
+        };
+    }
+
+    // キャンバス要素の実際の表示位置を基準に算出することで、
+    // body の padding/margin 等の親要素オフセットの影響を排除する
+
+    const canvasRect = erdCanvas.getBoundingClientRect();
+    const canvasCenterX = canvasRect.left + canvasRect.width / 2;
+    const canvasCenterY = canvasRect.top + canvasRect.height / 2;
+
+    return {
+        x: (event.clientX - canvasCenterX) / displayScale,
+        y: (event.clientY - canvasCenterY) / displayScale
     };
 };
 
