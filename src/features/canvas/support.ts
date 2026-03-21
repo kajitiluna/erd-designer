@@ -22,50 +22,6 @@ export const getScroll = () => {
     return { scrollX, scrollY };
 };
 
-/**
- * displayScale の表示拡大率を無視した、論理的な点座標を取得する。
- * なお、論理的な点座標とは、キャンバス中央を (0, 0) とした座標を指す。
- * 
- * @param event マウスイベント
- * @param displayScale 表示拡大率
- * @returns 
- */
-export const getLogicalMousePosition = (event: React.MouseEvent | MouseEvent, displayScale: number) => {
-    const logicalPosition = initLogicalPosition(event, displayScale);
-
-    const validatedX = Math.min(Math.max(CANVAS_AREA.width * (-1) / 2, logicalPosition.x), CANVAS_AREA.width / 2);
-    const validatedY = Math.min(Math.max(CANVAS_AREA.height * (-1) / 2, logicalPosition.y), CANVAS_AREA.height / 2);
-
-    return {
-        x: Math.floor(validatedX * 100) / 100,
-        y: Math.floor(validatedY * 100) / 100
-    };
-};
-
-const initLogicalPosition = (event: React.MouseEvent | MouseEvent, displayScale: number) => {
-    const erdCanvas = document.getElementById('erd-canvas');
-    if (!erdCanvas) {
-        const { scrollX, scrollY } = getScroll();
-
-        return {
-            x: (event.clientX + scrollX - DRAWABLE_AREA.width / 2) / displayScale,
-            y: (event.clientY + scrollY - DRAWABLE_AREA.height / 2) / displayScale
-        };
-    }
-
-    // キャンバス要素の実際の表示位置を基準に算出することで、
-    // body の padding/margin 等の親要素オフセットの影響を排除する
-
-    const canvasRect = erdCanvas.getBoundingClientRect();
-    const canvasCenterX = canvasRect.left + canvasRect.width / 2;
-    const canvasCenterY = canvasRect.top + canvasRect.height / 2;
-
-    return {
-        x: (event.clientX - canvasCenterX) / displayScale,
-        y: (event.clientY - canvasCenterY) / displayScale
-    };
-};
-
 export const handlePreventMouseEvent = (event: React.MouseEvent) => event.stopPropagation();
 
 /**

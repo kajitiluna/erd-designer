@@ -6,29 +6,30 @@ import {
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 
-import {
-    DRAWABLE_AREA, getLogicalMousePosition, handlePreventMouseEvent, ORTHOGONAL_THRESHOLD,
-    toDraggedOrthogonalPoints, toMarkerId, toOrthogonalPoints
-} from "~/features/canvas/support";
+import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
+import EditModeContext from "~/context/EditModeContext";
+import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
+import { DragAction, DragActionContext } from "~/context/DragActionContext";
+import DisplayScaleContext from "~/context/DisplayScaleContext";
+import CanvasPositionContext from "~/context/CanvasPositionContext";
 import RelationModel from "~/models/database/RelationModel";
+import { OrthogonalDirection } from "~/models/LineViewModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
-import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
-import EditModeContext from "~/context/EditModeContext";
 import { EditModeType } from "~/models/EditMode";
-import { DragAction, DragActionContext } from "~/context/DragActionContext";
-import EditAction from "~/features/canvas/EditAction";
-import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
-import DisplayScaleContext from "~/context/DisplayScaleContext";
 import ErdDocument from "~/models/ErdDocument";
-import styleClasses from "./ErdCanvas.module.css";
 import ColorValue from "~/models/ColorValue";
 import ColorSelector from "~/components/ColorSelector";
 import LineSelectorIcon from "~/components/icons/LineSelectorIcon";
 import LineWidthIcon from "~/components/icons/LineWidthIcon";
 import LineStraightIcon from "~/components/icons/LineStraightIcon";
 import LineOrthogonalIcon from "~/components/icons/LineOrthogonalIcon";
-import { OrthogonalDirection } from "~/models/LineViewModel";
+import {
+    DRAWABLE_AREA, handlePreventMouseEvent, ORTHOGONAL_THRESHOLD,
+    toDraggedOrthogonalPoints, toMarkerId, toOrthogonalPoints
+} from "~/features/canvas/support";
+import EditAction from "~/features/canvas/EditAction";
+import styleClasses from "./ErdCanvas.module.css";
 
 export type ErdRelationTooltipRef = {
     svgElements: () => { tableIds: string[], path: React.JSX.Element }[]
@@ -279,6 +280,7 @@ const useStraightLineView = (
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
     const displayScale = React.useContext(DisplayScaleContext);
+    const positionResolver = React.useContext(CanvasPositionContext);
 
     const [lineDragging, setLineDragging] = React.useState<LineDragging>({ on_dragging: false });
 
@@ -394,7 +396,7 @@ const useStraightLineView = (
 
             event.stopPropagation();
 
-            const mousePosition = getLogicalMousePosition(event, displayScale);
+            const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
 
             dispatchSelectAction({
                 type: "edge",
@@ -433,7 +435,7 @@ const useStraightLineView = (
 
             event.stopPropagation();
 
-            const mousePosition = getLogicalMousePosition(event, displayScale);
+            const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
             setClickedPosition(mousePosition);
 
             setLineDragging({ on_dragging: false });
@@ -507,7 +509,7 @@ const useStraightLineView = (
                 return;
             }
 
-            const mousePosition = getLogicalMousePosition(event, displayScale);
+            const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
 
             dispatchSelectAction({
                 type: "edge",
@@ -738,6 +740,7 @@ const useOrthogonalLine = (
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
     const displayScale = React.useContext(DisplayScaleContext);
+    const positionResolver = React.useContext(CanvasPositionContext);
 
     const initPathCss = (selected: boolean, isReducedLine: boolean) => {
         if (!selected) {
@@ -787,7 +790,7 @@ const useOrthogonalLine = (
 
                 event.stopPropagation();
 
-                const mousePosition = getLogicalMousePosition(event, displayScale);
+                const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
 
                 dispatchSelectAction({
                     type: "edge",
@@ -806,7 +809,7 @@ const useOrthogonalLine = (
 
                 event.stopPropagation();
 
-                const mousePosition = getLogicalMousePosition(event, displayScale);
+                const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
                 setClickedPosition(mousePosition);
 
                 onDragAction({ type: "clear" });
