@@ -651,7 +651,7 @@ export default class ErdDocument {
     }
 
     /**
-     * 指定された絡むグループの追加もしくは更新を行う。
+     * 指定されたカラムグループの追加もしくは更新を行う。
      * 
      * @param updatingModel 更新対象
      * @param updatingColumnModels 更新カラム

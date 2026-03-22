@@ -4,10 +4,15 @@ import express from "express";
 import { Server } from "http";
 
 import { DocumentResource } from "~/extension/DocumentResource";
+import { mcpRegisterColumnGroup } from "~/extension/mcpserver/column-groups";
+import { mcpRegisterColumnType } from "~/extension/mcpserver/column-types";
 import { mcpRegisterColumn } from "~/extension/mcpserver/columns";
 import { mcpRegisterDatabase } from "~/extension/mcpserver/database";
 import { mcpRegisterErdDocument } from "~/extension/mcpserver/documents";
+import { mcpRegisterMemo } from "~/extension/mcpserver/memos";
 import { mcpRegisterPerspective } from "~/extension/mcpserver/perspectives";
+import { mcpRegisterRelation } from "~/extension/mcpserver/relations";
+import { mcpRegisterSchema } from "~/extension/mcpserver/schemas";
 import { McpErrorCode } from "~/extension/mcpserver/support";
 import { mcpRegisterTable } from "~/extension/mcpserver/tables";
 import { ShowMessage } from "~/extension/vscode-message";
@@ -126,6 +131,16 @@ const createMcpServer = (documentResource: DocumentResource) => {
         // `erd-designer://documents/{documentId}/columns`
         // `erd-designer://documents/{documentId}/column_shares/`
         mcpRegisterColumn(documentResource),
+        // `erd-designer://documents/{documentId}/column_types`
+        mcpRegisterColumnType(documentResource),
+        // `erd-designer://documents/{documentId}/relations`
+        mcpRegisterRelation(documentResource),
+        // `erd-designer://documents/{documentId}/schemas`
+        mcpRegisterSchema(documentResource),
+        // `erd-designer://documents/{documentId}/column_groups`
+        mcpRegisterColumnGroup(documentResource),
+        // `erd-designer://documents/{documentId}/memos`
+        mcpRegisterMemo(documentResource),
         // `erd-designer://documents/{documentId}/perspectives`
         mcpRegisterPerspective(documentResource)
     ].reduce((merged, config) => ({
