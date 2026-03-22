@@ -13,6 +13,8 @@ dist-ssr
 out
 *.local
 
+work
+
 *.vsix
 
 # Editor directories and files

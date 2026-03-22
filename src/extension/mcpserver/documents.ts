@@ -10,6 +10,7 @@ import {
     McpRegisterConfig, McpServerRegisterResourceArgs, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs
 } from "~/extension/mcpserver/support";
 import { toTableSummary } from "~/extension/mcpserver/tables";
+import { createDdl } from "~/models/create-ddl";
 import { toNextOrthogonalLines } from "~/features/canvas/support";
 import DisplayStyle from "~/models/database/DisplayStyle";
 import RectangleViewModel from "~/models/RectangleViewModel";
@@ -25,7 +26,8 @@ export const mcpRegisterErdDocument = (documentResource: DocumentResource): McpR
         ],
         tools: [
             mcpUpdateDocument(documentResource),
-            mcpMoveRectangle(documentResource)
+            mcpMoveRectangle(documentResource),
+            mcpExportDdl(documentResource)
         ] as McpServerRegisterToolArgs[]
     };
 };
@@ -521,6 +523,90 @@ const initCallbackForMoveRectangle = (
                     uri: erdBudget.documentUri(),
                     name: nextDocument.documentName,
                     mimeType: "application/json"
+                }
+            ]
+        };
+    };
+};
+
+const descriptionExportDdl = `\
+Generates DDL (Data Definition Language) statements based on the ERD document's table definitions.
+The generated DDL includes CREATE TABLE, CREATE INDEX, FOREIGN KEY constraints, and COMMENT statements
+according to the specified export settings.
+
+REQUEST:
+- documentId: ${DESCRIPTION_DOCUMENT_ID}
+- exportDdlSetting: An object containing DDL export options (all fields are optional):
+  - fileName: The output file name (informational only, does not create a file).
+  - withTable: Whether to include CREATE TABLE statements (default: true).
+  - withIndex: Whether to include CREATE INDEX statements (default: true).
+  - withForeignKey: Whether to include FOREIGN KEY constraints (default: true).
+  - withComment: Whether to include COMMENT statements (default: true).
+  - withSchema: Whether to include CREATE SCHEMA statements (default: true).
+
+RESPONSE:
+A text content containing the generated DDL statements.
+`;
+
+const mcpExportDdl = (
+    documentResource: DocumentResource
+): McpServerRegisterToolArgs<typeof exportDdlInputSchema> => {
+    return [
+        "export-ddl",
+        {
+            title: "Generate DDL from ERD document",
+            description: descriptionExportDdl,
+            inputSchema: exportDdlInputSchema,
+            annotations: { readOnlyHint: true }
+        },
+        initCallbackForExportDdl(documentResource)
+    ] as const;
+};
+
+const exportDdlInputSchema = {
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
+    exportDdlSetting: z.object({
+        fileName: z.string().optional()
+            .describe("The output file name (informational only)."),
+        withTable: z.boolean().optional()
+            .describe("Whether to include CREATE TABLE statements (default: true)."),
+        withIndex: z.boolean().optional()
+            .describe("Whether to include CREATE INDEX statements (default: true)."),
+        withForeignKey: z.boolean().optional()
+            .describe("Whether to include FOREIGN KEY constraints (default: true)."),
+        withComment: z.boolean().optional()
+            .describe("Whether to include COMMENT statements (default: true)."),
+        withSchema: z.boolean().optional()
+            .describe("Whether to include CREATE SCHEMA statements (default: true).")
+    }).optional().describe("The DDL export settings.")
+};
+
+const initCallbackForExportDdl = (
+    documentResource: DocumentResource
+): ToolCallback<typeof exportDdlInputSchema> => {
+    return async ({ documentId, exportDdlSetting }) => {
+        const erdBudget = documentResource.findById(documentId);
+        if (erdBudget == null) {
+            const url = new URL(uriTemplates.documentFor(documentId));
+            throw initResourceNotFound(url);
+        }
+
+        const erdDocument = erdBudget.erdDocument;
+        const exportSetting = erdDocument.erdSettingModel.exportDdlSetting;
+
+        const ddl = createDdl(erdDocument, {
+            withTable: exportDdlSetting?.withTable ?? exportSetting.withTable,
+            withIndex: exportDdlSetting?.withIndex ?? exportSetting.withIndex,
+            withForeignKey: exportDdlSetting?.withForeignKey ?? exportSetting.withForeignKey,
+            withComment: exportDdlSetting?.withComment ?? exportSetting.withComment,
+            withSchema: exportDdlSetting?.withSchema ?? exportSetting.withSchema
+        });
+
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: ddl
                 }
             ]
         };

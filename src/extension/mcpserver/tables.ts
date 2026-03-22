@@ -1,6 +1,9 @@
 import { ReadResourceTemplateCallback, ResourceTemplate, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { v4 as uuidV4 } from 'uuid';
 import z from "zod";
 
+import { DragState } from "~/context/DragActionContext";
+import { SelectState } from "~/context/SelectEntityContext";
 import { DocumentResource } from "~/extension/DocumentResource";
 import { addColumnSchema, buildAddingColumnPairs } from "~/extension/mcpserver/columns";
 import DocumentBudget, { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
@@ -10,11 +13,15 @@ import {
     findDocumentAndTable, initInvalidParams, initResourceNotFound, initResourceResponse,
     searchParameters, validatePhysicalName
 } from "~/extension/mcpserver/support";
+import { toNextOrthogonalLines } from "~/features/canvas/support";
 import ColorValue from "~/models/ColorValue";
 import { Database } from "~/models/database";
 import { overrideColumnName } from "~/models/database/support";
+import TableIndexModel, { IndexColumnModel } from "~/models/database/TableIndexModel";
 import TableModel from "~/models/database/TableModel";
+import TableUniqueKeysModel, { UniqueKeysColumnModel } from "~/models/database/TableUniqueKeysModel";
 import ErdDocument from "~/models/ErdDocument";
+import RectangleViewModel from "~/models/RectangleViewModel";
 import TableViewModel from "~/models/TableViewModel";
 
 export const mcpRegisterTable = (documentResource: DocumentResource): McpRegisterConfig => {
@@ -26,7 +33,16 @@ export const mcpRegisterTable = (documentResource: DocumentResource): McpRegiste
         ],
         tools: [
             mcpAddTable(documentResource),
-            mcpUpdateTable(documentResource)
+            mcpUpdateTable(documentResource),
+            mcpDeleteTable(documentResource),
+            mcpMoveTable(documentResource),
+            mcpUpdateTableColor(documentResource),
+            mcpAddUniqueConstraint(documentResource),
+            mcpUpdateUniqueConstraint(documentResource),
+            mcpDeleteUniqueConstraint(documentResource),
+            mcpAddTableIndex(documentResource),
+            mcpUpdateTableIndex(documentResource),
+            mcpDeleteTableIndex(documentResource)
         ] as McpServerRegisterToolArgs[]
     };
 };
@@ -826,6 +842,893 @@ const initCallbackForUpdateTable = (documentResource: DocumentResource): ToolCal
                     uri: erdBudget.tableUri(nextTableView.tableId),
                     name: nextTable.physicalName,
                     mimeType: "application/json"
+                }
+            ]
+        };
+    };
+};
+
+const descriptionDeleteTable = `\
+Deletes an existing table from a specified ERD document.
+This will also remove all relations associated with the table and clean up column-share references.
+
+REQUEST:
+- documentId: ${DESCRIPTION_DOCUMENT_ID}
+- tableId: The unique identifier of the table to delete.
+  Can be obtained from the tables list resource.
+
+RESPONSE:
+A text content containing the result of the operation:
+- success: true
+`;
+
+const mcpDeleteTable = (documentResource: DocumentResource): McpServerRegisterToolArgs<typeof deleteTableInputSchema> => {
+    return [
+        "delete-table",
+        {
+            title: "Delete a table from a specified ERD document",
+            description: descriptionDeleteTable,
+            inputSchema: deleteTableInputSchema
+        },
+        initCallbackForDeleteTable(documentResource)
+    ] as const;
+};
+
+const deleteTableInputSchema = {
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
+    tableId: z.string().describe("The unique identifier of the table to delete.")
+};
+
+const initCallbackForDeleteTable = (
+    documentResource: DocumentResource
+): ToolCallback<typeof deleteTableInputSchema> => {
+    return async ({ documentId, tableId }) => {
+        const { erdDocument: previousDocument } = findDocumentAndTable(documentResource, documentId, tableId);
+
+        const nextDocument = previousDocument.deleteTable(tableId);
+        documentResource.notify(documentId, nextDocument);
+
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify({ success: true })
+                }
+            ]
+        };
+    };
+};
+
+const descriptionMoveTable = `\
+Moves one or more tables within an ERD document to either an absolute position or by a relative offset.
+When moving to an absolute position, all specified tables are moved to the same coordinates.
+When moving by a relative offset, each table is moved from its current position by the specified amount.
+
+COORDINATE SYSTEM:
+All position coordinates use a canvas coordinate system where:
+- The origin (0, 0) is at the center of the canvas
+- X-axis: increases to the right
+- Y-axis: increases downward
+
+REQUEST:
+- documentId: ${DESCRIPTION_DOCUMENT_ID}
+- tableIds: An array of table IDs to be moved.
+  Can be obtained from the tables list resource.
+- moveTo: An object specifying the movement:
+  - type: Either "absolute" (move to exact coordinates) or "relative" (move by offset from current position).
+  - x: The x-coordinate (absolute) or x-offset (relative).
+  - y: The y-coordinate (absolute) or y-offset (relative).
+
+RESPONSE:
+An array of updated table objects (same format as table detail resource).
+`;
+
+const mcpMoveTable = (documentResource: DocumentResource): McpServerRegisterToolArgs<typeof moveTableInputSchema> => {
+    return [
+        "move-table",
+        {
+            title: "Move tables in a specified ERD document",
+            description: descriptionMoveTable,
+            inputSchema: moveTableInputSchema
+        },
+        initCallbackForMoveTable(documentResource)
+    ] as const;
+};
+
+const moveTableInputSchema = {
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
+    tableIds: z.array(z.string()).describe("The IDs of the tables to move."),
+    moveTo: z.object({
+        type: z.enum(["absolute", "relative"]).describe("The type of movement: 'absolute' or 'relative'."),
+        x: z.number().describe("The x-coordinate (absolute) or x-offset (relative)."),
+        y: z.number().describe("The y-coordinate (absolute) or y-offset (relative).")
+    }).strict().describe("The movement specification.")
+};
+
+const initCallbackForMoveTable = (documentResource: DocumentResource): ToolCallback<typeof moveTableInputSchema> => {
+    return async ({ documentId, tableIds, moveTo }) => {
+        const erdBudget = documentResource.findById(documentId);
+        if (erdBudget == null) {
+            const url = new URL(uriTemplates.documentFor(documentId));
+            throw initResourceNotFound(url);
+        }
+
+        const nextDocument: ErdDocument = (moveTo.type === "absolute")
+            ? doMoveTableAbsolute(erdBudget, tableIds, { x: moveTo.x, y: moveTo.y })
+            : doMoveTableRelative(erdBudget, tableIds, { x: moveTo.x, y: moveTo.y });
+
+        documentResource.notify(documentId, nextDocument);
+
+        const responses = tableIds.flatMap(tableId => {
+            const tableView = nextDocument.findTableViewModel(tableId);
+            if (tableView == null) {
+                return [];
+            }
+            return [toTableSummaryWithColumns(erdBudget, tableView)];
+        });
+
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(responses)
+                }
+            ]
+        };
+    };
+};
+
+const doMoveTableAbsolute = (
+    erdBudget: DocumentBudget, tableIds: string[], moveTo: { x: number; y: number }
+) => {
+    const previousDocument = erdBudget.erdDocument;
+
+    // For absolute positioning, update each table's corner directly
+    let nextDocument = previousDocument;
+    for (const tableId of tableIds) {
+        const tableView = nextDocument.findTableViewModel(tableId);
+        if (tableView == null) {
+            const url = new URL(erdBudget.tableUri(tableId));
+            throw initResourceNotFound(url);
+        }
+
+        const nextTableView = new TableViewModel({
+            ...tableView,
+            corner: { left: moveTo.x, top: moveTo.y }
+        });
+        nextDocument = nextDocument.updateTableMeta(nextTableView);
+    }
+
+    return nextDocument;
+};
+
+const doMoveTableRelative = (
+    erdBudget: DocumentBudget, tableIds: string[], moveTo: { x: number; y: number }
+) => {
+    const previousDocument = erdBudget.erdDocument;
+
+    // For relative movement, use moveTableView with orthogonal line handling
+    const tableIdSet = new Set(tableIds);
+
+    const relationViews = previousDocument.fetchRelationsByTableIds(tableIds)
+        .filter(relation => relation.lineViewModel.lineType === "orthogonal");
+    const tableRectangles = new Map(
+        Array.from(erdBudget.getRectangles().entries()).map(entry => {
+            const [key, rectangle] = entry;
+            const rectangleView = new RectangleViewModel({ ...rectangle });
+            return [key, rectangleView];
+        })
+    );
+
+    const selectState: SelectState = {
+        status: "selected",
+        tableIds: tableIdSet,
+        memoIds: new Set()
+    };
+    const dragState: DragState = {
+        status: "on_dragging",
+        start: { x: 0, y: 0 },
+        current: moveTo,
+        delta: () => moveTo
+    };
+
+    const nextOrthogonal = toNextOrthogonalLines({
+        relationViews, tableRectangles, selectState, dragState
+    });
+
+    return previousDocument.moveTableView(tableIdSet, moveTo, nextOrthogonal);
+};
+
+const descriptionUpdateTableColor = `\
+Updates the header color of one or more tables in a specified ERD document.
+All specified tables will be updated to the same color settings.
+
+REQUEST:
+- documentId: ${DESCRIPTION_DOCUMENT_ID}
+- tableIds: An array of table IDs whose colors are to be updated.
+  Can be obtained from the tables list resource.
+- color: An object containing the new color settings:
+  - background: The new background color in hex format (e.g., "#FFFFFF").
+  - foreground: The new foreground/text color in hex format (e.g., "#000000").
+
+RESPONSE:
+An array of updated table objects (same format as table detail resource).
+`;
+
+const mcpUpdateTableColor = (
+    documentResource: DocumentResource
+): McpServerRegisterToolArgs<typeof updateTableColorInputSchema> => {
+    return [
+        "update-table-color",
+        {
+            title: "Update table header color in a specified ERD document",
+            description: descriptionUpdateTableColor,
+            inputSchema: updateTableColorInputSchema
+        },
+        initCallbackForUpdateTableColor(documentResource)
+    ] as const;
+};
+
+const updateTableColorInputSchema = {
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
+    tableIds: z.array(z.string()).describe("The IDs of the tables to update."),
+    color: z.object({
+        background: colorValueSchema.describe("The new background color in hex format (e.g., #FFFFFF)."),
+        foreground: colorValueSchema.describe("The new foreground color in hex format (e.g., #000000).")
+    }).strict().describe("The new color settings for the table headers.")
+};
+
+const initCallbackForUpdateTableColor = (
+    documentResource: DocumentResource
+): ToolCallback<typeof updateTableColorInputSchema> => {
+    return async ({ documentId, tableIds, color }) => {
+        const erdBudget = documentResource.findById(documentId);
+        if (erdBudget == null) {
+            const url = new URL(uriTemplates.documentFor(documentId));
+            throw initResourceNotFound(url);
+        }
+
+        const previousDocument = erdBudget.erdDocument;
+        const background = ColorValue.fromHex(color.background);
+        const foreground = ColorValue.fromHex(color.foreground);
+        const nextDocument = previousDocument.updateTableViewColor(tableIds, background, foreground);
+
+        documentResource.notify(documentId, nextDocument);
+
+        const responses = tableIds.flatMap(tableId => {
+            const tableView = nextDocument.findTableViewModel(tableId);
+            if (tableView == null) {
+                return [];
+            }
+
+            return [toTableSummaryWithColumns(erdBudget, tableView)];
+        });
+
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(responses)
+                }
+            ]
+        };
+    };
+};
+
+const descriptionAddUniqueConstraint = `\
+Adds one or more unique constraints to an existing table in a specified ERD document.
+Each unique constraint defines a set of columns that must have unique values across all rows.
+
+REQUEST:
+- documentId: ${DESCRIPTION_DOCUMENT_ID}
+- tableId: The unique identifier of the table to add unique constraints to.
+  Can be obtained from the tables list resource.
+- uniqueConstraints: An array of unique constraint specifications, each containing:
+  - uniqueConstraint: The constraint definition:
+    - constraintName: (optional) The name of the unique constraint.
+      Must start with a letter or underscore, followed by letters, digits, or underscores.
+    - uniqueKeys: An array of column references for the constraint, each containing:
+      - columnId: The unique identifier of the column.
+      - order: (optional) The sort order ("ASC", "DESC", or "" for default).
+    - description: (optional) A description of the constraint.
+  - insertIndex: (optional) The zero-based index at which to insert the constraint.
+
+RESPONSE:
+An object containing the updated table information (same format as table detail resource).
+`;
+
+const mcpAddUniqueConstraint = (
+    documentResource: DocumentResource
+): McpServerRegisterToolArgs<typeof addUniqueConstraintInputSchema> => {
+    return [
+        "add-unique-constraint",
+        {
+            title: "Add unique constraints to a table in a specified ERD document",
+            description: descriptionAddUniqueConstraint,
+            inputSchema: addUniqueConstraintInputSchema
+        },
+        initCallbackForAddUniqueConstraint(documentResource)
+    ] as const;
+};
+
+const uniqueKeySchema = z.object({
+    columnId: z.string().describe("The unique identifier of the column."),
+    order: z.enum(["ASC", "DESC", ""]).optional().describe("The sort order for this column.")
+}).strict();
+
+const addUniqueConstraintInputSchema = {
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
+    tableId: z.string().describe("The unique identifier of the table to add unique constraints to."),
+    uniqueConstraints: z.array(z.object({
+        uniqueConstraint: z.object({
+            constraintName: z.string()
+                .refine(val => ((val === "") || validatePhysicalName(val)), {
+                    message: "Constraint name must be empty or start with a letter or underscore, " +
+                        "followed by letters, digits, or underscores."
+                }).optional().describe("The name of the unique constraint."),
+            uniqueKeys: z.array(uniqueKeySchema)
+                .min(2, { message: "At least 2 unique keys are required." })
+                .describe("The columns that make up the unique constraint."),
+            description: z.string().optional().describe("A description of the constraint.")
+        }).strict().describe("The unique constraint definition."),
+        insertIndex: z.number().optional().describe("The zero-based index at which to insert the constraint.")
+    }).strict()).describe("The unique constraints to add.")
+};
+
+const initCallbackForAddUniqueConstraint = (
+    documentResource: DocumentResource
+): ToolCallback<typeof addUniqueConstraintInputSchema> => {
+    return async ({ documentId, tableId, uniqueConstraints }) => {
+        const { erdBudget, erdDocument: previousDocument, tableView: previousTableView } =
+            findDocumentAndTable(documentResource, documentId, tableId);
+
+        const previousTable = previousTableView.tableModel;
+        const nextUniqueKeysModels = [...previousTable.uniqueKeysModels];
+
+        const columnIdSet = new Set(previousDocument.toAllColumnModels(previousTable).map(model => model.columnModelId));
+
+        for (const entry of uniqueConstraints) {
+            const uniqueConstraint = entry.uniqueConstraint;
+            const uniqueKeysColumnModels = uniqueConstraint.uniqueKeys.map(uniqueKey => {
+                if (!columnIdSet.has(uniqueKey.columnId)) {
+                    throw initInvalidParams(`ColumnId not found in the table: ${uniqueKey.columnId}`);
+                }
+
+                return new UniqueKeysColumnModel({
+                    columnModelId: uniqueKey.columnId,
+                    sortOrderType: uniqueKey.order || ""
+                });
+            }
+            );
+
+            const uniqueKeyModel = new TableUniqueKeysModel({
+                tableUniqueKeysModelId: uuidV4(),
+                physicalName: uniqueConstraint.constraintName || "",
+                uniqueKeysColumnModels: uniqueKeysColumnModels,
+                description: uniqueConstraint.description || ""
+            });
+
+            const insertIndex = entry.insertIndex ?? nextUniqueKeysModels.length;
+            const clampedIndex = Math.max(0, Math.min(insertIndex, nextUniqueKeysModels.length));
+            nextUniqueKeysModels.splice(clampedIndex, 0, uniqueKeyModel);
+        }
+
+        const nextTableView = new TableViewModel({
+            ...previousTableView,
+            tableModel: new TableModel({
+                ...previousTable,
+                uniqueKeysModels: nextUniqueKeysModels
+            })
+        });
+
+        const nextDocument = previousDocument.updateTableMeta(nextTableView);
+        documentResource.notify(documentId, nextDocument);
+
+        const response = toTableSummaryWithColumns(erdBudget, nextTableView);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(response)
+                }
+            ]
+        };
+    };
+};
+
+const descriptionUpdateUniqueConstraint = `\
+Updates an existing unique constraint of a table in a specified ERD document.
+Only the properties you specify will be updated; other properties will remain unchanged.
+
+REQUEST:
+- documentId: ${DESCRIPTION_DOCUMENT_ID}
+- tableId: The unique identifier of the table containing the unique constraint.
+- uniqueConstraintId: The unique identifier of the unique constraint to update.
+- uniqueConstraint: The properties to update (all fields are optional):
+  - constraintName: The new name of the unique constraint.
+  - uniqueKeys: The new column references for the constraint.
+  - description: The new description of the constraint.
+
+RESPONSE:
+An object containing the updated table information (same format as table detail resource).
+`;
+
+const mcpUpdateUniqueConstraint = (
+    documentResource: DocumentResource
+): McpServerRegisterToolArgs<typeof updateUniqueConstraintInputSchema> => {
+    return [
+        "update-unique-constraint",
+        {
+            title: "Update a unique constraint of a table in a specified ERD document",
+            description: descriptionUpdateUniqueConstraint,
+            inputSchema: updateUniqueConstraintInputSchema
+        },
+        initCallbackForUpdateUniqueConstraint(documentResource)
+    ] as const;
+};
+
+const updateUniqueConstraintInputSchema = {
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
+    tableId: z.string().describe("The unique identifier of the table."),
+    uniqueConstraintId: z.string().describe("The unique identifier of the unique constraint to update."),
+    uniqueConstraint: z.object({
+        constraintName: z.string()
+            .refine(val => ((val === "") || validatePhysicalName(val)), {
+                message: "Constraint name must be empty or start with a letter or underscore."
+            }).optional().describe("The new name of the unique constraint."),
+        uniqueKeys: z.array(uniqueKeySchema)
+            .min(2, { message: "At least 2 unique keys are required." })
+            .optional().describe("The new columns for the unique constraint."),
+        description: z.string().optional().describe("The new description of the constraint.")
+    }).describe("The unique constraint properties to update.")
+};
+
+const initCallbackForUpdateUniqueConstraint = (
+    documentResource: DocumentResource
+): ToolCallback<typeof updateUniqueConstraintInputSchema> => {
+    return async ({ documentId, tableId, uniqueConstraintId, uniqueConstraint: updating }) => {
+        const { erdBudget, erdDocument: previousDocument, tableView: previousTableView } =
+            findDocumentAndTable(documentResource, documentId, tableId);
+
+        const previousTable = previousTableView.tableModel;
+        const existingModel = previousTable.uniqueKeysModels
+            .find(uniqueModel => (uniqueModel.tableUniqueKeysModelId === uniqueConstraintId));
+        if (existingModel == null) {
+            throw initInvalidParams(`Unique constraint not found: ${uniqueConstraintId}`);
+        }
+
+        const columnIdSet = new Set(previousDocument.toAllColumnModels(previousTable).map(model => model.columnModelId));
+
+        const nextUniqueKeysColumnModels = updating.uniqueKeys?.map(uniqueKey => {
+            if (!columnIdSet.has(uniqueKey.columnId)) {
+                throw initInvalidParams(`ColumnId not found in the table: ${uniqueKey.columnId}`);
+            }
+
+            return new UniqueKeysColumnModel({
+                columnModelId: uniqueKey.columnId,
+                sortOrderType: uniqueKey.order || ""
+            })
+        });
+
+        const nextModel = new TableUniqueKeysModel({
+            tableUniqueKeysModelId: existingModel.tableUniqueKeysModelId,
+            physicalName: updating.constraintName ?? existingModel.physicalName,
+            uniqueKeysColumnModels: nextUniqueKeysColumnModels
+                ? nextUniqueKeysColumnModels : [...existingModel.uniqueKeysColumnModels],
+            description: updating.description ?? existingModel.description
+        });
+
+        const nextUniqueKeysModels = previousTable.uniqueKeysModels.map(uniqueModel =>
+            (uniqueModel.tableUniqueKeysModelId === uniqueConstraintId) ? nextModel : uniqueModel
+        );
+
+        const nextTableView = new TableViewModel({
+            ...previousTableView,
+            tableModel: new TableModel({
+                ...previousTable,
+                uniqueKeysModels: nextUniqueKeysModels
+            })
+        });
+
+        const nextDocument = previousDocument.updateTableMeta(nextTableView);
+        documentResource.notify(documentId, nextDocument);
+
+        const response = toTableSummaryWithColumns(erdBudget, nextTableView);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(response)
+                }
+            ]
+        };
+    };
+};
+
+const descriptionDeleteUniqueConstraint = `\
+Deletes one or more unique constraints from a table in a specified ERD document.
+
+REQUEST:
+- documentId: ${DESCRIPTION_DOCUMENT_ID}
+- tableId: The unique identifier of the table containing the unique constraints.
+- uniqueConstraintIds: An array of unique constraint IDs to delete.
+
+RESPONSE:
+An object containing the updated table information (same format as table detail resource).
+`;
+
+const mcpDeleteUniqueConstraint = (
+    documentResource: DocumentResource
+): McpServerRegisterToolArgs<typeof deleteUniqueConstraintInputSchema> => {
+    return [
+        "delete-unique-constraint",
+        {
+            title: "Delete unique constraints from a table in a specified ERD document",
+            description: descriptionDeleteUniqueConstraint,
+            inputSchema: deleteUniqueConstraintInputSchema
+        },
+        initCallbackForDeleteUniqueConstraint(documentResource)
+    ] as const;
+};
+
+const deleteUniqueConstraintInputSchema = {
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
+    tableId: z.string().describe("The unique identifier of the table."),
+    uniqueConstraintIds: z.array(z.string())
+        .min(1, "At least one unique constraint ID must be provided.")
+        .describe("The IDs of the unique constraints to delete.")
+};
+
+const initCallbackForDeleteUniqueConstraint = (
+    documentResource: DocumentResource
+): ToolCallback<typeof deleteUniqueConstraintInputSchema> => {
+    return async ({ documentId, tableId, uniqueConstraintIds }) => {
+        const { erdBudget, erdDocument: previousDocument, tableView: previousTableView } =
+            findDocumentAndTable(documentResource, documentId, tableId);
+
+        const previousTable = previousTableView.tableModel;
+        const deletingIds = new Set(uniqueConstraintIds);
+        const nextUniqueKeysModels = previousTable.uniqueKeysModels
+            .filter(uniqueModel => !deletingIds.has(uniqueModel.tableUniqueKeysModelId));
+
+        const nextTableView = new TableViewModel({
+            ...previousTableView,
+            tableModel: new TableModel({
+                ...previousTable,
+                uniqueKeysModels: nextUniqueKeysModels
+            })
+        });
+
+        const nextDocument = previousDocument.updateTableMeta(nextTableView);
+        documentResource.notify(documentId, nextDocument);
+
+        const response = toTableSummaryWithColumns(erdBudget, nextTableView);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(response)
+                }
+            ]
+        };
+    };
+};
+
+const descriptionAddTableIndex = `\
+Adds one or more indexes to an existing table in a specified ERD document.
+Indexes improve query performance on the specified columns.
+
+REQUEST:
+- documentId: ${DESCRIPTION_DOCUMENT_ID}
+- tableId: The unique identifier of the table to add indexes to.
+  Can be obtained from the tables list resource.
+- tableIndexes: An array of index specifications, each containing:
+  - tableIndex: The index definition:
+    - indexName: (optional) The name of the index.
+      Must start with a letter or underscore, followed by letters, digits, or underscores.
+    - indexColumns: An array of column references for the index, each containing:
+      - columnId: The unique identifier of the column.
+      - order: (optional) The sort order ("ASC", "DESC", or "" for default).
+      - nullsOrder: (optional) The nulls ordering ("FIRST", "LAST", or "" for default).
+    - indexOption: (optional) The index option ("UNIQUE", "FULLTEXT", "SPATIAL", or "" for none).
+    - indexType: (optional) The index type ("BTREE", "HASH", "GIST", "SPGIST", "GIN", "BRIN", or "" for default).
+    - clustered: (optional) Whether the index is clustered (only for databases that support it).
+    - description: (optional) A description of the index.
+  - insertIndex: (optional) The zero-based index at which to insert the index.
+
+RESPONSE:
+An object containing the updated table information (same format as table detail resource).
+`;
+
+const mcpAddTableIndex = (
+    documentResource: DocumentResource
+): McpServerRegisterToolArgs<typeof addTableIndexInputSchema> => {
+    return [
+        "add-table-index",
+        {
+            title: "Add indexes to a table in a specified ERD document",
+            description: descriptionAddTableIndex,
+            inputSchema: addTableIndexInputSchema
+        },
+        initCallbackForAddTableIndex(documentResource)
+    ] as const;
+};
+
+const indexColumnSchema = z.object({
+    columnId: z.string().describe("The unique identifier of the column."),
+    order: z.enum(["ASC", "DESC", ""]).optional().describe("The sort order for this column."),
+    nullsOrder: z.enum(["FIRST", "LAST", ""]).optional().describe("The nulls ordering for this column.")
+}).strict();
+
+const addTableIndexInputSchema = {
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
+    tableId: z.string().describe("The unique identifier of the table to add indexes to."),
+    tableIndexes: z.array(z.object({
+        tableIndex: z.object({
+            indexName: z.string()
+                .refine(val => ((val === "") || validatePhysicalName(val)), {
+                    message: "Index name must be empty or start with a letter or underscore, " +
+                        "followed by letters, digits, or underscores."
+                }).optional().describe("The name of the index."),
+            indexColumns: z.array(indexColumnSchema)
+                .min(1, { message: "At least one column must be specified for the index." })
+                .describe("The columns that make up the index."),
+            indexOption: z.enum(["UNIQUE", "FULLTEXT", "SPATIAL", ""]).optional()
+                .describe("The index option."),
+            indexType: z.enum(["BTREE", "HASH", "GIST", "SPGIST", "GIN", "BRIN", ""]).optional()
+                .describe("The index type."),
+            clustered: z.boolean().optional().describe("Whether the index is clustered."),
+            description: z.string().optional().describe("A description of the index.")
+        }).strict().describe("The index definition."),
+        insertIndex: z.number().optional().describe("The zero-based index at which to insert the index.")
+    }).strict()).describe("The indexes to add.")
+};
+
+const initCallbackForAddTableIndex = (
+    documentResource: DocumentResource
+): ToolCallback<typeof addTableIndexInputSchema> => {
+    return async ({ documentId, tableId, tableIndexes }) => {
+        const { erdBudget, erdDocument: previousDocument, tableView: previousTableView } =
+            findDocumentAndTable(documentResource, documentId, tableId);
+
+        const previousTable = previousTableView.tableModel;
+        const nextTableIndexModels = [...previousTable.tableIndexModels];
+        const columnIdSet = new Set(previousDocument.toAllColumnModels(previousTable).map(model => model.columnModelId));
+
+        for (const entry of tableIndexes) {
+            const tableIndex = entry.tableIndex;
+            const indexColumnModels = tableIndex.indexColumns.map(col => {
+                if (!columnIdSet.has(col.columnId)) {
+                    throw initInvalidParams(`ColumnId not found in the table: ${col.columnId}`);
+                }
+
+                return new IndexColumnModel({
+                    columnModelId: col.columnId,
+                    sortOrderType: col.order || "",
+                    nullsOrderType: col.nullsOrder || ""
+                });
+            });
+
+            const indexModel = new TableIndexModel({
+                tableIndexModelId: uuidV4(),
+                physicalName: tableIndex.indexName || "",
+                indexColumnModels: indexColumnModels,
+                indexOption: tableIndex.indexOption || "",
+                indexType: tableIndex.indexType || "",
+                clustered: tableIndex.clustered || false,
+                description: tableIndex.description || ""
+            });
+
+            const insertIndex = entry.insertIndex ?? nextTableIndexModels.length;
+            const clampedIndex = Math.max(0, Math.min(insertIndex, nextTableIndexModels.length));
+            nextTableIndexModels.splice(clampedIndex, 0, indexModel);
+        }
+
+        const nextTableView = new TableViewModel({
+            ...previousTableView,
+            tableModel: new TableModel({
+                ...previousTable,
+                tableIndexModels: nextTableIndexModels
+            })
+        });
+
+        const nextDocument = previousDocument.updateTableMeta(nextTableView);
+        documentResource.notify(documentId, nextDocument);
+
+        const response = toTableSummaryWithColumns(erdBudget, nextTableView);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(response)
+                }
+            ]
+        };
+    };
+};
+
+const descriptionUpdateTableIndex = `\
+Updates an existing index of a table in a specified ERD document.
+Only the properties you specify will be updated; other properties will remain unchanged.
+
+REQUEST:
+- documentId: ${DESCRIPTION_DOCUMENT_ID}
+- tableId: The unique identifier of the table containing the index.
+- tableIndexId: The unique identifier of the index to update.
+- tableIndex: The properties to update (all fields are optional):
+  - indexName: The new name of the index.
+  - indexColumns: The new column references for the index.
+  - indexOption: The new index option.
+  - indexType: The new index type.
+  - clustered: Whether the index is clustered.
+  - description: The new description of the index.
+
+RESPONSE:
+An object containing the updated table information (same format as table detail resource).
+`;
+
+const mcpUpdateTableIndex = (
+    documentResource: DocumentResource
+): McpServerRegisterToolArgs<typeof updateTableIndexInputSchema> => {
+    return [
+        "update-table-index",
+        {
+            title: "Update an index of a table in a specified ERD document",
+            description: descriptionUpdateTableIndex,
+            inputSchema: updateTableIndexInputSchema
+        },
+        initCallbackForUpdateTableIndex(documentResource)
+    ] as const;
+};
+
+const updateTableIndexInputSchema = {
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
+    tableId: z.string().describe("The unique identifier of the table."),
+    tableIndexId: z.string().describe("The unique identifier of the index to update."),
+    tableIndex: z.object({
+        indexName: z.string()
+            .refine(val => ((val === "") || validatePhysicalName(val)), {
+                message: "Index name must be empty or start with a letter or underscore."
+            }).optional().describe("The new name of the index."),
+        indexColumns: z.array(indexColumnSchema)
+            .min(1, { message: "At least one column must be specified for the index." })
+            .optional().describe("The new columns for the index."),
+        indexOption: z.enum(["UNIQUE", "FULLTEXT", "SPATIAL", ""]).optional()
+            .describe("The new index option."),
+        indexType: z.enum(["BTREE", "HASH", "GIST", "SPGIST", "GIN", "BRIN", ""]).optional()
+            .describe("The new index type."),
+        clustered: z.boolean().optional().describe("Whether the index is clustered."),
+        description: z.string().optional().describe("The new description of the index.")
+    }).describe("The index properties to update.")
+};
+
+const initCallbackForUpdateTableIndex = (
+    documentResource: DocumentResource
+): ToolCallback<typeof updateTableIndexInputSchema> => {
+    return async ({ documentId, tableId, tableIndexId, tableIndex: updating }) => {
+        const { erdBudget, erdDocument: previousDocument, tableView: previousTableView } =
+            findDocumentAndTable(documentResource, documentId, tableId);
+
+        const previousTable = previousTableView.tableModel;
+        const existingModel = previousTable.tableIndexModels
+            .find(indexModel => (indexModel.tableIndexModelId === tableIndexId));
+        if (existingModel == null) {
+            throw initInvalidParams(`Table index not found: ${tableIndexId}`);
+        }
+        const columnIdSet = new Set(previousDocument.toAllColumnModels(previousTable).map(model => model.columnModelId));
+        const nextIndexColumnModels = updating.indexColumns?.map(col => {
+            if (!columnIdSet.has(col.columnId)) {
+                throw initInvalidParams(`ColumnId not found in the table: ${col.columnId}`);
+            }
+
+            return new IndexColumnModel({
+                columnModelId: col.columnId,
+                sortOrderType: col.order || "",
+                nullsOrderType: col.nullsOrder || ""
+            });
+        });
+
+        const nextModel = new TableIndexModel({
+            tableIndexModelId: existingModel.tableIndexModelId,
+            physicalName: updating.indexName ?? existingModel.physicalName,
+            indexColumnModels: nextIndexColumnModels
+                ? nextIndexColumnModels : [...existingModel.indexColumnModels],
+            indexOption: updating.indexOption ?? existingModel.indexOption,
+            indexType: updating.indexType ?? existingModel.indexType,
+            clustered: updating.clustered ?? existingModel.clustered,
+            description: updating.description ?? existingModel.description
+        });
+
+        const nextTableIndexModels = previousTable.tableIndexModels.map(indexModel =>
+            (indexModel.tableIndexModelId === tableIndexId) ? nextModel : indexModel
+        );
+
+        const nextTableView = new TableViewModel({
+            ...previousTableView,
+            tableModel: new TableModel({
+                ...previousTable,
+                tableIndexModels: nextTableIndexModels
+            })
+        });
+
+        const nextDocument = previousDocument.updateTableMeta(nextTableView);
+        documentResource.notify(documentId, nextDocument);
+
+        const response = toTableSummaryWithColumns(erdBudget, nextTableView);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(response)
+                }
+            ]
+        };
+    };
+};
+
+const descriptionDeleteTableIndex = `\
+Deletes one or more indexes from a table in a specified ERD document.
+
+REQUEST:
+- documentId: ${DESCRIPTION_DOCUMENT_ID}
+- tableId: The unique identifier of the table containing the indexes.
+- tableIndexIds: An array of index IDs to delete.
+
+RESPONSE:
+An object containing the updated table information (same format as table detail resource).
+`;
+
+const mcpDeleteTableIndex = (
+    documentResource: DocumentResource
+): McpServerRegisterToolArgs<typeof deleteTableIndexInputSchema> => {
+    return [
+        "delete-table-index",
+        {
+            title: "Delete indexes from a table in a specified ERD document",
+            description: descriptionDeleteTableIndex,
+            inputSchema: deleteTableIndexInputSchema
+        },
+        initCallbackForDeleteTableIndex(documentResource)
+    ] as const;
+};
+
+const deleteTableIndexInputSchema = {
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
+    tableId: z.string().describe("The unique identifier of the table."),
+    tableIndexIds: z.array(z.string())
+        .min(1, "At least one index ID must be provided.")
+        .describe("The IDs of the indexes to delete.")
+};
+
+const initCallbackForDeleteTableIndex = (
+    documentResource: DocumentResource
+): ToolCallback<typeof deleteTableIndexInputSchema> => {
+    return async ({ documentId, tableId, tableIndexIds }) => {
+        const { erdBudget, erdDocument: previousDocument, tableView: previousTableView } =
+            findDocumentAndTable(documentResource, documentId, tableId);
+
+        const previousTable = previousTableView.tableModel;
+        const deletingIds = new Set(tableIndexIds);
+        const nextTableIndexModels = previousTable.tableIndexModels
+            .filter(indexModel => !deletingIds.has(indexModel.tableIndexModelId));
+
+        const nextTableView = new TableViewModel({
+            ...previousTableView,
+            tableModel: new TableModel({
+                ...previousTable,
+                tableIndexModels: nextTableIndexModels
+            })
+        });
+
+        const nextDocument = previousDocument.updateTableMeta(nextTableView);
+        documentResource.notify(documentId, nextDocument);
+
+        const response = toTableSummaryWithColumns(erdBudget, nextTableView);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(response)
                 }
             ]
         };
