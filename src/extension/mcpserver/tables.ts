@@ -981,25 +981,54 @@ const initCallbackForMoveTable = (documentResource: DocumentResource): ToolCallb
 const doMoveTableAbsolute = (
     erdBudget: DocumentBudget, tableIds: string[], moveTo: { x: number; y: number }
 ) => {
-    const previousDocument = erdBudget.erdDocument;
-
-    // For absolute positioning, update each table's corner directly
-    let nextDocument = previousDocument;
+    // For absolute positioning, compute delta per table and use moveTableView
+    // to ensure relation orthogonal lines are also updated.
+    let currentDocument = erdBudget.erdDocument;
     for (const tableId of tableIds) {
-        const tableView = nextDocument.findTableViewModel(tableId);
+        const tableView = currentDocument.findTableViewModel(tableId);
         if (tableView == null) {
             const url = new URL(erdBudget.tableUri(tableId));
             throw initResourceNotFound(url);
         }
 
-        const nextTableView = new TableViewModel({
-            ...tableView,
-            corner: { left: moveTo.x, top: moveTo.y }
+        const delta = {
+            x: moveTo.x - tableView.corner.left,
+            y: moveTo.y - tableView.corner.top
+        };
+
+        const singleTableIds = [tableId];
+        const tableIdSet = new Set(singleTableIds);
+
+        const relationViews = currentDocument.fetchRelationsByTableIds(singleTableIds)
+            .filter(relation => relation.lineViewModel.lineType === "orthogonal");
+        const tableRectangles = new Map(
+            Array.from(erdBudget.getRectangles().entries()).map(entry => {
+                const [key, rectangle] = entry;
+                const rectangleView = new RectangleViewModel({ ...rectangle });
+                return [key, rectangleView];
+            })
+        );
+
+        const selectState: SelectState = {
+            status: "selected",
+            tableIds: tableIdSet,
+            memoIds: new Set()
+        };
+        const dragState: DragState = {
+            status: "on_dragging",
+            start: { x: 0, y: 0 },
+            current: delta,
+            delta: () => delta
+        };
+
+        const nextOrthogonal = toNextOrthogonalLines({
+            relationViews, tableRectangles, selectState, dragState
         });
-        nextDocument = nextDocument.updateTableMeta(nextTableView);
+
+        currentDocument = currentDocument.moveTableView(tableIdSet, delta, nextOrthogonal);
     }
 
-    return nextDocument;
+    return currentDocument;
 };
 
 const doMoveTableRelative = (

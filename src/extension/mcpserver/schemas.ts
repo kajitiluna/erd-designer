@@ -8,8 +8,10 @@ import {
     McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs
 } from "~/extension/mcpserver/support";
 import DbSchemaConfig from "~/models/DbSchemaConfig";
+import TableModel from "~/models/database/TableModel";
 import DbSchemaModel from "~/models/database/DbSchemaModel";
 import ErdDocument from "~/models/ErdDocument";
+import TableViewModel from "~/models/TableViewModel";
 
 export const mcpRegisterSchema = (documentResource: DocumentResource): McpRegisterConfig => {
     return {
@@ -372,7 +374,22 @@ const initCallbackForDeleteSchema = (
             : previousDocument.schemaConfig.defaultSchemaId;
 
         const nextSchemaConfig = DbSchemaConfig.create({ defaultSchemaId: nextDefaultSchemaId, schemas: nextSchemas });
-        const nextDocument = previousDocument.updateSchema(nextSchemaConfig);
+        let nextDocument = previousDocument.updateSchema(nextSchemaConfig);
+
+        // Reassign tables that were using the deleted schema to the new default schema.
+        const updatingTables = nextDocument.getTableViewModels()
+            .filter(tableView => tableView.tableModel.schemaId === schemaId)
+            .map(tableView => new TableViewModel({
+                ...tableView,
+                tableModel: new TableModel({
+                    ...tableView.tableModel,
+                    schemaId: nextDefaultSchemaId
+                })
+            }));
+        if (updatingTables.length > 0) {
+            nextDocument = nextDocument.updateTableMeta(...updatingTables);
+        }
+
         documentResource.notify(documentId, nextDocument);
 
         return {

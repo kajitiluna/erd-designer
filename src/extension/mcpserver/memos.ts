@@ -219,8 +219,8 @@ const addMemoInputSchema = {
             y: z.number().describe("The y-coordinate of the memo position.")
         }).strict().describe("The position of the memo on the canvas."),
         size: z.object({
-            width: z.number().describe("The width of the memo."),
-            height: z.number().describe("The height of the memo.")
+            width: z.number().min(1).describe("The width of the memo."),
+            height: z.number().min(1).describe("The height of the memo.")
         }).strict().optional().describe("The size of the memo (optional)."),
         color: z.object({
             background: colorValueSchema.describe("The background color in hex format (e.g., #FFFFE0)."),
@@ -324,8 +324,8 @@ const updateMemoInputSchema = {
     memo: z.object({
         memo: z.string().optional().describe("The new text content of the memo."),
         size: z.object({
-            width: z.number().describe("The width of the memo."),
-            height: z.number().describe("The height of the memo.")
+            width: z.number().min(1).describe("The width of the memo."),
+            height: z.number().min(1).describe("The height of the memo.")
         }).strict().optional().describe("The new size of the memo."),
         color: z.object({
             background: colorValueSchema.describe("The background color in hex format (e.g., #FFFFE0)."),
