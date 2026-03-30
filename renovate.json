@@ -1,0 +1,20 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "schedule": [
+    "on the first day of the month"
+  ],
+  "minimumReleaseAge": "30 days",
+  "packageRules": [
+    {
+      "matchManagers": ["github-actions"],
+      "pinDigests": true
+    }
+  ],
+  "prConcurrentLimit": 5,
+  "labels": [
+    "dependencies"
+  ]
+}
