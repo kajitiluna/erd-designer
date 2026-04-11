@@ -13,7 +13,7 @@ This tool is inspired by [ERMaster](https://ermaster.sourceforge.net/index.html)
 |:--:|:--:|
 | Editing table columns using shared models | Creating relationships between tables |
 
-| ![Select color](images/04_color.png) | ![Perspective](images/05_canvas-perspective.png) |
+| ![Select color](images/04_color.png) | ![Perspective](images/05_canvas-perspective.gif) |
 |:--:|:--:|
 | Customizing table and memo colors | Organizing tables by perspectives |
 
@@ -106,5 +106,5 @@ Please visit our [GitHub repository](https://github.com/kajitiluna/erd-designer)
 
 ## License
 
-This extension is licensed under the MIT License.
+This extension is licensed under the Apache License 2.0.
 See the [LICENSE](https://github.com/kajitiluna/erd-designer/blob/main/LICENSE) file for details.
