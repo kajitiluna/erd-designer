@@ -3,6 +3,14 @@ name: Pull Request Check
 on:
   pull_request:
     branches: [main]
+    paths-ignore:
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/pull_request_template.md'
+      - '.github/dependabot.yml'
+      - '.vscode/**'
+      - 'samples/**'
+      - '*.md'
+      - 'LICENSE'
 
 jobs:
   test:
