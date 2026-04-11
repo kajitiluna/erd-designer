@@ -11,6 +11,21 @@ This tool is inspired by [ERMaster](https://ermaster.sourceforge.net/index.html)
 - ERD Designer supports exporting PNG images and generating DDL files.
 - ERD Designer supports reusing and sharing column models for table design.
 
+## Screenshots
+
+| ![Canvas](images/01_canvas.png) |
+|:--:|
+| Main canvas view with tables and relationships |
+
+| ![Edit Column](images/02_edit-column.png) | ![Add relation](images/03_add-relation.gif) |
+|:--:|:--:|
+| Editing table columns using shared models | Creating relationships between tables |
+
+| ![Select color](images/04_color.png) | ![Perspective](images/05_canvas-perspective.png) |
+|:--:|:--:|
+| Customizing table and memo colors | Organizing tables by perspectives |
+
+
 ## Online tool
 
 ERD Designer is available as an online tool at: [kajitiluna.github.io/erd-designer](https://kajitiluna.github.io/erd-designer)
