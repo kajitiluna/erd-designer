@@ -106,5 +106,5 @@ Please visit our [GitHub repository](https://github.com/kajitiluna/erd-designer)
 
 ## License
 
-This extension is licensed under the MIT License.
+This extension is licensed under the Apache License 2.0.
 See the [LICENSE](https://github.com/kajitiluna/erd-designer/blob/main/LICENSE) file for details.
