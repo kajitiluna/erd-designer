@@ -3,6 +3,7 @@
   "extends": [
     "config:recommended"
   ],
+  "repositories": ["kajitiluna/erd-designer"],
   "minimumReleaseAge": "30 days",
   "packageRules": [
     {
