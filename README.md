@@ -21,7 +21,7 @@ This tool is inspired by [ERMaster](https://ermaster.sourceforge.net/index.html)
 |:--:|:--:|
 | Editing table columns using shared models | Creating relationships between tables |
 
-| ![Select color](images/04_color.png) | ![Perspective](images/05_canvas-perspective.png) |
+| ![Select color](images/04_color.png) | ![Perspective](images/05_canvas-perspective.gif) |
 |:--:|:--:|
 | Customizing table and memo colors | Organizing tables by perspectives |
 
