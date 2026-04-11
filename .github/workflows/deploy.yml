@@ -6,6 +6,7 @@ on:
       - main
     paths-ignore:
       - '.github/ISSUE_TEMPLATE/**'
+      - '.github/workflows/**'
       - '.github/pull_request_template.md'
       - '.github/dependabot.yml'
       - '.vscode/**'
