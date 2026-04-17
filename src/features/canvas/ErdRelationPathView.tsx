@@ -31,8 +31,14 @@ import {
 import EditAction from "~/features/canvas/EditAction";
 import styleClasses from "./ErdCanvas.module.css";
 
+export type RelationLabelData = {
+    relationView: RelationViewModel,
+    pathPoints: { x: number, y: number }[]
+};
+
 export type ErdRelationTooltipRef = {
-    svgElements: () => { tableIds: string[], path: React.JSX.Element }[]
+    svgElements: () => { tableIds: string[], path: React.JSX.Element }[],
+    labelData: () => RelationLabelData[]
 };
 
 type ErdRelationPathViewProps = {
@@ -222,7 +228,8 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
 
     React.useImperativeHandle(ref, () => {
         return {
-            svgElements: () => [...straightLinePaths, ...orthogonalLinePaths]
+            svgElements: () => [...straightLinePaths, ...orthogonalLinePaths],
+            labelData: () => [...straightLinePaths, ...orthogonalLinePaths].map(e => e.label)
         };
     }, [straightLinePaths, orthogonalLinePaths]);
 
@@ -379,7 +386,23 @@ const useStraightLineView = (
         const drawingPath = `M ${parentEdge.x + DRAWABLE_AREA.width / 2},${parentEdge.y + DRAWABLE_AREA.height / 2}`
             + relationLineSegments.map(lineSegment => lineSegment.drawingLine).join(" ");
 
-        return { svgPaths, drawingPath };
+        const labelEdges = [...relationEdges];
+        if (selectState.relationId === relationView.relationId
+            && dragState.status === "on_dragging"
+            && selectState.edgeId != null) {
+            if (selectState.edgeType === "real") {
+                const edgeIndex = selectState.edgeId + 1;
+                if (edgeIndex >= 0 && edgeIndex < labelEdges.length) {
+                    labelEdges[edgeIndex] = dragState.current;
+                }
+            } else if (selectState.edgeType === "virtual"
+                && lineDragging.on_dragging && lineDragging.majorChanging) {
+                const insertIndex = selectState.edgeId + 1;
+                labelEdges.splice(insertIndex, 0, dragState.current);
+            }
+        }
+
+        return { svgPaths, drawingPath, relationEdges, labelEdges };
     };
 
     // 操作対象の元となる線分 (透過) を作成する
@@ -652,7 +675,8 @@ const useStraightLineView = (
                         className={initPathCss(relationView, selected)} />
                     {lineSegment.svgPaths}
                 </g>
-            )
+            ),
+            label: { relationView, pathPoints: lineSegment.labelEdges } as RelationLabelData
         };
     }).filter(element => (element != null));
 };
@@ -858,7 +882,8 @@ const useOrthogonalLine = (
                         className={initPathCss(selected, isReducedLine)} />
                     {handlePaths}
                 </g>
-            )
+            ),
+            label: { relationView, pathPoints: draggedPoints } as RelationLabelData
         };
     }).filter(element => (element != null));
 };

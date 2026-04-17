@@ -14,11 +14,14 @@ type MarkerDraggingType = {
     point: Point
 };
 
+export type LabelPosition = { segment: number, fraction: number, dx: number, dy: number };
+
 type LineViewModelOptions = {
     strokeWidth?: number,
     edges?: Point[],
     orthogonalLines?: OrthogonalDirection[],
-    color?: ColorValue
+    color?: ColorValue,
+    labelPosition?: LabelPosition
 };
 
 export default class LineViewModel {
@@ -27,12 +30,14 @@ export default class LineViewModel {
     public readonly edges: Point[];
     public readonly orthogonalLines: OrthogonalDirection[];
     public readonly color: ColorValue;
+    public readonly labelPosition: LabelPosition;
 
-    constructor({ strokeWidth = 1, edges = [], orthogonalLines = [], color = ColorValue.BLACK }: LineViewModelOptions) {
+    constructor({ strokeWidth = 1, edges = [], orthogonalLines = [], color = ColorValue.BLACK, labelPosition = { segment: -1, fraction: 0, dx: 0, dy: 0 } }: LineViewModelOptions) {
         this.strokeWidth = (strokeWidth > 0) ? strokeWidth : 1;
         this.edges = [...edges] as const;
         this.orthogonalLines = [...orthogonalLines] as const;
         this.color = color;
+        this.labelPosition = labelPosition;
     }
 
     public get lineType(): ("orthogonal" | "straight") {
@@ -77,6 +82,17 @@ export default class LineViewModel {
         return new LineViewModel({ ...this, color: nextColor });
     }
 
+    public updateLabelPosition(next: LabelPosition): LineViewModel {
+        if (this.labelPosition.segment === next.segment
+            && this.labelPosition.fraction === next.fraction
+            && this.labelPosition.dx === next.dx
+            && this.labelPosition.dy === next.dy) {
+            return this;
+        }
+
+        return new LineViewModel({ ...this, labelPosition: next });
+    }
+
     public deleteEdge(index: number): LineViewModel {
         if ((index < 0) || (index >= this.edges.length)) {
             return this;
@@ -116,20 +132,38 @@ export default class LineViewModel {
         if (this.orthogonalLines.length !== other.orthogonalLines.length) {
             return false;
         }
-        return this.orthogonalLines.every((line, index) => {
+        const isMatchOrthogonal = this.orthogonalLines.every((line, index) => {
             const otherLine = other.orthogonalLines[index];
             return (line.direction === otherLine.direction)
                 && (line.position === otherLine.position);
         });
+        if (!isMatchOrthogonal) {
+            return false;
+        }
+
+        if (this.labelPosition.segment !== other.labelPosition.segment
+            || this.labelPosition.fraction !== other.labelPosition.fraction
+            || this.labelPosition.dx !== other.labelPosition.dx
+            || this.labelPosition.dy !== other.labelPosition.dy) {
+            return false;
+        }
+
+        return true;
     }
 
     public toJSON(): Record<string, unknown> {
-        return {
+        const json: Record<string, unknown> = {
             strokeWidth: this.strokeWidth,
             edges: this.edges,
             orthogonalLines: this.orthogonalLines,
             color: this.color.toJSON()
         };
+
+        if (this.labelPosition.segment >= 0) {
+            json.labelPosition = this.labelPosition;
+        }
+
+        return json;
     }
 
     public static toObject(obj: object): LineViewModel {
@@ -140,12 +174,16 @@ export default class LineViewModel {
         const edges = ("edges" in obj) ? obj.edges as Point[] : [];
         const orthogonalLines = ("orthogonalLines" in obj) ? obj.orthogonalLines as OrthogonalDirection[] : [];
         const color = ("color" in obj) ? ColorValue.toObject(obj.color as object) : ColorValue.BLACK;
+        const labelPosition = ("labelPosition" in obj)
+            ? obj.labelPosition as LabelPosition
+            : { segment: -1, fraction: 0, dx: 0, dy: 0 };
 
         return new LineViewModel({
             strokeWidth: obj.strokeWidth as number,
             edges: edges,
             orthogonalLines: orthogonalLines,
-            color: color
+            color: color,
+            labelPosition: labelPosition
         });
     }
 }

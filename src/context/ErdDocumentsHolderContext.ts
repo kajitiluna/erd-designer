@@ -281,6 +281,13 @@ export class ErdDocumentsHolder {
      * @param relationId リレーションID
      * @param edgeId 削除対象の Edge
      */
+    public updateRelationLabelPosition(relationId: string, position: { segment: number, fraction: number, dx: number, dy: number }, loggingMessage: string) {
+        this.doUpdateRelationEdge(
+            loggingMessage,
+            { relationId, updateFunction: (previous => previous.updateLabelPosition(position)) }
+        );
+    }
+
     public deleteRelationEdge(relationId: string, edgeId: number) {
         this.doUpdateRelationEdge(
             `Delete relation edge: ${JSON.stringify({ relationId, edgeId })}`,

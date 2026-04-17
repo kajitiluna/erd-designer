@@ -21,6 +21,7 @@ import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import ExportDdlView from "~/features/editor/ExportDdlView";
 import download from "~/components/file-downloader";
+import PerspectiveModel from "~/models/PerspectiveModel";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { ERD_TABLE_VIEW_CLASS_NAME } from "~/features/canvas/ErdTableView";
 import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
@@ -163,6 +164,26 @@ const ActionPanel = () => {
         </FormControl>
     );
 
+    const handleChangeShowRelationNames = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const show = event.target.checked;
+        dispatchLocalSetting({ type: "showRelationNames", show });
+        const nextSetting = erdDocument.erdSettingModel.update({ showRelationNames: show });
+        documentsHolder.updateErdSetting(nextSetting, `Update show relation names: ${show}`);
+    };
+
+    const relationNameSwitcher = (
+        <FormControl sx={{ padding: "0 6px 6px 12px" }}>
+            <DescriptionTooltip placement="right-end"
+                title={"Show relation names as labels\non connection lines."}>
+                <FormControlLabel sx={SWITCH_FORM_STYLE}
+                    label="Show relation names" control={
+                        <Switch size="small" checked={localSetting.showRelationNames}
+                            onChange={handleChangeShowRelationNames} />
+                    } />
+            </DescriptionTooltip>
+        </FormControl>
+    );
+
     const handleSetDefaultColor = (background: ColorValue, foreground: ColorValue) => {
         dispatchLocalSetting({
             type: "defaultColor",
@@ -177,6 +198,7 @@ const ActionPanel = () => {
 
             {perspectiveSelector}
             {lineVisibleSwitcher}
+            {relationNameSwitcher}
             <Divider />
 
             <Button variant="text" startIcon={<UndoIcon />}
@@ -213,20 +235,67 @@ type SubMenuButtonProps = {
 
 const SubMenuPanel = ({ erdExportable }: SubMenuButtonProps) => {
     const { dispatchSelectAction } = React.useContext(SelectEntityContext);
+    const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
     const [configureElement, setConfigureElement] = React.useState<HTMLElement | null>();
     const [selectedMenu, setSelectedMenu] = React.useState<"export_ddl" | "">("");
+    const [batchExportQueue, setBatchExportQueue] = React.useState<PerspectiveModel[]>([]);
     const { exportSpecification } = React.useContext(ExportSpecificationContext);
 
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const erdDocument: ErdDocument = documentsHolder.current();
 
+    React.useEffect(() => {
+        if (batchExportQueue.length === 0) {
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            const erdCanvas = document.getElementById("erd-canvas");
+            if (erdCanvas == null) {
+                setBatchExportQueue([]);
+                return;
+            }
+
+            const current = batchExportQueue[0];
+            const remaining = batchExportQueue.slice(1);
+
+            exportDiagramImage(erdCanvas, (contents: ImageContent) => {
+                const fileName = `${erdDocument.documentName} - ${current.perspectiveName}.png`;
+                download(fileName, contents.base64Value);
+
+                if (remaining.length > 0) {
+                    dispatchLocalSetting({ type: "perspective", perspectiveId: remaining[0].perspectiveId });
+                    setBatchExportQueue(remaining);
+                } else {
+                    dispatchLocalSetting({ type: "perspective", perspectiveId: "" });
+                    setBatchExportQueue([]);
+                }
+            });
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [batchExportQueue, erdDocument, dispatchLocalSetting]);
+
     const handleOpenMenu = (event: React.MouseEvent<HTMLButtonElement>) => setConfigureElement(event.currentTarget);
 
     const handleSaveAsImage = () => {
-        // 出力画像に一部のエンティティが選択状態で描画されないよう、選択状態を解除する
         dispatchSelectAction(RELEASE_ACTION);
 
         downloadImage(erdDocument);
+        handleCloseMenu();
+    };
+
+    const handleBatchExportPerspectives = () => {
+        dispatchSelectAction(RELEASE_ACTION);
+
+        const perspectives = erdDocument.erdSettingModel.getPerspectiveModels();
+        if (perspectives.length === 0) {
+            handleCloseMenu();
+            return;
+        }
+
+        dispatchLocalSetting({ type: "perspective", perspectiveId: perspectives[0].perspectiveId });
+        setBatchExportQueue(perspectives);
         handleCloseMenu();
     };
 
@@ -262,6 +331,10 @@ const SubMenuPanel = ({ erdExportable }: SubMenuButtonProps) => {
                 slotProps={{ paper: { 'aria-labelledby': 'basic-button', } }}>
                 <MenuItem onClick={() => setSelectedMenu("export_ddl")}>Export DDL</MenuItem>
                 <MenuItem onClick={handleSaveAsImage}>Save as image</MenuItem>
+                <MenuItem onClick={handleBatchExportPerspectives}
+                    disabled={erdDocument.erdSettingModel.getPerspectiveModels().length === 0}>
+                    Export all perspectives as images
+                </MenuItem>
                 <MenuItem onClick={handleExportSpecification}>Export specification</MenuItem>
                 {erdExportable && <MenuItem onClick={handleSaveToJson}>Save to ERD file</MenuItem>}
             </Menu>
