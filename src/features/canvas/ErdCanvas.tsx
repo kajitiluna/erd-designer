@@ -425,7 +425,7 @@ const ErdCanvas = () => {
 
             {grabbingPanel}
 
-            <div ref={toolbarPortalRef} style={{
+            <div id="toolbar-portal" ref={toolbarPortalRef} style={{
                 position: "absolute", top: 0, left: 0,
                 width: DRAWABLE_AREA.width, height: DRAWABLE_AREA.height,
                 pointerEvents: "none", zIndex: 200,
@@ -433,10 +433,12 @@ const ErdCanvas = () => {
                 transformOrigin: `${DRAWABLE_AREA.width / 2}px ${DRAWABLE_AREA.height / 2}px`
             }} />
 
-            <ErdRelationPathView ref={relationRef}
-                relationViews={erdDocument.getRelationViewModels()}
-                rectangleMap={rectangleArea.tableRectangles}
-                onEditAction={setEditAction} onDragAction={dispatchDragAction} />
+            <div id="relation-toolbar-container">
+                <ErdRelationPathView ref={relationRef}
+                    relationViews={erdDocument.getRelationViewModels()}
+                    rectangleMap={rectangleArea.tableRectangles}
+                    onEditAction={setEditAction} onDragAction={dispatchDragAction} />
+            </div>
 
             {initEditView(editAction, rectangleArea, handleCloseEditDialog)}
         </ToolbarPortalContext.Provider>

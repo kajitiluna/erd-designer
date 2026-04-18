@@ -1,4 +1,4 @@
-<img src="src/logo.svg" alt="logo" width="200" style="display: block; margin: 20 auto;">
+<img src="images/icon.png" alt="logo" width="200" style="display: block; margin: 20 auto;">
 
 # Entity Relationship Diagram Designer
 

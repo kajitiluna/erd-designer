@@ -7,6 +7,19 @@ type DisplayScalePanelProps = {
     onChangeScale: (updating: number) => void
 };
 
+const findNearestPresetIndex = (scale: number): number => {
+    let best = 0;
+    let bestDist = Math.abs(DISPLAY_SCALES[0] - scale);
+    for (let i = 1; i < DISPLAY_SCALES.length; i++) {
+        const dist = Math.abs(DISPLAY_SCALES[i] - scale);
+        if (dist < bestDist) {
+            best = i;
+            bestDist = dist;
+        }
+    }
+    return best;
+};
+
 const DisplayScalePanel = ({ scale, onChangeScale }: DisplayScalePanelProps) => {
 
     const handleChangeScale = (event: SelectChangeEvent<number>) => {
@@ -18,29 +31,22 @@ const DisplayScalePanel = ({ scale, onChangeScale }: DisplayScalePanelProps) => 
         onChangeScale(nextValue);
     };
 
-    const scaleIndex = DISPLAY_SCALES.indexOf(scale as typeof DISPLAY_SCALES[number]);
-    if (scaleIndex < 0) {
-        onChangeScale(1);
-        return (<></>);
-    }
+    const exactIndex = DISPLAY_SCALES.indexOf(scale as typeof DISPLAY_SCALES[number]);
+    const nearestIndex = exactIndex >= 0 ? exactIndex : findNearestPresetIndex(scale);
 
     const handleZoomOut = () => {
-        if (scaleIndex <= 0) {
-            return;
-        }
-
-        const nextScale = DISPLAY_SCALES[scaleIndex - 1];
-        onChangeScale(nextScale);
+        const targetIndex = exactIndex >= 0 ? exactIndex - 1 : Math.max(nearestIndex - 1, 0);
+        if (targetIndex < 0) return;
+        onChangeScale(DISPLAY_SCALES[targetIndex]);
     };
 
     const handleZoomIn = () => {
-        if (scaleIndex >= DISPLAY_SCALES.length - 1) {
-            return;
-        }
-
-        const nextScale = DISPLAY_SCALES[scaleIndex + 1];
-        onChangeScale(nextScale);
+        const targetIndex = exactIndex >= 0 ? exactIndex + 1 : Math.min(nearestIndex + 1, DISPLAY_SCALES.length - 1);
+        if (targetIndex >= DISPLAY_SCALES.length) return;
+        onChangeScale(DISPLAY_SCALES[targetIndex]);
     };
+
+    const customLabel = `${(scale * 100).toFixed(0)} %`;
 
     const panelStyle = {
         display: "flex",
@@ -61,20 +67,22 @@ const DisplayScalePanel = ({ scale, onChangeScale }: DisplayScalePanelProps) => 
         <Box sx={panelStyle}>
             <ButtonGroup orientation="horizontal" aria-label="horizontal button group" sx={buttonStyle}>
                 <IconButton aria-label="zoom out" size="small"
-                    disabled={scaleIndex <= 0} onClick={handleZoomOut}>
+                    disabled={nearestIndex <= 0 && exactIndex === 0} onClick={handleZoomOut}>
                     <ZoomOutIcon />
                 </IconButton>
                 <FormControl size="small" sx={{ width: "100px" }}>
-                    <Select id="select-display-scale" value={scale} onChange={handleChangeScale}>
+                    <Select id="select-display-scale" value={scale}
+                        renderValue={() => customLabel}
+                        onChange={handleChangeScale}>
                         {DISPLAY_SCALES
-                            .map(scale => initScaleInfo(scale))
-                            .map(scale => <MenuItem key={`select-scale-${scale.label}`} value={scale.value}>
-                                {scale.label}
+                            .map(s => initScaleInfo(s))
+                            .map(s => <MenuItem key={`select-scale-${s.label}`} value={s.value}>
+                                {s.label}
                             </MenuItem>)}
                     </Select>
                 </FormControl>
                 <IconButton aria-label="zoom in" size="small"
-                    disabled={scaleIndex >= DISPLAY_SCALES.length - 1} onClick={handleZoomIn}>
+                    disabled={nearestIndex >= DISPLAY_SCALES.length - 1 && exactIndex === DISPLAY_SCALES.length - 1} onClick={handleZoomIn}>
                     <ZoomInIcon />
                 </IconButton>
             </ButtonGroup>
