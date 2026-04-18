@@ -369,6 +369,8 @@ const InnerErdTableView = ({
     const positionResolver = React.useContext(CanvasPositionContext);
 
     const [selfSelectableMode, setSelfSelectableMode] = React.useState<SelfSelectableMode>("none");
+    const [toolbarVisible, setToolbarVisible] = React.useState(false);
+    const didDragRef = React.useRef(false);
 
     const erdDocument = documentsHolder.current();
     const erdSetting = erdDocument.erdSettingModel;
@@ -386,6 +388,8 @@ const InnerErdTableView = ({
         if (editMode === EditModeType.SELECT) {
             event.stopPropagation();
 
+            setToolbarVisible(false);
+            didDragRef.current = false;
             setSelfSelectableMode("none");
             onDragAction({ type: "start_dragging", start: mousePosition });
 
@@ -424,6 +428,13 @@ const InnerErdTableView = ({
         }
 
         if (editMode === EditModeType.SELECT) {
+            const didDrag = dragState.status === "on_dragging"
+                && (dragState.delta().x !== 0 || dragState.delta().y !== 0);
+            if (didDrag) {
+                didDragRef.current = true;
+                return;
+            }
+
             if ((selectState.status === "on_selecting")
                 && (selectState.tableIds.has(tableViewModel.tableId))) {
                 dispatchSelectAction({ type: "completed" });
@@ -480,6 +491,10 @@ const InnerErdTableView = ({
             return;
         }
 
+        if (!didDragRef.current) {
+            setToolbarVisible(true);
+        }
+        didDragRef.current = false;
         event.stopPropagation();
     };
 
@@ -563,22 +578,20 @@ const InnerErdTableView = ({
 
     const toolbarPortalRef = React.useContext(ToolbarPortalContext);
 
-    const showToolbar = selected && (editMode === EditModeType.SELECT)
+    if (!selected && toolbarVisible) {
+        setToolbarVisible(false);
+    }
+
+    const showToolbar = toolbarVisible && selected && (editMode === EditModeType.SELECT)
         && (dragState.status !== "on_dragging")
         && (selectState.tableIds.size + selectState.memoIds.size === 1);
-
-    const counterScale = 1 / displayScale;
 
     const controlPanel = (!showToolbar || !toolbarPortalRef.current) ? null : createPortal(
         <div style={{
             position: "absolute",
-            left: tableViewModel.corner.left + moving.x + DRAWABLE_AREA.width / 2,
-            top: tableViewModel.corner.top + moving.y + tableHeight + DRAWABLE_AREA.height / 2,
-            width: tableWidth,
-            display: "flex", justifyContent: "flex-end",
-            transform: `scale(${counterScale})`,
-            transformOrigin: "top right",
-            marginTop: 4,
+            left: (tableViewModel.corner.left + moving.x + tableWidth) * displayScale + DRAWABLE_AREA.width / 2,
+            top: (tableViewModel.corner.top + moving.y + tableHeight) * displayScale + DRAWABLE_AREA.height / 2 + 4,
+            transform: "translateX(-100%)",
             pointerEvents: "auto",
         }}
         onClick={handlePreventMouseEvent}

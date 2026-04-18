@@ -44,6 +44,12 @@ const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) 
     const zoomTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
     React.useEffect(() => {
+        if (erdDocument.erdSettingModel.showRelationNames) {
+            dispatchLocalSetting({ type: "showRelationNames", show: true });
+        }
+    }, []);
+
+    React.useEffect(() => {
         scaleRef.current = scale;
     }, [scale]);
 

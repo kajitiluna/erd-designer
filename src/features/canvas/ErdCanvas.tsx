@@ -22,7 +22,8 @@ import {
     getScroll, toNextOrthogonalLines, withMultiSelectKey
 } from "~/features/canvas/support";
 import EditAction from "~/features/canvas/EditAction";
-import ErdRelationPathView, { ErdRelationTooltipRef } from "~/features/canvas/ErdRelationPathView";
+import ErdRelationPathView, { ErdRelationTooltipRef, RelationLabelData } from "~/features/canvas/ErdRelationPathView";
+import RelationLabelOverlay from "~/features/canvas/RelationLabelOverlay";
 import ErdTableView, { ERD_TABLE_VIEW_CLASS_NAME } from "~/features/canvas/ErdTableView";
 import PerspectiveSettingView from "~/features/editor/PerspectiveSettingView";
 import RelationEditView from "~/features/editor/RelationEditView";
@@ -54,6 +55,7 @@ const ErdCanvas = () => {
     const relationRef = React.useRef<ErdRelationTooltipRef>(null);
     // リレーション等の線情報を保持する
     const [svgPaths, setSvgPaths] = React.useState<React.JSX.Element[]>([]);
+    const [relationLabels, setRelationLabels] = React.useState<RelationLabelData[]>([]);
     // 編集中の対象
     const [editAction, setEditAction] = React.useState<EditAction>(NO_EDIT_ACTION);
     // リレーション作成にて親テーブルが指定されているときに、論理的なマウス位置を保持する
@@ -320,7 +322,11 @@ const ErdCanvas = () => {
 
         const svgPaths = targetElements.map(element => element.path);
         setSvgPaths(svgPaths);
-    }, [selectState, dragState, rectangleArea, localSetting.visibleLineStyle, erdDocument, currentPerspective]);
+
+        if (relationRef.current != null) {
+            setRelationLabels(relationRef.current.labelData());
+        }
+    }, [selectState, dragState, rectangleArea, localSetting.visibleLineStyle, localSetting.showRelationNames, erdDocument, currentPerspective]);
 
     // マウスカーソルのアイコン設定
     React.useLayoutEffect(() => {
@@ -421,6 +427,20 @@ const ErdCanvas = () => {
                 {frontMemoViews}
 
                 <ActiveDraggingArea editMode={editMode} dragState={dragState} selectState={selectState} />
+
+                {localSetting.showRelationNames && (
+                    <div style={{
+                        position: "absolute", top: 0, left: 0,
+                        width: DRAWABLE_AREA.width, height: DRAWABLE_AREA.height,
+                        pointerEvents: "none", zIndex: 10000
+                    }}>
+                        {relationLabels.map(label => (
+                            <RelationLabelOverlay key={`relation-label-overlay_${label.relationView.relationId}`}
+                                labelData={label}
+                                selected={selectState.relationId === label.relationView.relationId} />
+                        ))}
+                    </div>
+                )}
             </div>
 
             {grabbingPanel}
@@ -428,9 +448,7 @@ const ErdCanvas = () => {
             <div id="toolbar-portal" ref={toolbarPortalRef} style={{
                 position: "absolute", top: 0, left: 0,
                 width: DRAWABLE_AREA.width, height: DRAWABLE_AREA.height,
-                pointerEvents: "none", zIndex: 200,
-                transform: `scale(${displayScale})`,
-                transformOrigin: `${DRAWABLE_AREA.width / 2}px ${DRAWABLE_AREA.height / 2}px`
+                pointerEvents: "none", zIndex: 200
             }} />
 
             <div id="relation-toolbar-container">

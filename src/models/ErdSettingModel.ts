@@ -8,13 +8,15 @@ import { toObjects } from "~/models/util";
 type ErdSettingModelOptions = {
     displayStyle?: DisplayStyle,
     exportDdlSetting: ExportDdlSettingModel,
-    perspectiveModelStorage: PerspectiveModelStorage
+    perspectiveModelStorage: PerspectiveModelStorage,
+    showRelationNames?: boolean
 };
 
 type UpdatingArgs = {
     displayStyle?: DisplayStyle | null,
     exportDdlSetting?: ExportDdlSettingModel | null,
-    perspectiveModels?: PerspectiveModel[] | null
+    perspectiveModels?: PerspectiveModel[] | null,
+    showRelationNames?: boolean | null
 };
 
 export default class ErdSettingModel {
@@ -22,13 +24,15 @@ export default class ErdSettingModel {
     public readonly displayStyle: DisplayStyle;
     public readonly exportDdlSetting: ExportDdlSettingModel;
     private readonly perspectiveModelStorage: PerspectiveModelStorage;
+    public readonly showRelationNames: boolean;
 
     private constructor({
-        displayStyle = DisplayStyle.BOTH, exportDdlSetting, perspectiveModelStorage
+        displayStyle = DisplayStyle.BOTH, exportDdlSetting, perspectiveModelStorage, showRelationNames = false
     }: ErdSettingModelOptions) {
         this.displayStyle = displayStyle;
         this.exportDdlSetting = exportDdlSetting;
         this.perspectiveModelStorage = perspectiveModelStorage;
+        this.showRelationNames = showRelationNames;
     }
 
     public static create(documentName: string): ErdSettingModel {
@@ -47,10 +51,10 @@ export default class ErdSettingModel {
     }
 
     public update({
-        displayStyle = null, exportDdlSetting = null, perspectiveModels = null
+        displayStyle = null, exportDdlSetting = null, perspectiveModels = null, showRelationNames = null
     }: UpdatingArgs): ErdSettingModel {
 
-        if ((displayStyle == null) && (exportDdlSetting == null) && (perspectiveModels == null)) {
+        if ((displayStyle == null) && (exportDdlSetting == null) && (perspectiveModels == null) && (showRelationNames == null)) {
             return this;
         }
 
@@ -58,7 +62,8 @@ export default class ErdSettingModel {
             displayStyle: ((displayStyle != null) ? displayStyle : this.displayStyle),
             exportDdlSetting: ((exportDdlSetting != null) ? exportDdlSetting : this.exportDdlSetting),
             perspectiveModelStorage: ((perspectiveModels != null)
-                ? new PerspectiveModelStorage(perspectiveModels) : this.perspectiveModelStorage)
+                ? new PerspectiveModelStorage(perspectiveModels) : this.perspectiveModelStorage),
+            showRelationNames: ((showRelationNames != null) ? showRelationNames : this.showRelationNames)
         });
     }
 
@@ -81,7 +86,8 @@ export default class ErdSettingModel {
         return {
             displayStyle: this.displayStyle.toJSON(),
             exportDdlSetting: this.exportDdlSetting.toJSON(),
-            ...((perspectiveModels.length > 0) && { perspectiveModels: perspectiveModels })
+            ...((perspectiveModels.length > 0) && { perspectiveModels: perspectiveModels }),
+            ...(this.showRelationNames && { showRelationNames: true })
         };
     }
 
@@ -96,10 +102,13 @@ export default class ErdSettingModel {
         const perspectiveModels = ("perspectiveModels" in obj)
             ? toObjects(obj.perspectiveModels, "perspectiveModels", value => PerspectiveModel.toObject(value)) : [];
 
+        const showRelationNames = ("showRelationNames" in obj) ? obj.showRelationNames as boolean : false;
+
         return new ErdSettingModel({
             displayStyle,
             exportDdlSetting,
-            perspectiveModelStorage: new PerspectiveModelStorage(perspectiveModels)
+            perspectiveModelStorage: new PerspectiveModelStorage(perspectiveModels),
+            showRelationNames
         });
     }
 
@@ -111,6 +120,9 @@ export default class ErdSettingModel {
             return false;
         }
         if (!this.perspectiveModelStorage.equals(other.perspectiveModelStorage)) {
+            return false;
+        }
+        if (this.showRelationNames !== other.showRelationNames) {
             return false;
         }
 

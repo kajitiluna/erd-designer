@@ -8,7 +8,7 @@ import ColumnShareModel from "~/models/database/ColumnShareModel";
 import DbSchemaConfig from "~/models/DbSchemaConfig";
 import ErdDocument from "~/models/ErdDocument";
 import ErdSettingModel from "~/models/ErdSettingModel";
-import LineViewModel, { OrthogonalDirection } from "~/models/LineViewModel";
+import LineViewModel, { LabelStyle, OrthogonalDirection } from "~/models/LineViewModel";
 import MemoViewModel from "~/models/MemoViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
 import TableViewModel from "~/models/TableViewModel";
@@ -281,6 +281,20 @@ export class ErdDocumentsHolder {
      * @param relationId リレーションID
      * @param edgeId 削除対象の Edge
      */
+    public updateRelationLabelPosition(relationId: string, position: { segment: number, fraction: number, dx: number, dy: number }, loggingMessage: string) {
+        this.doUpdateRelationEdge(
+            loggingMessage,
+            { relationId, updateFunction: (previous => previous.updateLabelPosition(position)) }
+        );
+    }
+
+    public updateRelationLabelStyle(relationId: string, style: LabelStyle, loggingMessage: string) {
+        this.doUpdateRelationEdge(
+            loggingMessage,
+            { relationId, updateFunction: (previous => previous.updateLabelStyle(style)) }
+        );
+    }
+
     public deleteRelationEdge(relationId: string, edgeId: number) {
         this.doUpdateRelationEdge(
             `Delete relation edge: ${JSON.stringify({ relationId, edgeId })}`,
