@@ -14,12 +14,14 @@ export type SelectAction = { type: "none" }
     | SelectMemoAction
     | SelectBulkAction
     | SelectEdgeAction
+    | SelectRelationAction
     | { type: "completed" };
 
 type SelectTableAction = { type: "table", tableId: string, withMultiSelection?: boolean };
 type SelectMemoAction = { type: "memo", memoId: string, withMultiSelection?: boolean };
 type SelectBulkAction = { type: "bulk", tableIds: string[], memoIds: string[], withMultiSelection: boolean };
 type SelectEdgeAction = { type: "edge", lineType: "real" | "virtual", relationId: string, edgeId: number };
+type SelectRelationAction = { type: "relation", relationId: string };
 
 const EMPTY_IDS = new Set<string>();
 export const EMPTY_SELECT_STATE: SelectState = {
@@ -53,6 +55,10 @@ export const reduceSelectAction = (currentStatus: SelectState, action: SelectAct
 
     if (action.type === "edge") {
         return handleSelectEdge(action);
+    }
+
+    if (action.type === "relation") {
+        return { status: "selected", tableIds: EMPTY_IDS, memoIds: EMPTY_IDS, relationId: action.relationId };
     }
 
     return currentStatus;

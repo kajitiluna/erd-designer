@@ -56,7 +56,7 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
     const dragState = React.useContext(DragActionContext);
     const displayScale = React.useContext(DisplayScaleContext);
 
-    const [clickedPosition, setClickedPosition] = React.useState<{ x: number, y: number }>({ x: 0, y: 0 });
+    const [clickedPosition, setClickedPosition] = React.useState<{ x: number, y: number } | null>(null);
     const [deletingRelation, setDeletingRelation] = React.useState<RelationViewModel | null>(null);
     const [lineEditElement, setLineEditElement] = React.useState<HTMLElement | null>(null);
 
@@ -100,6 +100,8 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
     const tooltip = relationViews.map(relationView => {
         if (
             (selectState.relationId !== relationView.relationId)
+            || (selectState.edgeType == null)
+            || (clickedPosition == null)
             || (editMode !== EditModeType.SELECT)
             || (dragState.status === "on_dragging")
         ) {
@@ -199,8 +201,8 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
                 onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}
                 sx={{
                     position: "absolute",
-                    left: clickedPosition.x * displayScale + 15 + DRAWABLE_AREA.width / 2,
-                    top: clickedPosition.y * displayScale - 45 + DRAWABLE_AREA.height / 2,
+                    left: clickedPosition!.x * displayScale + 15 + DRAWABLE_AREA.width / 2,
+                    top: clickedPosition!.y * displayScale - 45 + DRAWABLE_AREA.height / 2,
                     backgroundColor: "#FFFFFF"
                 }}>
                 <ColorSelector key={`relation-color-selector_${relationView.relationId}`}
@@ -277,7 +279,7 @@ type Point = { x: number, y: number };
 
 const useStraightLineView = (
     relationViews: RelationViewModel[], rectangleMap: Map<string, RectangleViewModel>,
-    setClickedPosition: (position: { x: number, y: number }) => void,
+    setClickedPosition: (position: { x: number, y: number } | null) => void,
     handleOpenEditDialog: (event: React.MouseEvent, relationView: RelationViewModel) => void,
     onDragAction: (dragAction: DragAction) => void
 ) => {
@@ -419,6 +421,7 @@ const useStraightLineView = (
 
             event.stopPropagation();
 
+            setClickedPosition(null);
             const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
 
             dispatchSelectAction({
@@ -459,7 +462,11 @@ const useStraightLineView = (
             event.stopPropagation();
 
             const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
-            setClickedPosition(mousePosition);
+            const didDrag = dragState.status === "on_dragging"
+                && (dragState.delta().x !== 0 || dragState.delta().y !== 0);
+            if (!didDrag) {
+                setClickedPosition(mousePosition);
+            }
 
             setLineDragging({ on_dragging: false });
             onDragAction({ type: "clear" });
@@ -532,6 +539,7 @@ const useStraightLineView = (
                 return;
             }
 
+            setClickedPosition(null);
             const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
 
             dispatchSelectAction({
@@ -756,7 +764,7 @@ const initOrthogonalLine = (
 
 const useOrthogonalLine = (
     relationViews: RelationViewModel[], rectangleMap: Map<string, RectangleViewModel>,
-    setClickedPosition: (position: { x: number, y: number }) => void,
+    setClickedPosition: (position: { x: number, y: number } | null) => void,
     handleOpenEditDialog: (event: React.MouseEvent, relationView: RelationViewModel) => void,
     onDragAction: (dragAction: DragAction) => void
 ) => {
@@ -814,6 +822,7 @@ const useOrthogonalLine = (
 
                 event.stopPropagation();
 
+                setClickedPosition(null);
                 const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
 
                 dispatchSelectAction({
@@ -834,7 +843,11 @@ const useOrthogonalLine = (
                 event.stopPropagation();
 
                 const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
-                setClickedPosition(mousePosition);
+                const didDrag = dragState.status === "on_dragging"
+                    && (dragState.delta().x !== 0 || dragState.delta().y !== 0);
+                if (!didDrag) {
+                    setClickedPosition(mousePosition);
+                }
 
                 onDragAction({ type: "clear" });
             };

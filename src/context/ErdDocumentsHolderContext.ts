@@ -8,7 +8,7 @@ import ColumnShareModel from "~/models/database/ColumnShareModel";
 import DbSchemaConfig from "~/models/DbSchemaConfig";
 import ErdDocument from "~/models/ErdDocument";
 import ErdSettingModel from "~/models/ErdSettingModel";
-import LineViewModel, { OrthogonalDirection } from "~/models/LineViewModel";
+import LineViewModel, { LabelStyle, OrthogonalDirection } from "~/models/LineViewModel";
 import MemoViewModel from "~/models/MemoViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
 import TableViewModel from "~/models/TableViewModel";
@@ -285,6 +285,13 @@ export class ErdDocumentsHolder {
         this.doUpdateRelationEdge(
             loggingMessage,
             { relationId, updateFunction: (previous => previous.updateLabelPosition(position)) }
+        );
+    }
+
+    public updateRelationLabelStyle(relationId: string, style: LabelStyle, loggingMessage: string) {
+        this.doUpdateRelationEdge(
+            loggingMessage,
+            { relationId, updateFunction: (previous => previous.updateLabelStyle(style)) }
         );
     }
 

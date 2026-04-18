@@ -15,13 +15,15 @@ type MarkerDraggingType = {
 };
 
 export type LabelPosition = { segment: number, fraction: number, dx: number, dy: number };
+export type LabelStyle = { bold: boolean, italic: boolean, strikethrough: boolean, fontSize: number, color?: string };
 
 type LineViewModelOptions = {
     strokeWidth?: number,
     edges?: Point[],
     orthogonalLines?: OrthogonalDirection[],
     color?: ColorValue,
-    labelPosition?: LabelPosition
+    labelPosition?: LabelPosition,
+    labelStyle?: LabelStyle
 };
 
 export default class LineViewModel {
@@ -31,13 +33,15 @@ export default class LineViewModel {
     public readonly orthogonalLines: OrthogonalDirection[];
     public readonly color: ColorValue;
     public readonly labelPosition: LabelPosition;
+    public readonly labelStyle: LabelStyle;
 
-    constructor({ strokeWidth = 1, edges = [], orthogonalLines = [], color = ColorValue.BLACK, labelPosition = { segment: -1, fraction: 0, dx: 0, dy: 0 } }: LineViewModelOptions) {
+    constructor({ strokeWidth = 1, edges = [], orthogonalLines = [], color = ColorValue.BLACK, labelPosition = { segment: -1, fraction: 0, dx: 0, dy: 0 }, labelStyle = { bold: false, italic: false, strikethrough: false, fontSize: 13 } }: LineViewModelOptions) {
         this.strokeWidth = (strokeWidth > 0) ? strokeWidth : 1;
         this.edges = [...edges] as const;
         this.orthogonalLines = [...orthogonalLines] as const;
         this.color = color;
         this.labelPosition = labelPosition;
+        this.labelStyle = labelStyle;
     }
 
     public get lineType(): ("orthogonal" | "straight") {
@@ -91,6 +95,18 @@ export default class LineViewModel {
         }
 
         return new LineViewModel({ ...this, labelPosition: next });
+    }
+
+    public updateLabelStyle(next: LabelStyle): LineViewModel {
+        if (this.labelStyle.bold === next.bold
+            && this.labelStyle.italic === next.italic
+            && this.labelStyle.strikethrough === next.strikethrough
+            && this.labelStyle.fontSize === next.fontSize
+            && this.labelStyle.color === next.color) {
+            return this;
+        }
+
+        return new LineViewModel({ ...this, labelStyle: next });
     }
 
     public deleteEdge(index: number): LineViewModel {
@@ -148,6 +164,14 @@ export default class LineViewModel {
             return false;
         }
 
+        if (this.labelStyle.bold !== other.labelStyle.bold
+            || this.labelStyle.italic !== other.labelStyle.italic
+            || this.labelStyle.strikethrough !== other.labelStyle.strikethrough
+            || this.labelStyle.fontSize !== other.labelStyle.fontSize
+            || this.labelStyle.color !== other.labelStyle.color) {
+            return false;
+        }
+
         return true;
     }
 
@@ -161,6 +185,11 @@ export default class LineViewModel {
 
         if (this.labelPosition.segment >= 0) {
             json.labelPosition = this.labelPosition;
+        }
+
+        if (this.labelStyle.bold || this.labelStyle.italic || this.labelStyle.strikethrough
+            || this.labelStyle.fontSize !== 13 || this.labelStyle.color) {
+            json.labelStyle = this.labelStyle;
         }
 
         return json;
@@ -177,13 +206,17 @@ export default class LineViewModel {
         const labelPosition = ("labelPosition" in obj)
             ? obj.labelPosition as LabelPosition
             : { segment: -1, fraction: 0, dx: 0, dy: 0 };
+        const labelStyle = ("labelStyle" in obj)
+            ? obj.labelStyle as LabelStyle
+            : { bold: false, italic: false, strikethrough: false, fontSize: 13 };
 
         return new LineViewModel({
             strokeWidth: obj.strokeWidth as number,
             edges: edges,
             orthogonalLines: orthogonalLines,
             color: color,
-            labelPosition: labelPosition
+            labelPosition: labelPosition,
+            labelStyle: labelStyle
         });
     }
 }

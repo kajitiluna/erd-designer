@@ -448,9 +448,7 @@ const ErdCanvas = () => {
             <div id="toolbar-portal" ref={toolbarPortalRef} style={{
                 position: "absolute", top: 0, left: 0,
                 width: DRAWABLE_AREA.width, height: DRAWABLE_AREA.height,
-                pointerEvents: "none", zIndex: 200,
-                transform: `scale(${displayScale})`,
-                transformOrigin: `${DRAWABLE_AREA.width / 2}px ${DRAWABLE_AREA.height / 2}px`
+                pointerEvents: "none", zIndex: 200
             }} />
 
             <div id="relation-toolbar-container">

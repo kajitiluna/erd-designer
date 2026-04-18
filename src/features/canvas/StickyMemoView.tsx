@@ -56,6 +56,8 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
     const [isTextEdit, setTextEdit] = React.useState<boolean>(false);
     const [mouseCursorStyle, setMouseCursorStyle] = React.useState<string>("pointer");
     const [resizingDirection, setResizingDirection] = React.useState<ResizingDirection>(ResizingDirection.NO_RESIZING);
+    const [toolbarVisible, setToolbarVisible] = React.useState(false);
+    const didDragRef = React.useRef(false);
 
     const selected = selectState.memoIds.has(memoViewModel.memoId);
 
@@ -89,6 +91,9 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
         }
 
         event.stopPropagation();
+
+        setToolbarVisible(false);
+        didDragRef.current = false;
 
         const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
         onDragAction({ type: "start_dragging", start: mousePosition });
@@ -132,6 +137,14 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
         }
 
         if (!resizingDirection.isResizing()) {
+            const delta = dragState.delta();
+            const didDrag = delta.x !== 0 || delta.y !== 0;
+
+            if (didDrag) {
+                didDragRef.current = true;
+                return;
+            }
+
             if ((selectState.status === "on_selecting")
                 && (selectState.memoIds.has(memoViewModel.memoId))) {
                 dispatchSelectAction({ type: "completed" });
@@ -175,6 +188,10 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
             return;
         }
 
+        if (!didDragRef.current) {
+            setToolbarVisible(true);
+        }
+        didDragRef.current = false;
         event.stopPropagation();
     };
 
@@ -197,6 +214,10 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
         })}`;
         documentsHolder.updateMemo(nextMemo, loggingMessage);
     };
+
+    if (!selected && toolbarVisible) {
+        setToolbarVisible(false);
+    }
 
     const moving = (
         selected && (dragState.status === "on_dragging") && !resizingDirection.isResizing()
@@ -301,7 +322,7 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
                 className={stickyClassName} onBlur={handleFocusOut}>
                 {initTextAreaElement()}
             </Box>
-            {selected && (!isTextEdit) && (dragState.status !== "on_dragging")
+            {toolbarVisible && selected && (!isTextEdit) && (dragState.status !== "on_dragging")
                 && (selectState.tableIds.size + selectState.memoIds.size === 1)
                 && <StickyControlPane memoViewModel={memoViewModel} onSettingAction={onSettingAction} />}
         </Box>

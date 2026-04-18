@@ -1,10 +1,25 @@
 import React from "react";
+import { createPortal } from "react-dom";
+import { IconButton, Tooltip } from "@mui/material";
+import FormatBoldIcon from "@mui/icons-material/FormatBold";
+import FormatItalicIcon from "@mui/icons-material/FormatItalic";
+import StrikethroughSIcon from "@mui/icons-material/StrikethroughS";
+import AddIcon from "@mui/icons-material/Add";
+import RemoveIcon from "@mui/icons-material/Remove";
 
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import DisplayScaleContext from "~/context/DisplayScaleContext";
 import CanvasPositionContext from "~/context/CanvasPositionContext";
+import ToolbarPortalContext from "~/context/ToolbarPortalContext";
+import { SelectEntityContext } from "~/context/SelectEntityContext";
+import { DragActionContext } from "~/context/DragActionContext";
+import EditModeContext from "~/context/EditModeContext";
+import { EditModeType } from "~/models/EditMode";
+import ColorValue from "~/models/ColorValue";
+import { LabelStyle } from "~/models/LineViewModel";
+import ColorSelector from "~/components/ColorSelector";
 import { RelationLabelData } from "~/features/canvas/ErdRelationPathView";
-import { DRAWABLE_AREA } from "~/features/canvas/support";
+import { DRAWABLE_AREA, handlePreventMouseEvent } from "~/features/canvas/support";
 
 type Point = { x: number, y: number };
 
@@ -69,7 +84,13 @@ const RelationLabelOverlay = ({ labelData, selected }: RelationLabelOverlayProps
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const displayScale = React.useContext(DisplayScaleContext);
     const positionResolver = React.useContext(CanvasPositionContext);
+    const toolbarPortalRef = React.useContext(ToolbarPortalContext);
+    const { editMode } = React.useContext(EditModeContext);
+    const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
+    const dragState = React.useContext(DragActionContext);
     const labelRef = React.useRef<HTMLDivElement>(null);
+    const didDragRef = React.useRef(false);
+    const [toolbarVisible, setToolbarVisible] = React.useState(false);
     const stableAnchorRef = React.useRef<Point | null>(null);
     const prevPointCountRef = React.useRef(0);
     const reanchorRef = React.useRef<{ segment: number, fraction: number, dx: number, dy: number } | null>(null);
@@ -139,16 +160,21 @@ const RelationLabelOverlay = ({ labelData, selected }: RelationLabelOverlayProps
         })()
         : null;
 
+    const labelStyle: LabelStyle = relationView.lineViewModel.labelStyle;
+
     const handleMouseDown = (event: React.MouseEvent) => {
         if (event.button !== 0) return;
         event.stopPropagation();
 
+        setToolbarVisible(false);
+        didDragRef.current = false;
         const startPos = positionResolver.getLogicalPosition(event, displayScale);
         const startLabel = { x: labelX, y: labelY };
 
         setIsDragging(true);
 
         const handleMouseMove = (moveEvent: MouseEvent) => {
+            didDragRef.current = true;
             const movePos = positionResolver.getLogicalPosition(moveEvent as unknown as React.MouseEvent, displayScale);
             setDragPos({
                 x: startLabel.x + movePos.x - startPos.x,
@@ -181,11 +207,133 @@ const RelationLabelOverlay = ({ labelData, selected }: RelationLabelOverlayProps
         window.addEventListener("mouseup", handleMouseUp);
     };
 
+    const handleClick = (event: React.MouseEvent) => {
+        if (didDragRef.current) {
+            didDragRef.current = false;
+            return;
+        }
+        event.stopPropagation();
+        setToolbarVisible(true);
+        dispatchSelectAction({ type: "relation", relationId: relationView.relationId });
+    };
+
+    const handleToggleBold = () => {
+        const next = { ...labelStyle, bold: !labelStyle.bold };
+        documentsHolder.updateRelationLabelStyle(
+            relationView.relationId, next,
+            `Update label style: ${relationView.relationId}`
+        );
+    };
+
+    const handleToggleItalic = () => {
+        const next = { ...labelStyle, italic: !labelStyle.italic };
+        documentsHolder.updateRelationLabelStyle(
+            relationView.relationId, next,
+            `Update label style: ${relationView.relationId}`
+        );
+    };
+
+    const handleToggleStrikethrough = () => {
+        const next = { ...labelStyle, strikethrough: !labelStyle.strikethrough };
+        documentsHolder.updateRelationLabelStyle(
+            relationView.relationId, next,
+            `Update label style: ${relationView.relationId}`
+        );
+    };
+
+    const handleFontSizeChange = (delta: number) => {
+        const next = { ...labelStyle, fontSize: Math.max(1, labelStyle.fontSize + delta) };
+        documentsHolder.updateRelationLabelStyle(
+            relationView.relationId, next,
+            `Update label style: ${relationView.relationId}`
+        );
+    };
+
+    const handleSetColor = (background: ColorValue) => {
+        const hex = background.toHex();
+        const next = { ...labelStyle, color: hex === "#3c3c3c" ? undefined : hex };
+        documentsHolder.updateRelationLabelStyle(
+            relationView.relationId, next,
+            `Update label style: ${relationView.relationId}`
+        );
+    };
+
     const projDotLeft = anchorProjection ? anchorProjection.x + DRAWABLE_AREA.width / 2 : 0;
     const projDotTop = anchorProjection ? anchorProjection.y + DRAWABLE_AREA.height / 2 : 0;
     const logicalCenter = getLabelCenter();
     const labelCenterLeft = logicalCenter.x + DRAWABLE_AREA.width / 2;
     const labelCenterTop = logicalCenter.y + DRAWABLE_AREA.height / 2;
+
+    if (!selected && toolbarVisible) {
+        setToolbarVisible(false);
+    }
+
+    const showToolbar = toolbarVisible && selected && selectState.edgeType == null
+        && editMode === EditModeType.SELECT
+        && dragState.status !== "on_dragging" && !isDragging;
+
+    const counterScale = 1 / displayScale;
+
+    const toolbar = (!showToolbar || !toolbarPortalRef.current) ? null : createPortal(
+        <div style={{
+            position: "absolute",
+            left,
+            top: top + (labelRef.current?.offsetHeight ?? 16),
+            transform: `scale(${counterScale})`,
+            transformOrigin: "top left",
+            marginTop: 4,
+            pointerEvents: "auto",
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+            backgroundColor: "#fff",
+            borderRadius: 4,
+            boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+            padding: "2px 4px"
+        }}
+            onClick={handlePreventMouseEvent}
+            onMouseDown={handlePreventMouseEvent}
+            onMouseUp={handlePreventMouseEvent}>
+            <ColorSelector
+                color={labelStyle.color ? ColorValue.fromHex(labelStyle.color) : undefined}
+                callback={handleSetColor} />
+            <Tooltip title="Decrease font size" placement="top">
+                <IconButton size="small" onClick={() => handleFontSizeChange(-1)}>
+                    <RemoveIcon fontSize="small" />
+                </IconButton>
+            </Tooltip>
+            <span style={{ fontSize: 12, minWidth: 20, textAlign: "center", lineHeight: "30px" }}>
+                {labelStyle.fontSize}
+            </span>
+            <Tooltip title="Increase font size" placement="top">
+                <IconButton size="small" onClick={() => handleFontSizeChange(1)}>
+                    <AddIcon fontSize="small" />
+                </IconButton>
+            </Tooltip>
+            <Tooltip title="Bold" placement="top">
+                <IconButton size="small"
+                    color={labelStyle.bold ? "primary" : "default"}
+                    onClick={handleToggleBold}>
+                    <FormatBoldIcon fontSize="small" />
+                </IconButton>
+            </Tooltip>
+            <Tooltip title="Italic" placement="top">
+                <IconButton size="small"
+                    color={labelStyle.italic ? "primary" : "default"}
+                    onClick={handleToggleItalic}>
+                    <FormatItalicIcon fontSize="small" />
+                </IconButton>
+            </Tooltip>
+            <Tooltip title="Strikethrough" placement="top">
+                <IconButton size="small"
+                    color={labelStyle.strikethrough ? "primary" : "default"}
+                    onClick={handleToggleStrikethrough}>
+                    <StrikethroughSIcon fontSize="small" />
+                </IconButton>
+            </Tooltip>
+        </div>,
+        toolbarPortalRef.current
+    );
 
     return (
         <>
@@ -217,18 +365,25 @@ const RelationLabelOverlay = ({ labelData, selected }: RelationLabelOverlayProps
                 position: "absolute",
                 left: `${left}px`,
                 top: `${top}px`,
-                fontSize: "13px",
-                color: selected || isDragging ? "#7B1FA2" : "rgba(60, 60, 60, 0.95)",
-                fontWeight: selected || isDragging ? 600 : 400,
-                textShadow: selected || isDragging ? "0 0 6px rgba(123, 31, 162, 0.4)" : "none",
+                fontSize: `${labelStyle.fontSize}px`,
+                fontStyle: labelStyle.italic ? "italic" : "normal",
+                textDecoration: labelStyle.strikethrough ? "line-through" : "none",
+                color: labelStyle.color ?? "rgba(60, 60, 60, 0.95)",
+                fontWeight: labelStyle.bold ? 700 : (selected || isDragging ? 600 : 400),
+                textShadow: selected || isDragging ? "0 0 8px rgba(123, 31, 162, 0.6)" : "none",
+                outline: selected || isDragging ? "1.5px solid rgba(123, 31, 162, 0.5)" : "none",
+                outlineOffset: "2px",
+                borderRadius: "2px",
                 cursor: "move",
                 userSelect: "none",
                 pointerEvents: "auto",
                 whiteSpace: "nowrap"
             }}
-                onMouseDown={handleMouseDown}>
+                onMouseDown={handleMouseDown}
+                onClick={handleClick}>
                 {relationName}
             </div>
+            {toolbar}
         </>
     );
 };
