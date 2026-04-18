@@ -118,6 +118,8 @@ const ErdTableView = ({ tableViewModel, tableWidth, tableHeight, visible = true,
         tableContentCache,
         // 削除確認ダイアログ表示に対する検証
         openDeletingDialog,
+        // ポータルツールバーの位置に対する検証
+        tableWidth, tableHeight,
     ]);
 
     return viewCache;
