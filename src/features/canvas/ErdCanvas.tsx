@@ -77,14 +77,9 @@ const ErdCanvas = () => {
     }
 
     const tableViews = erdDocument.getTableViewModels().map(tableView => (
-        <ErdTableView key={`erd-table-view_${tableView.tableId}`}
-            tableViewModel={tableView}
-            tableWidth={rectangleArea.tableRectangles.get(tableView.tableId)?.width ?? 0}
-            tableHeight={rectangleArea.tableRectangles.get(tableView.tableId)?.height ?? 0}
-            visible={(currentPerspective == null)
-                || currentPerspective.containsModel(tableView.tableId)}
-            onEditAction={setEditAction}
-            onDragAction={dispatchDragAction} />
+        <ErdTableView key={`erd-table-view_${tableView.tableId}`} tableViewModel={tableView}
+            visible={(currentPerspective == null) || currentPerspective.containsModel(tableView.tableId)}
+            onEditAction={setEditAction} onDragAction={dispatchDragAction} />
     ));
 
     const initToMemoView = (foreground: boolean) => {
@@ -94,13 +89,9 @@ const ErdCanvas = () => {
             };
 
             return (
-                <StickyMemoView key={`sticky-note_${memo.memoId}`}
-                    memoViewModel={memo}
-                    visible={(currentPerspective == null)
-                        || currentPerspective.containsModel(memo.memoId)}
-                    onSettingAction={handleSettingAction}
-                    onDragAction={dispatchDragAction}
-                    foreground={foreground} />
+                <StickyMemoView key={`sticky-note_${memo.memoId}`} memoViewModel={memo}
+                    visible={(currentPerspective == null) || currentPerspective.containsModel(memo.memoId)}
+                    onSettingAction={handleSettingAction} onDragAction={dispatchDragAction} foreground={foreground} />
             );
         };
 
@@ -411,65 +402,69 @@ const ErdCanvas = () => {
         pointerEvents: "none"
     };
 
+    const mainCanvas = (<>
+        <div id="erd-canvas" ref={erdCanvasRef} style={canvasStyle}
+            onClick={handleClickOnCanvas} onMouseMove={handleMoveMouseOnCanvas}
+            onMouseDown={handleDragStart} onMouseUp={handleDragEnd}>
+
+            {backMemoViews}
+
+            <svg style={svgStyle}>
+                <rect x={CANVAS_AREA.width / 2} y={CANVAS_AREA.height / 2}
+                    width={CANVAS_AREA.width} height={CANVAS_AREA.height}
+                    fill="transparent" stroke="#878787" strokeWidth="50" />
+
+                {/* リレーションの線の定義 */}
+                {initRelationCardinalityDefinitions()}
+                {svgPaths}
+                {activeLine}
+            </svg>
+
+            {tableViews}
+            {frontMemoViews}
+
+            <ActiveDraggingArea editMode={editMode} dragState={dragState} selectState={selectState} />
+
+            {localSetting.showRelationNames && (
+                <div style={{
+                    position: "absolute", top: 0, left: 0,
+                    width: DRAWABLE_AREA.width, height: DRAWABLE_AREA.height,
+                    pointerEvents: "none", zIndex: 10000
+                }}>
+                    {relationLabels.map(label => (
+                        <RelationLabelOverlay key={`relation-label-overlay_${label.relationView.relationId}`}
+                            labelData={label}
+                            selected={selectState.relationId === label.relationView.relationId} />
+                    ))}
+                </div>
+            )}
+        </div>
+
+        {grabbingPanel}
+
+        <div id="toolbar-portal" ref={toolbarPortalRef} style={{
+            position: "absolute", top: 0, left: 0,
+            width: DRAWABLE_AREA.width, height: DRAWABLE_AREA.height,
+            pointerEvents: "none"
+        }} />
+
+        <div id="relation-toolbar-container">
+            <ErdRelationPathView ref={relationRef}
+                relationViews={erdDocument.getRelationViewModels()}
+                rectangleMap={rectangleArea.tableRectangles}
+                onEditAction={setEditAction} onDragAction={dispatchDragAction} />
+        </div>
+
+        {initEditView(editAction, rectangleArea, handleCloseEditDialog)}
+    </>);
+
     return (
         <DragActionContext.Provider value={dragState}>
-        <CanvasPositionContext.Provider value={positionResolver}>
-        <ToolbarPortalContext.Provider value={toolbarPortalRef}>
-            <div id="erd-canvas" ref={erdCanvasRef} style={canvasStyle}
-                onClick={handleClickOnCanvas} onMouseMove={handleMoveMouseOnCanvas}
-                onMouseDown={handleDragStart} onMouseUp={handleDragEnd}>
-
-                {backMemoViews}
-
-                <svg style={svgStyle}>
-                    <rect x={CANVAS_AREA.width / 2} y={CANVAS_AREA.height / 2}
-                        width={CANVAS_AREA.width} height={CANVAS_AREA.height}
-                        fill="transparent" stroke="#878787" strokeWidth="50" />
-
-                    {/* リレーションの線の定義 */}
-                    {initRelationCardinalityDefinitions()}
-                    {svgPaths}
-                    {activeLine}
-                </svg>
-
-                {tableViews}
-                {frontMemoViews}
-
-                <ActiveDraggingArea editMode={editMode} dragState={dragState} selectState={selectState} />
-
-                {localSetting.showRelationNames && (
-                    <div style={{
-                        position: "absolute", top: 0, left: 0,
-                        width: DRAWABLE_AREA.width, height: DRAWABLE_AREA.height,
-                        pointerEvents: "none", zIndex: 10000
-                    }}>
-                        {relationLabels.map(label => (
-                            <RelationLabelOverlay key={`relation-label-overlay_${label.relationView.relationId}`}
-                                labelData={label}
-                                selected={selectState.relationId === label.relationView.relationId} />
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            {grabbingPanel}
-
-            <div id="toolbar-portal" ref={toolbarPortalRef} style={{
-                position: "absolute", top: 0, left: 0,
-                width: DRAWABLE_AREA.width, height: DRAWABLE_AREA.height,
-                pointerEvents: "none", zIndex: 200
-            }} />
-
-            <div id="relation-toolbar-container">
-                <ErdRelationPathView ref={relationRef}
-                    relationViews={erdDocument.getRelationViewModels()}
-                    rectangleMap={rectangleArea.tableRectangles}
-                    onEditAction={setEditAction} onDragAction={dispatchDragAction} />
-            </div>
-
-            {initEditView(editAction, rectangleArea, handleCloseEditDialog)}
-        </ToolbarPortalContext.Provider>
-        </CanvasPositionContext.Provider>
+            <CanvasPositionContext.Provider value={positionResolver}>
+                <ToolbarPortalContext.Provider value={toolbarPortalRef}>
+                    {mainCanvas}
+                </ToolbarPortalContext.Provider>
+            </CanvasPositionContext.Provider>
         </DragActionContext.Provider>
     );
 };

@@ -1,5 +1,5 @@
 import React from "react";
-import { createPortal } from "react-dom";
+import ReactDOM from "react-dom";
 import {
     Box, Button, ButtonGroup, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
     Divider, FormControl, IconButton, MenuItem, Select, SelectChangeEvent, Stack, ToggleButton, Tooltip
@@ -38,12 +38,14 @@ export const ERD_MEMO_VIEW_CLASS_NAME = "erdMemoView";
 type StickyNoteViewProps = {
     memoViewModel: MemoViewModel,
     visible?: boolean,
-    onSettingAction: () => void
+    onSettingAction: () => void,
     onDragAction: (dragAction: DragAction) => void,
     foreground?: boolean
 };
 
-const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDragAction, foreground = true }: StickyNoteViewProps) => {
+const StickyMemoView = ({
+    memoViewModel, visible = true, onSettingAction, onDragAction, foreground = true
+}: StickyNoteViewProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
@@ -52,12 +54,11 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
     const displayScale = React.useContext(DisplayScaleContext);
     const positionResolver = React.useContext(CanvasPositionContext);
 
+    const stickyMemoRef = React.useRef<HTMLDivElement>(null);
     const textAreaRef = React.useRef<HTMLTextAreaElement>(null);
     const [isTextEdit, setTextEdit] = React.useState<boolean>(false);
     const [mouseCursorStyle, setMouseCursorStyle] = React.useState<string>("pointer");
     const [resizingDirection, setResizingDirection] = React.useState<ResizingDirection>(ResizingDirection.NO_RESIZING);
-    const [toolbarVisible, setToolbarVisible] = React.useState(false);
-    const didDragRef = React.useRef(false);
 
     const selected = selectState.memoIds.has(memoViewModel.memoId);
 
@@ -91,9 +92,6 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
         }
 
         event.stopPropagation();
-
-        setToolbarVisible(false);
-        didDragRef.current = false;
 
         const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
         onDragAction({ type: "start_dragging", start: mousePosition });
@@ -138,10 +136,7 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
 
         if (!resizingDirection.isResizing()) {
             const delta = dragState.delta();
-            const didDrag = delta.x !== 0 || delta.y !== 0;
-
-            if (didDrag) {
-                didDragRef.current = true;
+            if ((delta.x !== 0) || (delta.y !== 0)) {
                 return;
             }
 
@@ -188,10 +183,6 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
             return;
         }
 
-        if (!didDragRef.current) {
-            setToolbarVisible(true);
-        }
-        didDragRef.current = false;
         event.stopPropagation();
     };
 
@@ -215,10 +206,6 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
         documentsHolder.updateMemo(nextMemo, loggingMessage);
     };
 
-    if (!selected && toolbarVisible) {
-        setToolbarVisible(false);
-    }
-
     const moving = (
         selected && (dragState.status === "on_dragging") && !resizingDirection.isResizing()
     ) ? dragState.delta() : { x: 0, y: 0 };
@@ -232,15 +219,12 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
                 fontSize: `${memoViewModel.fontSize / 10}em`, lineHeight: "1.0",
                 border: "none", background: "transparent", resize: "none", fontFamily: "inherit",
                 textAlign: memoViewModel.horizontalAlign,
-                // verticalAlign: (memoViewModel.verticalAlign === "start") ? "top" :
-                //     ((memoViewModel.verticalAlign === "end") ? "bottom" : "center"),
                 overflow: "hidden", outline: "none", WebkitAppearance: "none",
                 margin: `${STICKY_PADDING}px`
             };
 
             return (
-                <textarea ref={textAreaRef}
-                    style={textAreaStyle} defaultValue={memoViewModel.memo} />
+                <textarea ref={textAreaRef} style={textAreaStyle} defaultValue={memoViewModel.memo} />
             );
         }
 
@@ -318,13 +302,16 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
 
     return (
         <Box style={wrapperStyle}>
-            <Box id={memoViewModel.memoId} sx={stickyStyle}
+            <Box id={memoViewModel.memoId} ref={stickyMemoRef} sx={stickyStyle}
                 className={stickyClassName} onBlur={handleFocusOut}>
                 {initTextAreaElement()}
             </Box>
-            {toolbarVisible && selected && (!isTextEdit) && (dragState.status !== "on_dragging")
+            {stickyMemoRef.current && selected && (!isTextEdit) && (dragState.status !== "on_dragging")
                 && (selectState.tableIds.size + selectState.memoIds.size === 1)
-                && <StickyControlPane memoViewModel={memoViewModel} onSettingAction={onSettingAction} />}
+                && <StickyControlPane
+                    memoViewModel={memoViewModel}
+                    stickyDom={stickyMemoRef.current}
+                    onSettingAction={onSettingAction} />}
         </Box>
     );
 };
@@ -437,14 +424,14 @@ const initCurrentRectangle = (
 
 type StickyControlPaneProps = {
     memoViewModel: MemoViewModel,
+    stickyDom: HTMLDivElement,
     onSettingAction: () => void
 };
 
-const StickyControlPane = ({ memoViewModel, onSettingAction }: StickyControlPaneProps) => {
+const StickyControlPane = ({ memoViewModel, stickyDom, onSettingAction }: StickyControlPaneProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
     const { dispatchSelectAction } = React.useContext(SelectEntityContext);
-    const displayScale = React.useContext(DisplayScaleContext);
     const toolbarPortalRef = React.useContext(ToolbarPortalContext);
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
 
@@ -611,27 +598,24 @@ const StickyControlPane = ({ memoViewModel, onSettingAction }: StickyControlPane
         </div>
     );
 
-    const rect = memoViewModel.rectangleViewModel;
     const portalContainer = toolbarPortalRef.current;
+    if (!portalContainer) {
+        return deleteDialog;
+    };
 
-    if (!portalContainer) return <>{deleteDialog}</>;
+    const portalRect = portalContainer.getBoundingClientRect();
+    const memoRect = stickyDom.getBoundingClientRect();
+    const menuStyle: React.CSSProperties = {
+        position: "absolute",
+        left: memoRect.right - portalRect.left,
+        top: memoRect.bottom - portalRect.top,
+        transform: `translateX(-100%)`,
+        marginTop: "10px",
+        pointerEvents: "auto",
+    };
 
-    const counterScale = 1 / displayScale;
-
-    const toolbar = createPortal(
-        <div style={{
-            position: "absolute",
-            left: rect.left + DRAWABLE_AREA.width / 2,
-            top: rect.top + rect.height + DRAWABLE_AREA.height / 2,
-            width: rect.width,
-            display: "flex", justifyContent: "flex-end",
-            transform: `scale(${counterScale})`,
-            transformOrigin: "top right",
-            marginTop: "4px",
-            pointerEvents: "auto",
-        }}
-        onClick={handlePreventMouseEvent}
-        onMouseDown={handlePreventMouseEvent}>
+    const controlMenu = (
+        <Stack direction="row" sx={menuStyle} onClick={handlePreventMouseEvent} onMouseDown={handlePreventMouseEvent}>
             <div style={controlStyle}>
                 <ColorSelector key={`memo-color-selector_${memoViewModel.memoId}`}
                     color={memoViewModel.backgroundColor} callback={handleSetColor} />
@@ -673,16 +657,13 @@ const StickyControlPane = ({ memoViewModel, onSettingAction }: StickyControlPane
                     </IconButton>
                 </Tooltip>
             </div>
-        </div>,
-        portalContainer
+        </Stack>
     );
 
-    return (
-        <>
-            {toolbar}
-            {deleteDialog}
-        </>
-    );
+    return (<>
+        {ReactDOM.createPortal(controlMenu, portalContainer)}
+        {deleteDialog}
+    </>);
 };
 
 const FONT_SIZES = [7, 9, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 42, 48, 54] as const;

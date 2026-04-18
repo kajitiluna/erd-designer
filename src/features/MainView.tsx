@@ -34,7 +34,8 @@ const ZOOM_SENSITIVITY = 0.002;
 
 const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) => {
 
-    const [holderProps, setHolderProps] = React.useState<ErdDocumentsHolderOptions>({ erdDocuments: [erdDocument], cursor: 0 });
+    const [holderProps, setHolderProps] =
+        React.useState<ErdDocumentsHolderOptions>({ erdDocuments: [erdDocument], cursor: 0 });
     const [selectState, dispatchSelectAction] = React.useReducer(reduceSelectAction, EMPTY_SELECT_STATE);
     const [editMode, dispatchEditMode] = React.useReducer(initReduceEditMode(dispatchSelectAction), EditModeType.SELECT);
     const [localSetting, dispatchLocalSetting] = React.useReducer(reduceLocalSetting, DEFAULT_LOCAL_SETTING);

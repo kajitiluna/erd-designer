@@ -1,9 +1,9 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import React from "react";
-import { createPortal } from "react-dom";
+import ReactDOM from "react-dom";
 import {
     Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Grid2, IconButton,
-    Table, TableBody, TableCell, TableContainer, TableRow, Tooltip
+    Stack, Table, TableBody, TableCell, TableContainer, TableRow, Tooltip
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -46,14 +46,12 @@ export const ERD_TABLE_VIEW_CLASS_NAME = "erdTableView";
 
 type ErdTableViewProps = {
     tableViewModel: TableViewModel,
-    tableWidth: number,
-    tableHeight: number,
     visible?: boolean,
     onEditAction: (editAction: EditAction) => void,
     onDragAction: (dragAction: DragAction) => void
 };
 
-const ErdTableView = ({ tableViewModel, tableWidth, tableHeight, visible = true, onEditAction, onDragAction }: ErdTableViewProps) => {
+const ErdTableView = ({ tableViewModel, visible = true, onEditAction, onDragAction }: ErdTableViewProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState } = React.useContext(SelectEntityContext);
@@ -96,8 +94,6 @@ const ErdTableView = ({ tableViewModel, tableWidth, tableHeight, visible = true,
         return (
             <InnerErdTableView
                 tableViewModel={tableViewModel}
-                tableWidth={tableWidth}
-                tableHeight={tableHeight}
                 onEditAction={onEditAction}
                 onDragAction={onDragAction}
                 tableContentCache={tableContentCache}
@@ -117,9 +113,7 @@ const ErdTableView = ({ tableViewModel, tableWidth, tableHeight, visible = true,
         // テーブルキャッシュに対する検証
         tableContentCache,
         // 削除確認ダイアログ表示に対する検証
-        openDeletingDialog,
-        // ポータルツールバーの位置に対する検証
-        tableWidth, tableHeight,
+        openDeletingDialog
     ]);
 
     return viewCache;
@@ -344,8 +338,6 @@ type SelfSelectableMode = "none" | "start_selecting" | "self_selectable";
 
 type InnerErdTableViewProps = {
     tableViewModel: TableViewModel,
-    tableWidth: number,
-    tableHeight: number,
     onEditAction: (editAction: EditAction) => void,
     onDragAction: (dragAction: DragAction) => void,
     tableContentCache: React.JSX.Element,
@@ -356,7 +348,7 @@ type InnerErdTableViewProps = {
 };
 
 const InnerErdTableView = ({
-    tableViewModel, tableWidth, tableHeight, onEditAction, onDragAction,
+    tableViewModel, onEditAction, onDragAction,
     tableContentCache, selected, isOpenDeletingDialog, visible, onOpenDeleteDialog
 }: InnerErdTableViewProps) => {
 
@@ -367,10 +359,10 @@ const InnerErdTableView = ({
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
     const displayScale = React.useContext(DisplayScaleContext);
     const positionResolver = React.useContext(CanvasPositionContext);
+    const toolbarPortalRef = React.useContext(ToolbarPortalContext);
 
+    const containerRef = React.useRef<HTMLDivElement>(null);
     const [selfSelectableMode, setSelfSelectableMode] = React.useState<SelfSelectableMode>("none");
-    const [toolbarVisible, setToolbarVisible] = React.useState(false);
-    const didDragRef = React.useRef(false);
 
     const erdDocument = documentsHolder.current();
     const erdSetting = erdDocument.erdSettingModel;
@@ -388,8 +380,6 @@ const InnerErdTableView = ({
         if (editMode === EditModeType.SELECT) {
             event.stopPropagation();
 
-            setToolbarVisible(false);
-            didDragRef.current = false;
             setSelfSelectableMode("none");
             onDragAction({ type: "start_dragging", start: mousePosition });
 
@@ -428,10 +418,9 @@ const InnerErdTableView = ({
         }
 
         if (editMode === EditModeType.SELECT) {
-            const didDrag = dragState.status === "on_dragging"
+            const didDrag = (dragState.status === "on_dragging")
                 && (dragState.delta().x !== 0 || dragState.delta().y !== 0);
             if (didDrag) {
-                didDragRef.current = true;
                 return;
             }
 
@@ -491,10 +480,6 @@ const InnerErdTableView = ({
             return;
         }
 
-        if (!didDragRef.current) {
-            setToolbarVisible(true);
-        }
-        didDragRef.current = false;
         event.stopPropagation();
     };
 
@@ -576,55 +561,63 @@ const InnerErdTableView = ({
         `${ERD_TABLE_VIEW_CLASS_NAME} ${styleClasses.selectedBox}`
         : ERD_TABLE_VIEW_CLASS_NAME;
 
-    const toolbarPortalRef = React.useContext(ToolbarPortalContext);
+    const initControlPanel = () => {
+        if (!containerRef.current || !toolbarPortalRef.current) {
+            return (<></>);
+        }
 
-    if (!selected && toolbarVisible) {
-        setToolbarVisible(false);
-    }
+        if (!selected || (editMode !== EditModeType.SELECT)
+            || (dragState.status === "on_dragging")
+            || (selectState.tableIds.size + selectState.memoIds.size !== 1)) {
+            return (<></>);
+        }
 
-    const showToolbar = toolbarVisible && selected && (editMode === EditModeType.SELECT)
-        && (dragState.status !== "on_dragging")
-        && (selectState.tableIds.size + selectState.memoIds.size === 1);
-
-    const controlPanel = (!showToolbar || !toolbarPortalRef.current) ? null : createPortal(
-        <div style={{
+        const portalRect = toolbarPortalRef.current.getBoundingClientRect();
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const controlPanelStyle: React.CSSProperties = {
             position: "absolute",
-            left: (tableViewModel.corner.left + moving.x + tableWidth) * displayScale + DRAWABLE_AREA.width / 2,
-            top: (tableViewModel.corner.top + moving.y + tableHeight) * displayScale + DRAWABLE_AREA.height / 2 + 4,
+            left: containerRect.right - portalRect.left,
+            top: containerRect.bottom - portalRect.top + 10,
             transform: "translateX(-100%)",
             pointerEvents: "auto",
-        }}
-        onClick={handlePreventMouseEvent}
-        onMouseDown={handlePreventMouseEvent}
-        onMouseUp={handlePreventMouseEvent}>
-            <div style={CONTROL_PANEL_STYLE}>
-                <ColorSelector key={`table-color-selector_${tableViewModel.tableId}`}
-                    color={tableViewModel.headerColor.background}
-                    callback={handleSetColor} />
-                {(perspectives.length > 0) && (
-                    <Tooltip title="Perspective" placement="top-end">
-                        <IconButton onClick={handleSettingPerspectiveDialog}>
-                            <VisibilityIcon />
+        };
+
+        const controlMenu = (
+            <Stack direction="row" justifyContent="flex-end" sx={controlPanelStyle}
+                onClick={handlePreventMouseEvent}
+                onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
+                <div style={CONTROL_PANEL_STYLE}>
+                    <ColorSelector key={`table-color-selector_${tableViewModel.tableId}`}
+                        color={tableViewModel.headerColor.background}
+                        callback={handleSetColor} />
+                    {(perspectives.length > 0) && (
+                        <Tooltip title="Perspective" placement="top-end">
+                            <IconButton onClick={handleSettingPerspectiveDialog}>
+                                <VisibilityIcon />
+                            </IconButton>
+                        </Tooltip>
+                    )}
+                    <Tooltip title="Edit" placement="top-end">
+                        <IconButton onClick={handleOpenEditDialog}>
+                            <EditIcon />
                         </IconButton>
                     </Tooltip>
-                )}
-                <Tooltip title="Edit" placement="top-end">
-                    <IconButton onClick={handleOpenEditDialog}>
-                        <EditIcon />
-                    </IconButton>
-                </Tooltip>
-                <Tooltip title="Delete" placement="top-end">
-                    <IconButton onClick={() => onOpenDeleteDialog(true)}>
-                        <DeleteIcon />
-                    </IconButton>
-                </Tooltip>
-            </div>
-        </div>,
-        toolbarPortalRef.current
-    );
+                    <Tooltip title="Delete" placement="top-end">
+                        <IconButton onClick={() => onOpenDeleteDialog(true)}>
+                            <DeleteIcon />
+                        </IconButton>
+                    </Tooltip>
+                </div>
+            </Stack>
+        );
+
+        return ReactDOM.createPortal(controlMenu, toolbarPortalRef.current);
+    };
+
+    const controlPanel = initControlPanel();
 
     return (
-        <Box sx={tableStyle}>
+        <Box sx={tableStyle} ref={containerRef}>
             <Box id={tableViewModel.tableId} tabIndex={0} sx={boundStyle}
                 style={{ cursor: 'pointer' }} className={tableClassName}
                 onMouseDown={handleMouseDown} onMouseUp={handleMouseUp}
@@ -635,7 +628,9 @@ const InnerErdTableView = ({
             <Dialog open={isOpenDeletingDialog} onClose={handleCloseDeletingDialog}>
                 <DialogTitle>Delete table?</DialogTitle>
                 <DialogContent>
-                    <DialogContentText>Are you sure to delete the table {`'${tableModel.physicalName}'`} ?</DialogContentText>
+                    <DialogContentText>
+                        Are you sure to delete the table {`'${tableModel.physicalName}'`} ?
+                    </DialogContentText>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseDeletingDialog}>Cancel</Button>
