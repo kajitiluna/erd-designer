@@ -8,6 +8,7 @@ import {
     SelectAction, reduceSelectAction, SelectEntityContext,
     EMPTY_SELECT_STATE, RELEASE_ACTION
 } from "~/context/SelectEntityContext";
+import { DRAWABLE_AREA } from "~/features/canvas/support";
 import ControlPanel from "~/features/canvas/ControlPanel";
 import DisplayScalePanel from "~/features/canvas/DisplayScalePanel";
 import ErdCanvas from "~/features/canvas/ErdCanvas";
@@ -27,6 +28,10 @@ type ErdDocumentsHolderOptions = {
     cursor: number
 };
 
+const MIN_SCALE = 0.05;
+const MAX_SCALE = 2;
+const ZOOM_SENSITIVITY = 0.002;
+
 const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) => {
 
     const [holderProps, setHolderProps] = React.useState<ErdDocumentsHolderOptions>({ erdDocuments: [erdDocument], cursor: 0 });
@@ -34,6 +39,63 @@ const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) 
     const [editMode, dispatchEditMode] = React.useReducer(initReduceEditMode(dispatchSelectAction), EditModeType.SELECT);
     const [localSetting, dispatchLocalSetting] = React.useReducer(reduceLocalSetting, DEFAULT_LOCAL_SETTING);
     const [scale, setScale] = React.useState<number>(1);
+    const scaleRef = React.useRef<number>(1);
+
+    const zoomTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    React.useEffect(() => {
+        scaleRef.current = scale;
+    }, [scale]);
+
+    React.useEffect(() => {
+        const handleWheel = (event: WheelEvent) => {
+            if (!event.ctrlKey && !event.metaKey) return;
+            event.preventDefault();
+            event.stopPropagation();
+
+            const oldScale = scaleRef.current;
+            const factor = Math.pow(2, -event.deltaY * ZOOM_SENSITIVITY);
+            const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, oldScale * factor));
+            if (newScale === oldScale) return;
+
+            const originX = DRAWABLE_AREA.width / 2;
+            const originY = DRAWABLE_AREA.height / 2;
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+            const sx = window.scrollX;
+            const sy = window.scrollY;
+            const screenCenterCanvasX = sx + vw / 2;
+            const screenCenterCanvasY = sy + vh / 2;
+            const canvasPointX = (screenCenterCanvasX - originX * (1 - oldScale)) / oldScale;
+            const canvasPointY = (screenCenterCanvasY - originY * (1 - oldScale)) / oldScale;
+            const newScreenX = canvasPointX * newScale + originX * (1 - newScale) - vw / 2;
+            const newScreenY = canvasPointY * newScale + originY * (1 - newScale) - vh / 2;
+
+            scaleRef.current = newScale;
+
+            const canvas = document.getElementById("erd-canvas");
+            if (canvas) {
+                canvas.style.transform = `scale(${newScale})`;
+            }
+            const hideIds = ["toolbar-portal", "relation-toolbar-container"];
+            const hideElements = [
+                ...hideIds.map(id => document.getElementById(id)),
+                ...Array.from(document.querySelectorAll<HTMLElement>(".MuiPopover-root"))
+            ].filter(Boolean) as HTMLElement[];
+            hideElements.forEach(el => el.style.visibility = "hidden");
+            window.scrollTo(newScreenX, newScreenY);
+
+            if (zoomTimerRef.current) clearTimeout(zoomTimerRef.current);
+            zoomTimerRef.current = setTimeout(() => {
+                setScale(scaleRef.current);
+                hideElements.forEach(el => el.style.visibility = "");
+                zoomTimerRef.current = null;
+            }, 100);
+        };
+
+        window.addEventListener("wheel", handleWheel, { passive: false, capture: true });
+        return () => window.removeEventListener("wheel", handleWheel, { capture: true });
+    }, []);
 
     const handleOnSave = (documents: ErdDocument[], cursor: number, loggingMessage: string) => {
         if ((cursor < 0) || (cursor >= documents.length)) {
