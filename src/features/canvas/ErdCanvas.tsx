@@ -28,6 +28,7 @@ import PerspectiveSettingView from "~/features/editor/PerspectiveSettingView";
 import RelationEditView from "~/features/editor/RelationEditView";
 import TableEditView from "~/features/editor/TableEditView";
 import StickyMemoView, { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
+import ToolbarPortalContext from "~/context/ToolbarPortalContext";
 
 type RectangleArea = {
     tableRectangles: Map<string, RectangleViewModel>,
@@ -36,6 +37,7 @@ type RectangleArea = {
 
 const ErdCanvas = () => {
     const erdCanvasRef = React.useRef<HTMLDivElement>(null);
+    const toolbarPortalRef = React.useRef<HTMLDivElement>(null);
     const [dragState, dispatchDragAction] = React.useReducer(reduceDragAction, NO_DRAGGING);
 
     const documentsHolder = React.useContext(ErdDocumentsHolderContext);
@@ -75,6 +77,8 @@ const ErdCanvas = () => {
     const tableViews = erdDocument.getTableViewModels().map(tableView => (
         <ErdTableView key={`erd-table-view_${tableView.tableId}`}
             tableViewModel={tableView}
+            tableWidth={rectangleArea.tableRectangles.get(tableView.tableId)?.width ?? 0}
+            tableHeight={rectangleArea.tableRectangles.get(tableView.tableId)?.height ?? 0}
             visible={(currentPerspective == null)
                 || currentPerspective.containsModel(tableView.tableId)}
             onEditAction={setEditAction}
@@ -395,6 +399,7 @@ const ErdCanvas = () => {
     return (
         <DragActionContext.Provider value={dragState}>
         <CanvasPositionContext.Provider value={positionResolver}>
+        <ToolbarPortalContext.Provider value={toolbarPortalRef}>
             <div id="erd-canvas" ref={erdCanvasRef} style={canvasStyle}
                 onClick={handleClickOnCanvas} onMouseMove={handleMoveMouseOnCanvas}
                 onMouseDown={handleDragStart} onMouseUp={handleDragEnd}>
@@ -420,12 +425,21 @@ const ErdCanvas = () => {
 
             {grabbingPanel}
 
+            <div ref={toolbarPortalRef} style={{
+                position: "absolute", top: 0, left: 0,
+                width: DRAWABLE_AREA.width, height: DRAWABLE_AREA.height,
+                pointerEvents: "none", zIndex: 200,
+                transform: `scale(${displayScale})`,
+                transformOrigin: `${DRAWABLE_AREA.width / 2}px ${DRAWABLE_AREA.height / 2}px`
+            }} />
+
             <ErdRelationPathView ref={relationRef}
                 relationViews={erdDocument.getRelationViewModels()}
                 rectangleMap={rectangleArea.tableRectangles}
                 onEditAction={setEditAction} onDragAction={dispatchDragAction} />
 
             {initEditView(editAction, rectangleArea, handleCloseEditDialog)}
+        </ToolbarPortalContext.Provider>
         </CanvasPositionContext.Provider>
         </DragActionContext.Provider>
     );

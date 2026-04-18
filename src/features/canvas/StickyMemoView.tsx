@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import {
     Box, Button, ButtonGroup, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
     Divider, FormControl, IconButton, MenuItem, Select, SelectChangeEvent, Stack, ToggleButton, Tooltip
@@ -16,6 +17,7 @@ import FormatAlignRightIcon from "@mui/icons-material/FormatAlignRight";
 import VisibilityIcon from '@mui/icons-material/Visibility';
 
 import ColorSelector from "~/components/ColorSelector";
+import ToolbarPortalContext from "~/context/ToolbarPortalContext";
 import DisplayScaleContext from "~/context/DisplayScaleContext";
 import { DragAction, DragActionContext } from "~/context/DragActionContext";
 import EditModeContext from "~/context/EditModeContext";
@@ -421,6 +423,8 @@ const StickyControlPane = ({ memoViewModel, onSettingAction }: StickyControlPane
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
     const { dispatchSelectAction } = React.useContext(SelectEntityContext);
+    const displayScale = React.useContext(DisplayScaleContext);
+    const toolbarPortalRef = React.useContext(ToolbarPortalContext);
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
 
     const [showAlignPanel, setShowAlignPanel] = React.useState<boolean>(false);
@@ -586,52 +590,75 @@ const StickyControlPane = ({ memoViewModel, onSettingAction }: StickyControlPane
         </div>
     );
 
-    return (
-        <>
-            <Stack direction="row" alignItems="flex-start" justifyContent="flex-end" sx={{ marginTop: "10px" }}
-                onClick={handlePreventMouseEvent} onMouseDown={handlePreventMouseEvent}>
-                <div style={controlStyle}>
-                    <ColorSelector key={`memo-color-selector_${memoViewModel.memoId}`}
-                        color={memoViewModel.backgroundColor} callback={handleSetColor} />
-                    <FormControl size="small">
-                        <Select value={memoViewModel.fontSize} defaultValue={9}
-                            onChange={handleChangeFontSize}>
-                            {FONT_SIZES.map(fontSize => <MenuItem
-                                key={`select-fontsize_${memoViewModel.memoId}_${fontSize}`}
-                                value={fontSize}>
-                                {fontSize}
-                            </MenuItem>)}
-                        </Select>
-                    </FormControl>
-                    <div style={{ position: "relative", display: "inline-block" }}>
-                        <Tooltip title="Set align" placement="top-end">
-                            <ToggleButton size="small" selected={showAlignPanel} value="check"
-                                onChange={() => setShowAlignPanel(!showAlignPanel)}>
-                                <FormatAlignJustifyIcon />
-                            </ToggleButton>
-                        </Tooltip>
-                        {alignPanel}
-                    </div>
-                    {(perspectives.length > 0) && (
-                        <Tooltip title="Perspective" placement="top-end">
-                            <IconButton onClick={handleSettingPerspectiveDialog}>
-                                <VisibilityIcon />
-                            </IconButton>
-                        </Tooltip>
-                    )}
-                    <Tooltip title="To back" placement="top-end">
-                        <IconButton onClick={handleBackPosition}><FlipToBackIcon /></IconButton>
+    const rect = memoViewModel.rectangleViewModel;
+    const portalContainer = toolbarPortalRef.current;
+
+    if (!portalContainer) return <>{deleteDialog}</>;
+
+    const counterScale = 1 / displayScale;
+
+    const toolbar = createPortal(
+        <div style={{
+            position: "absolute",
+            left: rect.left + DRAWABLE_AREA.width / 2,
+            top: rect.top + rect.height + DRAWABLE_AREA.height / 2,
+            width: rect.width,
+            display: "flex", justifyContent: "flex-end",
+            transform: `scale(${counterScale})`,
+            transformOrigin: "top right",
+            marginTop: "4px",
+            pointerEvents: "auto",
+        }}
+        onClick={handlePreventMouseEvent}
+        onMouseDown={handlePreventMouseEvent}>
+            <div style={controlStyle}>
+                <ColorSelector key={`memo-color-selector_${memoViewModel.memoId}`}
+                    color={memoViewModel.backgroundColor} callback={handleSetColor} />
+                <FormControl size="small">
+                    <Select value={memoViewModel.fontSize} defaultValue={9}
+                        onChange={handleChangeFontSize}>
+                        {FONT_SIZES.map(fontSize => <MenuItem
+                            key={`select-fontsize_${memoViewModel.memoId}_${fontSize}`}
+                            value={fontSize}>
+                            {fontSize}
+                        </MenuItem>)}
+                    </Select>
+                </FormControl>
+                <div style={{ position: "relative", display: "inline-block" }}>
+                    <Tooltip title="Set align" placement="top-end">
+                        <ToggleButton size="small" selected={showAlignPanel} value="check"
+                            onChange={() => setShowAlignPanel(!showAlignPanel)}>
+                            <FormatAlignJustifyIcon />
+                        </ToggleButton>
                     </Tooltip>
-                    <Tooltip title="To front" placement="top-end">
-                        <IconButton onClick={handleFrontPosition}><FlipToFrontIcon /></IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete" placement="top-end">
-                        <IconButton onMouseDown={() => setOpenDeleteDialog(true)}>
-                            <DeleteIcon />
+                    {alignPanel}
+                </div>
+                {(perspectives.length > 0) && (
+                    <Tooltip title="Perspective" placement="top-end">
+                        <IconButton onClick={handleSettingPerspectiveDialog}>
+                            <VisibilityIcon />
                         </IconButton>
                     </Tooltip>
-                </div>
-            </Stack>
+                )}
+                <Tooltip title="To back" placement="top-end">
+                    <IconButton onClick={handleBackPosition}><FlipToBackIcon /></IconButton>
+                </Tooltip>
+                <Tooltip title="To front" placement="top-end">
+                    <IconButton onClick={handleFrontPosition}><FlipToFrontIcon /></IconButton>
+                </Tooltip>
+                <Tooltip title="Delete" placement="top-end">
+                    <IconButton onMouseDown={() => setOpenDeleteDialog(true)}>
+                        <DeleteIcon />
+                    </IconButton>
+                </Tooltip>
+            </div>
+        </div>,
+        portalContainer
+    );
+
+    return (
+        <>
+            {toolbar}
             {deleteDialog}
         </>
     );
