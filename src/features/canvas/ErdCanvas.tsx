@@ -324,7 +324,16 @@ const ErdCanvas = () => {
         setSvgPaths(svgPaths);
 
         if (relationRef.current != null) {
-            setRelationLabels(relationRef.current.labelData());
+            const allLabels = relationRef.current.labelData();
+            const filteredLabels = (currentPerspective == null)
+                ? allLabels
+                : allLabels.filter(label => {
+                    const rm = label.relationView.relationModel;
+                    return (localSetting.visibleLineStyle === "both-bounded")
+                        ? currentPerspective.containsModel(rm.parentTableModelId) && currentPerspective.containsModel(rm.childTableModelId)
+                        : currentPerspective.containsModel(rm.parentTableModelId) || currentPerspective.containsModel(rm.childTableModelId);
+                });
+            setRelationLabels(filteredLabels);
         }
     }, [selectState, dragState, rectangleArea, localSetting.visibleLineStyle, localSetting.showRelationNames, erdDocument, currentPerspective]);
 
