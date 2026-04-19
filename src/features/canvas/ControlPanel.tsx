@@ -588,7 +588,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #f5f5f5; }
     const mx = e.clientX - rect.left, my = e.clientY - rect.top;
     const wx = (mx - panX) / scale, wy = (my - panY) / scale;
     const d = e.deltaY > 0 ? 0.9 : 1.1;
-    scale = Math.max(0.05, Math.min(5, scale * d));
+    scale = Math.max(0.05, Math.min(50, scale * d));
     panX = mx - wx * scale; panY = my - wy * scale;
     applyTransform();
   }, { passive: false });
@@ -597,7 +597,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #f5f5f5; }
     const rect = viewport.getBoundingClientRect();
     const cx = rect.width/2, cy = rect.height/2;
     const wx = (cx-panX)/scale, wy = (cy-panY)/scale;
-    scale = Math.min(5, scale*1.25); panX = cx-wx*scale; panY = cy-wy*scale; applyTransform();
+    scale = Math.min(50, scale*1.25); panX = cx-wx*scale; panY = cy-wy*scale; applyTransform();
   });
   document.getElementById('zoom-out').addEventListener('click', () => {
     const rect = viewport.getBoundingClientRect();
