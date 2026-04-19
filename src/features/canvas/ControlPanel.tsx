@@ -805,20 +805,21 @@ const downloadSvg = (erdDocument: ErdDocument) => {
             const optEl = optStr ? `<text x="${xOff}" y="${textY}" fill="#888" font-size="11" font-family="sans-serif">${escSvg(optStr)}</text>` : "";
 
             if (ci > 0) {
-                rows += `<line x1="0" y1="${cumulY}" x2="${tableW}" y2="${cumulY}" stroke="#e0e0e0" stroke-width="0.5"/>`;
+                rows += `<line x1="1" y1="${cumulY}" x2="${tableW - 1}" y2="${cumulY}" stroke="#e0e0e0" stroke-width="0.5"/>`;
             }
             rows += pkIcon + fkIcon + nameEl + typeEl + optEl;
             cumulY += rh;
         }
 
         svgTables.push(`<g data-model-id="${tvm.tableId}" transform="translate(${x}, ${y})">
-  <rect width="${tableW}" height="${tableH}" rx="${BORDER_RADIUS}" fill="#FDFDFD" stroke="#bbb" stroke-width="1.5"/>
+  <rect width="${tableW}" height="${tableH}" rx="${BORDER_RADIUS}" fill="#FDFDFD"/>
   <clipPath id="clip-hdr-${tvm.tableId}"><rect width="${tableW}" height="${headerH}" rx="${BORDER_RADIUS}"/></clipPath>
   <rect width="${tableW}" height="${headerH}" fill="${bgHex}" clip-path="url(#clip-hdr-${tvm.tableId})"/>
   <rect x="0" y="${headerH - BORDER_RADIUS}" width="${tableW}" height="${BORDER_RADIUS}" fill="${bgHex}"/>
   <text x="${COL_PAD}" y="${headerH * 0.68}" fill="${fgHex}" font-size="${HEADER_FONT}" font-weight="600" font-family="sans-serif">${escSvg(tableName)}</text>
-  <line x1="0" y1="${headerH}" x2="${tableW}" y2="${headerH}" stroke="#999" stroke-width="1"/>
+  <line x1="0" y1="${headerH}" x2="${tableW}" y2="${headerH}" stroke="#000" stroke-width="0.5"/>
   ${rows}
+  <rect width="${tableW}" height="${tableH}" rx="${BORDER_RADIUS}" fill="none" stroke="#000" stroke-width="1.5"/>
 </g>`);
     }
 
@@ -911,36 +912,47 @@ const downloadSvg = (erdDocument: ErdDocument) => {
 
     const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg"
-     viewBox="${vbX} ${vbY} ${vbW} ${vbH}" preserveAspectRatio="none" style="background:#f5f5f5;width:100vw;height:100vh;display:block">
+     viewBox="${vbX} ${vbY} ${vbW} ${vbH}" preserveAspectRatio="none" style="background:#fff;width:100vw;height:100vh;display:block">
 <defs>
 ${defsContent}
+<pattern id="grid" width="25" height="25" patternUnits="userSpaceOnUse">
+  <rect width="1.25" height="25" fill="#e8e8e8"/>
+  <rect width="25" height="1.25" fill="#e8e8e8"/>
+</pattern>
 <style>
   .search-highlight rect:first-child { stroke: #ff6b00 !important; stroke-width: 3 !important; }
 </style>
 </defs>
+<rect x="-50000" y="-50000" width="150000" height="150000" fill="url(#grid)"/>
 <g id="erd-content">
   <g id="memo-layer">${svgMemos.join("\n")}</g>
   <g id="connection-layer">${connectionGroups}</g>
   <g id="label-layer">${labelGroups}</g>
   <g id="table-layer">${svgTables.join("\n")}</g>
 </g>
-<g id="ui-overlay">
-  <rect id="toolbar-bg" x="0" y="0" width="714" height="42" fill="#fff" stroke="#ddd" stroke-width="1" rx="6"/>
-  <text id="title-text" x="14" y="27" font-size="16" font-weight="700" fill="#333" font-family="sans-serif">${escSvg(erdDocument.documentName)}</text>
-  <text x="250" y="27" font-size="14" fill="#444" font-weight="600" font-family="sans-serif">Perspective:</text>
-  <foreignObject x="338" y="6" width="220" height="32">
-    <div xmlns="http://www.w3.org/1999/xhtml">
-      <select id="persp-select" style="width:210px;height:28px;font-size:14px;border:1px solid #ccc;border-radius:4px;padding:2px 6px;background:#fff;color:#333;font-family:sans-serif">
-        <option value="all" selected="selected">All</option>
-        ${perspOptions}
-      </select>
-    </div>
-  </foreignObject>
-  <g id="zoom-out-btn" cursor="pointer"><rect x="570" y="7" width="28" height="28" fill="#fff" stroke="#ccc" rx="4"/><text x="579" y="27" font-size="18" fill="#333" font-family="sans-serif">\u2212</text></g>
-  <text id="zoom-display" x="604" y="27" font-size="14" fill="#333" font-family="sans-serif">100%</text>
-  <g id="zoom-in-btn" cursor="pointer"><rect width="28" height="28" fill="#fff" stroke="#ccc" rx="4"/><text x="8" y="20" font-size="18" fill="#333" font-family="sans-serif">+</text></g>
-  <g id="zoom-fit-btn" cursor="pointer"><rect width="34" height="28" fill="#fff" stroke="#ccc" rx="4"/><text x="7" y="20" font-size="14" fill="#333" font-family="sans-serif">Fit</text></g>
-</g>
+<foreignObject id="ui-overlay" x="0" y="0" width="100%" height="50">
+  <div xmlns="http://www.w3.org/1999/xhtml" id="toolbar" style="display:flex;align-items:center;gap:12px;padding:8px 16px;background:#fff;border-bottom:1px solid #ddd;font-family:sans-serif;font-size:13px;color:#333;box-sizing:border-box;overflow:hidden">
+    <style>
+      #toolbar button:active { background: #e0e0e0 !important; }
+      #toolbar button:hover { background: #f5f5f5 !important; }
+      #toolbar select:focus, #toolbar input:focus { outline: 1px solid #999; }
+    </style>
+    <span style="font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex-shrink:1">${escSvg(erdDocument.documentName)}</span>
+    <span style="font-weight:600;white-space:nowrap;flex-shrink:0">Perspective:</span>
+    <select id="persp-select" style="padding:4px 8px;border-radius:4px;border:1px solid #ccc;font-size:13px;max-width:340px;background:#fff;color:#333;flex-shrink:0">
+      <option value="all" selected="selected">All</option>
+      ${perspOptions}
+    </select>
+    <input id="search-box" type="text" placeholder="Search tables..." style="padding:4px 8px;border-radius:4px;border:1px solid #ccc;font-size:13px;width:180px;background:#fff;color:#333;flex-shrink:1;min-width:80px"/>
+    <span style="flex:1"></span>
+    <span style="display:flex;align-items:center;gap:4px;flex-shrink:0;white-space:nowrap">
+      <button id="zoom-out-btn" style="padding:4px 10px;border:1px solid #ccc;border-radius:4px;background:#fff;cursor:pointer;font-size:13px;color:#333">\u2212</button>
+      <span id="zoom-display" style="min-width:40px;text-align:center">100%</span>
+      <button id="zoom-in-btn" style="padding:4px 10px;border:1px solid #ccc;border-radius:4px;background:#fff;cursor:pointer;font-size:13px;color:#333">+</button>
+      <button id="zoom-fit-btn" style="padding:4px 10px;border:1px solid #ccc;border-radius:4px;background:#fff;cursor:pointer;font-size:13px;color:#333">Fit</button>
+    </span>
+  </div>
+</foreignObject>
 <script type="text/ecmascript"><![CDATA[
 (function() {
   var svg = document.documentElement;
@@ -948,9 +960,6 @@ ${defsContent}
   var overlay = document.getElementById('ui-overlay');
   var perspSelect = document.getElementById('persp-select');
   var zoomDisp = document.getElementById('zoom-display');
-  var zoomInBtn = document.getElementById('zoom-in-btn');
-  var zoomFitBtn = document.getElementById('zoom-fit-btn');
-  var toolbarBg = document.getElementById('toolbar-bg');
   var PERSPECTIVES = ${perspJson};
   var MEMO_TABLES = ${memoTableJson};
 
@@ -962,20 +971,11 @@ ${defsContent}
     var s = {}; p.ids.forEach(function(id) { s[id] = true; }); idSets[p.id] = s;
   });
 
-  function layoutZoomControls() {
-    var bbox = zoomDisp.getBBox();
-    var afterText = bbox.x + bbox.width + 6;
-    zoomInBtn.setAttribute('transform', 'translate(' + afterText + ',7)');
-    var fitX = afterText + 36;
-    zoomFitBtn.setAttribute('transform', 'translate(' + fitX + ',7)');
-    toolbarBg.setAttribute('width', String(fitX + 42));
-  }
-
   function updateViewBox() {
     svg.setAttribute('viewBox', curVbX + ' ' + curVbY + ' ' + curVbW + ' ' + curVbH);
-    var pct = Math.round((vbW / curVbW) * 100);
+    var sw = window.innerWidth || 800;
+    var pct = Math.round((sw / curVbW) * 100);
     zoomDisp.textContent = pct + '%';
-    layoutZoomControls();
     positionOverlay();
   }
 
@@ -998,10 +998,17 @@ ${defsContent}
   function positionOverlay() {
     var sw = window.innerWidth || 800;
     var s = curVbW / sw;
-    var tbW = parseFloat(toolbarBg.getAttribute('width')) || 714;
-    var toolbarW = tbW * s;
-    var offsetX = curVbX + (curVbW - toolbarW) / 2;
-    overlay.setAttribute('transform', 'translate(' + offsetX + ',' + curVbY + ') scale(' + s + ')');
+    var tbScreenH = 50;
+    overlay.setAttribute('x', curVbX);
+    overlay.setAttribute('y', curVbY);
+    overlay.setAttribute('width', curVbW);
+    overlay.setAttribute('height', tbScreenH * s);
+    var tb = document.getElementById('toolbar');
+    if (tb) {
+      tb.style.transform = 'scale(' + s + ')';
+      tb.style.transformOrigin = 'top left';
+      tb.style.width = sw + 'px';
+    }
   }
   window.addEventListener('resize', function() { matchAspect(); updateViewBox(); });
 
@@ -1026,7 +1033,9 @@ ${defsContent}
 
   function fitAll() {
     var bb = visibleBBox();
-    curVbX = bb.x; curVbY = bb.y; curVbW = bb.w; curVbH = bb.h;
+    curVbW = bb.w / 0.95; curVbH = bb.h / 0.95;
+    curVbX = bb.x - (curVbW - bb.w) / 2;
+    curVbY = bb.y - (curVbH - bb.h) / 2;
     matchAspect();
     var tbH = 42 * (curVbW / (window.innerWidth || 800));
     curVbY -= tbH / 2;
@@ -1068,7 +1077,10 @@ ${defsContent}
     var ctm = svg.getScreenCTM().inverse();
     var svgPt = pt.matrixTransform(ctm);
     var factor = e.deltaY > 0 ? 1.1 : 0.9;
-    var newW = curVbW * factor;
+    var sw = window.innerWidth || 800;
+    var minVbW = sw / 50;
+    var newW = Math.max(minVbW, curVbW * factor);
+    factor = newW / curVbW;
     var newH = curVbH * factor;
     curVbX = svgPt.x - (svgPt.x - curVbX) * factor;
     curVbY = svgPt.y - (svgPt.y - curVbY) * factor;
@@ -1077,8 +1089,11 @@ ${defsContent}
   }, {passive: false});
 
   function zoom(factor) {
+    var sw = window.innerWidth || 800;
+    var minVbW = sw / 50;
     var cx = curVbX + curVbW / 2, cy = curVbY + curVbH / 2;
-    curVbW *= factor; curVbH *= factor;
+    curVbW = Math.max(minVbW, curVbW * factor);
+    curVbH = Math.max(minVbW, curVbH * factor);
     curVbX = cx - curVbW / 2; curVbY = cy - curVbH / 2;
     updateViewBox();
   }
@@ -1118,16 +1133,36 @@ ${defsContent}
     applyPerspective(perspSelect.value);
   }
 
+  var searchBox = document.getElementById('search-box');
+  searchBox.addEventListener('input', function() {
+    var q = searchBox.value.toLowerCase().trim();
+    var tables = document.getElementById('table-layer').querySelectorAll('[data-model-id]');
+    for (var i = 0; i < tables.length; i++) {
+      var cls = tables[i].getAttribute('class') || '';
+      tables[i].setAttribute('class', cls.replace(/\\s*search-highlight/g, ''));
+    }
+    if (!q) return;
+    for (var j = 0; j < tables.length; j++) {
+      var hdr = tables[j].querySelector('text');
+      if (hdr && hdr.textContent.toLowerCase().indexOf(q) >= 0) {
+        var c2 = tables[j].getAttribute('class') || '';
+        tables[j].setAttribute('class', c2 + ' search-highlight');
+      }
+    }
+  });
+
   document.addEventListener('keydown', function(e) {
     if (e.key === '0' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); fitAll(); }
     if (e.key === '=' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); zoom(0.8); }
     if (e.key === '-' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); zoom(1.25); }
+    if (e.key === '/' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); searchBox.focus(); }
+    if (e.key === 'Escape') { searchBox.blur(); searchBox.value = ''; searchBox.dispatchEvent(new Event('input')); }
     if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
-      if (document.activeElement === perspSelect) return;
+      if (document.activeElement === perspSelect || document.activeElement === searchBox) return;
       e.preventDefault(); perspStep(1);
     }
     if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
-      if (document.activeElement === perspSelect) return;
+      if (document.activeElement === perspSelect || document.activeElement === searchBox) return;
       e.preventDefault(); perspStep(-1);
     }
   });
