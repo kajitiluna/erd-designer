@@ -361,7 +361,10 @@ const RelationLabelOverlay = ({ labelData, selected }: RelationLabelOverlayProps
                     }} />
                 </>
             )}
-            <div ref={labelRef} style={{
+            <div ref={labelRef}
+                data-parent={relationView.relationModel.parentTableModelId}
+                data-child={relationView.relationModel.childTableModelId}
+                style={{
                 position: "absolute",
                 left: `${left}px`,
                 top: `${top}px`,
