@@ -54,7 +54,7 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
-    const displayScale = React.useContext(DisplayScaleContext);
+    const { scale: displayScale } = React.useContext(DisplayScaleContext);
 
     const [clickedPosition, setClickedPosition] = React.useState<{ x: number, y: number } | null>(null);
     const [deletingRelation, setDeletingRelation] = React.useState<RelationViewModel | null>(null);
@@ -288,7 +288,7 @@ const useStraightLineView = (
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
-    const displayScale = React.useContext(DisplayScaleContext);
+    const { scale: displayScale } = React.useContext(DisplayScaleContext);
     const positionResolver = React.useContext(CanvasPositionContext);
 
     const [lineDragging, setLineDragging] = React.useState<LineDragging>({ on_dragging: false });
@@ -771,7 +771,7 @@ const useOrthogonalLine = (
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
-    const displayScale = React.useContext(DisplayScaleContext);
+    const { scale: displayScale } = React.useContext(DisplayScaleContext);
     const positionResolver = React.useContext(CanvasPositionContext);
 
     const initPathCss = (selected: boolean, isReducedLine: boolean) => {

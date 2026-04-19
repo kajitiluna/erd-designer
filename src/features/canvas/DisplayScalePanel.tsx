@@ -1,94 +1,196 @@
+import React from "react";
 import { Box, ButtonGroup, FormControl, IconButton, MenuItem, Select, SelectChangeEvent } from "@mui/material";
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
+import { DRAWABLE_AREA, inOpenControlPanel } from "~/features/canvas/support";
+import { ScaleState } from "~/context/DisplayScaleContext";
 
 type DisplayScalePanelProps = {
-    scale: number,
-    onChangeScale: (updating: number) => void
+    scaleStatus: ScaleState,
+    onChangeScale: React.Dispatch<React.SetStateAction<ScaleState>>
 };
 
-const findNearestPresetIndex = (scale: number): number => {
-    let best = 0;
-    let bestDist = Math.abs(DISPLAY_SCALES[0] - scale);
-    for (let i = 1; i < DISPLAY_SCALES.length; i++) {
-        const dist = Math.abs(DISPLAY_SCALES[i] - scale);
-        if (dist < bestDist) {
-            best = i;
-            bestDist = dist;
-        }
-    }
-    return best;
-};
+const DisplayScalePanel = ({ scaleStatus, onChangeScale }: DisplayScalePanelProps) => {
 
-const DisplayScalePanel = ({ scale, onChangeScale }: DisplayScalePanelProps) => {
+    const scaleRef = React.useRef<number>(1);
+    const zoomTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const handleChangeScale = (event: SelectChangeEvent<number>) => {
         const nextValue = event.target.value as number;
-        if (scale === nextValue) {
+        if (scaleStatus.scale === nextValue) {
             return;
         }
 
-        onChangeScale(nextValue);
+        onChangeScale({ ...scaleStatus, scale: nextValue });
     };
 
-    const exactIndex = DISPLAY_SCALES.indexOf(scale as typeof DISPLAY_SCALES[number]);
-    const nearestIndex = exactIndex >= 0 ? exactIndex : findNearestPresetIndex(scale);
+    const nearestIndex = findNearestPresetIndex(scaleStatus.scale);
 
     const handleZoomOut = () => {
-        const targetIndex = exactIndex >= 0 ? exactIndex - 1 : Math.max(nearestIndex - 1, 0);
-        if (targetIndex < 0) return;
-        onChangeScale(DISPLAY_SCALES[targetIndex]);
+        const targetIndex = Math.max(nearestIndex - 1, 0);
+        if (targetIndex < 0) {
+            return;
+        }
+
+        onChangeScale({ ...scaleStatus, scale: DISPLAY_SCALES[targetIndex] });
     };
 
     const handleZoomIn = () => {
-        const targetIndex = exactIndex >= 0 ? exactIndex + 1 : Math.min(nearestIndex + 1, DISPLAY_SCALES.length - 1);
-        if (targetIndex >= DISPLAY_SCALES.length) return;
-        onChangeScale(DISPLAY_SCALES[targetIndex]);
+        const targetIndex = Math.min(nearestIndex + 1, DISPLAY_SCALES.length - 1);
+        if (targetIndex >= DISPLAY_SCALES.length) {
+            return;
+        }
+
+        onChangeScale({ ...scaleStatus, scale: DISPLAY_SCALES[targetIndex] });
     };
 
-    const customLabel = `${(scale * 100).toFixed(0)} %`;
+    React.useEffect(() => {
+        scaleRef.current = scaleStatus.scale;
+    }, [scaleStatus]);
 
-    const panelStyle = {
-        display: "flex",
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        border: "1px solid white",
-        borderRadius: "15px",
-        boxShadow: "5px 5px 30px 0px #bebebe",
-        paddingTop: "5px",
-        paddingBottom: "5px",
-        backgroundColor: "#FFFFFF"
-    };
+    React.useEffect(() => {
+        const handleWheel = initHandleWheel(scaleRef, zoomTimerRef, onChangeScale);
+        window.addEventListener("wheel", handleWheel, { passive: false, capture: true });
 
-    const buttonStyle = { display: 'flex', flexDirection: 'row', height: '100%', width: '100%' };
+        return () => {
+            window.removeEventListener("wheel", handleWheel, { capture: true });
+
+            if (zoomTimerRef.current) {
+                clearTimeout(zoomTimerRef.current);
+                zoomTimerRef.current = null;
+            }
+        }
+    }, []);
 
     return (
-        <Box sx={panelStyle}>
-            <ButtonGroup orientation="horizontal" aria-label="horizontal button group" sx={buttonStyle}>
+        <Box sx={PANEL_STYLE}>
+            <ButtonGroup orientation="horizontal" aria-label="horizontal button group" sx={BUTTON_STYLE}>
                 <IconButton aria-label="zoom out" size="small"
-                    disabled={nearestIndex <= 0 && exactIndex === 0} onClick={handleZoomOut}>
+                    disabled={nearestIndex <= 0} onClick={handleZoomOut}>
                     <ZoomOutIcon />
                 </IconButton>
                 <FormControl size="small" sx={{ width: "100px" }}>
-                    <Select id="select-display-scale" value={scale}
-                        renderValue={() => customLabel}
-                        onChange={handleChangeScale}>
+                    <Select id="select-display-scale" value={scaleStatus.scale} onChange={handleChangeScale}>
                         {DISPLAY_SCALES
-                            .map(s => initScaleInfo(s))
-                            .map(s => <MenuItem key={`select-scale-${s.label}`} value={s.value}>
-                                {s.label}
+                            .map(scale => initScaleInfo(scale))
+                            .map(scale => <MenuItem key={`select-scale-${scale.label}`} value={scale.value}>
+                                {scale.label}
                             </MenuItem>)}
+                        {!DISPLAY_SCALES.includes(scaleStatus.scale) && (
+                            <MenuItem value={scaleStatus.scale} sx={{ display: "none" }}>
+                                {`${(scaleStatus.scale * 100).toFixed(0)} %`}
+                            </MenuItem>
+                        )}
                     </Select>
                 </FormControl>
                 <IconButton aria-label="zoom in" size="small"
-                    disabled={nearestIndex >= DISPLAY_SCALES.length - 1 && exactIndex === DISPLAY_SCALES.length - 1} onClick={handleZoomIn}>
+                    disabled={nearestIndex >= DISPLAY_SCALES.length - 1} onClick={handleZoomIn}>
                     <ZoomInIcon />
                 </IconButton>
             </ButtonGroup>
         </Box>
     );
 };
+
+const findNearestPresetIndex = (scale: number): number => {
+    const exactIndex = DISPLAY_SCALES.indexOf(scale);
+    if (exactIndex >= 0) {
+        return exactIndex;
+    }
+
+    let best = 1;
+    let bestDist = Math.abs(DISPLAY_SCALES[1] - scale);
+    for (let index = 2; index < DISPLAY_SCALES.length - 1; index++) {
+        const dist = Math.abs(DISPLAY_SCALES[index] - scale);
+        if (dist < bestDist) {
+            best = index;
+            bestDist = dist;
+        }
+    }
+
+    return best;
+};
+
+const initHandleWheel = (
+    scaleRef: React.RefObject<number>, zoomTimerRef: React.RefObject<NodeJS.Timeout | null>,
+    onChangeScale: React.Dispatch<React.SetStateAction<ScaleState>>
+) => {
+    return (event: WheelEvent) => {
+        if (!event.ctrlKey && !event.metaKey) {
+            return;
+        }
+
+        // ダイアログが表示されているときはキー操作を無視する
+        const inOpenControlPane = inOpenControlPanel();
+        if (inOpenControlPane) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const oldScale = scaleRef.current;
+        const factor = Math.pow(2, -event.deltaY * ZOOM_SENSITIVITY);
+        const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, oldScale * factor));
+        if (newScale === oldScale) {
+            return;
+        }
+
+        scaleRef.current = newScale;
+
+        onChangeScale(previous => {
+            if (previous.phase === "scaling") {
+                return previous;
+            }
+
+            return { ...previous, phase: "scaling" };
+        });
+
+        const canvas = document.getElementById("erd-canvas");
+        if (canvas) {
+            canvas.style.transform = `scale(${newScale})`;
+        }
+
+        // スケールの原点
+        const originX = DRAWABLE_AREA.width / 2;
+        const originY = DRAWABLE_AREA.height / 2;
+        // 現在のビューポートの中央
+        const screenCenterCanvasX = window.scrollX + window.innerWidth / 2;
+        const screenCenterCanvasY = window.scrollY + window.innerHeight / 2;
+        // ビューポート中央の論理座標
+        const canvasPointX = (screenCenterCanvasX - originX * (1 - oldScale)) / oldScale;
+        const canvasPointY = (screenCenterCanvasY - originY * (1 - oldScale)) / oldScale;
+        // スケール変更後に中央を同一に保つためのスクロール量
+        const newScreenX = canvasPointX * newScale + originX * (1 - newScale) - window.innerWidth / 2;
+        const newScreenY = canvasPointY * newScale + originY * (1 - newScale) - window.innerHeight / 2;
+
+        window.scrollTo(newScreenX, newScreenY);
+
+        if (zoomTimerRef.current) {
+            clearTimeout(zoomTimerRef.current);
+        }
+
+        zoomTimerRef.current = setTimeout(() => {
+            onChangeScale({ scale: scaleRef.current, phase: "idle" });
+            zoomTimerRef.current = null;
+        }, 100);
+    };
+};
+
+const PANEL_STYLE = {
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    border: "1px solid white",
+    borderRadius: "15px",
+    boxShadow: "5px 5px 30px 0px #bebebe",
+    paddingTop: "5px",
+    paddingBottom: "5px",
+    backgroundColor: "#FFFFFF"
+};
+
+const BUTTON_STYLE = { display: 'flex', flexDirection: 'row', height: '100%', width: '100%' };
 
 const initScaleInfo = (scale: number) => {
     return {
@@ -97,6 +199,10 @@ const initScaleInfo = (scale: number) => {
     };
 };
 
-const DISPLAY_SCALES = [0.05, 0.1, 0.25, 0.5, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2] as const;
+const DISPLAY_SCALES = [0.05, 0.1, 0.25, 0.5, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
+const MIN_SCALE = DISPLAY_SCALES[0];
+const MAX_SCALE = DISPLAY_SCALES[DISPLAY_SCALES.length - 1];
+
+const ZOOM_SENSITIVITY = 0.002;
 
 export default DisplayScalePanel;

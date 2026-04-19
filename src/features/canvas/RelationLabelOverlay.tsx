@@ -82,7 +82,7 @@ const projectOntoPath = (points: Point[], target: Point): { segment: number, fra
 
 const RelationLabelOverlay = ({ labelData, selected }: RelationLabelOverlayProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
-    const displayScale = React.useContext(DisplayScaleContext);
+    const { scale: displayScale } = React.useContext(DisplayScaleContext);
     const positionResolver = React.useContext(CanvasPositionContext);
     const toolbarPortalRef = React.useContext(ToolbarPortalContext);
     const { editMode } = React.useContext(EditModeContext);

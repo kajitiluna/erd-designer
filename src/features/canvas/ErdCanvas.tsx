@@ -19,7 +19,7 @@ import { OrthogonalDirection } from "~/models/LineViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
 import {
     CANVAS_AREA, CARDINALITY_MARKER, DRAWABLE_AREA,
-    getScroll, toNextOrthogonalLines, withMultiSelectKey
+    getScroll, inOpenControlPanel, toNextOrthogonalLines, withMultiSelectKey
 } from "~/features/canvas/support";
 import EditAction from "~/features/canvas/EditAction";
 import ErdRelationPathView, { ErdRelationTooltipRef, RelationLabelData } from "~/features/canvas/ErdRelationPathView";
@@ -45,7 +45,7 @@ const ErdCanvas = () => {
     const { editMode, dispatchEditMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const { localSetting, dispatchLocalSetting } = React.useContext(LocalSettingContext);
-    const displayScale = React.useContext(DisplayScaleContext);
+    const { scale: displayScale, phase } = React.useContext(DisplayScaleContext);
 
     // Canvas に描画されている短形の情報を保持する
     const [rectangleArea, setRectangleArea] = React.useState<RectangleArea>(
@@ -442,13 +442,15 @@ const ErdCanvas = () => {
 
         {grabbingPanel}
 
-        <div id="toolbar-portal" ref={toolbarPortalRef} style={{
-            position: "absolute", top: 0, left: 0,
-            width: DRAWABLE_AREA.width, height: DRAWABLE_AREA.height,
-            pointerEvents: "none"
-        }} />
+        {(phase === "idle") && (
+            <div ref={toolbarPortalRef} style={{
+                position: "absolute", top: 0, left: 0,
+                width: DRAWABLE_AREA.width, height: DRAWABLE_AREA.height,
+                pointerEvents: "none"
+            }} />
+        )}
 
-        <div id="relation-toolbar-container">
+        <div style={{ visibility: (phase === "scaling") ? "hidden" : "visible" }}>
             <ErdRelationPathView ref={relationRef}
                 relationViews={erdDocument.getRelationViewModels()}
                 rectangleMap={rectangleArea.tableRectangles}
@@ -963,10 +965,8 @@ const initEffectOfKeyDownOnCanvas = (handlers: KeyEventHandler[]) => {
     const handleKeyUpOnCanvas = (event: KeyboardEvent) => {
 
         // ダイアログが表示されているときはキー操作を無視する
-        // DOM 要素を直接みているため、MUI のバージョン変更時には修正が必要に可能性がある
-        const dialogs = window.document.querySelectorAll('[role="dialog"]');
-        const backdrops = window.document.querySelectorAll('.MuiBackdrop-root');
-        if ((dialogs.length > 0) || (backdrops.length > 0)) {
+        const inOpenControlPane = inOpenControlPanel();
+        if (inOpenControlPane) {
             return;
         }
 

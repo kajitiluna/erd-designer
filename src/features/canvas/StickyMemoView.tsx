@@ -51,7 +51,7 @@ const StickyMemoView = ({
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
-    const displayScale = React.useContext(DisplayScaleContext);
+    const { scale: displayScale } = React.useContext(DisplayScaleContext);
     const positionResolver = React.useContext(CanvasPositionContext);
 
     const stickyMemoRef = React.useRef<HTMLDivElement>(null);

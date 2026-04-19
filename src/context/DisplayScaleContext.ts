@@ -1,5 +1,7 @@
 import React from "react";
 
-const DisplayScaleContext = React.createContext<number>(1)
+export type ScaleState = { scale: number, phase: "idle" | "scaling" };
+
+const DisplayScaleContext = React.createContext<ScaleState>({ scale: 1, phase: "idle" });
 
 export default DisplayScaleContext;
