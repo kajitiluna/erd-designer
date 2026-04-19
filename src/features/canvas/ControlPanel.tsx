@@ -30,7 +30,7 @@ import { LocalSettingContext } from "~/context/LocalSettingContext";
 import { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
 import ExportSpecificationContext, { ImageContent } from "~/context/ExportSpecificationContext";
 import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
-import { getScroll } from "~/features/canvas/support";
+import { DRAWABLE_AREA, getScroll } from "~/features/canvas/support";
 
 type ControlPanelProps = {
     erdExportable: boolean
@@ -436,6 +436,28 @@ const downloadHtml = (erdDocument: ErdDocument) => {
         ids: p.getContainIds()
     })));
 
+    const { frontMemos: htmlFrontMemos, backMemos: htmlBackMemos } = erdDocument.getMemoViewModels();
+    const htmlAllMemos = [...htmlBackMemos, ...htmlFrontMemos];
+    const htmlTableViewModels = erdDocument.getTableViewModels();
+    const htmlMemoTableMap: Record<string, string[]> = {};
+    for (const memo of htmlAllMemos) {
+        const r = memo.rectangleViewModel;
+        const mx = r.positionX + DRAWABLE_AREA.width / 2;
+        const my = r.positionY + DRAWABLE_AREA.height / 2;
+        const contained = htmlTableViewModels
+            .filter(t => {
+                const tx = t.corner.left + DRAWABLE_AREA.width / 2;
+                const ty = t.corner.top + DRAWABLE_AREA.height / 2;
+                const el = document.getElementById(t.tableId);
+                const tw = el ? el.offsetWidth : 220;
+                const th = el ? el.offsetHeight : 100;
+                return tx >= mx && ty >= my && tx + tw <= mx + r.width && ty + th <= my + r.height;
+            })
+            .map(t => t.tableId);
+        if (contained.length > 0) htmlMemoTableMap[memo.memoId] = contained;
+    }
+    const htmlMemoTableJson = JSON.stringify(htmlMemoTableMap);
+
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -499,6 +521,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #f5f5f5; }
   const cropX = ${cropX}, cropY = ${cropY};
   const contentW = ${contentW}, contentH = ${contentH};
   const PERSPECTIVES = ${perspJson};
+  const MEMO_TABLES = ${htmlMemoTableJson};
 
   PERSPECTIVES.forEach(p => {
     const opt = document.createElement('option');
@@ -518,11 +541,28 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #f5f5f5; }
     zoomDisplay.textContent = Math.round(scale * 100) + '%';
   }
 
+  function visibleBounds() {
+    const models = wrapper.querySelectorAll('[data-model-id]');
+    let mnX = Infinity, mnY = Infinity, mxX = -Infinity, mxY = -Infinity;
+    models.forEach(el => {
+      if (el.style.opacity === '0') return;
+      const r = el.getBoundingClientRect();
+      const wx = (el.offsetLeft || r.left);
+      const wy = (el.offsetTop || r.top);
+      mnX = Math.min(mnX, wx); mnY = Math.min(mnY, wy);
+      mxX = Math.max(mxX, wx + r.width / scale); mxY = Math.max(mxY, wy + r.height / scale);
+    });
+    if (mnX === Infinity) return { cx: cropX, cy: cropY, cw: contentW, ch: contentH };
+    const pad = 100;
+    return { cx: mnX - pad, cy: mnY - pad, cw: mxX - mnX + pad * 2, ch: mxY - mnY + pad * 2 };
+  }
+
   function fitAll() {
     const vw = viewport.clientWidth, vh = viewport.clientHeight;
-    scale = Math.min(vw / contentW, vh / contentH, 2) * 0.95;
-    panX = (vw - contentW * scale) / 2 - cropX * scale;
-    panY = (vh - contentH * scale) / 2 - cropY * scale;
+    const { cx, cy, cw, ch } = visibleBounds();
+    scale = Math.min(vw / cw, vh / ch, 2) * 0.95;
+    panX = (vw - cw * scale) / 2 - cx * scale;
+    panY = (vh - ch * scale) / 2 - cy * scale;
     applyTransform();
   }
 
@@ -573,7 +613,12 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #f5f5f5; }
     const ids = pid === 'all' ? null : idSet.get(pid);
     modelWrappers.forEach(el => {
       const mid = el.getAttribute('data-model-id');
-      const show = !ids || ids.has(mid);
+      let show;
+      if (!ids) { show = true; }
+      else if (ids.has(mid)) { show = true; }
+      else if (MEMO_TABLES[mid]) {
+        show = MEMO_TABLES[mid].some(tid => ids.has(tid));
+      } else { show = false; }
       el.style.opacity = show ? '' : '0';
       el.style.pointerEvents = show ? '' : 'none';
     });
