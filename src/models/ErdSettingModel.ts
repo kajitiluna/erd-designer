@@ -9,14 +9,16 @@ type ErdSettingModelOptions = {
     displayStyle?: DisplayStyle,
     exportDdlSetting: ExportDdlSettingModel,
     perspectiveModelStorage: PerspectiveModelStorage,
-    showRelationNames?: boolean
+    showRelationNames?: boolean,
+    roundedOrthogonalCorners?: boolean
 };
 
 type UpdatingArgs = {
     displayStyle?: DisplayStyle | null,
     exportDdlSetting?: ExportDdlSettingModel | null,
     perspectiveModels?: PerspectiveModel[] | null,
-    showRelationNames?: boolean | null
+    showRelationNames?: boolean | null,
+    roundedOrthogonalCorners?: boolean | null
 };
 
 export default class ErdSettingModel {
@@ -25,14 +27,16 @@ export default class ErdSettingModel {
     public readonly exportDdlSetting: ExportDdlSettingModel;
     private readonly perspectiveModelStorage: PerspectiveModelStorage;
     public readonly showRelationNames: boolean;
+    public readonly roundedOrthogonalCorners: boolean;
 
     private constructor({
-        displayStyle = DisplayStyle.BOTH, exportDdlSetting, perspectiveModelStorage, showRelationNames = false
+        displayStyle = DisplayStyle.BOTH, exportDdlSetting, perspectiveModelStorage, showRelationNames = false, roundedOrthogonalCorners = false
     }: ErdSettingModelOptions) {
         this.displayStyle = displayStyle;
         this.exportDdlSetting = exportDdlSetting;
         this.perspectiveModelStorage = perspectiveModelStorage;
         this.showRelationNames = showRelationNames;
+        this.roundedOrthogonalCorners = roundedOrthogonalCorners;
     }
 
     public static create(documentName: string): ErdSettingModel {
@@ -51,10 +55,10 @@ export default class ErdSettingModel {
     }
 
     public update({
-        displayStyle = null, exportDdlSetting = null, perspectiveModels = null, showRelationNames = null
+        displayStyle = null, exportDdlSetting = null, perspectiveModels = null, showRelationNames = null, roundedOrthogonalCorners = null
     }: UpdatingArgs): ErdSettingModel {
 
-        if ((displayStyle == null) && (exportDdlSetting == null) && (perspectiveModels == null) && (showRelationNames == null)) {
+        if ((displayStyle == null) && (exportDdlSetting == null) && (perspectiveModels == null) && (showRelationNames == null) && (roundedOrthogonalCorners == null)) {
             return this;
         }
 
@@ -63,7 +67,8 @@ export default class ErdSettingModel {
             exportDdlSetting: ((exportDdlSetting != null) ? exportDdlSetting : this.exportDdlSetting),
             perspectiveModelStorage: ((perspectiveModels != null)
                 ? new PerspectiveModelStorage(perspectiveModels) : this.perspectiveModelStorage),
-            showRelationNames: ((showRelationNames != null) ? showRelationNames : this.showRelationNames)
+            showRelationNames: ((showRelationNames != null) ? showRelationNames : this.showRelationNames),
+            roundedOrthogonalCorners: ((roundedOrthogonalCorners != null) ? roundedOrthogonalCorners : this.roundedOrthogonalCorners)
         });
     }
 
@@ -76,7 +81,9 @@ export default class ErdSettingModel {
         return new ErdSettingModel({
             displayStyle: this.displayStyle,
             exportDdlSetting: this.exportDdlSetting,
-            perspectiveModelStorage: nextPerspectiveStorage
+            perspectiveModelStorage: nextPerspectiveStorage,
+            showRelationNames: this.showRelationNames,
+            roundedOrthogonalCorners: this.roundedOrthogonalCorners
         });
     }
 
@@ -87,7 +94,8 @@ export default class ErdSettingModel {
             displayStyle: this.displayStyle.toJSON(),
             exportDdlSetting: this.exportDdlSetting.toJSON(),
             ...((perspectiveModels.length > 0) && { perspectiveModels: perspectiveModels }),
-            ...(this.showRelationNames && { showRelationNames: true })
+            ...(this.showRelationNames && { showRelationNames: true }),
+            ...(this.roundedOrthogonalCorners && { roundedOrthogonalCorners: true })
         };
     }
 
@@ -103,12 +111,15 @@ export default class ErdSettingModel {
             ? toObjects(obj.perspectiveModels, "perspectiveModels", value => PerspectiveModel.toObject(value)) : [];
 
         const showRelationNames = ("showRelationNames" in obj) ? obj.showRelationNames as boolean : false;
+        const roundedOrthogonalCorners = ("roundedOrthogonalCorners" in obj)
+            ? (obj.roundedOrthogonalCorners === true) : false;
 
         return new ErdSettingModel({
             displayStyle,
             exportDdlSetting,
             perspectiveModelStorage: new PerspectiveModelStorage(perspectiveModels),
-            showRelationNames
+            showRelationNames,
+            roundedOrthogonalCorners
         });
     }
 
@@ -123,6 +134,9 @@ export default class ErdSettingModel {
             return false;
         }
         if (this.showRelationNames !== other.showRelationNames) {
+            return false;
+        }
+        if (this.roundedOrthogonalCorners !== other.roundedOrthogonalCorners) {
             return false;
         }
 

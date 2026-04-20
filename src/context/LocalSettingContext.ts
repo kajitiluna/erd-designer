@@ -7,7 +7,8 @@ export type LocalSetting = {
     perspectiveId: string,
     visibleLineStyle: "both-bounded" | "half-bounded",
     stickySize: { width: number, height: number },
-    stickyFontSize: number
+    stickyFontSize: number,
+    roundedOrthogonalCorners: boolean
 };
 
 export type LocalSettingAction =
@@ -15,7 +16,8 @@ export type LocalSettingAction =
     | { type: "perspective", perspectiveId: string }
     | { type: "showLine", visibleStyle: "both-bounded" | "half-bounded" }
     | { type: "stickySize", size: { width: number, height: number } }
-    | { type: "stickyFontSize", fontSize: number };
+    | { type: "stickyFontSize", fontSize: number }
+    | { type: "roundedOrthogonalCorners", enabled: boolean };
 
 export const reduceLocalSetting = (current: LocalSetting, action: LocalSettingAction) => {
     if (action.type === "defaultColor") {
@@ -60,6 +62,14 @@ export const reduceLocalSetting = (current: LocalSetting, action: LocalSettingAc
         return { ...current, stickyFontSize: action.fontSize };
     }
 
+    if (action.type === "roundedOrthogonalCorners") {
+        if (current.roundedOrthogonalCorners === action.enabled) {
+            return current;
+        }
+
+        return { ...current, roundedOrthogonalCorners: action.enabled };
+    }
+
     return current;
 };
 
@@ -71,7 +81,8 @@ export const DEFAULT_LOCAL_SETTING: LocalSetting = {
     perspectiveId: "",
     visibleLineStyle: "both-bounded",
     stickySize: { width: 100, height: 100 },
-    stickyFontSize: 9
+    stickyFontSize: 9,
+    roundedOrthogonalCorners: false
 };
 
 type LocalSettingReducer = {

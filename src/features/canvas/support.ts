@@ -114,6 +114,48 @@ export const toOrthogonalPoints = (
     return points;
 };
 
+export const toRoundedPath = (points: Point[], radius: number, offset: { x: number, y: number } = { x: 0, y: 0 }): string => {
+    if (points.length < 2) return "";
+    const ox = offset.x;
+    const oy = offset.y;
+    if (points.length === 2) {
+        return `M${points[0].x + ox},${points[0].y + oy} L${points[1].x + ox},${points[1].y + oy}`;
+    }
+
+    const parts: string[] = [`M${points[0].x + ox},${points[0].y + oy}`];
+
+    for (let i = 1; i < points.length - 1; i++) {
+        const prev = points[i - 1];
+        const curr = points[i];
+        const next = points[i + 1];
+
+        const dxIn = curr.x - prev.x;
+        const dyIn = curr.y - prev.y;
+        const lenIn = Math.sqrt(dxIn * dxIn + dyIn * dyIn);
+        const dxOut = next.x - curr.x;
+        const dyOut = next.y - curr.y;
+        const lenOut = Math.sqrt(dxOut * dxOut + dyOut * dyOut);
+
+        const r = Math.min(radius, lenIn / 2, lenOut / 2);
+        if (r < 1) {
+            parts.push(`L${curr.x + ox},${curr.y + oy}`);
+            continue;
+        }
+
+        const approachX = curr.x - (dxIn / lenIn) * r;
+        const approachY = curr.y - (dyIn / lenIn) * r;
+        const departX = curr.x + (dxOut / lenOut) * r;
+        const departY = curr.y + (dyOut / lenOut) * r;
+
+        parts.push(`L${approachX + ox},${approachY + oy}`);
+        parts.push(`Q${curr.x + ox},${curr.y + oy} ${departX + ox},${departY + oy}`);
+    }
+
+    const last = points[points.length - 1];
+    parts.push(`L${last.x + ox},${last.y + oy}`);
+    return parts.join(" ");
+};
+
 type ToDraggedOrthogonalPointsArgs = {
     relationView: RelationViewModel,
     points: Point[],

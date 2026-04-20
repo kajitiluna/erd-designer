@@ -26,9 +26,10 @@ import LineSelectorIcon from "~/components/icons/LineSelectorIcon";
 import LineWidthIcon from "~/components/icons/LineWidthIcon";
 import LineStraightIcon from "~/components/icons/LineStraightIcon";
 import LineOrthogonalIcon from "~/components/icons/LineOrthogonalIcon";
+import { LocalSettingContext } from "~/context/LocalSettingContext";
 import {
     handlePreventMouseEvent, ORTHOGONAL_THRESHOLD,
-    toDraggedOrthogonalPoints, toMarkerId, toOrthogonalPoints
+    toDraggedOrthogonalPoints, toMarkerId, toOrthogonalPoints, toRoundedPath
 } from "~/features/canvas/support";
 import EditAction from "~/features/canvas/EditAction";
 import RelationLabelOverlay from "~/features/canvas/RelationLabelOverlay";
@@ -841,6 +842,7 @@ const useOrthogonalLine = (
     const dragState = React.useContext(DragActionContext);
     const { scale: displayScale } = React.useContext(DisplayScaleContext);
     const positionResolver = React.useContext(CanvasPositionContext);
+    const { localSetting } = React.useContext(LocalSettingContext);
 
     const initPathCss = (selected: boolean, isReducedLine: boolean) => {
         if (!selected) {
@@ -948,9 +950,11 @@ const useOrthogonalLine = (
             { relationView, points, parentTable, childTable, selectState, dragState }
         );
 
-        const drawingLine = "M" + draggedPoints.map(point =>
-            `${point.x},${point.y}`
-        ).join(" L");
+        const drawingLine = localSetting.roundedOrthogonalCorners
+            ? toRoundedPath(draggedPoints, 10)
+            : "M" + draggedPoints.map(point =>
+                `${point.x},${point.y}`
+            ).join(" L");
 
         const selected = (selectState.relationId === relationView.relationId);
 

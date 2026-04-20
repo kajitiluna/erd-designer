@@ -51,6 +51,14 @@ const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) 
 
     const documentsHolder = new ErdDocumentsHolder(holderProps.erdDocuments, holderProps.cursor, handleOnSave);
 
+    React.useEffect(() => {
+        const erdSetting = documentsHolder.current().erdSettingModel;
+        if (erdSetting.roundedOrthogonalCorners) {
+            dispatchLocalSetting({ type: "roundedOrthogonalCorners", enabled: true });
+        }
+    }, []);
+
+
     return (
         <ErdDocumentsHolderContext.Provider value={documentsHolder}>
             <EditModeContext.Provider value={{ editMode, dispatchEditMode }}>
