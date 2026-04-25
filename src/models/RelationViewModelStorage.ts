@@ -1,4 +1,5 @@
 import RelationModel from "~/models/database/RelationModel";
+import LabelViewModel from "~/models/LabelViewModel";
 import LineViewModel from "~/models/LineViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
 
@@ -156,21 +157,31 @@ export default class RelationViewModelStorage {
         return new RelationViewModelStorage(Array.from(nextRelationIdMap.values()));
     }
 
-    public updateLineViewModel(relationId: string, nextLineViewModel: LineViewModel): RelationViewModelStorage {
+    public updateLineView(relationId: string, updating: LineViewModel): RelationViewModelStorage {
         const current = this.relationIdMap.get(relationId);
         if (current == null) {
             return this;
         }
 
-        if (current.lineViewModel.equals(nextLineViewModel)) {
+        if (current.lineViewModel.equals(updating)) {
             return this;
         }
 
-        const nextViewModel = new RelationViewModel({
-            relationModel: current.relationModel,
-            lineViewModel: nextLineViewModel
-        });
+        const nextViewModel = new RelationViewModel({ ...current, lineViewModel: updating });
+        return this.update([nextViewModel]);
+    }
 
+    public updateLabelView(relationId: string, updating: LabelViewModel): RelationViewModelStorage {
+        const current = this.relationIdMap.get(relationId);
+        if (current == null) {
+            return this;
+        }
+
+        if (current.labelViewModel.equals(updating)) {
+            return this;
+        }
+
+        const nextViewModel = new RelationViewModel({ ...current, labelViewModel: updating });
         return this.update([nextViewModel]);
     }
 

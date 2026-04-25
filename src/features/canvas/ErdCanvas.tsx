@@ -22,8 +22,7 @@ import {
     getScroll, inOpenControlPanel, toNextOrthogonalLines, withMultiSelectKey
 } from "~/features/canvas/support";
 import EditAction from "~/features/canvas/EditAction";
-import ErdRelationPathView, { ErdRelationTooltipRef, RelationLabelData } from "~/features/canvas/ErdRelationPathView";
-import RelationLabelOverlay from "~/features/canvas/RelationLabelOverlay";
+import ErdRelationPathView, { ErdRelationTooltipRef } from "~/features/canvas/ErdRelationPathView";
 import ErdTableView, { ERD_TABLE_VIEW_CLASS_NAME } from "~/features/canvas/ErdTableView";
 import PerspectiveSettingView from "~/features/editor/PerspectiveSettingView";
 import RelationEditView from "~/features/editor/RelationEditView";
@@ -55,7 +54,7 @@ const ErdCanvas = () => {
     const relationRef = React.useRef<ErdRelationTooltipRef>(null);
     // リレーション等の線情報を保持する
     const [svgPaths, setSvgPaths] = React.useState<React.JSX.Element[]>([]);
-    const [relationLabels, setRelationLabels] = React.useState<RelationLabelData[]>([]);
+    const [relationLabels, setRelationLabels] = React.useState<React.JSX.Element[]>([]);
     // 編集中の対象
     const [editAction, setEditAction] = React.useState<EditAction>(NO_EDIT_ACTION);
     // リレーション作成にて親テーブルが指定されているときに、論理的なマウス位置を保持する
@@ -215,8 +214,7 @@ const ErdCanvas = () => {
                 x: mousePosition.x - dragState.start.x,
                 y: mousePosition.y - dragState.start.y
             };
-
-            if ((offset.x === 0) && (offset.y === 0)) {
+            if ((Math.abs(offset.x) < 5) && (Math.abs(offset.y) < 5)) {
                 return;
             }
 
@@ -311,21 +309,8 @@ const ErdCanvas = () => {
                     ? element.tableIds.every(tableId => currentPerspective.containsModel(tableId))
                     : element.tableIds.some(tableId => currentPerspective.containsModel(tableId)));
 
-        const svgPaths = targetElements.map(element => element.path);
-        setSvgPaths(svgPaths);
-
-        if (relationRef.current != null) {
-            const allLabels = relationRef.current.labelData();
-            const filteredLabels = (currentPerspective == null)
-                ? allLabels
-                : allLabels.filter(label => {
-                    const rm = label.relationView.relationModel;
-                    return (localSetting.visibleLineStyle === "both-bounded")
-                        ? currentPerspective.containsModel(rm.parentTableModelId) && currentPerspective.containsModel(rm.childTableModelId)
-                        : currentPerspective.containsModel(rm.parentTableModelId) || currentPerspective.containsModel(rm.childTableModelId);
-                });
-            setRelationLabels(filteredLabels);
-        }
+        setSvgPaths(targetElements.map(element => element.path));
+        setRelationLabels(targetElements.map(element => element.label));
     }, [selectState, dragState, rectangleArea, localSetting.visibleLineStyle, erdDocument, currentPerspective]);
 
     // マウスカーソルのアイコン設定
@@ -416,22 +401,9 @@ const ErdCanvas = () => {
 
             {tableViews}
             {frontMemoViews}
+            {erdSetting.showRelationNames && relationLabels}
 
             <ActiveDraggingArea editMode={editMode} dragState={dragState} selectState={selectState} />
-
-            {erdSetting.showRelationNames && (
-                <div style={{
-                    position: "absolute", top: 0, left: 0,
-                    width: DRAWABLE_AREA.width, height: DRAWABLE_AREA.height,
-                    pointerEvents: "none", zIndex: 10000
-                }}>
-                    {relationLabels.map(label => (
-                        <RelationLabelOverlay key={`relation-label-overlay_${label.relationView.relationId}`}
-                            labelData={label}
-                            selected={selectState.relationId === label.relationView.relationId} />
-                    ))}
-                </div>
-            )}
         </div>
 
         {grabbingPanel}

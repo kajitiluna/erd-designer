@@ -8,7 +8,8 @@ import ColumnShareModel from "~/models/database/ColumnShareModel";
 import DbSchemaConfig from "~/models/DbSchemaConfig";
 import ErdDocument from "~/models/ErdDocument";
 import ErdSettingModel from "~/models/ErdSettingModel";
-import LineViewModel, { LabelStyle, OrthogonalDirection } from "~/models/LineViewModel";
+import LabelViewModel, { LabelPosition, LabelStyle } from "~/models/LabelViewModel";
+import LineViewModel, { OrthogonalDirection } from "~/models/LineViewModel";
 import MemoViewModel from "~/models/MemoViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
 import TableViewModel from "~/models/TableViewModel";
@@ -281,20 +282,6 @@ export class ErdDocumentsHolder {
      * @param relationId リレーションID
      * @param edgeId 削除対象の Edge
      */
-    public updateRelationLabelPosition(relationId: string, position: { segment: number, fraction: number, dx: number, dy: number }, loggingMessage: string) {
-        this.doUpdateRelationEdge(
-            loggingMessage,
-            { relationId, updateFunction: (previous => previous.updateLabelPosition(position)) }
-        );
-    }
-
-    public updateRelationLabelStyle(relationId: string, style: LabelStyle, loggingMessage: string) {
-        this.doUpdateRelationEdge(
-            loggingMessage,
-            { relationId, updateFunction: (previous => previous.updateLabelStyle(style)) }
-        );
-    }
-
     public deleteRelationEdge(relationId: string, edgeId: number) {
         this.doUpdateRelationEdge(
             `Delete relation edge: ${JSON.stringify({ relationId, edgeId })}`,
@@ -316,11 +303,70 @@ export class ErdDocumentsHolder {
                     return erdDocument;
                 }
 
-                return erdDocument.updateRelationLineModel(relationId, nextLineView);
+                return erdDocument.updateRelationLine(relationId, nextLineView);
             }, previous);
         };
 
         this.doUpdate(updateRelation, loggingMessage);
+    }
+
+    /**
+     * リレーションラベルの表示位置を更新する。
+     * 
+     * @param relationId リレーションID
+     * @param updating 更新内容
+     */
+    public updateRelationLabelPosition(relationId: string, updating: LabelPosition) {
+        const updatingFunction = (previous: LabelViewModel) => previous.updateLabelPosition(updating);
+        const message = `Update relation label position: ${JSON.stringify({ relationId, position: updating })}`;
+
+        this.doUpdateRelationLabel(relationId, updatingFunction, message);
+    }
+
+    /**
+     * リレーションラベルのスタイルを更新する。
+     * 
+     * @param relationId リレーションID
+     * @param updating 更新内容
+     */
+    public updateRelationLabelStyle(relationId: string, updating: LabelStyle) {
+        const updatingFunction = (previous: LabelViewModel) => previous.updateLabelStyle(updating);
+        const message = `Update relation label style: ${JSON.stringify({ relationId, style: updating })}`;
+
+        this.doUpdateRelationLabel(relationId, updatingFunction, message);
+    }
+
+    /**
+     * リレーションラベルの色を更新する。
+     * @param relationId リレーションID
+     * @param updating 更新内容
+     */
+    public updateRelationLabelColor(relationId: string, updating: ColorValue){
+        const updatingFunction = (previous: LabelViewModel) => previous.updateColor(updating);
+        const message = `Update relation label color: ${JSON.stringify({ relationId, color: updating })}`;
+
+        this.doUpdateRelationLabel(relationId, updatingFunction, message);
+    }
+
+    private doUpdateRelationLabel(
+        relationId: string, updateLabel: (previous: LabelViewModel) => LabelViewModel, message: string
+    ) {
+        const updateFunction = (erdDocument: ErdDocument): ErdDocument => {
+            const previousRelation = erdDocument.findRelationViewModel(relationId);
+            if (previousRelation == null) {
+                return erdDocument;
+            }
+
+            const previousLabel = previousRelation.labelViewModel;
+            const nextLabel = updateLabel(previousRelation.labelViewModel);
+            if (nextLabel.equals(previousLabel)) {
+                return erdDocument;
+            }
+
+            return erdDocument.updateRelationLabel(relationId, nextLabel);
+        };
+
+        this.doUpdate(updateFunction, message);
     }
 
     /**

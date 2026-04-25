@@ -16,15 +16,15 @@ import { DragActionContext } from "~/context/DragActionContext";
 import EditModeContext from "~/context/EditModeContext";
 import { EditModeType } from "~/models/EditMode";
 import ColorValue from "~/models/ColorValue";
-import { LabelStyle } from "~/models/LineViewModel";
 import ColorSelector from "~/components/ColorSelector";
-import { RelationLabelData } from "~/features/canvas/ErdRelationPathView";
 import { DRAWABLE_AREA, handlePreventMouseEvent } from "~/features/canvas/support";
+import RelationViewModel from "~/models/RelationViewModel";
 
 type Point = { x: number, y: number };
 
 type RelationLabelOverlayProps = {
-    labelData: RelationLabelData,
+    relationView: RelationViewModel,
+    pathPoints: { x: number, y: number }[],
     selected: boolean
 };
 
@@ -32,7 +32,7 @@ const DEFAULT_SEGMENT = 0;
 const DEFAULT_FRACTION = 0.15;
 const DEFAULT_DY = -14;
 
-const RelationLabelOverlay = ({ labelData, selected }: RelationLabelOverlayProps) => {
+const RelationLabelOverlay = ({ relationView, pathPoints, selected }: RelationLabelOverlayProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { scale: displayScale } = React.useContext(DisplayScaleContext);
     const positionResolver = React.useContext(CanvasPositionContext);
@@ -46,36 +46,32 @@ const RelationLabelOverlay = ({ labelData, selected }: RelationLabelOverlayProps
     const [toolbarVisible, setToolbarVisible] = React.useState(false);
     const stableAnchorRef = React.useRef<Point | null>(null);
     const prevPointCountRef = React.useRef(0);
-    const reanchorRef = React.useRef<{ segment: number, fraction: number, dx: number, dy: number } | null>(null);
+    const reAnchorRef = React.useRef<{ segment: number, fraction: number, dx: number, dy: number } | null>(null);
     const [dragPos, setDragPos] = React.useState<Point | null>(null);
     const [isDragging, setIsDragging] = React.useState(false);
 
-    const { relationView, pathPoints } = labelData;
-    const relationName = relationView.relationModel.relationName;
-    const labelPosition = relationView.lineViewModel.labelPosition;
+    const labelView = relationView.labelViewModel;
 
+    // 毎レンダーごとに描画する
     React.useEffect(() => {
-        if (!reanchorRef.current) {
+        if (!reAnchorRef.current) {
             return;
         }
 
-        const reAnchor = reanchorRef.current;
-        reanchorRef.current = null;
+        const reAnchor = reAnchorRef.current;
+        reAnchorRef.current = null;
 
-        documentsHolder.updateRelationLabelPosition(
-            relationView.relationId,
-            reAnchor,
-            `Re-anchor label: ${relationView.relationId}`
-        );
+        documentsHolder.updateRelationLabelPosition(relationView.relationId, reAnchor);
     });
 
-    if (!relationName || (pathPoints.length < 2)) {
+    if (!labelView.label || (pathPoints.length < 2)) {
         return null;
     }
 
+    const labelPosition = labelView.position;
     const hasPosition = (labelPosition.segment >= 0);
-    let seg = hasPosition ? labelPosition.segment : DEFAULT_SEGMENT;
-    let frac = hasPosition ? labelPosition.fraction : DEFAULT_FRACTION;
+    let segment = hasPosition ? labelPosition.segment : DEFAULT_SEGMENT;
+    let fraction = hasPosition ? labelPosition.fraction : DEFAULT_FRACTION;
     const dx = hasPosition ? labelPosition.dx : 0;
     const dy = hasPosition ? labelPosition.dy : DEFAULT_DY;
 
@@ -88,13 +84,13 @@ const RelationLabelOverlay = ({ labelData, selected }: RelationLabelOverlayProps
         && (prevPointCountRef.current !== pathPoints.length)
     ) {
         const reproj = projectOntoPath(pathPoints, stableAnchorRef.current);
-        seg = reproj.segment;
-        frac = reproj.fraction;
+        segment = reproj.segment;
+        fraction = reproj.fraction;
 
-        reanchorRef.current = { segment: seg, fraction: frac, dx, dy };
+        reAnchorRef.current = { segment, fraction, dx, dy };
     }
 
-    const anchor = pointOnSegment(pathPoints, seg, frac);
+    const anchor = pointOnSegment(pathPoints, segment, fraction);
     stableAnchorRef.current = anchor;
     prevPointCountRef.current = pathPoints.length;
     const labelX = dragPos?.x ?? (anchor.x + dx);
@@ -102,26 +98,6 @@ const RelationLabelOverlay = ({ labelData, selected }: RelationLabelOverlayProps
 
     const left = labelX + DRAWABLE_AREA.width / 2;
     const top = labelY + DRAWABLE_AREA.height / 2;
-
-    const getLabelCenter = () => {
-        const el = labelRef.current;
-        if (el) {
-            return { x: labelX + el.offsetWidth / 2, y: labelY + el.offsetHeight / 2 };
-        }
-
-        return { x: labelX, y: labelY };
-    };
-
-    const anchorProjection = (isDragging || selected)
-        ? (() => {
-            const center = getLabelCenter();
-            const proj = projectOntoPath(pathPoints, center);
-
-            return pointOnSegment(pathPoints, proj.segment, proj.fraction);
-        })()
-        : null;
-
-    const labelStyle: LabelStyle = relationView.lineViewModel.labelStyle;
 
     const handleMouseDown = (event: React.MouseEvent) => {
         if (event.button !== 0) {
@@ -139,7 +115,7 @@ const RelationLabelOverlay = ({ labelData, selected }: RelationLabelOverlayProps
 
         const handleMouseMove = (moveEvent: MouseEvent) => {
             didDragRef.current = true;
-            const movePos = positionResolver.getLogicalPosition(moveEvent as unknown as React.MouseEvent, displayScale);
+            const movePos = positionResolver.getLogicalPosition(moveEvent, displayScale);
             setDragPos({
                 x: startLabel.x + movePos.x - startPos.x,
                 y: startLabel.y + movePos.y - startPos.y
@@ -150,7 +126,7 @@ const RelationLabelOverlay = ({ labelData, selected }: RelationLabelOverlayProps
             window.removeEventListener("mousemove", handleMouseMove);
             window.removeEventListener("mouseup", handleMouseUp);
 
-            const upPos = positionResolver.getLogicalPosition(upEvent as unknown as React.MouseEvent, displayScale);
+            const upPos = positionResolver.getLogicalPosition(upEvent, displayScale);
             const finalPos = {
                 x: startLabel.x + upPos.x - startPos.x,
                 y: startLabel.y + upPos.y - startPos.y
@@ -160,11 +136,8 @@ const RelationLabelOverlay = ({ labelData, selected }: RelationLabelOverlayProps
 
             setIsDragging(false);
             setDragPos(null);
-            documentsHolder.updateRelationLabelPosition(
-                relationView.relationId,
-                projected,
-                `Update relation label position: ${relationView.relationId}`
-            );
+
+            documentsHolder.updateRelationLabelPosition(relationView.relationId, projected);
         };
 
         window.addEventListener("mousemove", handleMouseMove);
@@ -176,51 +149,52 @@ const RelationLabelOverlay = ({ labelData, selected }: RelationLabelOverlayProps
             didDragRef.current = false;
             return;
         }
+
         event.stopPropagation();
+
         setToolbarVisible(true);
         dispatchSelectAction({ type: "relation", relationId: relationView.relationId });
     };
 
+    const labelStyle = labelView.style;
+
     const handleToggleBold = () => {
         const next = { ...labelStyle, bold: !labelStyle.bold };
-        documentsHolder.updateRelationLabelStyle(
-            relationView.relationId, next,
-            `Update label style: ${relationView.relationId}`
-        );
+        documentsHolder.updateRelationLabelStyle(relationView.relationId, next);
     };
 
     const handleToggleItalic = () => {
         const next = { ...labelStyle, italic: !labelStyle.italic };
-        documentsHolder.updateRelationLabelStyle(
-            relationView.relationId, next,
-            `Update label style: ${relationView.relationId}`
-        );
+        documentsHolder.updateRelationLabelStyle(relationView.relationId, next);
     };
 
     const handleToggleStrikethrough = () => {
         const next = { ...labelStyle, strikethrough: !labelStyle.strikethrough };
-        documentsHolder.updateRelationLabelStyle(
-            relationView.relationId, next,
-            `Update label style: ${relationView.relationId}`
-        );
+        documentsHolder.updateRelationLabelStyle(relationView.relationId, next);
     };
 
     const handleFontSizeChange = (delta: number) => {
         const next = { ...labelStyle, fontSize: Math.max(1, labelStyle.fontSize + delta) };
-        documentsHolder.updateRelationLabelStyle(
-            relationView.relationId, next,
-            `Update label style: ${relationView.relationId}`
-        );
+        documentsHolder.updateRelationLabelStyle(relationView.relationId, next);
     };
 
     const handleSetColor = (background: ColorValue) => {
-        const hex = background.toHex();
-        const next = { ...labelStyle, color: hex === "#3c3c3c" ? undefined : hex };
-        documentsHolder.updateRelationLabelStyle(
-            relationView.relationId, next,
-            `Update label style: ${relationView.relationId}`
-        );
+        documentsHolder.updateRelationLabelColor(relationView.relationId, background);
     };
+
+    const getLabelCenter = () => {
+        const element = labelRef.current ?? { offsetWidth: 0, offsetHeight: 0 };
+        return { x: labelX + element.offsetWidth / 2, y: labelY + element.offsetHeight / 2 };
+    };
+
+    const anchorProjection = (isDragging || selected)
+        ? (() => {
+            const center = getLabelCenter();
+            const proj = projectOntoPath(pathPoints, center);
+
+            return pointOnSegment(pathPoints, proj.segment, proj.fraction);
+        })()
+        : null;
 
     const projDotLeft = anchorProjection ? anchorProjection.x + DRAWABLE_AREA.width / 2 : 0;
     const projDotTop = anchorProjection ? anchorProjection.y + DRAWABLE_AREA.height / 2 : 0;
@@ -232,33 +206,30 @@ const RelationLabelOverlay = ({ labelData, selected }: RelationLabelOverlayProps
         setToolbarVisible(false);
     }
 
-    const showToolbar = toolbarVisible && selected && selectState.edgeType == null
-        && editMode === EditModeType.SELECT
-        && dragState.status !== "on_dragging" && !isDragging;
+    const showToolbar = toolbarVisible && selected && (selectState.edgeType == null)
+        && (editMode === EditModeType.SELECT)
+        && (dragState.status !== "on_dragging") && !isDragging;
+
+    const toolbarStyle: React.CSSProperties = {
+        position: "absolute",
+        left, top: top + (labelRef.current?.offsetHeight ?? 16),
+        // transform: `scale(${1 / displayScale})`,
+        // transformOrigin: "top left",
+        marginTop: 4,
+        pointerEvents: "auto",
+        display: "flex",
+        alignItems: "center",
+        gap: 2,
+        backgroundColor: "#fff",
+        borderRadius: 4,
+        boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+        padding: "2px 4px"
+    };
 
     const toolbar = (!showToolbar || !toolbarPortalRef.current) ? null : createPortal(
-        <div style={{
-            position: "absolute",
-            left,
-            top: top + (labelRef.current?.offsetHeight ?? 16),
-            // transform: `scale(${1 / displayScale})`,
-            // transformOrigin: "top left",
-            marginTop: 4,
-            pointerEvents: "auto",
-            display: "flex",
-            alignItems: "center",
-            gap: 2,
-            backgroundColor: "#fff",
-            borderRadius: 4,
-            boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
-            padding: "2px 4px"
-        }}
-            onClick={handlePreventMouseEvent}
-            onMouseDown={handlePreventMouseEvent}
-            onMouseUp={handlePreventMouseEvent}>
-            <ColorSelector
-                color={labelStyle.color ? ColorValue.fromHex(labelStyle.color) : undefined}
-                callback={handleSetColor} />
+        <div style={toolbarStyle} onClick={handlePreventMouseEvent}
+            onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
+            <ColorSelector color={labelView.color} callback={handleSetColor} />
             <Tooltip title="Decrease font size" placement="top">
                 <IconButton size="small" onClick={() => handleFontSizeChange(-1)}>
                     <RemoveIcon fontSize="small" />
@@ -330,7 +301,7 @@ const RelationLabelOverlay = ({ labelData, selected }: RelationLabelOverlayProps
                 fontSize: `${labelStyle.fontSize}px`,
                 fontStyle: labelStyle.italic ? "italic" : "normal",
                 textDecoration: labelStyle.strikethrough ? "line-through" : "none",
-                color: labelStyle.color ?? "rgba(60, 60, 60, 0.95)",
+                color: labelView.color.toHex(),
                 fontWeight: labelStyle.bold ? 700 : (selected || isDragging ? 600 : 400),
                 textShadow: selected || isDragging ? "0 0 8px rgba(123, 31, 162, 0.6)" : "none",
                 outline: selected || isDragging ? "1.5px solid rgba(123, 31, 162, 0.5)" : "none",
@@ -339,11 +310,12 @@ const RelationLabelOverlay = ({ labelData, selected }: RelationLabelOverlayProps
                 cursor: "move",
                 userSelect: "none",
                 pointerEvents: "auto",
+                zIndex: 90,
                 whiteSpace: "nowrap"
             }}
                 onMouseDown={handleMouseDown}
                 onClick={handleClick}>
-                {relationName}
+                {labelView.label}
             </div>
             {toolbar}
         </>

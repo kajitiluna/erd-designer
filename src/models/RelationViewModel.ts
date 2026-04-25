@@ -1,11 +1,13 @@
 import RelationModel from "~/models/database/RelationModel";
 import { PropertyNotExistsError } from "~/models/exceptions";
+import LabelViewModel from "~/models/LabelViewModel";
 import LineViewModel from "~/models/LineViewModel";
 import { toDateTime } from "~/models/util";
 
 type RelationViewModelOptions = {
     relationModel: RelationModel,
     lineViewModel: LineViewModel,
+    labelViewModel?: LabelViewModel | null,
     createdAt?: Date | null
 }
 
@@ -13,11 +15,13 @@ export default class RelationViewModel {
 
     public readonly relationModel: RelationModel;
     public readonly lineViewModel: LineViewModel;
+    public readonly labelViewModel: LabelViewModel;
     public readonly createdAt: Date;
 
-    constructor({ relationModel, lineViewModel, createdAt = null }: RelationViewModelOptions) {
+    constructor({ relationModel, lineViewModel, labelViewModel = null, createdAt = null }: RelationViewModelOptions) {
         this.relationModel = relationModel;
         this.lineViewModel = lineViewModel;
+        this.labelViewModel = labelViewModel ?? new LabelViewModel({ label: relationModel.relationName });
         this.createdAt = createdAt ? createdAt : new Date();
     }
 
@@ -34,9 +38,13 @@ export default class RelationViewModel {
     }
 
     public updateRelationModel(updatingModel: RelationModel): RelationViewModel {
+        const nextLabel = (updatingModel.relationName === this.labelViewModel.label)
+            ? this.labelViewModel : new LabelViewModel({ ...this.labelViewModel, label: updatingModel.relationName });
+
         return new RelationViewModel({
             relationModel: updatingModel,
             lineViewModel: this.lineViewModel,
+            labelViewModel: nextLabel,
             createdAt: this.createdAt
         });
     }
@@ -45,6 +53,7 @@ export default class RelationViewModel {
         return {
             relationModel: this.relationModel.toJSON(),
             lineViewModel: this.lineViewModel.toJSON(),
+            ...((this.labelViewModel.label != "") && { labelViewModel: this.labelViewModel.toJSON() }),
             createdAt: this.createdAt
         };
     }
@@ -56,17 +65,21 @@ export default class RelationViewModel {
         if (!("lineViewModel" in obj)) {
             throw new PropertyNotExistsError("lineViewModel", obj);
         }
+
+        const labelView = ("labelViewModel" in obj) ? LabelViewModel.toObject(obj.labelViewModel as object) : null;
         const createdAt = ("createdAt" in obj) ? toDateTime(obj.createdAt) : new Date();
 
         return new RelationViewModel({
             relationModel: RelationModel.toObject(obj.relationModel as object),
             lineViewModel: LineViewModel.toObject(obj.lineViewModel as object),
+            labelViewModel: labelView,
             createdAt: createdAt
         });
     }
 
     public equals(other: RelationViewModel): boolean {
         return this.relationModel.equals(other.relationModel)
-            && this.lineViewModel.equals(other.lineViewModel);
+            && this.lineViewModel.equals(other.lineViewModel)
+            && this.labelViewModel.equals(other.labelViewModel);
     }
 }

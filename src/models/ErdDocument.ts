@@ -17,6 +17,7 @@ import DatabaseSettingModel from '~/models/DatabaseSettingModel';
 import DbSchemaConfig from '~/models/DbSchemaConfig';
 import ErdSettingModel from '~/models/ErdSettingModel';
 import { PropertyNotExistsError } from '~/models/exceptions';
+import LabelViewModel from '~/models/LabelViewModel';
 import LineViewModel, { OrthogonalDirection } from '~/models/LineViewModel';
 import MemoViewModel from '~/models/MemoViewModel';
 import MemoViewModelStorage from '~/models/MemoViewModelStorage';
@@ -1058,32 +1059,38 @@ export default class ErdDocument {
      * @returns 更新後のドキュメント
      */
     public deleteRelation(relationId: string): ErdDocument {
-        const next = this.relationViewModelStorage.deleteRelation([relationId]);
-        if (next === this.relationViewModelStorage) {
-            return this;
-        }
-
-        return this.doUpdate({
-            relationViewModelStorage: next
-        });
+        return this.doUpdateRelationStorage(() => this.relationViewModelStorage.deleteRelation([relationId]));
     }
 
     /**
      * 指定されたリレーションの線描画を更新する。
      * 
      * @param relationId 更新対象のリレーションID
-     * @param updatingModel 更新後の線描画モデル
+     * @param updating 更新後の線描画モデル
      * @returns 更新後のドキュメント
      */
-    public updateRelationLineModel(relationId: string, updatingModel: LineViewModel): ErdDocument {
-        const nextRelationStorage = this.relationViewModelStorage.updateLineViewModel(relationId, updatingModel);
+    public updateRelationLine(relationId: string, updating: LineViewModel): ErdDocument {
+        return this.doUpdateRelationStorage(() => this.relationViewModelStorage.updateLineView(relationId, updating));
+    }
+
+    /**
+     * 指定されたリレーションのラベルを更新する。
+     * 
+     * @param relationId 更新対象のリレーションID
+     * @param updating 更新後のラベルモデル
+     * @returns 更新後のドキュメント
+     */
+    public updateRelationLabel(relationId: string, updating: LabelViewModel): ErdDocument {
+        return this.doUpdateRelationStorage(() => this.relationViewModelStorage.updateLabelView(relationId, updating));
+    }
+
+    private doUpdateRelationStorage(updateFunction: () => RelationViewModelStorage): ErdDocument {
+        const nextRelationStorage = updateFunction();
         if (this.relationViewModelStorage === nextRelationStorage) {
             return this;
         }
 
-        return this.doUpdate({
-            relationViewModelStorage: nextRelationStorage
-        });
+        return this.doUpdate({ relationViewModelStorage: nextRelationStorage });
     }
 
     /**
@@ -1144,7 +1151,7 @@ export default class ErdDocument {
                     return previousStorage;
                 }
 
-                return previousStorage.updateLineViewModel(relationId, nextLineView);
+                return previousStorage.updateLineView(relationId, nextLineView);
             }, this.relationViewModelStorage.moveRelation(tableIds, moving));
 
         return this.doUpdateTableRectangle([...tableIds], doMoveTableView, nextRelationViewStorage);
