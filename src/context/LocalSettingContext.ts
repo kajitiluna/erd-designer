@@ -6,7 +6,6 @@ export type LocalSetting = {
     defaultColor: { background: ColorValue, foreground: ColorValue },
     perspectiveId: string,
     visibleLineStyle: "both-bounded" | "half-bounded",
-    showRelationNames: boolean,
     stickySize: { width: number, height: number },
     stickyFontSize: number
 };
@@ -15,7 +14,6 @@ export type LocalSettingAction =
     { type: "defaultColor", color: { background: ColorValue, foreground: ColorValue } }
     | { type: "perspective", perspectiveId: string }
     | { type: "showLine", visibleStyle: "both-bounded" | "half-bounded" }
-    | { type: "showRelationNames", show: boolean }
     | { type: "stickySize", size: { width: number, height: number } }
     | { type: "stickyFontSize", fontSize: number };
 
@@ -45,14 +43,6 @@ export const reduceLocalSetting = (current: LocalSetting, action: LocalSettingAc
         return { ...current, visibleLineStyle: action.visibleStyle };
     }
 
-    if (action.type === "showRelationNames") {
-        if (current.showRelationNames === action.show) {
-            return current;
-        }
-
-        return { ...current, showRelationNames: action.show };
-    }
-
     if (action.type === "stickySize") {
         if ((current.stickySize.width === action.size.width)
             && (current.stickySize.height === action.size.height)) {
@@ -80,7 +70,6 @@ export const DEFAULT_LOCAL_SETTING: LocalSetting = {
     },
     perspectiveId: "",
     visibleLineStyle: "both-bounded",
-    showRelationNames: false,
     stickySize: { width: 100, height: 100 },
     stickyFontSize: 9
 };

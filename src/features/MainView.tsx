@@ -35,12 +35,6 @@ const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) 
     const [localSetting, dispatchLocalSetting] = React.useReducer(reduceLocalSetting, DEFAULT_LOCAL_SETTING);
     const [scale, setScale] = React.useState<ScaleState>({ scale: 1, phase: "idle" });
 
-    React.useEffect(() => {
-        if (erdDocument.erdSettingModel.showRelationNames) {
-            dispatchLocalSetting({ type: "showRelationNames", show: true });
-        }
-    }, []);
-
     const handleOnSave = (documents: ErdDocument[], cursor: number, loggingMessage: string) => {
         if ((cursor < 0) || (cursor >= documents.length)) {
             console.warn(`Invalid cursor value. documents.length: ${documents.length}, cursor: ${cursor}`);

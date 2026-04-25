@@ -164,26 +164,6 @@ const ActionPanel = () => {
         </FormControl>
     );
 
-    const handleChangeShowRelationNames = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const show = event.target.checked;
-        dispatchLocalSetting({ type: "showRelationNames", show });
-        const nextSetting = erdDocument.erdSettingModel.update({ showRelationNames: show });
-        documentsHolder.updateErdSetting(nextSetting, `Update show relation names: ${show}`);
-    };
-
-    const relationNameSwitcher = (
-        <FormControl sx={{ padding: "0 6px 6px 12px" }}>
-            <DescriptionTooltip placement="right-end"
-                title={"Show relation names as labels\non connection lines."}>
-                <FormControlLabel sx={SWITCH_FORM_STYLE}
-                    label="Show relation names" control={
-                        <Switch size="small" checked={localSetting.showRelationNames}
-                            onChange={handleChangeShowRelationNames} />
-                    } />
-            </DescriptionTooltip>
-        </FormControl>
-    );
-
     const handleSetDefaultColor = (background: ColorValue, foreground: ColorValue) => {
         dispatchLocalSetting({
             type: "defaultColor",
@@ -198,7 +178,6 @@ const ActionPanel = () => {
 
             {perspectiveSelector}
             {lineVisibleSwitcher}
-            {relationNameSwitcher}
             <Divider />
 
             <Button variant="text" startIcon={<UndoIcon />}

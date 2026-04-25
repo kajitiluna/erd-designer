@@ -326,7 +326,7 @@ const ErdCanvas = () => {
                 });
             setRelationLabels(filteredLabels);
         }
-    }, [selectState, dragState, rectangleArea, localSetting.visibleLineStyle, localSetting.showRelationNames, erdDocument, currentPerspective]);
+    }, [selectState, dragState, rectangleArea, localSetting.visibleLineStyle, erdDocument, currentPerspective]);
 
     // マウスカーソルのアイコン設定
     React.useLayoutEffect(() => {
@@ -395,12 +395,6 @@ const ErdCanvas = () => {
 
 
     const canvasStyle = initCanvasStyle(displayScale);
-    const svgStyle: React.CSSProperties = {
-        position: "absolute", top: 0, left: 0,
-        width: `${DRAWABLE_AREA.width}px`,
-        height: `${DRAWABLE_AREA.height}px`,
-        pointerEvents: "none"
-    };
 
     const mainCanvas = (<>
         <div id="erd-canvas" ref={erdCanvasRef} style={canvasStyle}
@@ -409,7 +403,7 @@ const ErdCanvas = () => {
 
             {backMemoViews}
 
-            <svg style={svgStyle}>
+            <svg style={CANVAS_WRAPPING_STYLE}>
                 <rect x={CANVAS_AREA.width / 2} y={CANVAS_AREA.height / 2}
                     width={CANVAS_AREA.width} height={CANVAS_AREA.height}
                     fill="transparent" stroke="#878787" strokeWidth="50" />
@@ -425,7 +419,7 @@ const ErdCanvas = () => {
 
             <ActiveDraggingArea editMode={editMode} dragState={dragState} selectState={selectState} />
 
-            {localSetting.showRelationNames && (
+            {erdSetting.showRelationNames && (
                 <div style={{
                     position: "absolute", top: 0, left: 0,
                     width: DRAWABLE_AREA.width, height: DRAWABLE_AREA.height,
@@ -442,13 +436,7 @@ const ErdCanvas = () => {
 
         {grabbingPanel}
 
-        {(phase === "idle") && (
-            <div ref={toolbarPortalRef} style={{
-                position: "absolute", top: 0, left: 0,
-                width: DRAWABLE_AREA.width, height: DRAWABLE_AREA.height,
-                pointerEvents: "none"
-            }} />
-        )}
+        {(phase === "idle") && (<div ref={toolbarPortalRef} style={CANVAS_WRAPPING_STYLE} />)}
 
         <div style={{ visibility: (phase === "scaling") ? "hidden" : "visible" }}>
             <ErdRelationPathView ref={relationRef}
@@ -469,6 +457,13 @@ const ErdCanvas = () => {
             </CanvasPositionContext.Provider>
         </DragActionContext.Provider>
     );
+};
+
+const CANVAS_WRAPPING_STYLE: React.CSSProperties = {
+    position: "absolute", top: 0, left: 0,
+    width: `${DRAWABLE_AREA.width}px`,
+    height: `${DRAWABLE_AREA.height}px`,
+    pointerEvents: "none"
 };
 
 const initEditView = (editAction: EditAction, rectangleArea: RectangleArea, onClose: () => void) => {

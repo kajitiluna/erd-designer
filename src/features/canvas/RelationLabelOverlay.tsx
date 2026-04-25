@@ -32,54 +32,6 @@ const DEFAULT_SEGMENT = 0;
 const DEFAULT_FRACTION = 0.15;
 const DEFAULT_DY = -14;
 
-const pointOnSegment = (points: Point[], segment: number, fraction: number): Point => {
-    if (points.length < 2) return points[0] ?? { x: 0, y: 0 };
-    const i = Math.max(0, Math.min(segment, points.length - 2));
-    const f = Math.max(0, Math.min(1, fraction));
-    return {
-        x: points[i].x + f * (points[i + 1].x - points[i].x),
-        y: points[i].y + f * (points[i + 1].y - points[i].y)
-    };
-};
-
-const projectOntoPath = (points: Point[], target: Point): { segment: number, fraction: number, dx: number, dy: number } => {
-    if (points.length < 2) return { segment: 0, fraction: 0, dx: 0, dy: 0 };
-
-    let bestDist = Infinity;
-    let bestSegment = 0;
-    let bestFraction = 0;
-    let bestClosest: Point = points[0];
-
-    for (let i = 0; i < points.length - 1; i++) {
-        const sdx = points[i + 1].x - points[i].x;
-        const sdy = points[i + 1].y - points[i].y;
-        const len = Math.sqrt(sdx * sdx + sdy * sdy);
-        if (len === 0) { continue; }
-
-        const tx = target.x - points[i].x;
-        const ty = target.y - points[i].y;
-        const proj = Math.max(0, Math.min(1, (tx * sdx + ty * sdy) / (len * len)));
-
-        const cx = points[i].x + proj * sdx;
-        const cy = points[i].y + proj * sdy;
-        const dist = (target.x - cx) ** 2 + (target.y - cy) ** 2;
-
-        if (dist < bestDist) {
-            bestDist = dist;
-            bestSegment = i;
-            bestFraction = proj;
-            bestClosest = { x: cx, y: cy };
-        }
-    }
-
-    return {
-        segment: bestSegment,
-        fraction: bestFraction,
-        dx: target.x - bestClosest.x,
-        dy: target.y - bestClosest.y
-    };
-};
-
 const RelationLabelOverlay = ({ labelData, selected }: RelationLabelOverlayProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { scale: displayScale } = React.useContext(DisplayScaleContext);
@@ -88,51 +40,57 @@ const RelationLabelOverlay = ({ labelData, selected }: RelationLabelOverlayProps
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
+
     const labelRef = React.useRef<HTMLDivElement>(null);
     const didDragRef = React.useRef(false);
     const [toolbarVisible, setToolbarVisible] = React.useState(false);
     const stableAnchorRef = React.useRef<Point | null>(null);
     const prevPointCountRef = React.useRef(0);
     const reanchorRef = React.useRef<{ segment: number, fraction: number, dx: number, dy: number } | null>(null);
-
-    const { relationView, pathPoints } = labelData;
-    const relationName = relationView.relationModel.relationName;
-    const persisted = relationView.lineViewModel.labelPosition;
     const [dragPos, setDragPos] = React.useState<Point | null>(null);
     const [isDragging, setIsDragging] = React.useState(false);
 
+    const { relationView, pathPoints } = labelData;
+    const relationName = relationView.relationModel.relationName;
+    const labelPosition = relationView.lineViewModel.labelPosition;
+
     React.useEffect(() => {
-        if (reanchorRef.current) {
-            const data = reanchorRef.current;
-            reanchorRef.current = null;
-            documentsHolder.updateRelationLabelPosition(
-                relationView.relationId,
-                data,
-                `Re-anchor label: ${relationView.relationId}`
-            );
+        if (!reanchorRef.current) {
+            return;
         }
+
+        const reAnchor = reanchorRef.current;
+        reanchorRef.current = null;
+
+        documentsHolder.updateRelationLabelPosition(
+            relationView.relationId,
+            reAnchor,
+            `Re-anchor label: ${relationView.relationId}`
+        );
     });
 
-    if (!relationName || pathPoints.length < 2) {
+    if (!relationName || (pathPoints.length < 2)) {
         return null;
     }
 
-    const hasPosition = persisted.segment >= 0;
-    let seg = hasPosition ? persisted.segment : DEFAULT_SEGMENT;
-    let frac = hasPosition ? persisted.fraction : DEFAULT_FRACTION;
-    const dx = hasPosition ? persisted.dx : 0;
-    const dy = hasPosition ? persisted.dy : DEFAULT_DY;
+    const hasPosition = (labelPosition.segment >= 0);
+    let seg = hasPosition ? labelPosition.segment : DEFAULT_SEGMENT;
+    let frac = hasPosition ? labelPosition.fraction : DEFAULT_FRACTION;
+    const dx = hasPosition ? labelPosition.dx : 0;
+    const dy = hasPosition ? labelPosition.dy : DEFAULT_DY;
 
     // When path topology changes (points added/removed via virtual edge drag),
     // segment indices shift. Re-project the cached anchor world position to
     // find the correct segment on the new path.
     if (hasPosition
-        && stableAnchorRef.current !== null
-        && prevPointCountRef.current > 0
-        && prevPointCountRef.current !== pathPoints.length) {
+        && (stableAnchorRef.current !== null)
+        && (prevPointCountRef.current > 0)
+        && (prevPointCountRef.current !== pathPoints.length)
+    ) {
         const reproj = projectOntoPath(pathPoints, stableAnchorRef.current);
         seg = reproj.segment;
         frac = reproj.fraction;
+
         reanchorRef.current = { segment: seg, fraction: frac, dx, dy };
     }
 
@@ -145,17 +103,20 @@ const RelationLabelOverlay = ({ labelData, selected }: RelationLabelOverlayProps
     const left = labelX + DRAWABLE_AREA.width / 2;
     const top = labelY + DRAWABLE_AREA.height / 2;
 
-    const getLabelCenter = (): { x: number, y: number } => {
+    const getLabelCenter = () => {
         const el = labelRef.current;
-        if (el) return { x: labelX + el.offsetWidth / 2, y: labelY + el.offsetHeight / 2 };
+        if (el) {
+            return { x: labelX + el.offsetWidth / 2, y: labelY + el.offsetHeight / 2 };
+        }
+
         return { x: labelX, y: labelY };
     };
 
-    const showAnchor = isDragging || selected;
-    const anchorProjection = showAnchor
+    const anchorProjection = (isDragging || selected)
         ? (() => {
             const center = getLabelCenter();
             const proj = projectOntoPath(pathPoints, center);
+
             return pointOnSegment(pathPoints, proj.segment, proj.fraction);
         })()
         : null;
@@ -163,7 +124,10 @@ const RelationLabelOverlay = ({ labelData, selected }: RelationLabelOverlayProps
     const labelStyle: LabelStyle = relationView.lineViewModel.labelStyle;
 
     const handleMouseDown = (event: React.MouseEvent) => {
-        if (event.button !== 0) return;
+        if (event.button !== 0) {
+            return;
+        }
+
         event.stopPropagation();
 
         setToolbarVisible(false);
@@ -272,15 +236,13 @@ const RelationLabelOverlay = ({ labelData, selected }: RelationLabelOverlayProps
         && editMode === EditModeType.SELECT
         && dragState.status !== "on_dragging" && !isDragging;
 
-    const counterScale = 1 / displayScale;
-
     const toolbar = (!showToolbar || !toolbarPortalRef.current) ? null : createPortal(
         <div style={{
             position: "absolute",
             left,
             top: top + (labelRef.current?.offsetHeight ?? 16),
-            transform: `scale(${counterScale})`,
-            transformOrigin: "top left",
+            // transform: `scale(${1 / displayScale})`,
+            // transformOrigin: "top left",
             marginTop: 4,
             pointerEvents: "auto",
             display: "flex",
@@ -386,6 +348,61 @@ const RelationLabelOverlay = ({ labelData, selected }: RelationLabelOverlayProps
             {toolbar}
         </>
     );
+};
+
+const pointOnSegment = (points: Point[], segment: number, fraction: number): Point => {
+    if (points.length < 2) {
+        return points[0] ?? { x: 0, y: 0 };
+    }
+
+    const i = Math.max(0, Math.min(segment, points.length - 2));
+    const f = Math.max(0, Math.min(1, fraction));
+    return {
+        x: points[i].x + f * (points[i + 1].x - points[i].x),
+        y: points[i].y + f * (points[i + 1].y - points[i].y)
+    };
+};
+
+const projectOntoPath = (points: Point[], target: Point): { segment: number, fraction: number, dx: number, dy: number } => {
+    if (points.length < 2) {
+        return { segment: 0, fraction: 0, dx: 0, dy: 0 };
+    }
+
+    let bestDist = Infinity;
+    let bestSegment = 0;
+    let bestFraction = 0;
+    let bestClosest: Point = points[0];
+
+    for (let index = 0; index < points.length - 1; index++) {
+        const sdx = points[index + 1].x - points[index].x;
+        const sdy = points[index + 1].y - points[index].y;
+        const len = Math.sqrt(sdx * sdx + sdy * sdy);
+        if (len === 0) {
+            continue;
+        }
+
+        const tx = target.x - points[index].x;
+        const ty = target.y - points[index].y;
+        const proj = Math.max(0, Math.min(1, (tx * sdx + ty * sdy) / (len * len)));
+
+        const cx = points[index].x + proj * sdx;
+        const cy = points[index].y + proj * sdy;
+        const dist = (target.x - cx) ** 2 + (target.y - cy) ** 2;
+
+        if (dist < bestDist) {
+            bestDist = dist;
+            bestSegment = index;
+            bestFraction = proj;
+            bestClosest = { x: cx, y: cy };
+        }
+    }
+
+    return {
+        segment: bestSegment,
+        fraction: bestFraction,
+        dx: target.x - bestClosest.x,
+        dy: target.y - bestClosest.y
+    };
 };
 
 export default RelationLabelOverlay;
