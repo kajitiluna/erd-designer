@@ -20,7 +20,7 @@ import EditModeContext from "~/context/EditModeContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { LocalSettingContext } from "~/context/LocalSettingContext";
 import { RELEASE_ACTION, SelectEntityContext, SelectState } from "~/context/SelectEntityContext";
-import ToolbarPortalContext from "~/context/ToolbarPortalContext";
+import PortalCanvasContext from "~/context/PortalCanvasContext";
 import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
 import EditAction from "~/features/canvas/EditAction";
 import CanvasPositionContext from "~/context/CanvasPositionContext";
@@ -359,7 +359,7 @@ const InnerErdTableView = ({
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
     const { scale: displayScale } = React.useContext(DisplayScaleContext);
     const positionResolver = React.useContext(CanvasPositionContext);
-    const toolbarPortalRef = React.useContext(ToolbarPortalContext);
+    const { toolbarCanvasRef } = React.useContext(PortalCanvasContext);
 
     const containerRef = React.useRef<HTMLDivElement>(null);
     const [selfSelectableMode, setSelfSelectableMode] = React.useState<SelfSelectableMode>("none");
@@ -562,7 +562,7 @@ const InnerErdTableView = ({
         : ERD_TABLE_VIEW_CLASS_NAME;
 
     const initControlPanel = () => {
-        if (!containerRef.current || !toolbarPortalRef.current) {
+        if (!containerRef.current || !toolbarCanvasRef.current) {
             return (<></>);
         }
 
@@ -572,13 +572,14 @@ const InnerErdTableView = ({
             return (<></>);
         }
 
-        const portalRect = toolbarPortalRef.current.getBoundingClientRect();
+        const portalRect = toolbarCanvasRef.current.getBoundingClientRect();
         const containerRect = containerRef.current.getBoundingClientRect();
         const controlPanelStyle: React.CSSProperties = {
             position: "absolute",
-            left: containerRect.right - portalRect.left,
-            top: containerRect.bottom - portalRect.top + 10,
-            transform: "translateX(-100%)",
+            left: (containerRect.right - portalRect.left) / displayScale,
+            top: (containerRect.bottom - portalRect.top + 10) / displayScale,
+            transformOrigin: "top right",
+            transform: `translateX(-100%) scale(${1 / displayScale})`,
             pointerEvents: "auto",
         };
 
@@ -611,7 +612,7 @@ const InnerErdTableView = ({
             </Stack>
         );
 
-        return ReactDOM.createPortal(controlMenu, toolbarPortalRef.current);
+        return ReactDOM.createPortal(controlMenu, toolbarCanvasRef.current);
     };
 
     const controlPanel = initControlPanel();

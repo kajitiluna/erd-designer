@@ -28,7 +28,7 @@ import PerspectiveSettingView from "~/features/editor/PerspectiveSettingView";
 import RelationEditView from "~/features/editor/RelationEditView";
 import TableEditView from "~/features/editor/TableEditView";
 import StickyMemoView, { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
-import ToolbarPortalContext from "~/context/ToolbarPortalContext";
+import PortalCanvasContext from "~/context/PortalCanvasContext";
 
 type RectangleArea = {
     tableRectangles: Map<string, RectangleViewModel>,
@@ -37,7 +37,8 @@ type RectangleArea = {
 
 const ErdCanvas = () => {
     const erdCanvasRef = React.useRef<HTMLDivElement>(null);
-    const toolbarPortalRef = React.useRef<HTMLDivElement>(null);
+    const toolbarCanvasRef = React.useRef<HTMLDivElement>(null);
+    const svgCanvasRef = React.useRef<SVGSVGElement>(null);
     const [dragState, dispatchDragAction] = React.useReducer(reduceDragAction, NO_DRAGGING);
 
     const documentsHolder = React.useContext(ErdDocumentsHolderContext);
@@ -388,8 +389,8 @@ const ErdCanvas = () => {
 
             {backMemoViews}
 
-            <svg style={CANVAS_WRAPPING_STYLE}>
-                <rect x={CANVAS_AREA.width / 2} y={CANVAS_AREA.height / 2}
+            <svg ref={svgCanvasRef} style={CANVAS_WRAPPING_STYLE} viewBox={SVG_VIEW_BOX}>
+                <rect x={-CANVAS_AREA.width / 2} y={-CANVAS_AREA.height / 2}
                     width={CANVAS_AREA.width} height={CANVAS_AREA.height}
                     fill="transparent" stroke="#878787" strokeWidth="50" />
 
@@ -403,12 +404,12 @@ const ErdCanvas = () => {
             {frontMemoViews}
             {erdSetting.showRelationNames && relationLabels}
 
+            {(phase === "idle") && (<div ref={toolbarCanvasRef} style={TOOLBAR_CANVAS_STYLE} />)}
+
             <ActiveDraggingArea editMode={editMode} dragState={dragState} selectState={selectState} />
         </div>
 
         {grabbingPanel}
-
-        {(phase === "idle") && (<div ref={toolbarPortalRef} style={CANVAS_WRAPPING_STYLE} />)}
 
         <div style={{ visibility: (phase === "scaling") ? "hidden" : "visible" }}>
             <ErdRelationPathView ref={relationRef}
@@ -423,9 +424,9 @@ const ErdCanvas = () => {
     return (
         <DragActionContext.Provider value={dragState}>
             <CanvasPositionContext.Provider value={positionResolver}>
-                <ToolbarPortalContext.Provider value={toolbarPortalRef}>
+                <PortalCanvasContext.Provider value={{ toolbarCanvasRef, svgCanvasRef }} >
                     {mainCanvas}
-                </ToolbarPortalContext.Provider>
+                </PortalCanvasContext.Provider>
             </CanvasPositionContext.Provider>
         </DragActionContext.Provider>
     );
@@ -437,6 +438,19 @@ const CANVAS_WRAPPING_STYLE: React.CSSProperties = {
     height: `${DRAWABLE_AREA.height}px`,
     pointerEvents: "none"
 };
+
+const TOOLBAR_CANVAS_STYLE: React.CSSProperties = {
+    position: "absolute",
+    top: `${DRAWABLE_AREA.height / 2}px`,
+    left: `${DRAWABLE_AREA.width / 2}px`,
+    width: `${DRAWABLE_AREA.width}px`,
+    height: `${DRAWABLE_AREA.height}px`,
+    overflow: "visible",
+    pointerEvents: "none"
+};
+
+const SVG_VIEW_BOX = `${-DRAWABLE_AREA.width / 2} ${-DRAWABLE_AREA.height / 2}` +
+    ` ${DRAWABLE_AREA.width} ${DRAWABLE_AREA.height}`;
 
 const initEditView = (editAction: EditAction, rectangleArea: RectangleArea, onClose: () => void) => {
     if (editAction.editType === "none") {
@@ -663,10 +677,10 @@ const initCreatingRelationLine = ({
     if (parentRectangle.contains(relationEdge) === false) {
         return (
             <line
-                x1={parentRectangle.xCenter + DRAWABLE_AREA.width / 2}
-                y1={parentRectangle.yCenter + DRAWABLE_AREA.height / 2}
-                x2={relationEdge.x + DRAWABLE_AREA.width / 2}
-                y2={relationEdge.y + DRAWABLE_AREA.height / 2}
+                x1={parentRectangle.xCenter}
+                y1={parentRectangle.yCenter}
+                x2={relationEdge.x}
+                y2={relationEdge.y}
                 stroke={SELECTED_LINE_COLOR} strokeDasharray="4" strokeWidth="3">
                 <animate attributeName="stroke-dashoffset" from="24" to="0" dur="1s" repeatCount="indefinite" />
             </line>
@@ -681,7 +695,7 @@ const initCreatingRelationLine = ({
         { x: parentRectangle.xCenter + parentRectangle.width / 4, y: parentRectangle.bottom }
     ];
     const drawingLine = "M" + drawingPoints.map(point =>
-        `${point.x + DRAWABLE_AREA.width / 2},${point.y + DRAWABLE_AREA.height / 2}`
+        `${point.x},${point.y}`
     ).join(" L");
 
     return (

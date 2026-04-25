@@ -1,4 +1,5 @@
 import React from "react";
+import ReactDOM from "react-dom";
 import {
     Button, ButtonGroup, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
     Divider, IconButton, Popover, Stack, Tooltip
@@ -12,6 +13,7 @@ import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityConte
 import { DragAction, DragActionContext } from "~/context/DragActionContext";
 import DisplayScaleContext from "~/context/DisplayScaleContext";
 import CanvasPositionContext from "~/context/CanvasPositionContext";
+import PortalCanvasContext from "~/context/PortalCanvasContext";
 import RelationModel from "~/models/database/RelationModel";
 import { OrthogonalDirection } from "~/models/LineViewModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
@@ -25,7 +27,7 @@ import LineWidthIcon from "~/components/icons/LineWidthIcon";
 import LineStraightIcon from "~/components/icons/LineStraightIcon";
 import LineOrthogonalIcon from "~/components/icons/LineOrthogonalIcon";
 import {
-    DRAWABLE_AREA, handlePreventMouseEvent, ORTHOGONAL_THRESHOLD,
+    handlePreventMouseEvent, ORTHOGONAL_THRESHOLD,
     toDraggedOrthogonalPoints, toMarkerId, toOrthogonalPoints
 } from "~/features/canvas/support";
 import EditAction from "~/features/canvas/EditAction";
@@ -146,6 +148,7 @@ const useRelationTooltip = (
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
     const { scale: displayScale } = React.useContext(DisplayScaleContext);
+    const { toolbarCanvasRef } = React.useContext(PortalCanvasContext);
 
     const [lineEditElement, setLineEditElement] = React.useState<HTMLElement | null>(null);
 
@@ -288,12 +291,19 @@ const useRelationTooltip = (
 
     const tooltipStyle: React.CSSProperties = {
         position: "absolute",
-        left: clickedPosition.x * displayScale + 15 + DRAWABLE_AREA.width / 2,
-        top: clickedPosition.y * displayScale - 45 + DRAWABLE_AREA.height / 2,
-        backgroundColor: "#FFFFFF"
+        left: clickedPosition.x + 15,
+        top: clickedPosition.y - 45,
+        backgroundColor: "#FFFFFF",
+        pointerEvents: "auto",
+        transformOrigin: "top left",
+        transform: `scale(${1 / displayScale})`,
     };
 
-    return (
+    if (!toolbarCanvasRef.current) {
+        return (<></>);
+    }
+
+    return ReactDOM.createPortal((
         <ButtonGroup key={`relation-line_${relationView.relationId}_tooltip`}
             variant="contained" size="small" sx={tooltipStyle}
             onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
@@ -317,7 +327,7 @@ const useRelationTooltip = (
             </Tooltip>
             {initLinePopover(lineEditElement)}
         </ButtonGroup >
-    );
+    ), toolbarCanvasRef.current);
 };
 
 type LineDragging = {
@@ -434,7 +444,7 @@ const useStraightLineView = (
         const svgPaths = (svgRemoveEdgePath != null)
             ? [...svgBasePaths, ...svgEdges, svgRemoveEdgePath] : [...svgBasePaths, ...svgEdges];
 
-        const drawingPath = `M ${parentEdge.x + DRAWABLE_AREA.width / 2},${parentEdge.y + DRAWABLE_AREA.height / 2}`
+        const drawingPath = `M ${parentEdge.x},${parentEdge.y}`
             + relationLineSegments.map(lineSegment => lineSegment.drawingLine).join(" ");
 
         const labelEdges = [...relationEdges];
@@ -537,8 +547,8 @@ const useStraightLineView = (
             handleOpenEditDialog(event, relationView)
         };
 
-        const line = `M ${pair[0].x + DRAWABLE_AREA.width / 2},${pair[0].y + DRAWABLE_AREA.height / 2}`
-            + ` L ${pair[1].x + DRAWABLE_AREA.width / 2},${pair[1].y + DRAWABLE_AREA.height / 2}`;
+        const line = `M ${pair[0].x},${pair[0].y}`
+            + ` L ${pair[1].x},${pair[1].y}`;
 
         return (
             <path key={`relation-line_${relationView.relationId}_path-${index}`}
@@ -566,20 +576,20 @@ const useStraightLineView = (
                 && (index < relationView.lineViewModel.edges.length)
             ) ? dragState.delta() : { x: 0, y: 0 };
 
-            return `L ${pair[1].x + delta.x + DRAWABLE_AREA.width / 2},${pair[1].y + delta.y + DRAWABLE_AREA.height / 2}`;
+            return `L ${pair[1].x + delta.x},${pair[1].y + delta.y}`;
         }
 
         if (selectState.edgeType === "real") {
-            return `L ${dragState.current.x + DRAWABLE_AREA.width / 2},${dragState.current.y + DRAWABLE_AREA.height / 2}`;
+            return `L ${dragState.current.x},${dragState.current.y}`;
         }
 
         // Edge 変更が有効な場所に移っていない場合は、元の線分を描画する
         if (!lineDragging.on_dragging || !lineDragging.majorChanging) {
-            return `L ${pair[1].x + DRAWABLE_AREA.width / 2},${pair[1].y + DRAWABLE_AREA.height / 2}`;
+            return `L ${pair[1].x},${pair[1].y}`;
         }
 
-        return `L ${dragState.current.x + DRAWABLE_AREA.width / 2},${dragState.current.y + DRAWABLE_AREA.height / 2}`
-            + ` L ${pair[1].x + DRAWABLE_AREA.width / 2},${pair[1].y + DRAWABLE_AREA.height / 2}`;
+        return `L ${dragState.current.x},${dragState.current.y}`
+            + ` L ${pair[1].x},${pair[1].y}`;
     };
 
     const initHandleDragEdgeStart = (relationId: string, index: number) => {
@@ -622,7 +632,7 @@ const useStraightLineView = (
 
             return (
                 <rect key={`relation-line_${relationView.relationId}_edge-${index}`}
-                    x={currentEdge.x - 5 + DRAWABLE_AREA.width / 2} y={currentEdge.y - 5 + DRAWABLE_AREA.height / 2}
+                    x={currentEdge.x - 5} y={currentEdge.y - 5}
                     width="10" height="10" fill={onDragging ? "black" : "white"} stroke="black"
                     className={initPathCss(relationView, onDragging) + " " + styleClasses.selectableSvg}
                     style={{ cursor: 'pointer', pointerEvents: "auto" }}
@@ -646,8 +656,8 @@ const useStraightLineView = (
         const parentEdge = relationLinePairs[selectState.edgeId][0];
         const childEdge = relationLinePairs[selectState.edgeId + 1][1];
 
-        const deActiveLine = `M ${parentEdge.x + DRAWABLE_AREA.width / 2},${parentEdge.y + DRAWABLE_AREA.height / 2}`
-            + ` L ${childEdge.x + DRAWABLE_AREA.width / 2},${childEdge.y + DRAWABLE_AREA.height / 2}`;
+        const deActiveLine = `M ${parentEdge.x},${parentEdge.y}`
+            + ` L ${childEdge.x},${childEdge.y}`;
 
         const initActiveDragModification = (majorChanging: boolean) => {
             return (event: React.MouseEvent) => {
@@ -741,9 +751,7 @@ const useStraightLineView = (
             ),
             label: (
                 <RelationLabelOverlay key={`relation-label_${relationView.relationId}`}
-                    relationView={relationView}
-                    pathPoints={lineSegment.labelEdges}
-                    selected={selected} />
+                    relationView={relationView} pathPoints={lineSegment.labelEdges} />
             )
         };
     }).filter(element => (element != null));
@@ -924,8 +932,8 @@ const useOrthogonalLine = (
                 handleOpenEditDialog(event, relationView)
             };
 
-            const line = `M ${pair[0].x + DRAWABLE_AREA.width / 2},${pair[0].y + DRAWABLE_AREA.height / 2}`
-                + ` L ${pair[1].x + DRAWABLE_AREA.width / 2},${pair[1].y + DRAWABLE_AREA.height / 2}`;
+            const line = `M ${pair[0].x},${pair[0].y}`
+                + ` L ${pair[1].x},${pair[1].y}`;
 
             return (
                 <path key={`relation-line_${relationView.relationId}_path-${index}`}
@@ -941,7 +949,7 @@ const useOrthogonalLine = (
         );
 
         const drawingLine = "M" + draggedPoints.map(point =>
-            `${point.x + DRAWABLE_AREA.width / 2},${point.y + DRAWABLE_AREA.height / 2}`
+            `${point.x},${point.y}`
         ).join(" L");
 
         const selected = (selectState.relationId === relationView.relationId);
@@ -961,9 +969,7 @@ const useOrthogonalLine = (
             ),
             label: (
                 <RelationLabelOverlay key={`relation-label_${relationView.relationId}`}
-                    relationView={relationView}
-                    pathPoints={draggedPoints}
-                    selected={selected} />
+                    relationView={relationView} pathPoints={draggedPoints} />
             )
         };
     }).filter(element => (element != null));

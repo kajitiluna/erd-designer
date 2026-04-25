@@ -8,7 +8,7 @@ import ColumnShareModel from "~/models/database/ColumnShareModel";
 import DbSchemaConfig from "~/models/DbSchemaConfig";
 import ErdDocument from "~/models/ErdDocument";
 import ErdSettingModel from "~/models/ErdSettingModel";
-import LabelViewModel, { LabelPosition, LabelStyle } from "~/models/LabelViewModel";
+import LabelViewModel, { LabelPosition, FontStyle } from "~/models/LabelViewModel";
 import LineViewModel, { OrthogonalDirection } from "~/models/LineViewModel";
 import MemoViewModel from "~/models/MemoViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
@@ -329,7 +329,7 @@ export class ErdDocumentsHolder {
      * @param relationId リレーションID
      * @param updating 更新内容
      */
-    public updateRelationLabelStyle(relationId: string, updating: LabelStyle) {
+    public updateRelationLabelStyle(relationId: string, updating: FontStyle) {
         const updatingFunction = (previous: LabelViewModel) => previous.updateLabelStyle(updating);
         const message = `Update relation label style: ${JSON.stringify({ relationId, style: updating })}`;
 

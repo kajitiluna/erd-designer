@@ -3,17 +3,15 @@ import { PropertyNotExistsError } from "~/models/exceptions";
 
 export type LabelPosition = {
     segment: number,
-
     /** 該当 segment における位置比率を 0 から 1 の範囲で表す */
     fraction: number,
-
     /** x 軸方向のオフセット */
-    dx: number,
+    offsetX: number,
     /** y 軸方向のオフセット */
-    dy: number
+    offsetY: number
 };
 
-export type LabelStyle = {
+export type FontStyle = {
     bold: boolean,
     italic: boolean,
     strikethrough: boolean,
@@ -24,11 +22,11 @@ type LabelViewModelOptions = {
     label: string,
     position?: LabelPosition,
     color?: ColorValue,
-    style?: LabelStyle
+    style?: FontStyle
 };
 
-const DEFAULT_POSITION: LabelPosition = { segment: -1, fraction: 0, dx: 0, dy: 0 };
-const DEFAULT_STYLE: LabelStyle = {
+const DEFAULT_POSITION: LabelPosition = { segment: -1, fraction: 0, offsetX: 0, offsetY: 0 };
+const DEFAULT_STYLE: FontStyle = {
     bold: false, italic: false, strikethrough: false, fontSize: 13
 };
 
@@ -37,7 +35,7 @@ export default class LabelViewModel {
     public readonly label: string;
     public readonly position: LabelPosition;
     public readonly color: ColorValue;
-    public readonly style: LabelStyle;
+    public readonly style: FontStyle;
 
     constructor({
         label, position = DEFAULT_POSITION, color = ColorValue.BLACK, style = DEFAULT_STYLE
@@ -56,7 +54,7 @@ export default class LabelViewModel {
         return new LabelViewModel({ ...this, position: next });
     }
 
-    public updateLabelStyle(next: LabelStyle): LabelViewModel {
+    public updateLabelStyle(next: FontStyle): LabelViewModel {
         if (isSameStyle(this.style, next)) {
             return this;
         }
@@ -116,7 +114,7 @@ export default class LabelViewModel {
             label: obj.label as string,
             position: obj.position as LabelPosition,
             color: ColorValue.toObject(obj.color as object),
-            style: obj.style as LabelStyle
+            style: obj.style as FontStyle
         });
     }
 }
@@ -124,11 +122,11 @@ export default class LabelViewModel {
 const isSamePosition = (first: LabelPosition, second: LabelPosition): boolean => {
     return (first.segment === second.segment)
         && (first.fraction === second.fraction)
-        && (first.dx === second.dx)
-        && (first.dy === second.dy);
+        && (first.offsetX === second.offsetX)
+        && (first.offsetY === second.offsetY);
 };
 
-const isSameStyle = (first: LabelStyle, second: LabelStyle): boolean => {
+const isSameStyle = (first: FontStyle, second: FontStyle): boolean => {
     return (first.bold === second.bold)
         && (first.italic === second.italic)
         && (first.strikethrough === second.strikethrough)

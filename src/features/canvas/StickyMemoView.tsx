@@ -17,7 +17,7 @@ import FormatAlignRightIcon from "@mui/icons-material/FormatAlignRight";
 import VisibilityIcon from '@mui/icons-material/Visibility';
 
 import ColorSelector from "~/components/ColorSelector";
-import ToolbarPortalContext from "~/context/ToolbarPortalContext";
+import PortalCanvasContext from "~/context/PortalCanvasContext";
 import DisplayScaleContext from "~/context/DisplayScaleContext";
 import { DragAction, DragActionContext } from "~/context/DragActionContext";
 import EditModeContext from "~/context/EditModeContext";
@@ -432,8 +432,9 @@ const StickyControlPane = ({ memoViewModel, stickyDom, onSettingAction }: Sticky
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
     const { dispatchSelectAction } = React.useContext(SelectEntityContext);
-    const toolbarPortalRef = React.useContext(ToolbarPortalContext);
+    const { toolbarCanvasRef } = React.useContext(PortalCanvasContext);
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
+    const { scale: displayScale } = React.useContext(DisplayScaleContext);
 
     const [showAlignPanel, setShowAlignPanel] = React.useState<boolean>(false);
     const [isOpenDeleteDialog, setOpenDeleteDialog] = React.useState<boolean>(false);
@@ -598,7 +599,7 @@ const StickyControlPane = ({ memoViewModel, stickyDom, onSettingAction }: Sticky
         </div>
     );
 
-    const portalContainer = toolbarPortalRef.current;
+    const portalContainer = toolbarCanvasRef.current;
     if (!portalContainer) {
         return deleteDialog;
     };
@@ -607,10 +608,10 @@ const StickyControlPane = ({ memoViewModel, stickyDom, onSettingAction }: Sticky
     const memoRect = stickyDom.getBoundingClientRect();
     const menuStyle: React.CSSProperties = {
         position: "absolute",
-        left: memoRect.right - portalRect.left,
-        top: memoRect.bottom - portalRect.top,
-        transform: `translateX(-100%)`,
-        marginTop: "10px",
+        left: (memoRect.right - portalRect.left) / displayScale,
+        top: (memoRect.bottom - portalRect.top + 10) / displayScale,
+        transformOrigin: "top right",
+        transform: `translateX(-100%) scale(${1 / displayScale})`,
         pointerEvents: "auto",
     };
 
