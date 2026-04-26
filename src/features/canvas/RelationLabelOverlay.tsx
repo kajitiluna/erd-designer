@@ -45,6 +45,8 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
     const stableAnchorRef = React.useRef<Point | null>(null);
     const prevPointCountRef = React.useRef(0);
     const reAnchorRef = React.useRef<LabelPosition | null>(null);
+    const mouseMoveHandlerRef = React.useRef<((event: MouseEvent) => void) | null>(null);
+    const mouseUpHandlerRef = React.useRef<((event: MouseEvent) => void) | null>(null);
     const [draggingPosition, setDraggingPosition] = React.useState<Point | null>(null);
 
     const labelView = relationView.labelViewModel;
@@ -58,7 +60,18 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
         reAnchorRef.current = null;
 
         documentsHolder.updateRelationLabelPosition(relationView.relationId, reAnchor);
-    }, [reAnchorRef, documentsHolder, relationView.relationId]);
+    }, [pathPoints.length, documentsHolder, relationView.relationId]);
+
+    React.useEffect(() => {
+        return () => {
+            if (mouseMoveHandlerRef.current) {
+                window.removeEventListener("mousemove", mouseMoveHandlerRef.current);
+            }
+            if (mouseUpHandlerRef.current) {
+                window.removeEventListener("mouseup", mouseUpHandlerRef.current);
+            }
+        };
+    }, []);
 
     const labelPosition = labelView.position;
     const hasPosition = (labelPosition.segment >= 0);
@@ -128,6 +141,8 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
         const handleMouseUp = (upEvent: MouseEvent) => {
             window.removeEventListener("mousemove", handleMouseMove);
             window.removeEventListener("mouseup", handleMouseUp);
+            mouseMoveHandlerRef.current = null;
+            mouseUpHandlerRef.current = null;
 
             const mousePosition = positionResolver.getLogicalPosition(upEvent, displayScale);
             const finalPosition = {
@@ -143,6 +158,8 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
             documentsHolder.updateRelationLabelPosition(relationView.relationId, projected);
         };
 
+        mouseMoveHandlerRef.current = handleMouseMove;
+        mouseUpHandlerRef.current = handleMouseUp;
         window.addEventListener("mousemove", handleMouseMove);
         window.addEventListener("mouseup", handleMouseUp);
     };

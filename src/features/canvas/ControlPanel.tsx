@@ -293,6 +293,7 @@ const SubMenuPanel = ({ erdExportable }: SubMenuButtonProps) => {
     const handleCloseMenu = () => {
         setSelectedMenu("");
         setConfigureElement(null);
+        setExportImageElement(null);
     };
 
     const exportImageMenuItems = () => {

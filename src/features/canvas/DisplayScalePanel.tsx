@@ -115,9 +115,9 @@ const findNearestPresetIndex = (scale: number): number => {
         return exactIndex;
     }
 
-    let best = 1;
-    let bestDist = Math.abs(DISPLAY_SCALES[1] - scale);
-    for (let index = 2; index < DISPLAY_SCALES.length - 1; index++) {
+    let best = 0;
+    let bestDist = Math.abs(DISPLAY_SCALES[0] - scale);
+    for (let index = 1; index < DISPLAY_SCALES.length; index++) {
         const dist = Math.abs(DISPLAY_SCALES[index] - scale);
         if (dist < bestDist) {
             best = index;
@@ -129,7 +129,7 @@ const findNearestPresetIndex = (scale: number): number => {
 };
 
 const initHandleWheel = (
-    scaleRef: React.RefObject<number>, zoomTimerRef: React.RefObject<NodeJS.Timeout | null>,
+    scaleRef: React.RefObject<number>, zoomTimerRef: React.RefObject<ReturnType<typeof setTimeout> | null>,
     isDraggingRef: React.RefObject<boolean>,
     onChangeScale: React.Dispatch<React.SetStateAction<ScaleState>>,
     canvasArea: { width: number; height: number }
