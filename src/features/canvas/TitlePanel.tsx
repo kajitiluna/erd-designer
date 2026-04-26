@@ -1,5 +1,7 @@
 import React from "react";
-import { Divider, FormControl, FormControlLabel, IconButton, InputBase, Menu, MenuItem, Stack, Switch, Tooltip } from "@mui/material";
+import { 
+    Divider, FormControl, FormControlLabel, IconButton, InputBase, Menu, MenuItem, Stack, Switch, Tooltip 
+} from "@mui/material";
 import SettingsIcon from '@mui/icons-material/Settings';
 import ArrowRightIcon from '@mui/icons-material/ArrowRight';
 

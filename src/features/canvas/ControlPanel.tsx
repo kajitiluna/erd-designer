@@ -3,6 +3,7 @@ import {
     Box, Button, ButtonGroup, Divider, FormControl, FormControlLabel, InputLabel, Menu, MenuItem,
     Select, SelectChangeEvent, Switch, ToggleButton, ToggleButtonGroup, Tooltip
 } from "@mui/material";
+import ArrowRightIcon from '@mui/icons-material/ArrowRight';
 import HighlightAltIcon from '@mui/icons-material/HighlightAlt';
 import PanToolIcon from '@mui/icons-material/PanTool';
 import TableChartIcon from '@mui/icons-material/TableChart';
@@ -213,14 +214,15 @@ type SubMenuButtonProps = {
 };
 
 const SubMenuPanel = ({ erdExportable }: SubMenuButtonProps) => {
+    const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { dispatchSelectAction } = React.useContext(SelectEntityContext);
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
     const [configureElement, setConfigureElement] = React.useState<HTMLElement | null>();
     const [selectedMenu, setSelectedMenu] = React.useState<"export_ddl" | "">("");
+    const [exportImageElement, setExportImageElement] = React.useState<HTMLElement | null>(null);
     const [batchExportQueue, setBatchExportQueue] = React.useState<PerspectiveModel[]>([]);
     const { exportSpecification } = React.useContext(ExportSpecificationContext);
 
-    const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const erdDocument: ErdDocument = documentsHolder.current();
 
     React.useEffect(() => {
@@ -257,7 +259,7 @@ const SubMenuPanel = ({ erdExportable }: SubMenuButtonProps) => {
 
     const handleOpenMenu = (event: React.MouseEvent<HTMLButtonElement>) => setConfigureElement(event.currentTarget);
 
-    const handleSaveAsImage = () => {
+    const handleExportAsImage = () => {
         dispatchSelectAction(RELEASE_ACTION);
 
         downloadImage(erdDocument);
@@ -293,6 +295,28 @@ const SubMenuPanel = ({ erdExportable }: SubMenuButtonProps) => {
         setConfigureElement(null);
     };
 
+    const exportImageMenuItems = () => {
+        const perspectives = erdDocument.erdSettingModel.getPerspectiveModels();
+        if (perspectives.length === 0) {
+            return (<MenuItem onClick={handleExportAsImage}>Export as image</MenuItem>);
+        }
+
+        return (<>
+            <MenuItem onClick={(event) => setExportImageElement(event.currentTarget)}>
+                Export as image <ArrowRightIcon />
+            </MenuItem>
+            <Menu anchorEl={exportImageElement} open={Boolean(exportImageElement)}
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                onClose={() => setExportImageElement(null)}>
+                <MenuItem onClick={handleExportAsImage}>Current canvas</MenuItem>
+                <MenuItem onClick={handleBatchExportPerspectives}>
+                    All perspectives
+                </MenuItem>
+            </Menu>
+        </>);
+    };
+
     const isConfigureOpen = Boolean(configureElement);
 
     return (
@@ -309,11 +333,7 @@ const SubMenuPanel = ({ erdExportable }: SubMenuButtonProps) => {
             <Menu anchorEl={configureElement} open={isConfigureOpen} onClose={handleCloseMenu}
                 slotProps={{ paper: { 'aria-labelledby': 'basic-button', } }}>
                 <MenuItem onClick={() => setSelectedMenu("export_ddl")}>Export DDL</MenuItem>
-                <MenuItem onClick={handleSaveAsImage}>Save as image</MenuItem>
-                <MenuItem onClick={handleBatchExportPerspectives}
-                    disabled={erdDocument.erdSettingModel.getPerspectiveModels().length === 0}>
-                    Export all perspectives as images
-                </MenuItem>
+                {exportImageMenuItems()}
                 <MenuItem onClick={handleExportSpecification}>Export specification</MenuItem>
                 {erdExportable && <MenuItem onClick={handleSaveToJson}>Save to ERD file</MenuItem>}
             </Menu>
