@@ -2,7 +2,7 @@ import React from "react";
 import { Box } from "@mui/material";
 
 import DisplayScaleContext from "~/context/DisplayScaleContext";
-import { DragActionContext, DragState, NO_DRAGGING, reduceDragAction } from "~/context/DragActionContext";
+import { DragAction, DragActionContext, DragState } from "~/context/DragActionContext";
 import EditModeContext from "~/context/EditModeContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { RELEASE_ACTION, SelectAction, SelectEntityContext, SelectState } from "~/context/SelectEntityContext";
@@ -29,14 +29,14 @@ import TableEditView from "~/features/editor/TableEditView";
 import StickyMemoView, { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
 import PortalCanvasContext from "~/context/PortalCanvasContext";
 
-type ErdCanvasProps = { canvasArea: CanvasArea };
+type ErdCanvasProps = { canvasArea: CanvasArea, onDragAction: React.Dispatch<DragAction> };
 type CanvasArea = { width: number; height: number };
 
-const ErdCanvas = ({ canvasArea }: ErdCanvasProps) => {
+const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasProps) => {
     const erdCanvasRef = React.useRef<HTMLDivElement>(null);
     const toolbarCanvasRef = React.useRef<HTMLDivElement>(null);
     const svgCanvasRef = React.useRef<SVGSVGElement>(null);
-    const [dragState, dispatchDragAction] = React.useReducer(reduceDragAction, NO_DRAGGING);
+    const dragState = React.useContext(DragActionContext);
 
     const documentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode, dispatchEditMode } = React.useContext(EditModeContext);
@@ -423,13 +423,11 @@ const ErdCanvas = ({ canvasArea }: ErdCanvasProps) => {
     </>);
 
     return (
-        <DragActionContext.Provider value={dragState}>
-            <CanvasPositionContext.Provider value={positionResolver}>
-                <PortalCanvasContext.Provider value={{ toolbarCanvasRef, svgCanvasRef }} >
-                    {mainCanvas}
-                </PortalCanvasContext.Provider>
-            </CanvasPositionContext.Provider>
-        </DragActionContext.Provider>
+        <CanvasPositionContext.Provider value={positionResolver}>
+            <PortalCanvasContext.Provider value={{ toolbarCanvasRef, svgCanvasRef }} >
+                {mainCanvas}
+            </PortalCanvasContext.Provider>
+        </CanvasPositionContext.Provider>
     );
 };
 

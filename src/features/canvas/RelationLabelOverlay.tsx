@@ -382,4 +382,22 @@ const projectOntoPath = (points: Point[], target: Point): LabelPosition => {
     };
 };
 
-export default RelationLabelOverlay;
+const areRelationLabelPropsEqual = (
+    prevProps: RelationLabelOverlayProps,
+    nextProps: RelationLabelOverlayProps
+): boolean => {
+    if (prevProps.relationView !== nextProps.relationView) {
+        return false;
+    }
+
+    const previousPoints = prevProps.pathPoints;
+    const nextPoints = nextProps.pathPoints;
+    if (previousPoints.length !== nextPoints.length) {
+        return false;
+    }
+
+    return previousPoints.every((previous, index) =>
+        (previous.x === nextPoints[index].x) && (previous.y === nextPoints[index].y));
+};
+
+export default React.memo(RelationLabelOverlay, areRelationLabelPropsEqual);

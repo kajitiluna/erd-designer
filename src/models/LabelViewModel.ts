@@ -27,7 +27,7 @@ type LabelViewModelOptions = {
 
 const DEFAULT_POSITION: LabelPosition = { segment: -1, fraction: 0, offsetX: 0, offsetY: 0 };
 const DEFAULT_STYLE: FontStyle = {
-    bold: false, italic: false, strikethrough: false, fontSize: 13
+    bold: false, italic: false, strikethrough: false, fontSize: 10
 };
 
 export default class LabelViewModel {

@@ -4,6 +4,7 @@ import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import { inOpenControlPanel } from "~/features/canvas/support";
 import { ScaleState } from "~/context/DisplayScaleContext";
+import { DragActionContext } from "~/context/DragActionContext";
 
 type DisplayScalePanelProps = {
     scaleStatus: ScaleState,
@@ -15,6 +16,8 @@ const DisplayScalePanel = ({ scaleStatus, onChangeScale, canvasArea }: DisplaySc
 
     const scaleRef = React.useRef<number>(1);
     const zoomTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const dragState = React.useContext(DragActionContext);
+    const isDraggingRef = React.useRef<boolean>(false);
 
     const handleChangeScale = (event: SelectChangeEvent<number>) => {
         const nextValue = event.target.value as number;
@@ -28,6 +31,11 @@ const DisplayScalePanel = ({ scaleStatus, onChangeScale, canvasArea }: DisplaySc
     const nearestIndex = findNearestPresetIndex(scaleStatus.scale);
 
     const handleZoomOut = () => {
+        // ドラッグ中はズーム操作を無視する
+        if (isDraggingRef.current) {
+            return;
+        }
+
         const targetIndex = Math.max(nearestIndex - 1, 0);
         if (targetIndex < 0) {
             return;
@@ -37,6 +45,11 @@ const DisplayScalePanel = ({ scaleStatus, onChangeScale, canvasArea }: DisplaySc
     };
 
     const handleZoomIn = () => {
+        // ドラッグ中はズーム操作を無視する
+        if (isDraggingRef.current) {
+            return;
+        }
+
         const targetIndex = Math.min(nearestIndex + 1, DISPLAY_SCALES.length - 1);
         if (targetIndex >= DISPLAY_SCALES.length) {
             return;
@@ -44,13 +57,16 @@ const DisplayScalePanel = ({ scaleStatus, onChangeScale, canvasArea }: DisplaySc
 
         onChangeScale({ ...scaleStatus, scale: DISPLAY_SCALES[targetIndex] });
     };
-
     React.useEffect(() => {
         scaleRef.current = scaleStatus.scale;
     }, [scaleStatus]);
 
     React.useEffect(() => {
-        const handleWheel = initHandleWheel(scaleRef, zoomTimerRef, onChangeScale, canvasArea);
+        isDraggingRef.current = (dragState.status === "on_dragging");
+    }, [dragState]);
+
+    React.useEffect(() => {
+        const handleWheel = initHandleWheel(scaleRef, zoomTimerRef, isDraggingRef, onChangeScale, canvasArea);
         window.addEventListener("wheel", handleWheel, { passive: false, capture: true });
 
         return () => {
@@ -114,11 +130,19 @@ const findNearestPresetIndex = (scale: number): number => {
 
 const initHandleWheel = (
     scaleRef: React.RefObject<number>, zoomTimerRef: React.RefObject<NodeJS.Timeout | null>,
+    isDraggingRef: React.RefObject<boolean>,
     onChangeScale: React.Dispatch<React.SetStateAction<ScaleState>>,
     canvasArea: { width: number; height: number }
 ) => {
     return (event: WheelEvent) => {
         if (!event.ctrlKey && !event.metaKey) {
+            return;
+        }
+
+        // ドラッグ操作中はズームを無視する
+        if (isDraggingRef.current) {
+            event.preventDefault();
+            event.stopPropagation();
             return;
         }
 
