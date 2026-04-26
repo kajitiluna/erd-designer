@@ -58,7 +58,7 @@ const RelationEditView = ({
                 .filter(relation => (relation.relationId !== relationViewModel.relationId))
                 .map(relation => initComparableValue(relation.relationModel.relationPairs))
         );
-    }, []);
+    }, [erdDocument, relationViewModel.relationId]);
 
     if (parentPrimaryColumns.length === 0) {
         // 親テーブルに primary key が存在しないので中断

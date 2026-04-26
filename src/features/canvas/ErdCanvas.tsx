@@ -331,12 +331,13 @@ const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasPr
         window.scrollTo(
             (drawableArea.width - window.innerWidth) / 2,
             (drawableArea.height - window.innerHeight) / 2);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // スクロール可能領域の制御を window に登録
     React.useLayoutEffect(() => {
         return initEffectOfScrollOnCanvas(canvasArea, displayScale);
-    }, [displayScale]);
+    }, [canvasArea, displayScale]);
 
     // keyUp 時のイベントを window.document に登録
     React.useEffect(() => {

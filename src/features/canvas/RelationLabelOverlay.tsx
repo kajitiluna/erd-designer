@@ -58,15 +58,7 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
         reAnchorRef.current = null;
 
         documentsHolder.updateRelationLabelPosition(relationView.relationId, reAnchor);
-    }, [reAnchorRef]);
-
-    if (!toolbarCanvasRef.current) {
-        return null;
-    }
-
-    if (!labelView.label || (pathPoints.length < 2)) {
-        return null;
-    }
+    }, [reAnchorRef, documentsHolder, relationView.relationId]);
 
     const labelPosition = labelView.position;
     const hasPosition = (labelPosition.segment >= 0);
@@ -78,7 +70,8 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
     // When path topology changes (points added/removed via virtual edge drag),
     // segment indices shift. Re-project the cached anchor world position to
     // find the correct segment on the new path.
-    if (hasPosition
+    if ((pathPoints.length >= 2)
+        && hasPosition
         && (stableAnchorRef.current !== null)
         && (prevPointCountRef.current > 0)
         && (prevPointCountRef.current !== pathPoints.length)
@@ -90,15 +83,27 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
         reAnchorRef.current = { segment, fraction, offsetX: offsetX, offsetY: offsetY };
     }
 
-    const anchorPoint = pointOnSegment(pathPoints, segment, fraction);
-    stableAnchorRef.current = anchorPoint;
-    prevPointCountRef.current = pathPoints.length;
+    const anchorPoint = (pathPoints.length >= 2)
+        ? pointOnSegment(pathPoints, segment, fraction)
+        : { x: 0, y: 0 };
+    if (pathPoints.length >= 2) {
+        stableAnchorRef.current = anchorPoint;
+        prevPointCountRef.current = pathPoints.length;
+    }
 
     const { x: labelX, y: labelY } = draggingPosition ?? { x: anchorPoint.x + offsetX, y: anchorPoint.y + offsetY };
     const labelToolbar = useRelationLabelToolbar({
         relationView, toolbarCanvasRef, labelRef, labelLeft: labelX, labelTop: labelY,
         isLabelDragging: (draggingPosition != null)
     });
+
+    if (!toolbarCanvasRef.current) {
+        return null;
+    }
+
+    if (!labelView.label || (pathPoints.length < 2)) {
+        return null;
+    }
 
     const handleMouseDown = (event: React.MouseEvent) => {
         if (event.button !== 0) {

@@ -6,7 +6,7 @@ import react from "eslint-plugin-react";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist"] },
+  { ignores: ["dist", "out"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
@@ -24,6 +24,9 @@ export default tseslint.config(
         },
       },
     },
+    settings: {
+      react: { version: "detect" },
+    },
     plugins: {
       "react-hooks": reactHooks,
       "react-refresh": reactRefresh,
@@ -40,5 +43,6 @@ export default tseslint.config(
     },
   },
   react.configs.flat.recommended,
-  react.configs.flat["jsx-runtime"]
+  react.configs.flat["jsx-runtime"],
+  { settings: { react: { version: "detect" } } }
 );
