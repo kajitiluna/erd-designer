@@ -77,7 +77,7 @@ const DisplayScalePanel = ({ scaleStatus, onChangeScale, canvasArea }: DisplaySc
                 zoomTimerRef.current = null;
             }
         }
-    }, []);
+    }, [canvasArea, onChangeScale]);
 
     return (
         <Box sx={PANEL_STYLE}>
