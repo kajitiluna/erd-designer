@@ -1,5 +1,7 @@
 import React from "react";
-import { IconButton, InputBase, Menu, MenuItem, Stack, Tooltip } from "@mui/material";
+import { 
+    Divider, FormControl, FormControlLabel, IconButton, InputBase, Menu, MenuItem, Stack, Switch, Tooltip 
+} from "@mui/material";
 import SettingsIcon from '@mui/icons-material/Settings';
 import ArrowRightIcon from '@mui/icons-material/ArrowRight';
 
@@ -37,7 +39,9 @@ const TitlePanel = () => {
     }
 
     const isSettingOpen = Boolean(preferenceElement);
-    const handleOpenPreference = (event: React.MouseEvent<HTMLButtonElement>) => setPreferenceElement(event.currentTarget);
+    const handleOpenPreference = (event: React.MouseEvent<HTMLButtonElement>) => {
+        setPreferenceElement(event.currentTarget);
+    };
     const handleClosePreference = () => {
         setPreferenceElement(null);
     };
@@ -70,6 +74,13 @@ const TitlePanel = () => {
         };
     };
 
+    const handleChangeShowRelationNames = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const checked = event.target.checked;
+        const nextSetting = erdSetting.update({ showRelationNames: checked });
+
+        documentsHolder.updateErdSetting(nextSetting, `Update show relation names: ${checked}`);
+    };
+
     const handleCloseMenu = () => {
         setSelectedMenu("");
         handleClosePreference();
@@ -92,6 +103,16 @@ const TitlePanel = () => {
                     onClick={event => setDisplayStyleElement(event.currentTarget)}>
                     Display Style : {erdSetting.displayStyle.name} <ArrowRightIcon />
                 </MenuItem>
+                <MenuItem>
+                    <FormControl>
+                        <FormControlLabel label="Show relation names" control={
+                            <Switch size="small" checked={erdSetting.showRelationNames}
+                                onChange={handleChangeShowRelationNames} />
+                        } />
+                    </FormControl>
+                </MenuItem>
+                <Divider />
+
                 <MenuItem onClick={initHandleMenu("perspective")}>Perspective</MenuItem>
                 <MenuItem onClick={initHandleMenu("column_group")}>Column Group</MenuItem>
                 {(database.supportsSchema) && (

@@ -6,10 +6,6 @@ import { OrthogonalDirection } from "~/models/LineViewModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
 
-export const CANVAS_AREA = { width: 25000, height: 25000 } as const;
-// 描画領域は CANVAS_AREA を下に、最大拡大率を表示しうるサイズにする
-export const DRAWABLE_AREA = { width: CANVAS_AREA.width * 2, height: CANVAS_AREA.height * 2 } as const;
-
 /**
  * ブラウザおよび WebView いずれで実行されている場合も適切なスクロール位置を取得する。
  * 
@@ -49,6 +45,19 @@ const cardinalityMapping = {
 };
 
 export const toMarkerId = (cardinality: CardinalityType) => `url(#${cardinalityMapping[cardinality]})`;
+
+/**
+ * ダイアログなどのコントロールパネルが表示されているかを判定する。
+ * canvas 上のショートカットキー操作が行われないように制御するために使用する。
+ */
+export const inOpenControlPanel = () => {
+    // ダイアログが表示されているときはキー操作を無視する
+    // DOM 要素を直接みているため、MUI のバージョン変更時には修正が必要に可能性がある
+    const dialogs = window.document.querySelectorAll('[role="dialog"]');
+    const backdrops = window.document.querySelectorAll('.MuiBackdrop-root');
+
+    return (dialogs.length > 0) || (backdrops.length > 0);
+};
 
 type ToOrthogonalPointsArgs = {
     orthogonalLines: OrthogonalDirection[],

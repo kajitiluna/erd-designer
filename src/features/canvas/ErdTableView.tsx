@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import React from "react";
+import ReactDOM from "react-dom";
 import {
     Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Grid2, IconButton,
     Stack, Table, TableBody, TableCell, TableContainer, TableRow, Tooltip
@@ -19,10 +20,11 @@ import EditModeContext from "~/context/EditModeContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { LocalSettingContext } from "~/context/LocalSettingContext";
 import { RELEASE_ACTION, SelectEntityContext, SelectState } from "~/context/SelectEntityContext";
+import PortalCanvasContext from "~/context/PortalCanvasContext";
 import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
 import EditAction from "~/features/canvas/EditAction";
 import CanvasPositionContext from "~/context/CanvasPositionContext";
-import { DRAWABLE_AREA, handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
+import { handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
 import TableViewModel from "~/models/TableViewModel";
 import ColorValue from "~/models/ColorValue";
 import { EditModeType } from "~/models/EditMode";
@@ -111,7 +113,7 @@ const ErdTableView = ({ tableViewModel, visible = true, onEditAction, onDragActi
         // テーブルキャッシュに対する検証
         tableContentCache,
         // 削除確認ダイアログ表示に対する検証
-        openDeletingDialog,
+        openDeletingDialog
     ]);
 
     return viewCache;
@@ -355,9 +357,11 @@ const InnerErdTableView = ({
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
-    const displayScale = React.useContext(DisplayScaleContext);
+    const { scale: displayScale } = React.useContext(DisplayScaleContext);
     const positionResolver = React.useContext(CanvasPositionContext);
+    const { toolbarCanvasRef } = React.useContext(PortalCanvasContext);
 
+    const containerRef = React.useRef<HTMLDivElement>(null);
     const [selfSelectableMode, setSelfSelectableMode] = React.useState<SelfSelectableMode>("none");
 
     const erdDocument = documentsHolder.current();
@@ -414,6 +418,12 @@ const InnerErdTableView = ({
         }
 
         if (editMode === EditModeType.SELECT) {
+            const didDrag = (dragState.status === "on_dragging")
+                && (dragState.delta().x !== 0 || dragState.delta().y !== 0);
+            if (didDrag) {
+                return;
+            }
+
             if ((selectState.status === "on_selecting")
                 && (selectState.tableIds.has(tableViewModel.tableId))) {
                 dispatchSelectAction({ type: "completed" });
@@ -530,10 +540,12 @@ const InnerErdTableView = ({
     const moving = (selected && (dragState.status === "on_dragging"))
         ? dragState.delta() : { x: 0, y: 0 }
 
+    const physicalPosition = positionResolver.toPhysicalPosition(
+        { x: tableViewModel.corner.left + moving.x, y: tableViewModel.corner.top + moving.y }
+    );
     const tableStyle = {
         position: "absolute", zIndex: selected ? 100 : "auto",
-        left: tableViewModel.corner.left + moving.x + DRAWABLE_AREA.width / 2,
-        top: tableViewModel.corner.top + moving.y + DRAWABLE_AREA.height / 2,
+        left: physicalPosition.x, top: physicalPosition.y,
         display: "flex", flexDirection: "column", justifyContent: "flex-start",
         userSelect: "none",
         ...(!visible && { opacity: 0, pointerEvents: 'none' })
@@ -551,11 +563,31 @@ const InnerErdTableView = ({
         `${ERD_TABLE_VIEW_CLASS_NAME} ${styleClasses.selectedBox}`
         : ERD_TABLE_VIEW_CLASS_NAME;
 
-    const controlPanel = (!selected || (editMode !== EditModeType.SELECT)
-        || (dragState.status === "on_dragging")
-        || (selectState.tableIds.size + selectState.memoIds.size !== 1))
-        ? (<></>) : (
-            <Stack direction="row" justifyContent="flex-end" onClick={handlePreventMouseEvent}
+    const initControlPanel = () => {
+        if (!containerRef.current || !toolbarCanvasRef.current) {
+            return (<></>);
+        }
+
+        if (!selected || (editMode !== EditModeType.SELECT)
+            || (dragState.status === "on_dragging")
+            || (selectState.tableIds.size + selectState.memoIds.size !== 1)) {
+            return (<></>);
+        }
+
+        const portalRect = toolbarCanvasRef.current.getBoundingClientRect();
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const controlPanelStyle: React.CSSProperties = {
+            position: "absolute",
+            left: (containerRect.right - portalRect.left) / displayScale,
+            top: (containerRect.bottom - portalRect.top + 10) / displayScale,
+            transformOrigin: "top right",
+            transform: `translateX(-100%) scale(${1 / displayScale})`,
+            pointerEvents: "auto",
+        };
+
+        const controlMenu = (
+            <Stack direction="row" justifyContent="flex-end" sx={controlPanelStyle}
+                onClick={handlePreventMouseEvent}
                 onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
                 <div style={CONTROL_PANEL_STYLE}>
                     <ColorSelector key={`table-color-selector_${tableViewModel.tableId}`}
@@ -582,8 +614,13 @@ const InnerErdTableView = ({
             </Stack>
         );
 
+        return ReactDOM.createPortal(controlMenu, toolbarCanvasRef.current);
+    };
+
+    const controlPanel = initControlPanel();
+
     return (
-        <Box sx={tableStyle}>
+        <Box sx={tableStyle} ref={containerRef}>
             <Box id={tableViewModel.tableId} tabIndex={0} sx={boundStyle}
                 style={{ cursor: 'pointer' }} className={tableClassName}
                 onMouseDown={handleMouseDown} onMouseUp={handleMouseUp}
@@ -594,7 +631,9 @@ const InnerErdTableView = ({
             <Dialog open={isOpenDeletingDialog} onClose={handleCloseDeletingDialog}>
                 <DialogTitle>Delete table?</DialogTitle>
                 <DialogContent>
-                    <DialogContentText>Are you sure to delete the table {`'${tableModel.physicalName}'`} ?</DialogContentText>
+                    <DialogContentText>
+                        Are you sure to delete the table {`'${tableModel.physicalName}'`} ?
+                    </DialogContentText>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseDeletingDialog}>Cancel</Button>

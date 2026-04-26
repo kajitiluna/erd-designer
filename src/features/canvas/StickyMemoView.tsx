@@ -1,4 +1,5 @@
 import React from "react";
+import ReactDOM from "react-dom";
 import {
     Box, Button, ButtonGroup, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
     Divider, FormControl, IconButton, MenuItem, Select, SelectChangeEvent, Stack, ToggleButton, Tooltip
@@ -16,6 +17,7 @@ import FormatAlignRightIcon from "@mui/icons-material/FormatAlignRight";
 import VisibilityIcon from '@mui/icons-material/Visibility';
 
 import ColorSelector from "~/components/ColorSelector";
+import PortalCanvasContext from "~/context/PortalCanvasContext";
 import DisplayScaleContext from "~/context/DisplayScaleContext";
 import { DragAction, DragActionContext } from "~/context/DragActionContext";
 import EditModeContext from "~/context/EditModeContext";
@@ -23,7 +25,7 @@ import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocu
 import { LocalSettingContext } from "~/context/LocalSettingContext";
 import { RELEASE_ACTION, SelectEntityContext, SelectState } from "~/context/SelectEntityContext";
 import CanvasPositionContext from "~/context/CanvasPositionContext";
-import { DRAWABLE_AREA, handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
+import { handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
 import MemoViewModel, { AlignType } from "~/models/MemoViewModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import { EditModeType } from "~/models/EditMode";
@@ -36,20 +38,23 @@ export const ERD_MEMO_VIEW_CLASS_NAME = "erdMemoView";
 type StickyNoteViewProps = {
     memoViewModel: MemoViewModel,
     visible?: boolean,
-    onSettingAction: () => void
+    onSettingAction: () => void,
     onDragAction: (dragAction: DragAction) => void,
     foreground?: boolean
 };
 
-const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDragAction, foreground = true }: StickyNoteViewProps) => {
+const StickyMemoView = ({
+    memoViewModel, visible = true, onSettingAction, onDragAction, foreground = true
+}: StickyNoteViewProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
-    const displayScale = React.useContext(DisplayScaleContext);
+    const { scale: displayScale } = React.useContext(DisplayScaleContext);
     const positionResolver = React.useContext(CanvasPositionContext);
 
+    const stickyMemoRef = React.useRef<HTMLDivElement>(null);
     const textAreaRef = React.useRef<HTMLTextAreaElement>(null);
     const [isTextEdit, setTextEdit] = React.useState<boolean>(false);
     const [mouseCursorStyle, setMouseCursorStyle] = React.useState<string>("pointer");
@@ -130,6 +135,11 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
         }
 
         if (!resizingDirection.isResizing()) {
+            const delta = dragState.delta();
+            if ((delta.x !== 0) || (delta.y !== 0)) {
+                return;
+            }
+
             if ((selectState.status === "on_selecting")
                 && (selectState.memoIds.has(memoViewModel.memoId))) {
                 dispatchSelectAction({ type: "completed" });
@@ -209,15 +219,12 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
                 fontSize: `${memoViewModel.fontSize / 10}em`, lineHeight: "1.0",
                 border: "none", background: "transparent", resize: "none", fontFamily: "inherit",
                 textAlign: memoViewModel.horizontalAlign,
-                // verticalAlign: (memoViewModel.verticalAlign === "start") ? "top" :
-                //     ((memoViewModel.verticalAlign === "end") ? "bottom" : "center"),
                 overflow: "hidden", outline: "none", WebkitAppearance: "none",
                 margin: `${STICKY_PADDING}px`
             };
 
             return (
-                <textarea ref={textAreaRef}
-                    style={textAreaStyle} defaultValue={memoViewModel.memo} />
+                <textarea ref={textAreaRef} style={textAreaStyle} defaultValue={memoViewModel.memo} />
             );
         }
 
@@ -272,10 +279,12 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
         return selected ? -10 : -100;
     };
 
+    const physicalPosition = positionResolver.toPhysicalPosition(
+        { x: currentRectangle.left + moving.x, y: currentRectangle.top + moving.y }
+    );
     const wrapperStyle: React.CSSProperties = {
         position: "absolute", overflow: "visible", zIndex: zIndex(selected),
-        left: `${currentRectangle.left + moving.x + DRAWABLE_AREA.height / 2}px`,
-        top: `${currentRectangle.top + moving.y + DRAWABLE_AREA.width / 2}px`,
+        left: `${physicalPosition.x}px`, top: `${physicalPosition.y}px`,
         display: "flex", flexDirection: "column", justifyContent: "flex-start",
         boxShadow: selected ? "" : "0px 0px 7px 0px #bebebe",
         // "&::-webkit-scrollbar": { display: "none" },
@@ -295,13 +304,16 @@ const StickyMemoView = ({ memoViewModel, visible = true, onSettingAction, onDrag
 
     return (
         <Box style={wrapperStyle}>
-            <Box id={memoViewModel.memoId} sx={stickyStyle}
+            <Box id={memoViewModel.memoId} ref={stickyMemoRef} sx={stickyStyle}
                 className={stickyClassName} onBlur={handleFocusOut}>
                 {initTextAreaElement()}
             </Box>
-            {selected && (!isTextEdit) && (dragState.status !== "on_dragging")
+            {stickyMemoRef.current && selected && (!isTextEdit) && (dragState.status !== "on_dragging")
                 && (selectState.tableIds.size + selectState.memoIds.size === 1)
-                && <StickyControlPane memoViewModel={memoViewModel} onSettingAction={onSettingAction} />}
+                && <StickyControlPane
+                    memoViewModel={memoViewModel}
+                    stickyDom={stickyMemoRef.current}
+                    onSettingAction={onSettingAction} />}
         </Box>
     );
 };
@@ -414,14 +426,17 @@ const initCurrentRectangle = (
 
 type StickyControlPaneProps = {
     memoViewModel: MemoViewModel,
+    stickyDom: HTMLDivElement,
     onSettingAction: () => void
 };
 
-const StickyControlPane = ({ memoViewModel, onSettingAction }: StickyControlPaneProps) => {
+const StickyControlPane = ({ memoViewModel, stickyDom, onSettingAction }: StickyControlPaneProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
     const { dispatchSelectAction } = React.useContext(SelectEntityContext);
+    const { toolbarCanvasRef } = React.useContext(PortalCanvasContext);
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
+    const { scale: displayScale } = React.useContext(DisplayScaleContext);
 
     const [showAlignPanel, setShowAlignPanel] = React.useState<boolean>(false);
     const [isOpenDeleteDialog, setOpenDeleteDialog] = React.useState<boolean>(false);
@@ -586,55 +601,72 @@ const StickyControlPane = ({ memoViewModel, onSettingAction }: StickyControlPane
         </div>
     );
 
-    return (
-        <>
-            <Stack direction="row" alignItems="flex-start" justifyContent="flex-end" sx={{ marginTop: "10px" }}
-                onClick={handlePreventMouseEvent} onMouseDown={handlePreventMouseEvent}>
-                <div style={controlStyle}>
-                    <ColorSelector key={`memo-color-selector_${memoViewModel.memoId}`}
-                        color={memoViewModel.backgroundColor} callback={handleSetColor} />
-                    <FormControl size="small">
-                        <Select value={memoViewModel.fontSize} defaultValue={9}
-                            onChange={handleChangeFontSize}>
-                            {FONT_SIZES.map(fontSize => <MenuItem
-                                key={`select-fontsize_${memoViewModel.memoId}_${fontSize}`}
-                                value={fontSize}>
-                                {fontSize}
-                            </MenuItem>)}
-                        </Select>
-                    </FormControl>
-                    <div style={{ position: "relative", display: "inline-block" }}>
-                        <Tooltip title="Set align" placement="top-end">
-                            <ToggleButton size="small" selected={showAlignPanel} value="check"
-                                onChange={() => setShowAlignPanel(!showAlignPanel)}>
-                                <FormatAlignJustifyIcon />
-                            </ToggleButton>
-                        </Tooltip>
-                        {alignPanel}
-                    </div>
-                    {(perspectives.length > 0) && (
-                        <Tooltip title="Perspective" placement="top-end">
-                            <IconButton onClick={handleSettingPerspectiveDialog}>
-                                <VisibilityIcon />
-                            </IconButton>
-                        </Tooltip>
-                    )}
-                    <Tooltip title="To back" placement="top-end">
-                        <IconButton onClick={handleBackPosition}><FlipToBackIcon /></IconButton>
+    const portalContainer = toolbarCanvasRef.current;
+    if (!portalContainer) {
+        return deleteDialog;
+    };
+
+    const portalRect = portalContainer.getBoundingClientRect();
+    const memoRect = stickyDom.getBoundingClientRect();
+    const menuStyle: React.CSSProperties = {
+        position: "absolute",
+        left: (memoRect.right - portalRect.left) / displayScale,
+        top: (memoRect.bottom - portalRect.top + 10) / displayScale,
+        transformOrigin: "top right",
+        transform: `translateX(-100%) scale(${1 / displayScale})`,
+        pointerEvents: "auto",
+    };
+
+    const controlMenu = (
+        <Stack direction="row" sx={menuStyle} onClick={handlePreventMouseEvent} onMouseDown={handlePreventMouseEvent}>
+            <div style={controlStyle}>
+                <ColorSelector key={`memo-color-selector_${memoViewModel.memoId}`}
+                    color={memoViewModel.backgroundColor} callback={handleSetColor} />
+                <FormControl size="small">
+                    <Select value={memoViewModel.fontSize} defaultValue={9}
+                        onChange={handleChangeFontSize}>
+                        {FONT_SIZES.map(fontSize => <MenuItem
+                            key={`select-fontsize_${memoViewModel.memoId}_${fontSize}`}
+                            value={fontSize}>
+                            {fontSize}
+                        </MenuItem>)}
+                    </Select>
+                </FormControl>
+                <div style={{ position: "relative", display: "inline-block" }}>
+                    <Tooltip title="Set align" placement="top-end">
+                        <ToggleButton size="small" selected={showAlignPanel} value="check"
+                            onChange={() => setShowAlignPanel(!showAlignPanel)}>
+                            <FormatAlignJustifyIcon />
+                        </ToggleButton>
                     </Tooltip>
-                    <Tooltip title="To front" placement="top-end">
-                        <IconButton onClick={handleFrontPosition}><FlipToFrontIcon /></IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete" placement="top-end">
-                        <IconButton onMouseDown={() => setOpenDeleteDialog(true)}>
-                            <DeleteIcon />
+                    {alignPanel}
+                </div>
+                {(perspectives.length > 0) && (
+                    <Tooltip title="Perspective" placement="top-end">
+                        <IconButton onClick={handleSettingPerspectiveDialog}>
+                            <VisibilityIcon />
                         </IconButton>
                     </Tooltip>
-                </div>
-            </Stack>
-            {deleteDialog}
-        </>
+                )}
+                <Tooltip title="To back" placement="top-end">
+                    <IconButton onClick={handleBackPosition}><FlipToBackIcon /></IconButton>
+                </Tooltip>
+                <Tooltip title="To front" placement="top-end">
+                    <IconButton onClick={handleFrontPosition}><FlipToFrontIcon /></IconButton>
+                </Tooltip>
+                <Tooltip title="Delete" placement="top-end">
+                    <IconButton onMouseDown={() => setOpenDeleteDialog(true)}>
+                        <DeleteIcon />
+                    </IconButton>
+                </Tooltip>
+            </div>
+        </Stack>
     );
+
+    return (<>
+        {ReactDOM.createPortal(controlMenu, portalContainer)}
+        {deleteDialog}
+    </>);
 };
 
 const FONT_SIZES = [7, 9, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 42, 48, 54] as const;

@@ -1,4 +1,5 @@
 import React from "react";
+import ReactDOM from "react-dom";
 import {
     Button, ButtonGroup, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
     Divider, IconButton, Popover, Stack, Tooltip
@@ -12,6 +13,7 @@ import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityConte
 import { DragAction, DragActionContext } from "~/context/DragActionContext";
 import DisplayScaleContext from "~/context/DisplayScaleContext";
 import CanvasPositionContext from "~/context/CanvasPositionContext";
+import PortalCanvasContext from "~/context/PortalCanvasContext";
 import RelationModel from "~/models/database/RelationModel";
 import { OrthogonalDirection } from "~/models/LineViewModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
@@ -25,14 +27,16 @@ import LineWidthIcon from "~/components/icons/LineWidthIcon";
 import LineStraightIcon from "~/components/icons/LineStraightIcon";
 import LineOrthogonalIcon from "~/components/icons/LineOrthogonalIcon";
 import {
-    DRAWABLE_AREA, handlePreventMouseEvent, ORTHOGONAL_THRESHOLD,
+    handlePreventMouseEvent, ORTHOGONAL_THRESHOLD,
     toDraggedOrthogonalPoints, toMarkerId, toOrthogonalPoints
 } from "~/features/canvas/support";
 import EditAction from "~/features/canvas/EditAction";
+import RelationLabelOverlay from "~/features/canvas/RelationLabelOverlay";
+
 import styleClasses from "./ErdCanvas.module.css";
 
 export type ErdRelationTooltipRef = {
-    svgElements: () => { tableIds: string[], path: React.JSX.Element }[]
+    svgElements: () => { tableIds: string[], path: React.JSX.Element, label: React.JSX.Element }[]
 };
 
 type ErdRelationPathViewProps = {
@@ -43,16 +47,16 @@ type ErdRelationPathViewProps = {
     ref: React.Ref<ErdRelationTooltipRef>
 };
 
-const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDragAction, ref }: ErdRelationPathViewProps) => {
+const ErdRelationPathView = ({
+    relationViews, rectangleMap, onEditAction, onDragAction, ref
+}: ErdRelationPathViewProps) => {
+
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
-    const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
-    const dragState = React.useContext(DragActionContext);
-    const displayScale = React.useContext(DisplayScaleContext);
+    const { dispatchSelectAction } = React.useContext(SelectEntityContext);
 
     const [clickedPosition, setClickedPosition] = React.useState<{ x: number, y: number }>({ x: 0, y: 0 });
     const [deletingRelation, setDeletingRelation] = React.useState<RelationViewModel | null>(null);
-    const [lineEditElement, setLineEditElement] = React.useState<HTMLElement | null>(null);
 
     const handleOpenEditDialog = (event: React.MouseEvent, relationView: RelationViewModel) => {
         if (editMode !== EditModeType.SELECT) {
@@ -86,139 +90,12 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
         dispatchSelectAction(RELEASE_ACTION);
     };
 
-    const straightLinePaths = useStraightLineView(relationViews, rectangleMap,
-        setClickedPosition, handleOpenEditDialog, onDragAction);
-    const orthogonalLinePaths = useOrthogonalLine(relationViews, rectangleMap,
-        setClickedPosition, handleOpenEditDialog, onDragAction);
+    const straightLinePaths =
+        useStraightLineView(relationViews, rectangleMap, setClickedPosition, handleOpenEditDialog, onDragAction);
+    const orthogonalLinePaths =
+        useOrthogonalLine(relationViews, rectangleMap, setClickedPosition, handleOpenEditDialog, onDragAction);
 
-    const tooltip = relationViews.map(relationView => {
-        if (
-            (selectState.relationId !== relationView.relationId)
-            || (editMode !== EditModeType.SELECT)
-            || (dragState.status === "on_dragging")
-        ) {
-            return null;
-        }
-
-        const handleSetColor = (background: ColorValue) => {
-            const loggingMessage = `Update relation color. ${JSON.stringify({
-                relationId: relationView.relationId,
-                before: relationView.lineViewModel.color.toHex(),
-                after: background.toHex()
-            })}`;
-            documentsHolder.updateRelationColor(relationView.relationId, background, loggingMessage);
-
-            dispatchSelectAction(RELEASE_ACTION);
-        };
-
-        const linePopover = (lineEditElement == null) ? null : (() => {
-            const lineView = relationView.lineViewModel;
-            const widthButtons = [1, 2, 3].map((width, index) => {
-                const handleClick = () => {
-                    const loggingMessage = `Update relation line width. ${JSON.stringify({
-                        relationId: relationView.relationId,
-                        before: lineView.strokeWidth,
-                        after: width
-                    })}`;
-                    documentsHolder.updateRelationWidth(relationView.relationId, width, loggingMessage);
-
-                    setLineEditElement(null);
-                    dispatchSelectAction(RELEASE_ACTION);
-                };
-
-                return (
-                    <IconButton key={`relation-line-width_${index}`}
-                        color={(lineView.strokeWidth === width) ? "primary" : "default"}
-                        onClick={handleClick}>
-                        <LineWidthIcon width={width * 1.5} />
-                    </IconButton>
-                );
-            });
-
-            const relationModel = relationView.relationModel;
-
-            const handleLineStraight = () => {
-                if ((lineView.lineType === "straight") ||
-                    (relationModel.parentTableModelId === relationModel.childTableModelId)) {
-                    return;
-                }
-
-                const updateArg = { relationId: relationView.relationId, orthogonalLines: [] as OrthogonalDirection[] };
-                documentsHolder.updateRelationOrthogonal([updateArg]);
-
-                setLineEditElement(null);
-                dispatchSelectAction(RELEASE_ACTION);
-            };
-
-            const handleLineOrthogonal = () => {
-                if (lineView.lineType === "orthogonal") {
-                    return;
-                }
-
-                const orthogonalLines = initOrthogonalLine(relationView, rectangleMap);
-                const updateArg = { relationId: relationView.relationId, orthogonalLines };
-                documentsHolder.updateRelationOrthogonal([updateArg]);
-
-                setLineEditElement(null);
-                dispatchSelectAction(RELEASE_ACTION);
-            };
-
-            return (
-                <Popover open={Boolean(lineEditElement)} anchorEl={lineEditElement}
-                    anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-                    transformOrigin={{ vertical: 'top', horizontal: 'center' }}
-                    onClose={() => setLineEditElement(null)}>
-                    <Stack direction="column" alignItems="center" justifyContent="flex-start"
-                        divider={<Divider flexItem />} >
-                        <Stack direction="row" alignItems="center">{widthButtons}</Stack>
-                        <Stack direction="row" alignItems="center">
-                            <IconButton color={(lineView.lineType === "straight") ? "primary" : "default"}
-                                disabled={relationModel.parentTableModelId === relationModel.childTableModelId}
-                                onClick={handleLineStraight}>
-                                <LineStraightIcon />
-                            </IconButton>
-                            <IconButton color={(lineView.lineType === "orthogonal") ? "primary" : "default"}
-                                onClick={handleLineOrthogonal}>
-                                <LineOrthogonalIcon />
-                            </IconButton>
-                        </Stack>
-                    </Stack>
-                </Popover>
-            );
-        })();
-
-        return (
-            <ButtonGroup key={`relation-line_${relationView.relationId}_tooltip`}
-                variant="contained" size="small"
-                onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}
-                sx={{
-                    position: "absolute",
-                    left: clickedPosition.x * displayScale + 15 + DRAWABLE_AREA.width / 2,
-                    top: clickedPosition.y * displayScale - 45 + DRAWABLE_AREA.height / 2,
-                    backgroundColor: "#FFFFFF"
-                }}>
-                <ColorSelector key={`relation-color-selector_${relationView.relationId}`}
-                    color={relationView.lineViewModel.color}
-                    callback={handleSetColor} />
-                <Tooltip title="Edit style" placement="top-end">
-                    <IconButton onClick={event => setLineEditElement(event.currentTarget)}>
-                        <LineSelectorIcon />
-                    </IconButton>
-                </Tooltip>
-                <Tooltip title="Edit relation" placement="top-end">
-                    <IconButton onClick={event => handleOpenEditDialog(event, relationView)}>
-                        <EditIcon />
-                    </IconButton>
-                </Tooltip>
-                <Tooltip title="Delete relation" placement="top-end">
-                    <IconButton onClick={() => setDeletingRelation(relationView)}>
-                        <DeleteIcon />
-                    </IconButton>
-                </Tooltip>
-                {linePopover}
-            </ButtonGroup >
-        );
-    }).find(tooltip => (tooltip != null)) ?? (<></>);
+    const tooltip = useRelationTooltip(relationViews, rectangleMap, clickedPosition, onEditAction, setDeletingRelation);
 
     React.useImperativeHandle(ref, () => {
         return {
@@ -261,6 +138,198 @@ const ErdRelationPathView = ({ relationViews, rectangleMap, onEditAction, onDrag
     );
 };
 
+const useRelationTooltip = (
+    relationViews: RelationViewModel[], rectangleMap: Map<string, RectangleViewModel>,
+    clickedPosition: Point, onEditAction: (editAction: EditAction) => void,
+    setDeletingRelation: (relation: RelationViewModel | null) => void
+) => {
+    const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const { editMode } = React.useContext(EditModeContext);
+    const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
+    const dragState = React.useContext(DragActionContext);
+    const { scale: displayScale } = React.useContext(DisplayScaleContext);
+    const { toolbarCanvasRef } = React.useContext(PortalCanvasContext);
+
+    const [lineEditElement, setLineEditElement] = React.useState<HTMLElement | null>(null);
+
+    if (
+        (selectState.relationId == null)
+        || (selectState.edgeType == null)
+        || (editMode !== EditModeType.SELECT)
+        || (dragState.status === "on_dragging")
+    ) {
+        return (<></>);
+    }
+
+    const relationView = relationViews.find(relation => relation.relationId === selectState.relationId);
+    if (relationView == null) {
+        return (<></>);
+    }
+
+    const handleSetColor = (background: ColorValue) => {
+        const loggingMessage = `Update relation color. ${JSON.stringify({
+            relationId: relationView.relationId,
+            before: relationView.lineViewModel.color.toHex(),
+            after: background.toHex()
+        })}`;
+        documentsHolder.updateRelationColor(relationView.relationId, background, loggingMessage);
+
+        dispatchSelectAction(RELEASE_ACTION);
+    };
+
+    const handleOpenEditDialog = (event: React.MouseEvent, relationView: RelationViewModel) => {
+        if (editMode !== EditModeType.SELECT) {
+            return;
+        }
+
+        event.stopPropagation();
+
+        const relationModel: RelationModel = relationView.relationModel;
+        const erdDocument: ErdDocument = documentsHolder.current();
+
+        const parentTable = erdDocument.findTableViewModel(relationModel.parentTableModelId);
+        if (parentTable == null) {
+            console.error("Not found the parent tableViewModel. "
+                + `relationId = ${relationView.relationId}, tableId = ${relationModel.parentTableModelId}`);
+            return;
+        }
+        const childTable = erdDocument.findTableViewModel(relationModel.childTableModelId);
+        if (childTable == null) {
+            console.error("Not found the child tableViewModel. "
+                + `relationId = ${relationView.relationId}, tableId = ${relationModel.childTableModelId}`);
+            return;
+        }
+
+        onEditAction({
+            editType: "relation",
+            relationViewModel: relationView,
+            parentTable: parentTable.tableModel,
+            childTable: childTable.tableModel
+        });
+        dispatchSelectAction(RELEASE_ACTION);
+    };
+
+    const initLinePopover = (lineEditElement: HTMLElement | null) => {
+        if (lineEditElement == null) {
+            return null;
+        }
+
+        const lineView = relationView.lineViewModel;
+        const widthButtons = [1, 2, 3].map((width, index) => {
+            const handleClick = () => {
+                const loggingMessage = `Update relation line width. ${JSON.stringify({
+                    relationId: relationView.relationId,
+                    before: lineView.strokeWidth,
+                    after: width
+                })}`;
+                documentsHolder.updateRelationWidth(relationView.relationId, width, loggingMessage);
+
+                setLineEditElement(null);
+                dispatchSelectAction(RELEASE_ACTION);
+            };
+
+            return (
+                <IconButton key={`relation-line-width_${index}`}
+                    color={(lineView.strokeWidth === width) ? "primary" : "default"}
+                    onClick={handleClick}>
+                    <LineWidthIcon width={width * 1.5} />
+                </IconButton>
+            );
+        });
+
+        const relationModel = relationView.relationModel;
+
+        const handleLineStraight = () => {
+            if ((lineView.lineType === "straight") ||
+                (relationModel.parentTableModelId === relationModel.childTableModelId)) {
+                return;
+            }
+
+            const updateArg = { relationId: relationView.relationId, orthogonalLines: [] as OrthogonalDirection[] };
+            documentsHolder.updateRelationOrthogonal([updateArg]);
+
+            setLineEditElement(null);
+            dispatchSelectAction(RELEASE_ACTION);
+        };
+
+        const handleLineOrthogonal = () => {
+            if (lineView.lineType === "orthogonal") {
+                return;
+            }
+
+            const orthogonalLines = initOrthogonalLine(relationView, rectangleMap);
+            const updateArg = { relationId: relationView.relationId, orthogonalLines };
+            documentsHolder.updateRelationOrthogonal([updateArg]);
+
+            setLineEditElement(null);
+            dispatchSelectAction(RELEASE_ACTION);
+        };
+
+        return (
+            <Popover open={Boolean(lineEditElement)} anchorEl={lineEditElement}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+                onClose={() => setLineEditElement(null)}>
+                <Stack direction="column" alignItems="center" justifyContent="flex-start"
+                    divider={<Divider flexItem />} >
+                    <Stack direction="row" alignItems="center">{widthButtons}</Stack>
+                    <Stack direction="row" alignItems="center">
+                        <IconButton color={(lineView.lineType === "straight") ? "primary" : "default"}
+                            disabled={relationModel.parentTableModelId === relationModel.childTableModelId}
+                            onClick={handleLineStraight}>
+                            <LineStraightIcon />
+                        </IconButton>
+                        <IconButton color={(lineView.lineType === "orthogonal") ? "primary" : "default"}
+                            onClick={handleLineOrthogonal}>
+                            <LineOrthogonalIcon />
+                        </IconButton>
+                    </Stack>
+                </Stack>
+            </Popover>
+        );
+    };
+
+    const tooltipStyle: React.CSSProperties = {
+        position: "absolute",
+        left: clickedPosition.x + 15,
+        top: clickedPosition.y - 45,
+        backgroundColor: "#FFFFFF",
+        pointerEvents: "auto",
+        transformOrigin: "top left",
+        transform: `scale(${1 / displayScale})`,
+    };
+
+    if (!toolbarCanvasRef.current) {
+        return (<></>);
+    }
+
+    return ReactDOM.createPortal((
+        <ButtonGroup key={`relation-line_${relationView.relationId}_tooltip`}
+            variant="contained" size="small" sx={tooltipStyle}
+            onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
+            <ColorSelector key={`relation-color-selector_${relationView.relationId}`}
+                color={relationView.lineViewModel.color}
+                callback={handleSetColor} />
+            <Tooltip title="Edit style" placement="top-end">
+                <IconButton onClick={event => setLineEditElement(event.currentTarget)}>
+                    <LineSelectorIcon />
+                </IconButton>
+            </Tooltip>
+            <Tooltip title="Edit relation" placement="top-end">
+                <IconButton onClick={event => handleOpenEditDialog(event, relationView)}>
+                    <EditIcon />
+                </IconButton>
+            </Tooltip>
+            <Tooltip title="Delete relation" placement="top-end">
+                <IconButton onClick={() => setDeletingRelation(relationView)}>
+                    <DeleteIcon />
+                </IconButton>
+            </Tooltip>
+            {initLinePopover(lineEditElement)}
+        </ButtonGroup >
+    ), toolbarCanvasRef.current);
+};
+
 type LineDragging = {
     on_dragging: true,
     majorChanging: boolean
@@ -270,7 +339,7 @@ type Point = { x: number, y: number };
 
 const useStraightLineView = (
     relationViews: RelationViewModel[], rectangleMap: Map<string, RectangleViewModel>,
-    setClickedPosition: (position: { x: number, y: number }) => void,
+    setClickedPosition: (position: Point) => void,
     handleOpenEditDialog: (event: React.MouseEvent, relationView: RelationViewModel) => void,
     onDragAction: (dragAction: DragAction) => void
 ) => {
@@ -279,7 +348,7 @@ const useStraightLineView = (
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
-    const displayScale = React.useContext(DisplayScaleContext);
+    const { scale: displayScale } = React.useContext(DisplayScaleContext);
     const positionResolver = React.useContext(CanvasPositionContext);
 
     const [lineDragging, setLineDragging] = React.useState<LineDragging>({ on_dragging: false });
@@ -357,8 +426,7 @@ const useStraightLineView = (
         const { edge: parentEdge } = calculateRectangleEdge(parentTable, dualPoints.parentDual);
         const { edge: childEdge } = calculateRectangleEdge(childTable, dualPoints.childDual);
 
-        const edges = relationView.lineViewModel.edges;
-        const relationEdges = [parentEdge, ...edges, childEdge];
+        const relationEdges = [parentEdge, ...relationView.lineViewModel.edges, childEdge];
         const relationLinePairs = relationEdges.slice(0, -1)
             .map((value, index) => [value, relationEdges[index + 1]]);
 
@@ -376,10 +444,36 @@ const useStraightLineView = (
         const svgPaths = (svgRemoveEdgePath != null)
             ? [...svgBasePaths, ...svgEdges, svgRemoveEdgePath] : [...svgBasePaths, ...svgEdges];
 
-        const drawingPath = `M ${parentEdge.x + DRAWABLE_AREA.width / 2},${parentEdge.y + DRAWABLE_AREA.height / 2}`
+        const drawingPath = `M ${parentEdge.x},${parentEdge.y}`
             + relationLineSegments.map(lineSegment => lineSegment.drawingLine).join(" ");
 
-        return { svgPaths, drawingPath };
+        const labelEdges = [...relationEdges];
+        if ((selectState.relationId === relationView.relationId)
+            && (dragState.status === "on_dragging")
+            && (selectState.edgeId != null)
+        ) {
+            if (selectState.edgeType === "real") {
+                const edgeIndex = selectState.edgeId + 1;
+                if (edgeIndex >= 0 && edgeIndex < labelEdges.length) {
+                    labelEdges[edgeIndex] = dragState.current;
+                }
+            } else if ((selectState.edgeType === "virtual")
+                && lineDragging.on_dragging && lineDragging.majorChanging
+            ) {
+                const insertIndex = selectState.edgeId + 1;
+                labelEdges.splice(insertIndex, 0, dragState.current);
+            }
+        }
+
+        return { svgPaths, drawingPath, labelEdges };
+    };
+
+    const doHandleDragEnd = (event: React.MouseEvent | MouseEvent) => {
+        const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
+        setClickedPosition(mousePosition);
+
+        setLineDragging({ on_dragging: false });
+        onDragAction({ type: "clear" });
     };
 
     // 操作対象の元となる線分 (透過) を作成する
@@ -405,6 +499,12 @@ const useStraightLineView = (
                 edgeId: index
             });
             onDragAction({ type: "start_dragging", start: mousePosition });
+
+            const handleDragEndOverLine = (event: MouseEvent) => {
+                window.removeEventListener("mouseup", handleDragEndOverLine);
+                doHandleDragEnd(event);
+            };
+            window.addEventListener("mouseup", handleDragEndOverLine);
         };
 
         const initActiveDragModification = (majorChanging: boolean) => {
@@ -427,19 +527,15 @@ const useStraightLineView = (
             };
         };
 
-        const handleDragEnd = (event: React.MouseEvent) => {
+        // 元の線分上でドラッグを終えた場合の制御 (Canvas に伝搬させないようにする)
+        const handleDragEndOnLine = (event: React.MouseEvent) => {
             // 左クリック以外は無視
             if (event.button !== 0) {
                 return;
             }
 
             event.stopPropagation();
-
-            const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
-            setClickedPosition(mousePosition);
-
-            setLineDragging({ on_dragging: false });
-            onDragAction({ type: "clear" });
+            doHandleDragEnd(event);
         };
 
         const handleDoubleClick = (event: React.MouseEvent) => {
@@ -451,14 +547,14 @@ const useStraightLineView = (
             handleOpenEditDialog(event, relationView)
         };
 
-        const line = `M ${pair[0].x + DRAWABLE_AREA.width / 2},${pair[0].y + DRAWABLE_AREA.height / 2}`
-            + ` L ${pair[1].x + DRAWABLE_AREA.width / 2},${pair[1].y + DRAWABLE_AREA.height / 2}`;
+        const line = `M ${pair[0].x},${pair[0].y}`
+            + ` L ${pair[1].x},${pair[1].y}`;
 
         return (
             <path key={`relation-line_${relationView.relationId}_path-${index}`}
                 d={line} stroke="transparent" strokeWidth={15} fill="none"
                 style={{ cursor: 'pointer', pointerEvents: "auto" }}
-                onMouseDown={handleDragStart} onMouseUp={handleDragEnd}
+                onMouseDown={handleDragStart} onMouseUp={handleDragEndOnLine}
                 onMouseEnter={initActiveDragModification(false)}
                 onMouseLeave={initActiveDragModification(true)}
                 onClick={handleClickIgnored} onDoubleClick={handleDoubleClick} />
@@ -480,20 +576,20 @@ const useStraightLineView = (
                 && (index < relationView.lineViewModel.edges.length)
             ) ? dragState.delta() : { x: 0, y: 0 };
 
-            return `L ${pair[1].x + delta.x + DRAWABLE_AREA.width / 2},${pair[1].y + delta.y + DRAWABLE_AREA.height / 2}`;
+            return `L ${pair[1].x + delta.x},${pair[1].y + delta.y}`;
         }
 
         if (selectState.edgeType === "real") {
-            return `L ${dragState.current.x + DRAWABLE_AREA.width / 2},${dragState.current.y + DRAWABLE_AREA.height / 2}`;
+            return `L ${dragState.current.x},${dragState.current.y}`;
         }
 
         // Edge 変更が有効な場所に移っていない場合は、元の線分を描画する
         if (!lineDragging.on_dragging || !lineDragging.majorChanging) {
-            return `L ${pair[1].x + DRAWABLE_AREA.width / 2},${pair[1].y + DRAWABLE_AREA.height / 2}`;
+            return `L ${pair[1].x},${pair[1].y}`;
         }
 
-        return `L ${dragState.current.x + DRAWABLE_AREA.width / 2},${dragState.current.y + DRAWABLE_AREA.height / 2}`
-            + ` L ${pair[1].x + DRAWABLE_AREA.width / 2},${pair[1].y + DRAWABLE_AREA.height / 2}`;
+        return `L ${dragState.current.x},${dragState.current.y}`
+            + ` L ${pair[1].x},${pair[1].y}`;
     };
 
     const initHandleDragEdgeStart = (relationId: string, index: number) => {
@@ -536,7 +632,7 @@ const useStraightLineView = (
 
             return (
                 <rect key={`relation-line_${relationView.relationId}_edge-${index}`}
-                    x={currentEdge.x - 5 + DRAWABLE_AREA.width / 2} y={currentEdge.y - 5 + DRAWABLE_AREA.height / 2}
+                    x={currentEdge.x - 5} y={currentEdge.y - 5}
                     width="10" height="10" fill={onDragging ? "black" : "white"} stroke="black"
                     className={initPathCss(relationView, onDragging) + " " + styleClasses.selectableSvg}
                     style={{ cursor: 'pointer', pointerEvents: "auto" }}
@@ -560,8 +656,8 @@ const useStraightLineView = (
         const parentEdge = relationLinePairs[selectState.edgeId][0];
         const childEdge = relationLinePairs[selectState.edgeId + 1][1];
 
-        const deActiveLine = `M ${parentEdge.x + DRAWABLE_AREA.width / 2},${parentEdge.y + DRAWABLE_AREA.height / 2}`
-            + ` L ${childEdge.x + DRAWABLE_AREA.width / 2},${childEdge.y + DRAWABLE_AREA.height / 2}`;
+        const deActiveLine = `M ${parentEdge.x},${parentEdge.y}`
+            + ` L ${childEdge.x},${childEdge.y}`;
 
         const initActiveDragModification = (majorChanging: boolean) => {
             return (event: React.MouseEvent) => {
@@ -652,6 +748,10 @@ const useStraightLineView = (
                         className={initPathCss(relationView, selected)} />
                     {lineSegment.svgPaths}
                 </g>
+            ),
+            label: (
+                <RelationLabelOverlay key={`relation-label_${relationView.relationId}`}
+                    relationView={relationView} pathPoints={lineSegment.labelEdges} />
             )
         };
     }).filter(element => (element != null));
@@ -739,7 +839,7 @@ const useOrthogonalLine = (
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
-    const displayScale = React.useContext(DisplayScaleContext);
+    const { scale: displayScale } = React.useContext(DisplayScaleContext);
     const positionResolver = React.useContext(CanvasPositionContext);
 
     const initPathCss = (selected: boolean, isReducedLine: boolean) => {
@@ -752,6 +852,13 @@ const useOrthogonalLine = (
         }
 
         return styleClasses.selectedSvg;
+    };
+
+    const doHandleDragEnd = (event: React.MouseEvent | MouseEvent) => {
+        const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
+        setClickedPosition(mousePosition);
+
+        onDragAction({ type: "clear" });
     };
 
     return relationViews.map(relationView => {
@@ -774,9 +881,8 @@ const useOrthogonalLine = (
         }
 
         const points = toOrthogonalPoints({ orthogonalLines, parentTable, childTable });
+        const pointPairs = points.slice(0, -1).map((value, index) => [value, points[index + 1]]);
 
-        const pointPairs = points.slice(0, -1)
-            .map((value, index) => [value, points[index + 1]]);
         const handlePaths = pointPairs.map((pair, index) => {
             if (editMode !== EditModeType.SELECT) {
                 return (<></>);
@@ -799,20 +905,22 @@ const useOrthogonalLine = (
                     edgeId: index
                 });
                 onDragAction({ type: "start_dragging", start: mousePosition });
+
+                const handleDragEndOverLine = (event: MouseEvent) => {
+                    window.removeEventListener("mouseup", handleDragEndOverLine);
+                    doHandleDragEnd(event);
+                };
+                window.addEventListener("mouseup", handleDragEndOverLine);
             };
 
-            const handleDragEnd = (event: React.MouseEvent) => {
+            const handleDragEndOnLine = (event: React.MouseEvent) => {
                 // 左クリック以外は無視
                 if (event.button !== 0) {
                     return;
                 }
 
                 event.stopPropagation();
-
-                const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
-                setClickedPosition(mousePosition);
-
-                onDragAction({ type: "clear" });
+                doHandleDragEnd(event);
             };
 
             const handleDoubleClick = (event: React.MouseEvent) => {
@@ -824,14 +932,14 @@ const useOrthogonalLine = (
                 handleOpenEditDialog(event, relationView)
             };
 
-            const line = `M ${pair[0].x + DRAWABLE_AREA.width / 2},${pair[0].y + DRAWABLE_AREA.height / 2}`
-                + ` L ${pair[1].x + DRAWABLE_AREA.width / 2},${pair[1].y + DRAWABLE_AREA.height / 2}`;
+            const line = `M ${pair[0].x},${pair[0].y}`
+                + ` L ${pair[1].x},${pair[1].y}`;
 
             return (
                 <path key={`relation-line_${relationView.relationId}_path-${index}`}
                     d={line} stroke="transparent" strokeWidth={15} fill="none"
                     style={{ cursor: 'pointer', pointerEvents: "auto" }}
-                    onMouseDown={handleDragStart} onMouseUp={handleDragEnd}
+                    onMouseDown={handleDragStart} onMouseUp={handleDragEndOnLine}
                     onClick={handleClickIgnored} onDoubleClick={handleDoubleClick} />
             );
         });
@@ -841,7 +949,7 @@ const useOrthogonalLine = (
         );
 
         const drawingLine = "M" + draggedPoints.map(point =>
-            `${point.x + DRAWABLE_AREA.width / 2},${point.y + DRAWABLE_AREA.height / 2}`
+            `${point.x},${point.y}`
         ).join(" L");
 
         const selected = (selectState.relationId === relationView.relationId);
@@ -858,6 +966,10 @@ const useOrthogonalLine = (
                         className={initPathCss(selected, isReducedLine)} />
                     {handlePaths}
                 </g>
+            ),
+            label: (
+                <RelationLabelOverlay key={`relation-label_${relationView.relationId}`}
+                    relationView={relationView} pathPoints={draggedPoints} />
             )
         };
     }).filter(element => (element != null));

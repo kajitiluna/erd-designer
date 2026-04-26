@@ -16,6 +16,7 @@ import RelationViewModel from "~/models/RelationViewModel";
 import ColumnModel from "~/models/database/ColumnModel";
 import { initHandleChangePhysicalName, initHandleCloseDialog, initHandleEnterKeyDown } from '~/features/editor/support';
 import { overrideColumnName } from '~/models/database/support';
+import LabelViewModel from '~/models/LabelViewModel';
 
 type RelationEditViewProps = {
     isOpen: boolean,
@@ -57,7 +58,7 @@ const RelationEditView = ({
                 .filter(relation => (relation.relationId !== relationViewModel.relationId))
                 .map(relation => initComparableValue(relation.relationModel.relationPairs))
         );
-    }, []);
+    }, [erdDocument, relationViewModel.relationId]);
 
     if (parentPrimaryColumns.length === 0) {
         // 親テーブルに primary key が存在しないので中断
@@ -98,10 +99,15 @@ const RelationEditView = ({
             onUpdateAction: updateActionType,
             onDeleteAction: deleteActionType
         });
+
+        const labelModel = relationViewModel.labelViewModel;
+        const nextLabelModel = (relationName === labelModel.label)
+            ? labelModel : new LabelViewModel({ ...labelModel, label: relationName });
+
         const nextRelationView = new RelationViewModel({
+            ...relationViewModel,
             relationModel: nextRelationModel,
-            lineViewModel: relationViewModel.lineViewModel,
-            createdAt: relationViewModel.createdAt
+            labelViewModel: nextLabelModel
         });
 
         const loggingMessage = "Update Relation. " +

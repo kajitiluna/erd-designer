@@ -116,6 +116,7 @@ export default class LineViewModel {
         if (this.orthogonalLines.length !== other.orthogonalLines.length) {
             return false;
         }
+
         return this.orthogonalLines.every((line, index) => {
             const otherLine = other.orthogonalLines[index];
             return (line.direction === otherLine.direction)
