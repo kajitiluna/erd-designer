@@ -24,7 +24,7 @@ import PortalCanvasContext from "~/context/PortalCanvasContext";
 import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
 import EditAction from "~/features/canvas/EditAction";
 import CanvasPositionContext from "~/context/CanvasPositionContext";
-import { DRAWABLE_AREA, handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
+import { handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
 import TableViewModel from "~/models/TableViewModel";
 import ColorValue from "~/models/ColorValue";
 import { EditModeType } from "~/models/EditMode";
@@ -540,10 +540,12 @@ const InnerErdTableView = ({
     const moving = (selected && (dragState.status === "on_dragging"))
         ? dragState.delta() : { x: 0, y: 0 }
 
+    const physicalPosition = positionResolver.toPhysicalPosition(
+        { x: tableViewModel.corner.left + moving.x, y: tableViewModel.corner.top + moving.y }
+    );
     const tableStyle = {
         position: "absolute", zIndex: selected ? 100 : "auto",
-        left: tableViewModel.corner.left + moving.x + DRAWABLE_AREA.width / 2,
-        top: tableViewModel.corner.top + moving.y + DRAWABLE_AREA.height / 2,
+        left: physicalPosition.x, top: physicalPosition.y,
         display: "flex", flexDirection: "column", justifyContent: "flex-start",
         userSelect: "none",
         ...(!visible && { opacity: 0, pointerEvents: 'none' })

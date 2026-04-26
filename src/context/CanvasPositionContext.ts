@@ -1,6 +1,6 @@
 import React from "react";
 
-import { CANVAS_AREA, DRAWABLE_AREA, getScroll } from "~/features/canvas/support";
+import { getScroll } from "~/features/canvas/support";
 
 type Point = { x: number; y: number };
 
@@ -14,10 +14,28 @@ type Point = { x: number; y: number };
  */
 export class CanvasPositionResolver {
 
+    private readonly canvasArea: { width: number; height: number };
+    private readonly origin: Point;
     private readonly bodyOffset: Point;
 
-    constructor(canvasElement: HTMLElement | null) {
-        this.bodyOffset = initBodyOffset(canvasElement);
+    constructor(canvasElement: HTMLElement | null, canvasArea: { width: number; height: number }) {
+        this.canvasArea = canvasArea;
+        // DRAWABLE_AREA.width/2 = CANVAS_AREA.width の関係から origin = canvasArea
+        this.origin = { x: canvasArea.width, y: canvasArea.height };
+        this.bodyOffset = initBodyOffset(canvasElement, this.origin);
+    }
+
+    /**
+     * 論理座標をキャンバス上の物理座標（スクロール可能な DOM 上の絶対位置）に変換する。
+     * なお、論理座標とはキャンバス中央を (0, 0) とした座標を指す。
+     *
+     * @param logicalPosition 論理座標
+     */
+    public toPhysicalPosition(logicalPosition: Point): Point {
+        return {
+            x: logicalPosition.x + this.origin.x,
+            y: logicalPosition.y + this.origin.y
+        };
     }
 
     /**
@@ -30,11 +48,11 @@ export class CanvasPositionResolver {
     public getLogicalPosition(event: React.MouseEvent | MouseEvent, displayScale: number): Point {
         const { scrollX, scrollY } = getScroll();
 
-        const logicalX = (event.clientX + scrollX - this.bodyOffset.x - DRAWABLE_AREA.width / 2) / displayScale;
-        const logicalY = (event.clientY + scrollY - this.bodyOffset.y - DRAWABLE_AREA.height / 2) / displayScale;
+        const logicalX = (event.clientX + scrollX - this.bodyOffset.x - this.origin.x) / displayScale;
+        const logicalY = (event.clientY + scrollY - this.bodyOffset.y - this.origin.y) / displayScale;
 
-        const validatedX = Math.min(Math.max(CANVAS_AREA.width * (-1) / 2, logicalX), CANVAS_AREA.width / 2);
-        const validatedY = Math.min(Math.max(CANVAS_AREA.height * (-1) / 2, logicalY), CANVAS_AREA.height / 2);
+        const validatedX = Math.min(Math.max(this.canvasArea.width * (-1) / 2, logicalX), this.canvasArea.width / 2);
+        const validatedY = Math.min(Math.max(this.canvasArea.height * (-1) / 2, logicalY), this.canvasArea.height / 2);
 
         return {
             x: Math.floor(validatedX * 100) / 100,
@@ -43,7 +61,7 @@ export class CanvasPositionResolver {
     }
 }
 
-const initBodyOffset = (canvasElement: HTMLElement | null): Point => {
+const initBodyOffset = (canvasElement: HTMLElement | null, origin: Point): Point => {
     if (canvasElement == null) {
         return { x: 0, y: 0 };
     }
@@ -54,8 +72,8 @@ const initBodyOffset = (canvasElement: HTMLElement | null): Point => {
     // body の padding/margin による、キャンバス表示位置と理論位置の差分を算出する。
     // ブラウザ環境では通常 { x: 0, y: 0 }、VSCode Webview では body padding 分の値になる。
     return {
-        x: rect.left + rect.width / 2 + scrollX - DRAWABLE_AREA.width / 2,
-        y: rect.top + rect.height / 2 + scrollY - DRAWABLE_AREA.height / 2
+        x: rect.left + rect.width / 2 + scrollX - origin.x,
+        y: rect.top + rect.height / 2 + scrollY - origin.y
     };
 }
 

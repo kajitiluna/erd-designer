@@ -25,7 +25,7 @@ import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocu
 import { LocalSettingContext } from "~/context/LocalSettingContext";
 import { RELEASE_ACTION, SelectEntityContext, SelectState } from "~/context/SelectEntityContext";
 import CanvasPositionContext from "~/context/CanvasPositionContext";
-import { DRAWABLE_AREA, handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
+import { handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
 import MemoViewModel, { AlignType } from "~/models/MemoViewModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import { EditModeType } from "~/models/EditMode";
@@ -279,10 +279,12 @@ const StickyMemoView = ({
         return selected ? -10 : -100;
     };
 
+    const physicalPosition = positionResolver.toPhysicalPosition(
+        { x: currentRectangle.left + moving.x, y: currentRectangle.top + moving.y }
+    );
     const wrapperStyle: React.CSSProperties = {
         position: "absolute", overflow: "visible", zIndex: zIndex(selected),
-        left: `${currentRectangle.left + moving.x + DRAWABLE_AREA.height / 2}px`,
-        top: `${currentRectangle.top + moving.y + DRAWABLE_AREA.width / 2}px`,
+        left: `${physicalPosition.x}px`, top: `${physicalPosition.y}px`,
         display: "flex", flexDirection: "column", justifyContent: "flex-start",
         boxShadow: selected ? "" : "0px 0px 7px 0px #bebebe",
         // "&::-webkit-scrollbar": { display: "none" },

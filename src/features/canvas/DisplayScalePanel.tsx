@@ -2,15 +2,16 @@ import React from "react";
 import { Box, ButtonGroup, FormControl, IconButton, MenuItem, Select, SelectChangeEvent } from "@mui/material";
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
-import { DRAWABLE_AREA, inOpenControlPanel } from "~/features/canvas/support";
+import { inOpenControlPanel } from "~/features/canvas/support";
 import { ScaleState } from "~/context/DisplayScaleContext";
 
 type DisplayScalePanelProps = {
     scaleStatus: ScaleState,
-    onChangeScale: React.Dispatch<React.SetStateAction<ScaleState>>
+    onChangeScale: React.Dispatch<React.SetStateAction<ScaleState>>,
+    canvasArea: { width: number; height: number }
 };
 
-const DisplayScalePanel = ({ scaleStatus, onChangeScale }: DisplayScalePanelProps) => {
+const DisplayScalePanel = ({ scaleStatus, onChangeScale, canvasArea }: DisplayScalePanelProps) => {
 
     const scaleRef = React.useRef<number>(1);
     const zoomTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -49,7 +50,7 @@ const DisplayScalePanel = ({ scaleStatus, onChangeScale }: DisplayScalePanelProp
     }, [scaleStatus]);
 
     React.useEffect(() => {
-        const handleWheel = initHandleWheel(scaleRef, zoomTimerRef, onChangeScale);
+        const handleWheel = initHandleWheel(scaleRef, zoomTimerRef, onChangeScale, canvasArea);
         window.addEventListener("wheel", handleWheel, { passive: false, capture: true });
 
         return () => {
@@ -113,7 +114,8 @@ const findNearestPresetIndex = (scale: number): number => {
 
 const initHandleWheel = (
     scaleRef: React.RefObject<number>, zoomTimerRef: React.RefObject<NodeJS.Timeout | null>,
-    onChangeScale: React.Dispatch<React.SetStateAction<ScaleState>>
+    onChangeScale: React.Dispatch<React.SetStateAction<ScaleState>>,
+    canvasArea: { width: number; height: number }
 ) => {
     return (event: WheelEvent) => {
         if (!event.ctrlKey && !event.metaKey) {
@@ -152,8 +154,8 @@ const initHandleWheel = (
         }
 
         // スケールの原点
-        const originX = DRAWABLE_AREA.width / 2;
-        const originY = DRAWABLE_AREA.height / 2;
+        const originX = canvasArea.width;
+        const originY = canvasArea.height;
         // 現在のビューポートの中央
         const screenCenterCanvasX = window.scrollX + window.innerWidth / 2;
         const screenCenterCanvasY = window.scrollY + window.innerHeight / 2;
