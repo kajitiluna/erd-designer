@@ -9,6 +9,7 @@ images/**
 public/favicon.ico
 samples/**
 src/**
+work/**
 
 node_modules/**
 
@@ -16,6 +17,7 @@ node_modules/**
 .yarnrc
 eslint.config.js
 package-lock.json
+renovate.json
 tsconfig.json
 tsconfig.app.json
 tsconfig.node.json
@@ -25,6 +27,8 @@ vitest.setup.ts
 **/.DS_Store
 index.html
 *.md
+!CHANGELOG.md
+
 *.bak
 *.log
 

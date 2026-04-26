@@ -1,4 +1,5 @@
 {
+    "eslint.useFlatConfig": true,
     "typescript.preferences.importModuleSpecifier": "non-relative",
     "cSpell.words": [
         "exceljs",
