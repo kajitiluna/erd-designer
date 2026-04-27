@@ -944,9 +944,48 @@ const useOrthogonalLine = (
             );
         });
 
-        const { draggedPoints, isReducedLine } = toDraggedOrthogonalPoints(
-            { relationView, points, parentTable, childTable, selectState, dragState }
-        );
+        // For table drags, compute visual points by shifting orthogonal lines
+        // and recomputing from moved table positions — same logic as persistence.
+        // This bypasses toDraggedOrthogonalPoints for table moves entirely.
+        let draggedPoints: { x: number, y: number }[];
+        let isReducedLine = false;
+        const isTableDrag = (dragState.status === "on_dragging")
+            && (selectState.edgeId == null) && (selectState.tableIds.size > 0);
+        const parentDragging = selectState.tableIds.has(relationModel.parentTableModelId);
+        const childDragging = selectState.tableIds.has(relationModel.childTableModelId);
+
+        if (isTableDrag && (parentDragging || childDragging)) {
+            const delta = dragState.delta();
+            const movedParent = parentDragging ? parentTable.move(delta) : parentTable;
+            const movedChild = childDragging ? childTable.move(delta) : childTable;
+
+            const shifted = orthogonalLines.map((line, i) => {
+                if (parentDragging && childDragging) {
+                    const shift = (line.direction === "horizontal") ? delta.y : delta.x;
+                    return { ...line, position: line.position + shift };
+                }
+                if (parentDragging && i === 0) {
+                    const shift = (line.direction === "horizontal") ? delta.y : delta.x;
+                    return { ...line, position: line.position + shift };
+                }
+                if (childDragging && i === orthogonalLines.length - 1) {
+                    const shift = (line.direction === "horizontal") ? delta.y : delta.x;
+                    return { ...line, position: line.position + shift };
+                }
+                return line;
+            });
+
+            draggedPoints = toOrthogonalPoints({
+                orthogonalLines: shifted, parentTable: movedParent,
+                childTable: movedChild, clampToTableBounds: true
+            });
+        } else {
+            const result = toDraggedOrthogonalPoints(
+                { relationView, points, parentTable, childTable, selectState, dragState }
+            );
+            draggedPoints = result.draggedPoints;
+            isReducedLine = result.isReducedLine;
+        }
 
         const drawingLine = "M" + draggedPoints.map(point =>
             `${point.x},${point.y}`
