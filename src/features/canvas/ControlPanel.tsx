@@ -593,8 +593,11 @@ const downloadSvg = (erdDocument: ErdDocument, drawableArea: CanvasArea) => {
         const defs = renderedSvg.querySelector("defs");
         if (defs) defsContent = defs.innerHTML;
 
+        const connOffset = { x: DRAWABLE_AREA.width / 2, y: DRAWABLE_AREA.height / 2 };
         renderedSvg.querySelectorAll("g[data-parent]").forEach(g => {
-            connectionGroups += g.outerHTML + "\n";
+            const clone = g.cloneNode(true) as SVGGElement;
+            clone.setAttribute("transform", `translate(${connOffset.x}, ${connOffset.y})`);
+            connectionGroups += clone.outerHTML + "\n";
         });
     }
 
@@ -605,9 +608,9 @@ const downloadSvg = (erdDocument: ErdDocument, drawableArea: CanvasArea) => {
         const text = htmlEl.textContent ?? "";
         if (!text) return;
         const style = htmlEl.style;
-        const lx = parseFloat(style.left) || 0;
-        const ly = parseFloat(style.top) || 0;
-        const fs = parseFloat(style.fontSize) || 13;
+        const lx = (parseFloat(style.left) || 0) + DRAWABLE_AREA.width / 2;
+        const ly = (parseFloat(style.top) || 0) + DRAWABLE_AREA.height / 2;
+        const fs = parseFloat(window.getComputedStyle(htmlEl).fontSize) || 13;
         const color = style.color || "rgba(60,60,60,0.95)";
         const fw = style.fontWeight || "400";
         const fst = style.fontStyle === "italic" ? "italic" : "normal";

@@ -32,7 +32,6 @@ import {
 } from "~/features/canvas/support";
 import EditAction from "~/features/canvas/EditAction";
 import RelationLabelOverlay from "~/features/canvas/RelationLabelOverlay";
-
 import styleClasses from "./ErdCanvas.module.css";
 
 export type ErdRelationTooltipRef = {
@@ -425,7 +424,6 @@ const useStraightLineView = (
         const dualPoints = initDualPoints(relationView, parentTable, childTable);
         const { edge: parentEdge } = calculateRectangleEdge(parentTable, dualPoints.parentDual);
         const { edge: childEdge } = calculateRectangleEdge(childTable, dualPoints.childDual);
-
         const relationEdges = [parentEdge, ...relationView.lineViewModel.edges, childEdge];
         const relationLinePairs = relationEdges.slice(0, -1)
             .map((value, index) => [value, relationEdges[index + 1]]);
@@ -882,7 +880,7 @@ const useOrthogonalLine = (
             return null;
         }
 
-        const points = toOrthogonalPoints({ orthogonalLines, parentTable, childTable });
+        const points = toOrthogonalPoints({ orthogonalLines, parentTable, childTable, clampToTableBounds: true });
         const pointPairs = points.slice(0, -1).map((value, index) => [value, points[index + 1]]);
 
         const handlePaths = pointPairs.map((pair, index) => {
