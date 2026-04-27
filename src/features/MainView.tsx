@@ -51,12 +51,12 @@ const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) 
 
     const documentsHolder = new ErdDocumentsHolder(holderProps.erdDocuments, holderProps.cursor, handleOnSave);
 
+    const roundedOrthogonalCorners =
+        holderProps.erdDocuments[holderProps.cursor]?.erdSettingModel.roundedOrthogonalCorners ?? false;
+
     React.useEffect(() => {
-        const erdSetting = documentsHolder.current().erdSettingModel;
-        if (erdSetting.roundedOrthogonalCorners) {
-            dispatchLocalSetting({ type: "roundedOrthogonalCorners", enabled: true });
-        }
-    }, []);
+        dispatchLocalSetting({ type: "roundedOrthogonalCorners", enabled: roundedOrthogonalCorners });
+    }, [roundedOrthogonalCorners]);
 
 
     return (
