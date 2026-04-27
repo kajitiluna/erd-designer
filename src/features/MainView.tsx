@@ -51,14 +51,6 @@ const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) 
 
     const documentsHolder = new ErdDocumentsHolder(holderProps.erdDocuments, holderProps.cursor, handleOnSave);
 
-    const roundedOrthogonalCorners =
-        holderProps.erdDocuments[holderProps.cursor]?.erdSettingModel.roundedOrthogonalCorners ?? false;
-
-    React.useEffect(() => {
-        dispatchLocalSetting({ type: "roundedOrthogonalCorners", enabled: roundedOrthogonalCorners });
-    }, [roundedOrthogonalCorners]);
-
-
     return (
         <ErdDocumentsHolderContext.Provider value={documentsHolder}>
             <EditModeContext.Provider value={{ editMode, dispatchEditMode }}>

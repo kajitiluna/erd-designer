@@ -314,7 +314,7 @@ const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasPr
 
         setSvgPaths(targetElements.map(element => element.path));
         setRelationLabels(targetElements.map(element => element.label));
-    }, [selectState, dragState, rectangleArea, localSetting.visibleLineStyle, localSetting.roundedOrthogonalCorners, erdDocument, currentPerspective]);
+    }, [selectState, dragState, rectangleArea, localSetting.visibleLineStyle, erdDocument, currentPerspective]);
 
     // マウスカーソルのアイコン設定
     React.useLayoutEffect(() => {

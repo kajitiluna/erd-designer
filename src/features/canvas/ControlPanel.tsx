@@ -165,29 +165,6 @@ const ActionPanel = () => {
         </FormControl>
     );
 
-    const handleChangeRoundedCorners = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const enabled = event.target.checked;
-        dispatchLocalSetting({ type: "roundedOrthogonalCorners", enabled });
-
-        const nextSetting = erdSetting.update({ roundedOrthogonalCorners: enabled });
-        const loggingMessage = `Update roundedOrthogonalCorners: ${enabled}`;
-        documentsHolder.updateErdSetting(nextSetting, loggingMessage);
-    };
-
-    const roundedCornersSwitcher = (
-        <FormControl sx={{ padding: "0 6px 6px 12px" }}>
-            <DescriptionTooltip placement="right-end"
-                title={"When active, orthogonal relation lines\nuse rounded corners instead of sharp bends."}>
-                <FormControlLabel sx={SWITCH_FORM_STYLE}
-                    label="Rounded corners" control={
-                        <Switch size="small"
-                            checked={localSetting.roundedOrthogonalCorners}
-                            onChange={handleChangeRoundedCorners} />
-                    } />
-            </DescriptionTooltip>
-        </FormControl>
-    );
-
     const handleSetDefaultColor = (background: ColorValue, foreground: ColorValue) => {
         dispatchLocalSetting({
             type: "defaultColor",
@@ -202,7 +179,6 @@ const ActionPanel = () => {
 
             {perspectiveSelector}
             {lineVisibleSwitcher}
-            {roundedCornersSwitcher}
             <Divider />
 
             <Button variant="text" startIcon={<UndoIcon />}

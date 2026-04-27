@@ -118,59 +118,6 @@ describe('ErdSettingModel', () => {
         });
     });
 
-    describe('roundedOrthogonalCorners', () => {
-        test('should default to false when not provided', () => {
-            const model = ErdSettingModel.toObject({
-                exportDdlSetting: new ExportDdlSettingModel({ fileName: 'test.sql' }).toJSON()
-            });
-
-            expect(model.roundedOrthogonalCorners).toBe(false);
-        });
-
-        test('should deserialize from JSON', () => {
-            const model = ErdSettingModel.toObject({
-                exportDdlSetting: new ExportDdlSettingModel({ fileName: 'test.sql' }).toJSON(),
-                roundedOrthogonalCorners: true
-            });
-
-            expect(model.roundedOrthogonalCorners).toBe(true);
-        });
-
-        test('should update via update()', () => {
-            const original = ErdSettingModel.toObject({
-                exportDdlSetting: new ExportDdlSettingModel({ fileName: 'test.sql' }).toJSON()
-            });
-
-            const updated = original.update({ roundedOrthogonalCorners: true });
-
-            expect(updated).not.toBe(original);
-            expect(updated.roundedOrthogonalCorners).toBe(true);
-            expect(original.roundedOrthogonalCorners).toBe(false);
-        });
-
-        test('should roundtrip through JSON', () => {
-            const original = ErdSettingModel.toObject({
-                exportDdlSetting: new ExportDdlSettingModel({ fileName: 'test.sql' }).toJSON(),
-                roundedOrthogonalCorners: true
-            });
-
-            const json = original.toJSON();
-            const deserialized = ErdSettingModel.toObject(json);
-
-            expect(deserialized.roundedOrthogonalCorners).toBe(true);
-        });
-
-        test('should not include in JSON when false', () => {
-            const model = ErdSettingModel.toObject({
-                exportDdlSetting: new ExportDdlSettingModel({ fileName: 'test.sql' }).toJSON()
-            });
-
-            const json = model.toJSON();
-
-            expect(json).not.toHaveProperty('roundedOrthogonalCorners');
-        });
-    });
-
     describe('toJSON', () => {
         test('should convert to plain object', () => {
             const exportDdlSetting = new ExportDdlSettingModel({ fileName: 'test.sql' });

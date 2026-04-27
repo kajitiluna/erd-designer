@@ -114,45 +114,46 @@ export const toOrthogonalPoints = (
     return points;
 };
 
-export const toRoundedPath = (points: Point[], radius: number, offset: { x: number, y: number } = { x: 0, y: 0 }): string => {
-    if (points.length < 2) return "";
-    const ox = offset.x;
-    const oy = offset.y;
-    if (points.length === 2) {
-        return `M${points[0].x + ox},${points[0].y + oy} L${points[1].x + ox},${points[1].y + oy}`;
+export const toRoundedPath = (points: Point[], radius: number): string => {
+    if (points.length < 2) {
+        return "";
     }
 
-    const parts: string[] = [`M${points[0].x + ox},${points[0].y + oy}`];
+    if (points.length === 2) {
+        return `M${points[0].x},${points[0].y} L${points[1].x},${points[1].y}`;
+    }
 
-    for (let i = 1; i < points.length - 1; i++) {
-        const prev = points[i - 1];
-        const curr = points[i];
-        const next = points[i + 1];
+    const parts: string[] = [`M${points[0].x},${points[0].y}`];
 
-        const dxIn = curr.x - prev.x;
-        const dyIn = curr.y - prev.y;
-        const lenIn = Math.sqrt(dxIn * dxIn + dyIn * dyIn);
-        const dxOut = next.x - curr.x;
-        const dyOut = next.y - curr.y;
-        const lenOut = Math.sqrt(dxOut * dxOut + dyOut * dyOut);
+    for (let index = 1; index < points.length - 1; index++) {
+        const previous = points[index - 1];
+        const current = points[index];
+        const next = points[index + 1];
 
-        const r = Math.min(radius, lenIn / 2, lenOut / 2);
-        if (r < 1) {
-            parts.push(`L${curr.x + ox},${curr.y + oy}`);
+        const incomingDx = current.x - previous.x;
+        const incomingDy = current.y - previous.y;
+        const incomingLength = Math.sqrt(incomingDx * incomingDx + incomingDy * incomingDy);
+        const outgoingDx = next.x - current.x;
+        const outgoingDy = next.y - current.y;
+        const outgoingLength = Math.sqrt(outgoingDx * outgoingDx + outgoingDy * outgoingDy);
+
+        const clampedRadius = Math.min(radius, incomingLength / 2, outgoingLength / 2);
+        if (clampedRadius < 1) {
+            parts.push(`L${current.x},${current.y}`);
             continue;
         }
 
-        const approachX = curr.x - (dxIn / lenIn) * r;
-        const approachY = curr.y - (dyIn / lenIn) * r;
-        const departX = curr.x + (dxOut / lenOut) * r;
-        const departY = curr.y + (dyOut / lenOut) * r;
+        const approachX = current.x - (incomingDx / incomingLength) * clampedRadius;
+        const approachY = current.y - (incomingDy / incomingLength) * clampedRadius;
+        const departX = current.x + (outgoingDx / outgoingLength) * clampedRadius;
+        const departY = current.y + (outgoingDy / outgoingLength) * clampedRadius;
 
-        parts.push(`L${approachX + ox},${approachY + oy}`);
-        parts.push(`Q${curr.x + ox},${curr.y + oy} ${departX + ox},${departY + oy}`);
+        parts.push(`L${approachX},${approachY}`);
+        parts.push(`Q${current.x},${current.y} ${departX},${departY}`);
     }
 
-    const last = points[points.length - 1];
-    parts.push(`L${last.x + ox},${last.y + oy}`);
+    const lastPoint = points[points.length - 1];
+    parts.push(`L${lastPoint.x},${lastPoint.y}`);
     return parts.join(" ");
 };
 
