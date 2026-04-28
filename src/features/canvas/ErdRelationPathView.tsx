@@ -432,9 +432,9 @@ const useStraightLineView = (
 
         const relationLineSegments = relationLinePairs.map((pair, index) => {
             const baseSvgPath: React.JSX.Element = initBaseSvgPath(relationView, index, pair);
-            const drawingLine: string = initDrawingLine(relationView, index, pair);
+            const drawingPoints: Point[] = initDrawingPoint(relationView, index, pair);
 
-            return { baseSvgPath, drawingLine };
+            return { baseSvgPath, drawingPoints };
         });
 
         const svgBasePaths = relationLineSegments.map(lineSegment => lineSegment.baseSvgPath);
@@ -444,8 +444,8 @@ const useStraightLineView = (
         const svgPaths = (svgRemoveEdgePath != null)
             ? [...svgBasePaths, ...svgEdges, svgRemoveEdgePath] : [...svgBasePaths, ...svgEdges];
 
-        const drawingPath = `M ${parentEdge.x},${parentEdge.y}`
-            + relationLineSegments.map(lineSegment => lineSegment.drawingLine).join(" ");
+        const edgePoints = [parentEdge, ...relationLineSegments.flatMap(lineSegment => lineSegment.drawingPoints)];
+        const drawingPath = toRoundedPath(edgePoints, 15);
 
         const labelEdges = [...relationEdges];
         if ((selectState.relationId === relationView.relationId)
@@ -561,8 +561,8 @@ const useStraightLineView = (
         );
     };
 
-    // ドラッグ中の状態を考慮したうえで、線分を描画する
-    const initDrawingLine = (relationView: RelationViewModel, index: number, pair: Point[]) => {
+    // ドラッグ中の状態を考慮したうえで、線分を描画する点を決定する
+    const initDrawingPoint = (relationView: RelationViewModel, index: number, pair: Point[]) => {
         if (
             (selectState.relationId !== relationView.relationId)
             || (selectState.edgeId !== index)
@@ -576,20 +576,19 @@ const useStraightLineView = (
                 && (index < relationView.lineViewModel.edges.length)
             ) ? dragState.delta() : { x: 0, y: 0 };
 
-            return `L ${pair[1].x + delta.x},${pair[1].y + delta.y}`;
+            return [{ x: pair[1].x + delta.x, y: pair[1].y + delta.y }];
         }
 
         if (selectState.edgeType === "real") {
-            return `L ${dragState.current.x},${dragState.current.y}`;
+            return [dragState.current];
         }
 
         // Edge 変更が有効な場所に移っていない場合は、元の線分を描画する
         if (!lineDragging.on_dragging || !lineDragging.majorChanging) {
-            return `L ${pair[1].x},${pair[1].y}`;
+            return [pair[1]];
         }
 
-        return `L ${dragState.current.x},${dragState.current.y}`
-            + ` L ${pair[1].x},${pair[1].y}`;
+        return [dragState.current, pair[1]];
     };
 
     const initHandleDragEdgeStart = (relationId: string, index: number) => {

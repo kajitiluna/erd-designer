@@ -148,12 +148,12 @@ export const toRoundedPath = (points: Point[], radius: number): string => {
         const departX = current.x + (outgoingDx / outgoingLength) * clampedRadius;
         const departY = current.y + (outgoingDy / outgoingLength) * clampedRadius;
 
-        parts.push(`L${approachX},${approachY}`);
-        parts.push(`Q${current.x},${current.y} ${departX},${departY}`);
+        parts.push(`L${approachX},${approachY} Q${current.x},${current.y} ${departX},${departY}`);
     }
 
     const lastPoint = points[points.length - 1];
     parts.push(`L${lastPoint.x},${lastPoint.y}`);
+
     return parts.join(" ");
 };
 
