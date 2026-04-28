@@ -28,7 +28,7 @@ import LineStraightIcon from "~/components/icons/LineStraightIcon";
 import LineOrthogonalIcon from "~/components/icons/LineOrthogonalIcon";
 import {
     handlePreventMouseEvent, ORTHOGONAL_THRESHOLD,
-    toDraggedOrthogonalPoints, toMarkerId, toOrthogonalPoints
+    toDraggedOrthogonalPoints, toMarkerId, toOrthogonalPoints, toRoundedPath
 } from "~/features/canvas/support";
 import EditAction from "~/features/canvas/EditAction";
 import RelationLabelOverlay from "~/features/canvas/RelationLabelOverlay";
@@ -841,7 +841,6 @@ const useOrthogonalLine = (
     const dragState = React.useContext(DragActionContext);
     const { scale: displayScale } = React.useContext(DisplayScaleContext);
     const positionResolver = React.useContext(CanvasPositionContext);
-
     const initPathCss = (selected: boolean, isReducedLine: boolean) => {
         if (!selected) {
             return "";
@@ -948,9 +947,7 @@ const useOrthogonalLine = (
             { relationView, points, parentTable, childTable, selectState, dragState }
         );
 
-        const drawingLine = "M" + draggedPoints.map(point =>
-            `${point.x},${point.y}`
-        ).join(" L");
+        const drawingLine = toRoundedPath(draggedPoints, 10);
 
         const selected = (selectState.relationId === relationView.relationId);
 

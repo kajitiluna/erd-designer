@@ -114,6 +114,49 @@ export const toOrthogonalPoints = (
     return points;
 };
 
+export const toRoundedPath = (points: Point[], radius: number): string => {
+    if (points.length < 2) {
+        return "";
+    }
+
+    if (points.length === 2) {
+        return `M${points[0].x},${points[0].y} L${points[1].x},${points[1].y}`;
+    }
+
+    const parts: string[] = [`M${points[0].x},${points[0].y}`];
+
+    for (let index = 1; index < points.length - 1; index++) {
+        const previous = points[index - 1];
+        const current = points[index];
+        const next = points[index + 1];
+
+        const incomingDx = current.x - previous.x;
+        const incomingDy = current.y - previous.y;
+        const incomingLength = Math.sqrt(incomingDx * incomingDx + incomingDy * incomingDy);
+        const outgoingDx = next.x - current.x;
+        const outgoingDy = next.y - current.y;
+        const outgoingLength = Math.sqrt(outgoingDx * outgoingDx + outgoingDy * outgoingDy);
+
+        const clampedRadius = Math.min(radius, incomingLength / 2, outgoingLength / 2);
+        if (clampedRadius < 1) {
+            parts.push(`L${current.x},${current.y}`);
+            continue;
+        }
+
+        const approachX = current.x - (incomingDx / incomingLength) * clampedRadius;
+        const approachY = current.y - (incomingDy / incomingLength) * clampedRadius;
+        const departX = current.x + (outgoingDx / outgoingLength) * clampedRadius;
+        const departY = current.y + (outgoingDy / outgoingLength) * clampedRadius;
+
+        parts.push(`L${approachX},${approachY}`);
+        parts.push(`Q${current.x},${current.y} ${departX},${departY}`);
+    }
+
+    const lastPoint = points[points.length - 1];
+    parts.push(`L${lastPoint.x},${lastPoint.y}`);
+    return parts.join(" ");
+};
+
 type ToDraggedOrthogonalPointsArgs = {
     relationView: RelationViewModel,
     points: Point[],
