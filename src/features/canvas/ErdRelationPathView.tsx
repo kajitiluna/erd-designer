@@ -741,8 +741,8 @@ const useStraightLineView = (
             tableIds: [relationModel.parentTableModelId, relationModel.childTableModelId],
             path: (
                 <g key={`relation-line_${relationView.relationId}`}
-                    data-parent={relationModel.parentTableModelId}
-                    data-child={relationModel.childTableModelId}>
+                    data-erd-relation-parent-table-id={relationModel.parentTableModelId}
+                    data-erd-relation-child-table-id={relationModel.childTableModelId}>
                     <path d={lineSegment.drawingPath} fill="none"
                         stroke={lineViewModel.color.toRgba()}
                         strokeWidth={lineViewModel.strokeWidth}
@@ -960,8 +960,8 @@ const useOrthogonalLine = (
             tableIds: [relationModel.parentTableModelId, relationModel.childTableModelId],
             path: (
                 <g key={`relation-line_${relationView.relationId}`}
-                    data-parent={relationModel.parentTableModelId}
-                    data-child={relationModel.childTableModelId}>
+                    data-erd-relation-parent-table-id={relationModel.parentTableModelId}
+                    data-erd-relation-child-table-id={relationModel.childTableModelId}>
                     <path d={drawingLine} fill="none"
                         stroke={relationView.lineViewModel.color.toRgba()}
                         strokeWidth={relationView.lineViewModel.strokeWidth}

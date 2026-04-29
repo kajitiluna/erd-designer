@@ -6,9 +6,6 @@ import { OrthogonalDirection } from "~/models/LineViewModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
 
-const CANVAS_AREA = { width: 25000, height: 25000 } as const;
-export const DRAWABLE_AREA = { width: CANVAS_AREA.width * 2, height: CANVAS_AREA.height * 2 } as const;
-
 /**
  * ブラウザおよび WebView いずれで実行されている場合も適切なスクロール位置を取得する。
  * 
