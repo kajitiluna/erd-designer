@@ -6,6 +6,8 @@ import { OrthogonalDirection } from "~/models/LineViewModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
 
+
+
 /**
  * ブラウザおよび WebView いずれで実行されている場合も適切なスクロール位置を取得する。
  * 
