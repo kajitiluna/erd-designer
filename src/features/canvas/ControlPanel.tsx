@@ -31,17 +31,21 @@ import { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
 import ExportSpecificationContext, { ImageContent } from "~/context/ExportSpecificationContext";
 import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
 import { getScroll } from "~/features/canvas/support";
+import { downloadHtml } from "~/features/canvas/htmlExporter";
+
+type CanvasArea = { width: number, height: number };
 
 type ControlPanelProps = {
-    erdExportable: boolean
+    erdExportable: boolean,
+    drawableArea: CanvasArea
 };
 
-const ControlPanel = ({ erdExportable }: ControlPanelProps) => {
+const ControlPanel = ({ erdExportable, drawableArea }: ControlPanelProps) => {
     return (
         <Box sx={PANEL_STYLE}>
             <EditModePanel />
             <ActionPanel />
-            <SubMenuPanel erdExportable={erdExportable} />
+            <SubMenuPanel erdExportable={erdExportable} drawableArea={drawableArea} />
         </Box>
     );
 };
@@ -210,17 +214,19 @@ const ACTION_BUTTON_STYLE = {
 };
 
 type SubMenuButtonProps = {
-    erdExportable: boolean
+    erdExportable: boolean,
+    drawableArea: CanvasArea
 };
 
-const SubMenuPanel = ({ erdExportable }: SubMenuButtonProps) => {
+const SubMenuPanel = ({ erdExportable, drawableArea }: SubMenuButtonProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { dispatchSelectAction } = React.useContext(SelectEntityContext);
-    const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
+    const { localSetting, dispatchLocalSetting } = React.useContext(LocalSettingContext);
     const [configureElement, setConfigureElement] = React.useState<HTMLElement | null>();
     const [selectedMenu, setSelectedMenu] = React.useState<"export_ddl" | "">("");
     const [exportImageElement, setExportImageElement] = React.useState<HTMLElement | null>(null);
     const [batchExportQueue, setBatchExportQueue] = React.useState<PerspectiveModel[]>([]);
+    const [htmlExportPendingRestore, setHtmlExportPendingRestore] = React.useState<string | null>(null);
     const { exportSpecification } = React.useContext(ExportSpecificationContext);
 
     const erdDocument: ErdDocument = documentsHolder.current();
@@ -257,6 +263,18 @@ const SubMenuPanel = ({ erdExportable }: SubMenuButtonProps) => {
         return () => clearTimeout(timer);
     }, [batchExportQueue, erdDocument, dispatchLocalSetting]);
 
+    React.useEffect(() => {
+        if (htmlExportPendingRestore == null) return;
+
+        const timer = setTimeout(() => {
+            downloadHtml(erdDocument, drawableArea);
+            dispatchLocalSetting({ type: "perspective", perspectiveId: htmlExportPendingRestore });
+            setHtmlExportPendingRestore(null);
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [htmlExportPendingRestore, erdDocument, dispatchLocalSetting]);
+
     const handleOpenMenu = (event: React.MouseEvent<HTMLButtonElement>) => setConfigureElement(event.currentTarget);
 
     const handleExportAsImage = () => {
@@ -264,6 +282,18 @@ const SubMenuPanel = ({ erdExportable }: SubMenuButtonProps) => {
 
         downloadImage(erdDocument);
         handleCloseMenu();
+    };
+
+    const handleSaveAsHtml = () => {
+        dispatchSelectAction(RELEASE_ACTION);
+        handleCloseMenu();
+
+        if (localSetting.perspectiveId !== "") {
+            dispatchLocalSetting({ type: "perspective", perspectiveId: "" });
+            setHtmlExportPendingRestore(localSetting.perspectiveId);
+        } else {
+            downloadHtml(erdDocument, drawableArea);
+        }
     };
 
     const handleBatchExportPerspectives = () => {
@@ -335,6 +365,7 @@ const SubMenuPanel = ({ erdExportable }: SubMenuButtonProps) => {
                 slotProps={{ paper: { 'aria-labelledby': 'basic-button', } }}>
                 <MenuItem onClick={() => setSelectedMenu("export_ddl")}>Export DDL</MenuItem>
                 {exportImageMenuItems()}
+                <MenuItem onClick={handleSaveAsHtml}>Save as interactive HTML</MenuItem>
                 <MenuItem onClick={handleExportSpecification}>Export specification</MenuItem>
                 {erdExportable && <MenuItem onClick={handleSaveToJson}>Save to ERD file</MenuItem>}
             </Menu>

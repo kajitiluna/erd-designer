@@ -28,6 +28,7 @@ type ErdDocumentsHolderOptions = {
 };
 
 const CANVAS_AREA = { width: 25000, height: 25000 } as const;
+const DRAWABLE_AREA = { width: CANVAS_AREA.width * 2, height: CANVAS_AREA.height * 2 } as const;
 
 const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) => {
 
@@ -65,7 +66,7 @@ const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) 
                                     <TitlePanel />
                                 </Box>
                                 <Box sx={{ position: "fixed", top: "50%", left: "50px", transform: "translateY(-50%)" }}>
-                                    <ControlPanel erdExportable={erdExportable} />
+                                    <ControlPanel erdExportable={erdExportable} drawableArea={DRAWABLE_AREA} />
                                 </Box>
                                 <Box sx={{ position: "fixed", bottom: "30px", right: "30px" }}>
                                     <DisplayScalePanel canvasArea={CANVAS_AREA} scaleStatus={scale}
