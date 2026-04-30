@@ -404,6 +404,7 @@ const downloadImage = (erdDocument: ErdDocument) => {
 };
 
 
+
 const downloadSpecification = (
     erdDocument: ErdDocument,
     exportSpecification: (erdDocument: ErdDocument, contents: ImageContent) => void

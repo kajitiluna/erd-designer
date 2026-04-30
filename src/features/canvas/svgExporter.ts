@@ -5,6 +5,7 @@ import { overrideColumnName } from "~/models/database/support";
 type CanvasArea = { width: number, height: number };
 
 const escSvg = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const escCdata = (s: string) => s.replace(/]]>/g, "]]\\u003E");
 
 export const downloadSvg = (erdDocument: ErdDocument, drawableArea: CanvasArea) => {
     const erdCanvas = document.getElementById("erd-canvas");
@@ -17,11 +18,11 @@ export const downloadSvg = (erdDocument: ErdDocument, drawableArea: CanvasArea) 
     const allMemos = [...backMemos, ...frontMemos];
 
     const perspectives = erdDocument.erdSettingModel.getPerspectiveModels();
-    const perspJson = JSON.stringify(perspectives.map(p => ({
+    const perspJson = escCdata(JSON.stringify(perspectives.map(p => ({
         id: p.perspectiveId,
         name: p.perspectiveName,
         ids: p.getContainIds()
-    })));
+    }))));
 
     const COL_PAD = 8;
     const FONT_SIZE = 12;
@@ -229,7 +230,7 @@ export const downloadSvg = (erdDocument: ErdDocument, drawableArea: CanvasArea) 
             .map(t => t.id);
         if (contained.length > 0) memoTableMap[memo.memoId] = contained;
     }
-    const memoTableJson = JSON.stringify(memoTableMap);
+    const memoTableJson = escCdata(JSON.stringify(memoTableMap));
 
     const pad = 100;
     const vbX = minX - pad;
