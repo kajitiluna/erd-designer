@@ -42,10 +42,10 @@ jobs:
       VITE_GOOGLE_SITE_VERTIFICATION: ${{ secrets.GOOGLE_SITE_VERTIFICATION }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
 
@@ -59,12 +59,12 @@ jobs:
         run: npm run build && npm run package
 
       - name: Upload GitHub Pages Artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: ./dist
 
       - name: Upload VSCode Extension Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: vscode-extension
           path: "*.vsix"
@@ -94,7 +94,7 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
 
   deploy-vscode-extension:
     runs-on: ubuntu-latest
@@ -103,7 +103,7 @@ jobs:
       name: vscode-extension
     steps:
       - name: Download VSCode Extension Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: vscode-extension
           path: ./
