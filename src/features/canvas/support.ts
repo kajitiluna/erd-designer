@@ -6,6 +6,8 @@ import { OrthogonalDirection } from "~/models/LineViewModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
 
+
+
 /**
  * ブラウザおよび WebView いずれで実行されている場合も適切なスクロール位置を取得する。
  * 
@@ -62,13 +64,14 @@ export const inOpenControlPanel = () => {
 type ToOrthogonalPointsArgs = {
     orthogonalLines: OrthogonalDirection[],
     parentTable: RectangleViewModel,
-    childTable: RectangleViewModel
+    childTable: RectangleViewModel,
+    clampToTableBounds?: boolean
 };
 
 type Point = { x: number, y: number };
 
 export const toOrthogonalPoints = (
-    { orthogonalLines, parentTable, childTable }: ToOrthogonalPointsArgs
+    { orthogonalLines, parentTable, childTable, clampToTableBounds }: ToOrthogonalPointsArgs
 ): Point[] => {
 
     const points = orthogonalLines.map((line, index) => {
@@ -77,13 +80,17 @@ export const toOrthogonalPoints = (
             if (line.direction === "horizontal") {
                 const xDirection = (orthogonalLines.length > 1) ? orthogonalLines[1].position : childTable.center.x;
                 const startX = (xDirection > parentTable.center.x) ? parentTable.right : parentTable.left;
-                return { x: startX, y: line.position };
+                const posY = clampToTableBounds
+                    ? Math.max(parentTable.top, Math.min(parentTable.bottom, line.position)) : line.position;
+                return { x: startX, y: posY };
             }
 
             const yDirection = (orthogonalLines.length > 1) ? orthogonalLines[1].position : childTable.center.y;
             const startY = (yDirection > parentTable.center.y) ? parentTable.bottom : parentTable.top;
+            const posX = clampToTableBounds
+                ? Math.max(parentTable.left, Math.min(parentTable.right, line.position)) : line.position;
 
-            return { x: line.position, y: startY };
+            return { x: posX, y: startY };
         }
 
         if (line.direction === "horizontal") {
@@ -101,12 +108,18 @@ export const toOrthogonalPoints = (
         if (orthogonalLines[lastIndex].direction === "horizontal") {
             const xDirection = (orthogonalLines.length > 1) ? orthogonalLines[lastIndex - 1].position : parentTable.center.x;
             const endX = (xDirection > childTable.center.x) ? childTable.right : childTable.left;
-            return { x: endX, y: orthogonalLines[lastIndex].position };
+            const posY = clampToTableBounds
+                ? Math.max(childTable.top, Math.min(childTable.bottom, orthogonalLines[lastIndex].position))
+                : orthogonalLines[lastIndex].position;
+            return { x: endX, y: posY };
         }
 
         const yDirection = (orthogonalLines.length > 1) ? orthogonalLines[lastIndex - 1].position : parentTable.center.y;
         const endY = (yDirection > childTable.center.y) ? childTable.bottom : childTable.top;
-        return { x: orthogonalLines[lastIndex].position, y: endY };
+        const posX = clampToTableBounds
+            ? Math.max(childTable.left, Math.min(childTable.right, orthogonalLines[lastIndex].position))
+            : orthogonalLines[lastIndex].position;
+        return { x: posX, y: endY };
     })();
 
     points.push(lastPoint);
@@ -168,8 +181,8 @@ export const toDraggedOrthogonalPoints = ({
                             ];
                         }
 
-                        const startX = (points[1].x < draggingParentTable.left)
-                            ? draggingParentTable.left : draggingParentTable.right;
+                        const startX = (points[1].x > draggingParentTable.center.x)
+                            ? draggingParentTable.right : draggingParentTable.left;
                         return [{ x: startX, y: point.y }];
                     }
 
@@ -183,8 +196,8 @@ export const toDraggedOrthogonalPoints = ({
                             ];
                         }
 
-                        const startY = (points[1].y < draggingParentTable.top)
-                            ? draggingParentTable.top : draggingParentTable.bottom;
+                        const startY = (points[1].y > draggingParentTable.center.y)
+                            ? draggingParentTable.bottom : draggingParentTable.top;
                         return [{ x: point.x, y: startY }];
                     }
                 }
@@ -204,8 +217,8 @@ export const toDraggedOrthogonalPoints = ({
                             ];
                         }
 
-                        const endX = (points[points.length - 2].x < draggingChildTable.left)
-                            ? draggingChildTable.left : draggingChildTable.right;
+                        const endX = (points[points.length - 2].x > draggingChildTable.center.x)
+                            ? draggingChildTable.right : draggingChildTable.left;
                         return [{ x: endX, y: point.y }];
                     }
 
@@ -219,8 +232,8 @@ export const toDraggedOrthogonalPoints = ({
                             ];
                         }
 
-                        const endY = (points[points.length - 2].y < draggingChildTable.top)
-                            ? draggingChildTable.top : draggingChildTable.bottom;
+                        const endY = (points[points.length - 2].y > draggingChildTable.center.y)
+                            ? draggingChildTable.bottom : draggingChildTable.top;
                         return [{ x: point.x, y: endY }];
                     }
                 }
@@ -415,8 +428,15 @@ export const toNextOrthogonalLines = (
             .map((value, index) => [value, draggedPoints[index + 1]]);
         const ignoreReduce = (parentTableId === childTableId) && (draggedPairs.length <= 3);
 
-        const nextOrthogonalLines = draggedPairs
+        let nextOrthogonalLines = draggedPairs
             .map((pair, index) => {
+                const dx = Math.abs(pair[1].x - pair[0].x);
+                const dy = Math.abs(pair[1].y - pair[0].y);
+
+                if (dx < ORTHOGONAL_THRESHOLD && dy < ORTHOGONAL_THRESHOLD) {
+                    return null;
+                }
+
                 const direction: "vertical" | "horizontal" = (pair[0].x === pair[1].x) ? "vertical" : "horizontal";
                 const position = (direction === "vertical") ? pair[0].x : pair[0].y;
 
@@ -434,6 +454,25 @@ export const toNextOrthogonalLines = (
             .filter(pair => (pair != null))
             .filter((pair, index, baseArray) =>
                 (index === 0) || (pair.direction !== baseArray[index - 1].direction));
+
+        const isTableDrag = (selectState.edgeId == null) && (selectState.tableIds.size > 0);
+        if (isTableDrag) {
+            const parentSelected = selectState.tableIds.has(parentTableId);
+            const childSelected = selectState.tableIds.has(childTableId);
+
+            // Strip extra routing segments added by toDraggedOrthogonalPoints
+            // for visual continuity during drag (boundary-exit case).
+            if (nextOrthogonalLines.length > orthogonalLines.length) {
+                const extraCount = nextOrthogonalLines.length - orthogonalLines.length;
+
+                if (parentSelected && !childSelected) {
+                    nextOrthogonalLines = nextOrthogonalLines.slice(extraCount);
+                } else if (childSelected && !parentSelected) {
+                    nextOrthogonalLines = nextOrthogonalLines.slice(0, -extraCount);
+                }
+            }
+
+        }
 
         return {
             relationId: relationView.relationId,

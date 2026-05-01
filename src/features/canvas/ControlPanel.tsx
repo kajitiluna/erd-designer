@@ -32,6 +32,7 @@ import ExportSpecificationContext, { ImageContent } from "~/context/ExportSpecif
 import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
 import { getScroll } from "~/features/canvas/support";
 import { downloadHtml } from "~/features/canvas/htmlExporter";
+import { downloadSvg } from "~/features/canvas/svgExporter";
 
 type CanvasArea = { width: number, height: number };
 
@@ -296,6 +297,13 @@ const SubMenuPanel = ({ erdExportable, drawableArea }: SubMenuButtonProps) => {
         }
     };
 
+    const handleSaveAsSvg = () => {
+        dispatchSelectAction(RELEASE_ACTION);
+
+        downloadSvg(erdDocument, drawableArea);
+        handleCloseMenu();
+    };
+
     const handleBatchExportPerspectives = () => {
         dispatchSelectAction(RELEASE_ACTION);
 
@@ -366,6 +374,7 @@ const SubMenuPanel = ({ erdExportable, drawableArea }: SubMenuButtonProps) => {
                 <MenuItem onClick={() => setSelectedMenu("export_ddl")}>Export DDL</MenuItem>
                 {exportImageMenuItems()}
                 <MenuItem onClick={handleSaveAsHtml}>Save as interactive HTML</MenuItem>
+                <MenuItem onClick={handleSaveAsSvg}>Save as interactive SVG</MenuItem>
                 <MenuItem onClick={handleExportSpecification}>Export specification</MenuItem>
                 {erdExportable && <MenuItem onClick={handleSaveToJson}>Save to ERD file</MenuItem>}
             </Menu>
@@ -393,6 +402,8 @@ const downloadImage = (erdDocument: ErdDocument) => {
         download(fileName, contents.base64Value);
     });
 };
+
+
 
 const downloadSpecification = (
     erdDocument: ErdDocument,
