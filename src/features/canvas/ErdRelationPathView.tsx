@@ -15,7 +15,6 @@ import DisplayScaleContext from "~/context/DisplayScaleContext";
 import CanvasPositionContext from "~/context/CanvasPositionContext";
 import PortalCanvasContext from "~/context/PortalCanvasContext";
 import RelationModel from "~/models/database/RelationModel";
-import { OrthogonalDirection } from "~/models/LineViewModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
 import { EditModeType } from "~/models/EditMode";
@@ -244,7 +243,7 @@ const useRelationTooltip = (
                 return;
             }
 
-            const updateArg = { relationId: relationView.relationId, orthogonalLines: [] as OrthogonalDirection[] };
+            const updateArg = { relationId: relationView.relationId, orthogonalLines: [], changedIndex: 0 };
             documentsHolder.updateRelationOrthogonal([updateArg]);
 
             setLineEditElement(null);
@@ -257,7 +256,7 @@ const useRelationTooltip = (
             }
 
             const orthogonalLines = initOrthogonalLine(relationView, rectangleMap);
-            const updateArg = { relationId: relationView.relationId, orthogonalLines };
+            const updateArg = { relationId: relationView.relationId, orthogonalLines, changedIndex: 0 };
             documentsHolder.updateRelationOrthogonal([updateArg]);
 
             setLineEditElement(null);
@@ -878,7 +877,7 @@ const useOrthogonalLine = (
             return null;
         }
 
-        const points = toOrthogonalPoints({ orthogonalLines, parentTable, childTable, clampToTableBounds: true });
+        const points = toOrthogonalPoints({ orthogonalLines, parentTable, childTable, clampToTableBounds: false });
         const pointPairs = points.slice(0, -1).map((value, index) => [value, points[index + 1]]);
 
         const handlePaths = pointPairs.map((pair, index) => {
@@ -942,51 +941,10 @@ const useOrthogonalLine = (
             );
         });
 
-        // For table drags, compute visual points by shifting orthogonal lines
-        // and recomputing from moved table positions — same logic as persistence.
-        // This bypasses toDraggedOrthogonalPoints for table moves entirely.
-        let draggedPoints: { x: number, y: number }[];
-        let isReducedLine = false;
-        const isTableDrag = (dragState.status === "on_dragging")
-            && (selectState.edgeId == null) && (selectState.tableIds.size > 0);
-        const parentDragging = selectState.tableIds.has(relationModel.parentTableModelId);
-        const childDragging = selectState.tableIds.has(relationModel.childTableModelId);
-
-        if (isTableDrag && (parentDragging || childDragging)) {
-            const delta = dragState.delta();
-            const movedParent = parentDragging ? parentTable.move(delta) : parentTable;
-            const movedChild = childDragging ? childTable.move(delta) : childTable;
-
-            const shifted = orthogonalLines.map((line, i) => {
-                if (parentDragging && childDragging) {
-                    const shift = (line.direction === "horizontal") ? delta.y : delta.x;
-                    return { ...line, position: line.position + shift };
-                }
-                if (parentDragging && i === 0) {
-                    const shift = (line.direction === "horizontal") ? delta.y : delta.x;
-                    return { ...line, position: line.position + shift };
-                }
-                if (childDragging && i === orthogonalLines.length - 1) {
-                    const shift = (line.direction === "horizontal") ? delta.y : delta.x;
-                    return { ...line, position: line.position + shift };
-                }
-                return line;
-            });
-
-            draggedPoints = toOrthogonalPoints({
-                orthogonalLines: shifted, parentTable: movedParent,
-                childTable: movedChild, clampToTableBounds: true
-            });
-        } else {
-            const result = toDraggedOrthogonalPoints(
-                { relationView, points, parentTable, childTable, selectState, dragState }
-            );
-            draggedPoints = result.draggedPoints;
-            isReducedLine = result.isReducedLine;
-        }
-
+        const { draggedPoints, isReducedLine } = toDraggedOrthogonalPoints(
+            { relationView, points, parentTable, childTable, selectState, dragState }
+        );
         const drawingLine = toRoundedPath(draggedPoints, 10);
-
         const selected = (selectState.relationId === relationView.relationId);
 
         return {

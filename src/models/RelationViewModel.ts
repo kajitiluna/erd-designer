@@ -1,8 +1,10 @@
 import RelationModel from "~/models/database/RelationModel";
 import { PropertyNotExistsError } from "~/models/exceptions";
 import LabelViewModel from "~/models/LabelViewModel";
-import LineViewModel from "~/models/LineViewModel";
+import LineViewModel, { OrthogonalDirection } from "~/models/LineViewModel";
 import { toDateTime } from "~/models/util";
+
+export type OrthogonalRelation = { relationId: string, orthogonalLines: OrthogonalDirection[], changedIndex: number };
 
 type RelationViewModelOptions = {
     relationModel: RelationModel,

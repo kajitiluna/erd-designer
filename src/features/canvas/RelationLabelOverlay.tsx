@@ -27,7 +27,7 @@ type Point = { x: number, y: number };
 
 type RelationLabelOverlayProps = {
     relationView: RelationViewModel,
-    pathPoints: { x: number, y: number }[]
+    pathPoints: Point[]
 };
 
 const DEFAULT_SEGMENT = 0;
@@ -40,27 +40,16 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
     const positionResolver = React.useContext(CanvasPositionContext);
     const { toolbarCanvasRef, svgCanvasRef } = React.useContext(PortalCanvasContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
+    const dragState = React.useContext(DragActionContext);
 
     const labelRef = React.useRef<HTMLDivElement>(null);
     const stableAnchorRef = React.useRef<Point | null>(null);
     const prevPointCountRef = React.useRef(0);
-    const reAnchorRef = React.useRef<LabelPosition | null>(null);
     const mouseMoveHandlerRef = React.useRef<((event: MouseEvent) => void) | null>(null);
     const mouseUpHandlerRef = React.useRef<((event: MouseEvent) => void) | null>(null);
     const [draggingPosition, setDraggingPosition] = React.useState<Point | null>(null);
 
     const labelView = relationView.labelViewModel;
-
-    React.useEffect(() => {
-        if (!reAnchorRef.current) {
-            return;
-        }
-
-        const reAnchor = reAnchorRef.current;
-        reAnchorRef.current = null;
-
-        documentsHolder.updateRelationLabelPosition(relationView.relationId, reAnchor);
-    }, [pathPoints.length, documentsHolder, relationView.relationId]);
 
     React.useEffect(() => {
         return () => {
@@ -92,13 +81,9 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
         const reproj = projectOntoPath(pathPoints, stableAnchorRef.current);
         segment = reproj.segment;
         fraction = reproj.fraction;
-
-        reAnchorRef.current = { segment, fraction, offsetX: offsetX, offsetY: offsetY };
     }
 
-    const anchorPoint = (pathPoints.length >= 2)
-        ? pointOnSegment(pathPoints, segment, fraction)
-        : { x: 0, y: 0 };
+    const anchorPoint = (pathPoints.length >= 2) ? pointOnSegment(pathPoints, segment, fraction) : { x: 0, y: 0 };
     if (pathPoints.length >= 2) {
         stableAnchorRef.current = anchorPoint;
         prevPointCountRef.current = pathPoints.length;
@@ -115,6 +100,14 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
     }
 
     if (!labelView.label || (pathPoints.length < 2)) {
+        return null;
+    }
+    // ドラッグ操作により、対象リレーション描画が変わる際に label の描画場所が不安定になるため、非表示にする
+    if ((dragState.status === "on_dragging") && (
+        (selectState.relationId === relationView.relationId)
+        || selectState.tableIds.has(relationView.relationModel.parentTableModelId)
+        || selectState.tableIds.has(relationView.relationModel.childTableModelId)
+    )) {
         return null;
     }
 
@@ -152,7 +145,6 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
 
             const projected = projectOntoPath(pathPoints, finalPosition);
 
-            // setLabelDragging(false);
             setDraggingPosition(null);
 
             documentsHolder.updateRelationLabelPosition(relationView.relationId, projected);

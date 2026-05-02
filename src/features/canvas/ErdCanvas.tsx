@@ -224,33 +224,8 @@ const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasPr
             const relationViews = erdDocument
                 .fetchRelationsByTableIds(Array.from(selectState.tableIds))
                 .filter(relationView => relationView.lineViewModel.lineType === "orthogonal");
-
-            const nextArgs = relationViews.map(relationView => {
-                const parentId = relationView.relationModel.parentTableModelId;
-                const childId = relationView.relationModel.childTableModelId;
-                const lines = relationView.lineViewModel.orthogonalLines;
-                const parentSelected = selectState.tableIds.has(parentId);
-                const childSelected = selectState.tableIds.has(childId);
-
-                if (parentSelected && childSelected) {
-                    return { relationId: relationView.relationId, orthogonalLines: lines.map(line => {
-                        const shift = (line.direction === "horizontal") ? offset.y : offset.x;
-                        return { ...line, position: line.position + shift };
-                    })};
-                }
-
-                const shifted = [...lines];
-                if (parentSelected && shifted.length > 0) {
-                    const first = shifted[0];
-                    const shift = (first.direction === "horizontal") ? offset.y : offset.x;
-                    shifted[0] = { ...first, position: first.position + shift };
-                }
-                if (childSelected && shifted.length > 0) {
-                    const last = shifted[shifted.length - 1];
-                    const shift = (last.direction === "horizontal") ? offset.y : offset.x;
-                    shifted[shifted.length - 1] = { ...last, position: last.position + shift };
-                }
-                return { relationId: relationView.relationId, orthogonalLines: shifted };
+            const nextArgs = toNextOrthogonalLines({ 
+                relationViews, tableRectangles: rectangleArea.tableRectangles, selectState, dragState 
             });
 
             documentsHolder.moveRectangle(selectState.tableIds, selectState.memoIds, offset, nextArgs);
@@ -267,6 +242,7 @@ const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasPr
             if (relationView == null) {
                 return;
             }
+
             if (relationView.lineViewModel.lineType === "orthogonal") {
                 const nextArgs = toNextOrthogonalLines({
                     relationViews: [relationView],
@@ -356,7 +332,7 @@ const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasPr
         window.scrollTo(
             (drawableArea.width - window.innerWidth) / 2,
             (drawableArea.height - window.innerHeight) / 2);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // スクロール可能領域の制御を window に登録

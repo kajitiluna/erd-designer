@@ -4,8 +4,7 @@ import { SelectState } from "~/context/SelectEntityContext";
 import { CardinalityType } from "~/models/database";
 import { OrthogonalDirection } from "~/models/LineViewModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
-import RelationViewModel from "~/models/RelationViewModel";
-
+import RelationViewModel, { OrthogonalRelation } from "~/models/RelationViewModel";
 
 
 /**
@@ -181,20 +180,24 @@ type ToDraggedOrthogonalPointsArgs = {
 
 export const toDraggedOrthogonalPoints = ({
     relationView, points, parentTable, childTable, selectState, dragState
-}: ToDraggedOrthogonalPointsArgs): { draggedPoints: Point[], isReducedLine: boolean } => {
+}: ToDraggedOrthogonalPointsArgs): { draggedPoints: Point[], isReducedLine: boolean, changedIndex: number } => {
+    if (dragState.status !== "on_dragging") {
+        return { draggedPoints: points, isReducedLine: false, changedIndex: -1 };
+    }
+
     const parentTableId = relationView.relationModel.parentTableModelId;
     const childTableId = relationView.relationModel.childTableModelId;
     const orthogonalLines = relationView.lineViewModel.orthogonalLines;
     const ignoreReduce = (parentTableId === childTableId) && (orthogonalLines.length <= 3);
 
-    let isReducedLine: boolean = false;
+    let isReducedLine = false;
+    let reduceParentEdge = false;
+    let reduceChildEdge = false;
+    let changedIndex: number = -1;
 
     const draggedPoints = points
         .flatMap((point, index) => {
-            if ((dragState.status !== "on_dragging")) {
-                return [point];
-            }
-
+            // テーブルをドラッグ操作している場合の制御
             if ((selectState.relationId !== relationView.relationId)
                 || ((selectState.edgeId !== index) && (selectState.edgeId !== index - 1)
                     && (selectState.edgeId !== index + 1) && (selectState.edgeId !== index - 2))
@@ -216,6 +219,8 @@ export const toDraggedOrthogonalPoints = ({
 
                     if (direction === "horizontal") {
                         if ((point.y < draggingParentTable.top) || (draggingParentTable.bottom < point.y)) {
+                            changedIndex = index;
+
                             const startY = (point.y < draggingParentTable.top)
                                 ? draggingParentTable.top : draggingParentTable.bottom;
                             return [
@@ -224,13 +229,27 @@ export const toDraggedOrthogonalPoints = ({
                             ];
                         }
 
-                        const startX = (points[1].x > draggingParentTable.center.x)
-                            ? draggingParentTable.right : draggingParentTable.left;
+                        // ドラッグ中のテーブルが１つ目の edge 上に位置する場合はテーブルの視点と1つ目の edge をまとめる
+                        if ((draggingParentTable.left < points[1].x) && (points[1].x < draggingParentTable.right)
+                            && (points.length > 2)
+                        ) {
+                            reduceParentEdge = true;
+                            changedIndex = index;
+
+                            const startY = (points[2].y < draggingParentTable.top)
+                                ? draggingParentTable.top : draggingParentTable.bottom;
+                            return [{ x: points[1].x, y: startY }];
+                        }
+
+                        const startX = (points[1].x < draggingParentTable.left)
+                            ? draggingParentTable.left : draggingParentTable.right;
                         return [{ x: startX, y: point.y }];
                     }
 
                     if (direction === "vertical") {
                         if ((point.x < draggingParentTable.left) || (draggingParentTable.right < point.x)) {
+                            changedIndex = index;
+
                             const startX = (point.x < draggingParentTable.left)
                                 ? draggingParentTable.left : draggingParentTable.right;
                             return [
@@ -239,19 +258,66 @@ export const toDraggedOrthogonalPoints = ({
                             ];
                         }
 
+                        // ドラッグ中のテーブルが１つ目の edge 上に位置する場合はテーブルの視点と1つ目の edge をまとめる
+                        if ((draggingParentTable.top < points[1].y) && (points[1].y < draggingParentTable.bottom)
+                            && (points.length > 2)
+                        ) {
+                            reduceParentEdge = true;
+                            changedIndex = index;
+
+                            const startX = (points[2].x < draggingParentTable.left)
+                                ? draggingParentTable.left : draggingParentTable.right;
+                            return [{ x: startX, y: points[1].y }];
+                        }
+
                         const startY = (points[1].y > draggingParentTable.center.y)
                             ? draggingParentTable.bottom : draggingParentTable.top;
                         return [{ x: point.x, y: startY }];
                     }
                 }
 
+                if ((index === 1) && reduceParentEdge) {
+                    return [];
+                }
+
+                if ((index === points.length - 2) && childSelected && (points.length > 2)) {
+                    const draggingChildTable = childTable.move(dragState.delta());
+                    // 子テーブルが直前の edge を内包していない場合は、特に何もしない
+                    if ((draggingChildTable.left > points[points.length - 2].x) ||
+                        (points[points.length - 2].x > draggingChildTable.right) ||
+                        (draggingChildTable.top > points[points.length - 2].y) ||
+                        (points[points.length - 2].y > draggingChildTable.bottom)) {
+                        return [point];
+                    }
+
+                    reduceChildEdge = true;
+                    changedIndex = index + 1;
+
+                    const nextDirection = (points[points.length - 1].x === point.x) ? "vertical" : "horizontal";
+                    if (nextDirection === "vertical") {
+                        const endX = (points[points.length - 3].x < draggingChildTable.left)
+                            ? draggingChildTable.left : draggingChildTable.right;
+                        return [{ x: endX, y: point.y }];
+                    }
+
+                    const endY = (points[points.length - 3].y < draggingChildTable.top)
+                        ? draggingChildTable.top : draggingChildTable.bottom;
+                    return [{ x: point.x, y: endY }];
+                }
+
                 // 子テーブルがドラッグ移動されている場合の制御
                 if ((index === points.length - 1) && childSelected) {
+                    if (reduceChildEdge) {
+                        return [];
+                    }
+
                     const draggingChildTable = childTable.move(dragState.delta());
                     const direction = (points[points.length - 2].x === point.x) ? "vertical" : "horizontal";
 
                     if (direction === "horizontal") {
                         if ((point.y < draggingChildTable.top) || (draggingChildTable.bottom < point.y)) {
+                            changedIndex = index;
+
                             const endY = (point.y < draggingChildTable.top)
                                 ? draggingChildTable.top : draggingChildTable.bottom;
                             return [
@@ -260,13 +326,15 @@ export const toDraggedOrthogonalPoints = ({
                             ];
                         }
 
-                        const endX = (points[points.length - 2].x > draggingChildTable.center.x)
-                            ? draggingChildTable.right : draggingChildTable.left;
+                        const endX = (points[points.length - 2].x < draggingChildTable.left)
+                            ? draggingChildTable.left : draggingChildTable.right;
                         return [{ x: endX, y: point.y }];
                     }
 
                     if (direction === "vertical") {
                         if ((point.x < draggingChildTable.left) || (draggingChildTable.right < point.x)) {
+                            changedIndex = index;
+
                             const endX = (point.x < draggingChildTable.left)
                                 ? draggingChildTable.left : draggingChildTable.right;
                             return [
@@ -275,14 +343,16 @@ export const toDraggedOrthogonalPoints = ({
                             ];
                         }
 
-                        const endY = (points[points.length - 2].y > draggingChildTable.center.y)
-                            ? draggingChildTable.bottom : draggingChildTable.top;
+                        const endY = (points[points.length - 2].y < draggingChildTable.top)
+                            ? draggingChildTable.top : draggingChildTable.bottom;
                         return [{ x: point.x, y: endY }];
                     }
                 }
 
                 return [point];
             }
+
+            // リレーションをドラッグしている場合の制御
 
             const direction = (points[selectState.edgeId].x === points[selectState.edgeId + 1].x)
                 ? "vertical" : "horizontal";
@@ -292,6 +362,8 @@ export const toDraggedOrthogonalPoints = ({
                 if ((direction === "horizontal")
                     && ((parentTable.top > dragState.current.y) || (dragState.current.y > parentTable.bottom))
                 ) {
+                    changedIndex = index;
+
                     const startY = (parentTable.top > dragState.current.y) ? parentTable.top : parentTable.bottom;
                     return [
                         { x: parentTable.center.x, y: startY },
@@ -301,6 +373,8 @@ export const toDraggedOrthogonalPoints = ({
                 if ((direction === "vertical")
                     && ((parentTable.left > dragState.current.x) || (dragState.current.x > parentTable.right))
                 ) {
+                    changedIndex = index;
+
                     const startX = (parentTable.left > dragState.current.x) ? parentTable.left : parentTable.right;
                     return [
                         { x: startX, y: parentTable.center.y },
@@ -314,6 +388,7 @@ export const toDraggedOrthogonalPoints = ({
                 if (direction === "vertical") {
                     if ((parentTable.left < dragState.current.x) && (dragState.current.x < parentTable.right)) {
                         isReducedLine = true;
+                        changedIndex = index;
                         return [];
                     }
                     const startX = (dragState.current.x < parentTable.left) ? parentTable.left : parentTable.right;
@@ -322,6 +397,7 @@ export const toDraggedOrthogonalPoints = ({
                 if (direction === "horizontal") {
                     if ((parentTable.top < dragState.current.y) && (dragState.current.y < parentTable.bottom)) {
                         isReducedLine = true;
+                        changedIndex = index;
                         return [];
                     }
                     const startY = (dragState.current.y < parentTable.top) ? parentTable.top : parentTable.bottom;
@@ -370,6 +446,7 @@ export const toDraggedOrthogonalPoints = ({
                 if (direction === "vertical") {
                     if ((childTable.left < dragState.current.x) && (dragState.current.x < childTable.right)) {
                         isReducedLine = true;
+                        changedIndex = index;
                         return [];
                     }
                     const endX = (dragState.current.x < childTable.left) ? childTable.left : childTable.right;
@@ -378,6 +455,7 @@ export const toDraggedOrthogonalPoints = ({
                 if (direction === "horizontal") {
                     if ((childTable.top < dragState.current.y) && (dragState.current.y < childTable.bottom)) {
                         isReducedLine = true;
+                        changedIndex = index;
                         return [];
                     }
                     const endY = (dragState.current.y < childTable.top) ? childTable.top : childTable.bottom;
@@ -390,6 +468,8 @@ export const toDraggedOrthogonalPoints = ({
                 if ((direction === "horizontal")
                     && ((childTable.top > dragState.current.y) || (dragState.current.y > childTable.bottom))
                 ) {
+                    changedIndex = index;
+
                     const endY = (childTable.top > dragState.current.y) ? childTable.top : childTable.bottom;
                     return [
                         { x: childTable.center.x, y: dragState.current.y },
@@ -399,6 +479,8 @@ export const toDraggedOrthogonalPoints = ({
                 if ((direction === "vertical")
                     && ((childTable.left > dragState.current.x) || (dragState.current.x > childTable.right))
                 ) {
+                    changedIndex = index;
+
                     const endX = (childTable.left > dragState.current.x) ? childTable.left : childTable.right;
                     return [
                         { x: dragState.current.x, y: childTable.center.y },
@@ -433,10 +515,10 @@ export const toDraggedOrthogonalPoints = ({
         });
 
     if ((parentTableId === childTableId) && (draggedPoints.length < 3)) {
-        return { draggedPoints: points, isReducedLine: false };
+        return { draggedPoints: points, isReducedLine: false, changedIndex: -1 };
     }
 
-    return { draggedPoints, isReducedLine };
+    return { draggedPoints, isReducedLine, changedIndex };
 };
 
 type ToNextOrthogonalLinesArgs = {
@@ -450,7 +532,7 @@ export const ORTHOGONAL_THRESHOLD = 15; // 線分の前後の位置が同じ場�
 
 export const toNextOrthogonalLines = (
     { relationViews, tableRectangles, selectState, dragState }: ToNextOrthogonalLinesArgs
-): { relationId: string, orthogonalLines: OrthogonalDirection[] }[] => {
+): OrthogonalRelation[] => {
     return relationViews.map(relationView => {
         const parentTableId = relationView.relationModel.parentTableModelId;
         const childTableId = relationView.relationModel.childTableModelId;
@@ -463,7 +545,7 @@ export const toNextOrthogonalLines = (
 
         const orthogonalLines = relationView.lineViewModel.orthogonalLines;
         const points = toOrthogonalPoints({ orthogonalLines, parentTable, childTable });
-        const { draggedPoints } = toDraggedOrthogonalPoints(
+        const { draggedPoints, changedIndex } = toDraggedOrthogonalPoints(
             { relationView, points, parentTable, childTable, selectState, dragState }
         );
 
@@ -471,55 +553,25 @@ export const toNextOrthogonalLines = (
             .map((value, index) => [value, draggedPoints[index + 1]]);
         const ignoreReduce = (parentTableId === childTableId) && (draggedPairs.length <= 3);
 
-        let nextOrthogonalLines = draggedPairs
+        const nextOrthogonalLines = draggedPairs
             .map((pair, index) => {
-                const dx = Math.abs(pair[1].x - pair[0].x);
-                const dy = Math.abs(pair[1].y - pair[0].y);
-
-                if (dx < ORTHOGONAL_THRESHOLD && dy < ORTHOGONAL_THRESHOLD) {
-                    return null;
+                // 自己関連の場合は、線分の数が3以下の場合は減らしてはならない
+                if ((index > 0) && (index < draggedPairs.length - 1) && (ignoreReduce === false)) {
+                    const delta = Math.abs(pair[1].y - pair[0].y) + Math.abs(pair[1].x - pair[0].x);
+                    // 前後の線分と同じ位置にある場合は、無視する
+                    if (delta < ORTHOGONAL_THRESHOLD) {
+                        return null;
+                    }
                 }
 
                 const direction: "vertical" | "horizontal" = (pair[0].x === pair[1].x) ? "vertical" : "horizontal";
                 const position = (direction === "vertical") ? pair[0].x : pair[0].y;
 
-                // 自己関連の場合は、線分の数が3以下の場合は減らしてはならない
-                if ((index > 0) && (index < draggedPairs.length - 1) && (ignoreReduce === false)) {
-                    const delta = (direction === "vertical") ? pair[1].y - pair[0].y : pair[1].x - pair[0].x;
-                    // 前後の線分と同じ位置にある場合は、無視する
-                    if (Math.abs(delta) < ORTHOGONAL_THRESHOLD) {
-                        return null;
-                    }
-                }
-
                 return { direction, position };
             })
             .filter(pair => (pair != null))
-            .filter((pair, index, baseArray) =>
-                (index === 0) || (pair.direction !== baseArray[index - 1].direction));
+            .filter((pair, index, baseArray) => (index === 0) || (pair.direction !== baseArray[index - 1].direction));
 
-        const isTableDrag = (selectState.edgeId == null) && (selectState.tableIds.size > 0);
-        if (isTableDrag) {
-            const parentSelected = selectState.tableIds.has(parentTableId);
-            const childSelected = selectState.tableIds.has(childTableId);
-
-            // Strip extra routing segments added by toDraggedOrthogonalPoints
-            // for visual continuity during drag (boundary-exit case).
-            if (nextOrthogonalLines.length > orthogonalLines.length) {
-                const extraCount = nextOrthogonalLines.length - orthogonalLines.length;
-
-                if (parentSelected && !childSelected) {
-                    nextOrthogonalLines = nextOrthogonalLines.slice(extraCount);
-                } else if (childSelected && !parentSelected) {
-                    nextOrthogonalLines = nextOrthogonalLines.slice(0, -extraCount);
-                }
-            }
-
-        }
-
-        return {
-            relationId: relationView.relationId,
-            orthogonalLines: nextOrthogonalLines
-        };
+        return { relationId: relationView.relationId, orthogonalLines: nextOrthogonalLines, changedIndex };
     }).filter(item => (item != null));
 };

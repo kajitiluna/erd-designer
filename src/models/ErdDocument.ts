@@ -18,10 +18,10 @@ import DbSchemaConfig from '~/models/DbSchemaConfig';
 import ErdSettingModel from '~/models/ErdSettingModel';
 import { PropertyNotExistsError } from '~/models/exceptions';
 import LabelViewModel from '~/models/LabelViewModel';
-import LineViewModel, { OrthogonalDirection } from '~/models/LineViewModel';
+import LineViewModel from '~/models/LineViewModel';
 import MemoViewModel from '~/models/MemoViewModel';
 import MemoViewModelStorage from '~/models/MemoViewModelStorage';
-import RelationViewModel from '~/models/RelationViewModel';
+import RelationViewModel, { OrthogonalRelation } from '~/models/RelationViewModel';
 import RelationViewModelStorage from '~/models/RelationViewModelStorage';
 import TableViewModel from '~/models/TableViewModel';
 import { toDateTime, toObjects } from '~/models/util';
@@ -1084,6 +1084,17 @@ export default class ErdDocument {
         return this.doUpdateRelationStorage(() => this.relationViewModelStorage.updateLabelView(relationId, updating));
     }
 
+    /**
+     * 指定されたリレーションの線の描画方法を更新する。
+     * 
+     * @param nextOrthogonals 更新後の直交リレーション情報
+     * @returns 更新後のドキュメント
+     */
+    public updateRelationOrthogonal(nextOrthogonals: OrthogonalRelation[]): ErdDocument {
+        return this.doUpdateRelationStorage(() =>
+            this.relationViewModelStorage.updateRelationOrthogonal(nextOrthogonals));
+    }
+
     private doUpdateRelationStorage(updateFunction: () => RelationViewModelStorage): ErdDocument {
         const nextRelationStorage = updateFunction();
         if (this.relationViewModelStorage === nextRelationStorage) {
@@ -1123,8 +1134,7 @@ export default class ErdDocument {
      * @returns 操作後のモデル
      */
     public moveTableView(
-        tableIds: Set<string>, moving: { x: number, y: number },
-        nextOrthogonalObjects: { relationId: string, orthogonalLines: OrthogonalDirection[] }[]
+        tableIds: Set<string>, moving: { x: number, y: number }, nextOrthogonals: OrthogonalRelation[]
     ): ErdDocument {
         if (tableIds.size === 0) {
             return this;
@@ -1138,23 +1148,10 @@ export default class ErdDocument {
             }
         });
 
-        const nextRelationViewStorage = nextOrthogonalObjects
-            .reduce((previousStorage, { relationId, orthogonalLines }) => {
-                const previousRelation = previousStorage.findByRelationId(relationId);
-                if (previousRelation == null) {
-                    return previousStorage;
-                }
+        const nextRelationStorage = this.relationViewModelStorage.moveRelation(tableIds, moving)
+            .updateRelationOrthogonal(nextOrthogonals);
 
-                const previousLineView = previousRelation.lineViewModel;
-                const nextLineView = previousLineView.updateOrthogonalLines(orthogonalLines);
-                if (previousLineView.equals(nextLineView)) {
-                    return previousStorage;
-                }
-
-                return previousStorage.updateLineView(relationId, nextLineView);
-            }, this.relationViewModelStorage.moveRelation(tableIds, moving));
-
-        return this.doUpdateTableRectangle([...tableIds], doMoveTableView, nextRelationViewStorage);
+        return this.doUpdateTableRectangle([...tableIds], doMoveTableView, nextRelationStorage);
     }
 
     private doUpdateTableRectangle(

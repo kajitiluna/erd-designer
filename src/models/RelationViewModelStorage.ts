@@ -1,7 +1,7 @@
 import RelationModel from "~/models/database/RelationModel";
 import LabelViewModel from "~/models/LabelViewModel";
 import LineViewModel from "~/models/LineViewModel";
-import RelationViewModel from "~/models/RelationViewModel";
+import RelationViewModel, { OrthogonalRelation } from "~/models/RelationViewModel";
 
 export default class RelationViewModelStorage {
 
@@ -183,6 +183,45 @@ export default class RelationViewModelStorage {
 
         const nextViewModel = new RelationViewModel({ ...current, labelViewModel: updating });
         return this.update([nextViewModel]);
+    }
+
+    public updateRelationOrthogonal(nextOrthogonals: OrthogonalRelation[]) {
+        if (nextOrthogonals.length === 0) {
+            return this;
+        }
+
+        const updatingRelations = nextOrthogonals.map(({ relationId, orthogonalLines, changedIndex }) => {
+            const previousRelation = this.findByRelationId(relationId);
+            if (previousRelation == null) {
+                return null;
+            }
+
+            const previousLineView = previousRelation.lineViewModel;
+            const nextLineView = previousLineView.updateOrthogonalLines(orthogonalLines);
+            if (previousLineView.equals(nextLineView)) {
+                return null;
+            }
+
+            const previousLabel = previousRelation.labelViewModel;
+            const previousSegment = previousLabel.position.segment;
+            if (((changedIndex < 0)) || (previousSegment < changedIndex)) {
+                return new RelationViewModel({ ...previousRelation, lineViewModel: nextLineView });
+            }
+
+            const diffPosition = nextLineView.orthogonalLines.length - previousLineView.orthogonalLines.length;
+            const nextSegment = ((changedIndex === 0) && (previousSegment === 0))
+                ? 0 : Math.min(Math.max(0, previousSegment + diffPosition), nextLineView.orthogonalLines.length - 1);
+            const nextLabelView = new LabelViewModel({
+                ...previousLabel,
+                position: { ...previousLabel.position, segment: nextSegment }
+            });
+
+            return new RelationViewModel({
+                ...previousRelation, lineViewModel: nextLineView, labelViewModel: nextLabelView
+            });
+        }).filter(relation => (relation != null));
+
+        return this.update(updatingRelations);
     }
 
     private update(models: RelationViewModel[]): RelationViewModelStorage {
