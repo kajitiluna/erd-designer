@@ -19,19 +19,6 @@ export const downloadHtml = (erdDocument: ErdDocument) => {
 const initPotableHtml = (erdDocument: ErdDocument, erdCanvas: HTMLElement) => {
   const clonedCanvas = cloneCanvas(erdCanvas);
 
-  const sheets = Array.from(document.styleSheets);
-  let inlinedCss = "";
-  for (const sheet of sheets) {
-    try {
-      const rules = sheet.cssRules || sheet.rules;
-      for (const rule of Array.from(rules)) {
-        inlinedCss += rule.cssText + "\n";
-      }
-    } catch (_) {
-      /* cross-origin sheets */
-    }
-  }
-
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -102,7 +89,7 @@ const initPortableCss = () => {
       for (const rule of Array.from(rules)) {
         inlinedCss += rule.cssText + "\n";
       }
-    } catch (_) {
+    } catch {
       /* cross-origin sheets */
     }
   }

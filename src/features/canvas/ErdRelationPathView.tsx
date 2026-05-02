@@ -877,7 +877,7 @@ const useOrthogonalLine = (
             return null;
         }
 
-        const points = toOrthogonalPoints({ orthogonalLines, parentTable, childTable, clampToTableBounds: false });
+        const points = toOrthogonalPoints({ orthogonalLines, parentTable, childTable });
         const pointPairs = points.slice(0, -1).map((value, index) => [value, points[index + 1]]);
 
         const handlePaths = pointPairs.map((pair, index) => {

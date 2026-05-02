@@ -238,7 +238,7 @@ const SubMenuPanel = ({ erdExportable }: SubMenuButtonProps) => {
         setConfigureElement(null);
     };
 
-    const exportImageMenu = initExportImageMenu(erdDocument, handleCloseMenu);
+    const exportImageMenu = useExportImageMenu(erdDocument, handleCloseMenu);
 
     if (localSetting.perspectiveId !== "") {
         return (
@@ -285,7 +285,7 @@ const SubMenuPanel = ({ erdExportable }: SubMenuButtonProps) => {
 
 const SUBMENU_BUTTON_STYLE = { display: 'flex', flexDirection: 'column', height: '100%', width: '100%' };
 
-const initExportImageMenu = (erdDocument: ErdDocument, onCloseMenu: () => void) => {
+const useExportImageMenu = (erdDocument: ErdDocument, onCloseMenu: () => void) => {
     const { dispatchSelectAction } = React.useContext(SelectEntityContext);
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
 
@@ -352,8 +352,8 @@ const initExportImageMenu = (erdDocument: ErdDocument, onCloseMenu: () => void) 
     const pngMenuItems = (perspectives.length === 0)
         ? (<MenuItem onClick={handleExportAsImage}>PNG</MenuItem>)
         : [
-            <MenuItem onClick={handleExportAsImage}>PNG (Current canvas)</MenuItem>,
-            <MenuItem onClick={handleBatchExportPerspectives}>PNG (All perspectives)</MenuItem>
+            <MenuItem key="png-current" onClick={handleExportAsImage}>PNG (Current canvas)</MenuItem>,
+            <MenuItem key="png-all" onClick={handleBatchExportPerspectives}>PNG (All perspectives)</MenuItem>
         ];
 
     const handleExportImageEnter = (event: React.MouseEvent<HTMLElement>) => {
@@ -385,10 +385,10 @@ const initExportImageMenu = (erdDocument: ErdDocument, onCloseMenu: () => void) 
     };
 
     return [
-        <MenuItem onMouseEnter={handleExportImageEnter} onMouseLeave={handleExportImageLeave}>
+        <MenuItem key="export-menu-item" onMouseEnter={handleExportImageEnter} onMouseLeave={handleExportImageLeave}>
             Export image as<ArrowRightIcon />
         </MenuItem>,
-        <Menu anchorEl={exportImageElement} open={Boolean(exportImageElement)}
+        <Menu key="export-image-menu" anchorEl={exportImageElement} open={Boolean(exportImageElement)}
             anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
             transformOrigin={{ vertical: 'top', horizontal: 'left' }}
             onClose={() => setExportImageElement(null)}

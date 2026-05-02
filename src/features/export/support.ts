@@ -34,7 +34,7 @@ export const serializeMemo = (erdDocument: ErdDocument, erdCanvas: HTMLElement):
         }).map(tableView => tableView.tableId);
 
         return [memo.memoId, containedTableIds] as const;
-    }).filter(([_, tableIds]) => tableIds.length > 0);
+    }).filter(([, tableIds]) => tableIds.length > 0);
 
     return Object.fromEntries(containTablePairs);
 };

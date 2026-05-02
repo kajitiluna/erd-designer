@@ -63,14 +63,13 @@ export const inOpenControlPanel = () => {
 type ToOrthogonalPointsArgs = {
     orthogonalLines: OrthogonalDirection[],
     parentTable: RectangleViewModel,
-    childTable: RectangleViewModel,
-    clampToTableBounds?: boolean
+    childTable: RectangleViewModel
 };
 
 type Point = { x: number, y: number };
 
 export const toOrthogonalPoints = (
-    { orthogonalLines, parentTable, childTable, clampToTableBounds }: ToOrthogonalPointsArgs
+    { orthogonalLines, parentTable, childTable }: ToOrthogonalPointsArgs
 ): Point[] => {
 
     const points = orthogonalLines.map((line, index) => {
@@ -79,17 +78,14 @@ export const toOrthogonalPoints = (
             if (line.direction === "horizontal") {
                 const xDirection = (orthogonalLines.length > 1) ? orthogonalLines[1].position : childTable.center.x;
                 const startX = (xDirection > parentTable.center.x) ? parentTable.right : parentTable.left;
-                const posY = clampToTableBounds
-                    ? Math.max(parentTable.top, Math.min(parentTable.bottom, line.position)) : line.position;
-                return { x: startX, y: posY };
+
+                return { x: startX, y: line.position };
             }
 
             const yDirection = (orthogonalLines.length > 1) ? orthogonalLines[1].position : childTable.center.y;
             const startY = (yDirection > parentTable.center.y) ? parentTable.bottom : parentTable.top;
-            const posX = clampToTableBounds
-                ? Math.max(parentTable.left, Math.min(parentTable.right, line.position)) : line.position;
 
-            return { x: posX, y: startY };
+            return { x: line.position, y: startY };
         }
 
         if (line.direction === "horizontal") {
@@ -105,20 +101,18 @@ export const toOrthogonalPoints = (
     const lastPoint = (() => {
         const lastIndex = orthogonalLines.length - 1;
         if (orthogonalLines[lastIndex].direction === "horizontal") {
-            const xDirection = (orthogonalLines.length > 1) ? orthogonalLines[lastIndex - 1].position : parentTable.center.x;
+            const xDirection = (orthogonalLines.length > 1)
+                ? orthogonalLines[lastIndex - 1].position : parentTable.center.x;
             const endX = (xDirection > childTable.center.x) ? childTable.right : childTable.left;
-            const posY = clampToTableBounds
-                ? Math.max(childTable.top, Math.min(childTable.bottom, orthogonalLines[lastIndex].position))
-                : orthogonalLines[lastIndex].position;
-            return { x: endX, y: posY };
+
+            return { x: endX, y: orthogonalLines[lastIndex].position };
         }
 
-        const yDirection = (orthogonalLines.length > 1) ? orthogonalLines[lastIndex - 1].position : parentTable.center.y;
+        const yDirection = (orthogonalLines.length > 1)
+            ? orthogonalLines[lastIndex - 1].position : parentTable.center.y;
         const endY = (yDirection > childTable.center.y) ? childTable.bottom : childTable.top;
-        const posX = clampToTableBounds
-            ? Math.max(childTable.left, Math.min(childTable.right, orthogonalLines[lastIndex].position))
-            : orthogonalLines[lastIndex].position;
-        return { x: posX, y: endY };
+
+        return { x: orthogonalLines[lastIndex].position, y: endY };
     })();
 
     points.push(lastPoint);
