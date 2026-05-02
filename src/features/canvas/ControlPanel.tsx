@@ -334,10 +334,10 @@ const SubMenuPanel = ({ erdExportable, drawableArea }: SubMenuButtonProps) => {
     const perspectives = erdDocument.erdSettingModel.getPerspectiveModels();
     const pngMenuItems = (perspectives.length === 0)
         ? (<MenuItem onClick={handleExportAsImage}>PNG</MenuItem>)
-        : (<>
-            <MenuItem onClick={handleExportAsImage}>PNG (Current canvas)</MenuItem>
+        : [
+            <MenuItem onClick={handleExportAsImage}>PNG (Current canvas)</MenuItem>,
             <MenuItem onClick={handleBatchExportPerspectives}>PNG (All perspectives)</MenuItem>
-        </>);
+        ];
 
     const isConfigureOpen = Boolean(configureElement);
 

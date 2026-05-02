@@ -69,7 +69,7 @@ const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) 
                                     <ControlPanel erdExportable={erdExportable} drawableArea={DRAWABLE_AREA} />
                                 </Box>
                                 <Box sx={{ position: "fixed", bottom: "30px", right: "30px" }}>
-                                    <DisplayScalePanel canvasArea={CANVAS_AREA} scaleStatus={scale}
+                                    <DisplayScalePanel drawableArea={DRAWABLE_AREA} scaleStatus={scale}
                                         onChangeScale={setScale} />
                                 </Box>
                             </DisplayScaleContext.Provider>

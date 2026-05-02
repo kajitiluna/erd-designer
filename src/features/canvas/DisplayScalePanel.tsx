@@ -9,10 +9,10 @@ import { DragActionContext } from "~/context/DragActionContext";
 type DisplayScalePanelProps = {
     scaleStatus: ScaleState,
     onChangeScale: React.Dispatch<React.SetStateAction<ScaleState>>,
-    canvasArea: { width: number; height: number }
+    drawableArea: { width: number; height: number }
 };
 
-const DisplayScalePanel = ({ scaleStatus, onChangeScale, canvasArea }: DisplayScalePanelProps) => {
+const DisplayScalePanel = ({ scaleStatus, onChangeScale, drawableArea }: DisplayScalePanelProps) => {
 
     const scaleRef = React.useRef<number>(1);
     const zoomTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -66,7 +66,7 @@ const DisplayScalePanel = ({ scaleStatus, onChangeScale, canvasArea }: DisplaySc
     }, [dragState]);
 
     React.useEffect(() => {
-        const handleWheel = initHandleWheel(scaleRef, zoomTimerRef, isDraggingRef, onChangeScale, canvasArea);
+        const handleWheel = initHandleWheel(scaleRef, zoomTimerRef, isDraggingRef, onChangeScale, drawableArea);
         window.addEventListener("wheel", handleWheel, { passive: false, capture: true });
 
         return () => {
@@ -77,7 +77,7 @@ const DisplayScalePanel = ({ scaleStatus, onChangeScale, canvasArea }: DisplaySc
                 zoomTimerRef.current = null;
             }
         }
-    }, [canvasArea, onChangeScale]);
+    }, [drawableArea, onChangeScale]);
 
     return (
         <Box sx={PANEL_STYLE}>
@@ -132,7 +132,7 @@ const initHandleWheel = (
     scaleRef: React.RefObject<number>, zoomTimerRef: React.RefObject<ReturnType<typeof setTimeout> | null>,
     isDraggingRef: React.RefObject<boolean>,
     onChangeScale: React.Dispatch<React.SetStateAction<ScaleState>>,
-    canvasArea: { width: number; height: number }
+    drawableArea: { width: number; height: number }
 ) => {
     return (event: WheelEvent) => {
         if (!event.ctrlKey && !event.metaKey) {
@@ -178,8 +178,8 @@ const initHandleWheel = (
         }
 
         // スケールの原点
-        const originX = canvasArea.width;
-        const originY = canvasArea.height;
+        const originX = drawableArea.width / 2;
+        const originY = drawableArea.height / 2;
         // 現在のビューポートの中央
         const screenCenterCanvasX = window.scrollX + window.innerWidth / 2;
         const screenCenterCanvasY = window.scrollY + window.innerHeight / 2;
