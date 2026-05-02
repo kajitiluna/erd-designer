@@ -11,7 +11,6 @@ import PolylineIcon from '@mui/icons-material/Polyline';
 import StickyNote2Icon from '@mui/icons-material/StickyNote2';
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
-import html2canvas from "html2canvas";
 
 import EditMode, { EditModeType } from "~/models/EditMode";
 import EditModeContext from "~/context/EditModeContext";
@@ -24,15 +23,13 @@ import ExportDdlView from "~/features/editor/ExportDdlView";
 import download from "~/components/file-downloader";
 import PerspectiveModel from "~/models/PerspectiveModel";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
-import { ERD_TABLE_VIEW_CLASS_NAME } from "~/features/canvas/ErdTableView";
 import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
 import { LocalSettingContext } from "~/context/LocalSettingContext";
-import { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
 import ExportSpecificationContext, { ImageContent } from "~/context/ExportSpecificationContext";
 import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
-import { getScroll } from "~/features/canvas/support";
-import { downloadHtml } from "~/features/canvas/htmlExporter";
-import { downloadSvg } from "~/features/canvas/svgExporter";
+import { downloadHtml } from "~/features/export/htmlExporter";
+import { downloadPng } from "~/features/export/pngExporter";
+import { downloadSvg } from "~/features/export/svgExporter";
 
 type CanvasArea = { width: number, height: number };
 
@@ -247,7 +244,7 @@ const SubMenuPanel = ({ erdExportable, drawableArea }: SubMenuButtonProps) => {
             const current = batchExportQueue[0];
             const remaining = batchExportQueue.slice(1);
 
-            exportDiagramImage(erdCanvas, (contents: ImageContent) => {
+            downloadPng(erdCanvas, (contents: ImageContent) => {
                 const fileName = `${erdDocument.documentName} - ${current.perspectiveName}.png`;
                 download(fileName, contents.base64Value);
 
@@ -285,6 +282,20 @@ const SubMenuPanel = ({ erdExportable, drawableArea }: SubMenuButtonProps) => {
         handleCloseMenu();
     };
 
+    const handleBatchExportPerspectives = () => {
+        dispatchSelectAction(RELEASE_ACTION);
+
+        const perspectives = erdDocument.erdSettingModel.getPerspectiveModels();
+        if (perspectives.length === 0) {
+            handleCloseMenu();
+            return;
+        }
+
+        dispatchLocalSetting({ type: "perspective", perspectiveId: perspectives[0].perspectiveId });
+        setBatchExportQueue(perspectives);
+        handleCloseMenu();
+    };
+
     const handleSaveAsHtml = () => {
         dispatchSelectAction(RELEASE_ACTION);
         handleCloseMenu();
@@ -304,20 +315,6 @@ const SubMenuPanel = ({ erdExportable, drawableArea }: SubMenuButtonProps) => {
         handleCloseMenu();
     };
 
-    const handleBatchExportPerspectives = () => {
-        dispatchSelectAction(RELEASE_ACTION);
-
-        const perspectives = erdDocument.erdSettingModel.getPerspectiveModels();
-        if (perspectives.length === 0) {
-            handleCloseMenu();
-            return;
-        }
-
-        dispatchLocalSetting({ type: "perspective", perspectiveId: perspectives[0].perspectiveId });
-        setBatchExportQueue(perspectives);
-        handleCloseMenu();
-    };
-
     const handleExportSpecification = () => {
         downloadSpecification(erdDocument, exportSpecification);
         handleCloseMenu();
@@ -334,27 +331,13 @@ const SubMenuPanel = ({ erdExportable, drawableArea }: SubMenuButtonProps) => {
         setExportImageElement(null);
     };
 
-    const exportImageMenuItems = () => {
-        const perspectives = erdDocument.erdSettingModel.getPerspectiveModels();
-        if (perspectives.length === 0) {
-            return (<MenuItem onClick={handleExportAsImage}>Export as image</MenuItem>);
-        }
-
-        return (<>
-            <MenuItem onClick={(event) => setExportImageElement(event.currentTarget)}>
-                Export as image <ArrowRightIcon />
-            </MenuItem>
-            <Menu anchorEl={exportImageElement} open={Boolean(exportImageElement)}
-                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                onClose={() => setExportImageElement(null)}>
-                <MenuItem onClick={handleExportAsImage}>Current canvas</MenuItem>
-                <MenuItem onClick={handleBatchExportPerspectives}>
-                    All perspectives
-                </MenuItem>
-            </Menu>
+    const perspectives = erdDocument.erdSettingModel.getPerspectiveModels();
+    const pngMenuItems = (perspectives.length === 0)
+        ? (<MenuItem onClick={handleExportAsImage}>PNG</MenuItem>)
+        : (<>
+            <MenuItem onClick={handleExportAsImage}>PNG (Current canvas)</MenuItem>
+            <MenuItem onClick={handleBatchExportPerspectives}>PNG (All perspectives)</MenuItem>
         </>);
-    };
 
     const isConfigureOpen = Boolean(configureElement);
 
@@ -372,11 +355,20 @@ const SubMenuPanel = ({ erdExportable, drawableArea }: SubMenuButtonProps) => {
             <Menu anchorEl={configureElement} open={isConfigureOpen} onClose={handleCloseMenu}
                 slotProps={{ paper: { 'aria-labelledby': 'basic-button', } }}>
                 <MenuItem onClick={() => setSelectedMenu("export_ddl")}>Export DDL</MenuItem>
-                {exportImageMenuItems()}
-                <MenuItem onClick={handleSaveAsHtml}>Save as interactive HTML</MenuItem>
-                <MenuItem onClick={handleSaveAsSvg}>Save as interactive SVG</MenuItem>
+                <MenuItem onClick={(event) => setExportImageElement(event.currentTarget)}>
+                    Export image as<ArrowRightIcon />
+                </MenuItem>
                 <MenuItem onClick={handleExportSpecification}>Export specification</MenuItem>
                 {erdExportable && <MenuItem onClick={handleSaveToJson}>Save to ERD file</MenuItem>}
+            </Menu>
+
+            <Menu anchorEl={exportImageElement} open={Boolean(exportImageElement)}
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                onClose={() => setExportImageElement(null)}>
+                {pngMenuItems}
+                <MenuItem onClick={handleSaveAsHtml}>interactive HTML</MenuItem>
+                <MenuItem onClick={handleSaveAsSvg}>interactive SVG</MenuItem>
             </Menu>
 
             {(selectedMenu === "export_ddl") && (
@@ -396,14 +388,12 @@ const downloadImage = (erdDocument: ErdDocument) => {
         return;
     }
 
-    exportDiagramImage(erdCanvas, (contents: ImageContent) => {
+    downloadPng(erdCanvas, (contents: ImageContent) => {
         const fileName = `${erdDocument.documentName}.png`;
 
         download(fileName, contents.base64Value);
     });
 };
-
-
 
 const downloadSpecification = (
     erdDocument: ErdDocument,
@@ -416,68 +406,7 @@ const downloadSpecification = (
 
     const doDownloadSpec = (contents: ImageContent) => exportSpecification(erdDocument, contents);
 
-    exportDiagramImage(erdCanvas, doDownloadSpec);
-};
-
-const exportDiagramImage = (erdCanvas: HTMLElement, exportImage: (contents: ImageContent) => void) => {
-    const orgScale = erdCanvas.style.transform;
-    erdCanvas.style.transform = "scale(1)";
-
-    const { leftEdge, topEdge, rightEdge, bottomEdge } = doCalculateImageArea(erdCanvas);
-
-    const options = {
-        windowWidth: erdCanvas.scrollWidth,
-        windowHeight: erdCanvas.scrollHeight,
-        x: leftEdge - 10,
-        y: topEdge - 10,
-        width: rightEdge - leftEdge + 20,
-        height: bottomEdge - topEdge + 20,
-    };
-
-    html2canvas(erdCanvas, options).then(drawCanvas => {
-        const width = drawCanvas.width;
-        const height = drawCanvas.height;
-
-        erdCanvas.style.transform = orgScale;
-        const contents = drawCanvas.toDataURL("image/png");
-
-        exportImage({ base64Value: contents, width, height });
-    });
-};
-
-const doCalculateImageArea = (erdCanvas: HTMLElement) => {
-    const { scrollX, scrollY } = getScroll();
-
-    let leftEdge = Number.MAX_SAFE_INTEGER;
-    let topEdge = Number.MAX_SAFE_INTEGER;
-    let rightEdge = 0;
-    let bottomEdge = 0;
-
-    Array.from(erdCanvas.children).forEach(element => {
-        if (element.tagName === "svg") {
-            return;
-        }
-
-        const tableViewElements = element.getElementsByClassName(ERD_TABLE_VIEW_CLASS_NAME);
-        if ((tableViewElements != null) && (tableViewElements.length > 0)) {
-            const rectangle = tableViewElements[0].getBoundingClientRect()
-            leftEdge = Math.min(leftEdge, rectangle.left + scrollX);
-            topEdge = Math.min(topEdge, rectangle.top + scrollY);
-            rightEdge = Math.max(rightEdge, rectangle.left + rectangle.width + scrollX);
-            bottomEdge = Math.max(bottomEdge, rectangle.top + rectangle.height + scrollY);
-        }
-
-        const memoElements = element.getElementsByClassName(ERD_MEMO_VIEW_CLASS_NAME);
-        if ((memoElements != null) && (memoElements.length > 0)) {
-            const rectangle = memoElements[0].getBoundingClientRect()
-            leftEdge = Math.min(leftEdge, rectangle.left + scrollX);
-            topEdge = Math.min(topEdge, rectangle.top + scrollY);
-            rightEdge = Math.max(rightEdge, rectangle.left + rectangle.width + scrollX);
-            bottomEdge = Math.max(bottomEdge, rectangle.top + rectangle.height + scrollY);
-        }
-    });
-
-    return { leftEdge, topEdge, rightEdge, bottomEdge };
+    downloadPng(erdCanvas, doDownloadSpec);
 };
 
 const downloadJson = (erdDocument: ErdDocument) => {

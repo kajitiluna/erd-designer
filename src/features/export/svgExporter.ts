@@ -4,243 +4,254 @@ import { overrideColumnName } from "~/models/database/support";
 
 type CanvasArea = { width: number, height: number };
 
-const escSvg = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const escCdata = (s: string) => s.replace(/]]>/g, "]]\\u003E");
-
 export const downloadSvg = (erdDocument: ErdDocument, drawableArea: CanvasArea) => {
-    const erdCanvas = document.getElementById("erd-canvas");
-    if (erdCanvas == null) return;
+  const erdCanvas = document.getElementById("erd-canvas");
+  if (erdCanvas == null) {
+    return
+  };
 
-    const displayStyle = erdDocument.getDisplayStyle();
-    const tableViewModels = erdDocument.getTableViewModels();
-    const relationViewModels = erdDocument.getRelationViewModels();
-    const { frontMemos, backMemos } = erdDocument.getMemoViewModels();
-    const allMemos = [...backMemos, ...frontMemos];
+  const displayStyle = erdDocument.getDisplayStyle();
+  const tableViewModels = erdDocument.getTableViewModels();
+  const relationViewModels = erdDocument.getRelationViewModels();
+  const { frontMemos, backMemos } = erdDocument.getMemoViewModels();
+  const allMemos = [...backMemos, ...frontMemos];
 
-    const perspectives = erdDocument.erdSettingModel.getPerspectiveModels();
-    const perspJson = escCdata(JSON.stringify(perspectives.map(p => ({
-        id: p.perspectiveId,
-        name: p.perspectiveName,
-        ids: p.getContainIds()
-    }))));
+  const perspectives = erdDocument.erdSettingModel.getPerspectiveModels();
+  const perspJson = escapeCdata(
+    JSON.stringify(
+      perspectives.map(perspective => ({
+        id: perspective.perspectiveId,
+        name: perspective.perspectiveName,
+        ids: perspective.getContainIds()
+      }))
+    )
+  );
 
-    const COL_PAD = 8;
-    const FONT_SIZE = 12;
-    const HEADER_FONT = 13;
-    const BORDER_RADIUS = 10;
-    const FALLBACK_HEADER_H = 28;
-    const FALLBACK_ROW_H = 24;
+  const COL_PAD = 8;
+  const FONT_SIZE = 12;
+  const HEADER_FONT = 13;
+  const BORDER_RADIUS = 10;
+  const FALLBACK_HEADER_H = 28;
+  const FALLBACK_ROW_H = 24;
 
-    const svgTables: string[] = [];
-    const tableRects: { id: string, x: number, y: number, w: number, h: number }[] = [];
+  const svgTables: string[] = [];
+  const tableRects: { id: string, x: number, y: number, w: number, h: number }[] = [];
 
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
 
-    for (const tvm of tableViewModels) {
-        const tm = tvm.tableModel;
-        const allColumns = erdDocument.toAllColumnModels(tm);
-        const tableName = displayStyle.displayName(tm.physicalName, tm.logicalName);
-        const bgHex = tvm.headerColor.background.toHex();
-        const fgHex = tvm.headerColor.foreground.toHex();
+  for (const tvm of tableViewModels) {
+    const tm = tvm.tableModel;
+    const allColumns = erdDocument.toAllColumnModels(tm);
+    const tableName = displayStyle.displayName(tm.physicalName, tm.logicalName);
+    const bgHex = tvm.headerColor.background.toHex();
+    const fgHex = tvm.headerColor.foreground.toHex();
 
-        const domEl = document.getElementById(tvm.tableId);
-        const tableW = domEl ? domEl.offsetWidth : 220;
-        const tableH = domEl ? domEl.offsetHeight : FALLBACK_HEADER_H + allColumns.length * FALLBACK_ROW_H + 4;
+    const domEl = document.getElementById(tvm.tableId);
+    const tableW = domEl ? domEl.offsetWidth : 220;
+    const tableH = domEl ? domEl.offsetHeight : FALLBACK_HEADER_H + allColumns.length * FALLBACK_ROW_H + 4;
 
-        const domTrs = domEl ? domEl.querySelectorAll("tr") : null;
-        const headerH = (() => {
-            if (!domEl) return FALLBACK_HEADER_H;
-            const hdrEl = domEl.querySelector("table")?.parentElement?.previousElementSibling as HTMLElement | null;
-            return hdrEl ? hdrEl.offsetHeight : FALLBACK_HEADER_H;
-        })();
+    const domTrs = domEl ? domEl.querySelectorAll("tr") : null;
+    const headerH = (() => {
+      if (!domEl) {
+        return FALLBACK_HEADER_H
+      };
 
-        const rowHeights: number[] = [];
-        if (domTrs && domTrs.length > 0) {
-            domTrs.forEach(tr => rowHeights.push((tr as HTMLElement).offsetHeight));
-        } else {
-            for (let i = 0; i < allColumns.length; i++) rowHeights.push(FALLBACK_ROW_H);
+      const hdrEl = domEl.querySelector("table")?.parentElement?.previousElementSibling as HTMLElement | null;
+      return hdrEl ? hdrEl.offsetHeight : FALLBACK_HEADER_H;
+    })();
+
+    const rowHeights: number[] = [];
+    if (domTrs && (domTrs.length > 0)) {
+      domTrs.forEach(tr => rowHeights.push((tr as HTMLElement).offsetHeight));
+    } else {
+      for (let index = 0; index < allColumns.length; index++) {
+        rowHeights.push(FALLBACK_ROW_H);
+      }
+    }
+
+    const x = tvm.corner.left + drawableArea.width / 2;
+    const y = tvm.corner.top + drawableArea.height / 2;
+    tableRects.push({ id: tvm.tableId, x, y, w: tableW, h: tableH });
+    minX = Math.min(minX, x); minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x + tableW); maxY = Math.max(maxY, y + tableH);
+
+    const fkColumnIds = new Set<string>();
+    for (const rv of relationViewModels) {
+      if (rv.childTableModelId === tm.tableModelId) {
+        for (const pair of rv.relationModel.relationPairs) {
+          fkColumnIds.add(pair.childColumnModelId);
         }
+      }
+    }
 
-        const x = tvm.corner.left + drawableArea.width / 2;
-        const y = tvm.corner.top + drawableArea.height / 2;
-        tableRects.push({ id: tvm.tableId, x, y, w: tableW, h: tableH });
-        minX = Math.min(minX, x); minY = Math.min(minY, y);
-        maxX = Math.max(maxX, x + tableW); maxY = Math.max(maxY, y + tableH);
+    let colWidths = { pk: 20, fk: 20, name: 100, type: 80, opt: 40 };
+    if (domTrs && domTrs.length > 0) {
+      const cells = domTrs[0].querySelectorAll("td");
+      if (cells.length >= 5) {
+        colWidths = {
+          pk: (cells[0] as HTMLElement).offsetWidth,
+          fk: (cells[1] as HTMLElement).offsetWidth,
+          name: (cells[2] as HTMLElement).offsetWidth,
+          type: (cells[3] as HTMLElement).offsetWidth,
+          opt: (cells[4] as HTMLElement).offsetWidth
+        };
+      }
+    }
 
-        const fkColumnIds = new Set<string>();
-        for (const rv of relationViewModels) {
-            if (rv.childTableModelId === tm.tableModelId) {
-                for (const pair of rv.relationModel.relationPairs) {
-                    fkColumnIds.add(pair.childColumnModelId);
-                }
-            }
-        }
+    let rows = "";
+    let cumulY = headerH;
+    for (let ci = 0; ci < allColumns.length; ci++) {
+      const col = allColumns[ci];
+      const shareModel = erdDocument.findColumnShareModel(col.columnShareModelId);
+      if (!shareModel) continue;
+      const names = overrideColumnName(col, shareModel);
+      const colName = displayStyle.displayName(names.physicalName, names.logicalName);
+      const colType = shareModel.specifiedColumnType(
+        erdDocument.inChildRelation(tm.tableModelId, col.columnModelId)
+      );
+      const opts: string[] = [];
+      if (col.notNull) opts.push("NN");
+      if (col.unique) opts.push("U");
+      const optStr = opts.length > 0 ? `(${opts.join(",")})` : "";
 
-        let colWidths = { pk: 20, fk: 20, name: 100, type: 80, opt: 40 };
-        if (domTrs && domTrs.length > 0) {
-            const cells = domTrs[0].querySelectorAll("td");
-            if (cells.length >= 5) {
-                colWidths = {
-                    pk: (cells[0] as HTMLElement).offsetWidth,
-                    fk: (cells[1] as HTMLElement).offsetWidth,
-                    name: (cells[2] as HTMLElement).offsetWidth,
-                    type: (cells[3] as HTMLElement).offsetWidth,
-                    opt: (cells[4] as HTMLElement).offsetWidth
-                };
-            }
-        }
+      const rh = rowHeights[ci] ?? FALLBACK_ROW_H;
+      const textY = cumulY + rh * 0.68;
 
-        let rows = "";
-        let cumulY = headerH;
-        for (let ci = 0; ci < allColumns.length; ci++) {
-            const col = allColumns[ci];
-            const shareModel = erdDocument.findColumnShareModel(col.columnShareModelId);
-            if (!shareModel) continue;
-            const names = overrideColumnName(col, shareModel);
-            const colName = displayStyle.displayName(names.physicalName, names.logicalName);
-            const colType = shareModel.specifiedColumnType(
-                erdDocument.inChildRelation(tm.tableModelId, col.columnModelId)
-            );
-            const opts: string[] = [];
-            if (col.notNull) opts.push("NN");
-            if (col.unique) opts.push("U");
-            const optStr = opts.length > 0 ? `(${opts.join(",")})` : "";
+      let xOff = COL_PAD;
+      let pkIcon = "";
+      if (col.primaryKey) {
+        pkIcon = `<text x="${xOff + 2}" y="${textY}" fill="#90292F" font-size="10" font-family="monospace">PK</text>`;
+      }
+      xOff += colWidths.pk;
 
-            const rh = rowHeights[ci] ?? FALLBACK_ROW_H;
-            const textY = cumulY + rh * 0.68;
+      let fkIcon = "";
+      if (fkColumnIds.has(col.columnModelId)) {
+        fkIcon = `<text x="${xOff + 2}" y="${textY}" fill="#212490" font-size="10" font-family="monospace">FK</text>`;
+      }
+      xOff += colWidths.fk;
 
-            let xOff = COL_PAD;
-            let pkIcon = "";
-            if (col.primaryKey) {
-                pkIcon = `<text x="${xOff + 2}" y="${textY}" fill="#90292F" font-size="10" font-family="monospace">PK</text>`;
-            }
-            xOff += colWidths.pk;
+      const nameColor = col.primaryKey ? "#90292F" : (fkColumnIds.has(col.columnModelId) ? "#212490" : "#333");
+      const nameEl = `<text x="${xOff}" y="${textY}" fill="${nameColor}" font-size="${FONT_SIZE}" font-family="sans-serif">${escapeSvg(colName)}</text>`;
+      xOff += colWidths.name;
 
-            let fkIcon = "";
-            if (fkColumnIds.has(col.columnModelId)) {
-                fkIcon = `<text x="${xOff + 2}" y="${textY}" fill="#212490" font-size="10" font-family="monospace">FK</text>`;
-            }
-            xOff += colWidths.fk;
+      const typeEl = `<text x="${xOff}" y="${textY}" fill="#666" font-size="11" font-family="sans-serif">${escapeSvg(colType)}</text>`;
+      xOff += colWidths.type;
 
-            const nameColor = col.primaryKey ? "#90292F" : (fkColumnIds.has(col.columnModelId) ? "#212490" : "#333");
-            const nameEl = `<text x="${xOff}" y="${textY}" fill="${nameColor}" font-size="${FONT_SIZE}" font-family="sans-serif">${escSvg(colName)}</text>`;
-            xOff += colWidths.name;
+      const optEl = optStr ? `<text x="${xOff}" y="${textY}" fill="#888" font-size="11" font-family="sans-serif">${escapeSvg(optStr)}</text>` : "";
 
-            const typeEl = `<text x="${xOff}" y="${textY}" fill="#666" font-size="11" font-family="sans-serif">${escSvg(colType)}</text>`;
-            xOff += colWidths.type;
+      if (ci > 0) {
+        rows += `<line x1="1" y1="${cumulY}" x2="${tableW - 1}" y2="${cumulY}" stroke="#e0e0e0" stroke-width="0.5"/>`;
+      }
+      rows += pkIcon + fkIcon + nameEl + typeEl + optEl;
+      cumulY += rh;
+    }
 
-            const optEl = optStr ? `<text x="${xOff}" y="${textY}" fill="#888" font-size="11" font-family="sans-serif">${escSvg(optStr)}</text>` : "";
-
-            if (ci > 0) {
-                rows += `<line x1="1" y1="${cumulY}" x2="${tableW - 1}" y2="${cumulY}" stroke="#e0e0e0" stroke-width="0.5"/>`;
-            }
-            rows += pkIcon + fkIcon + nameEl + typeEl + optEl;
-            cumulY += rh;
-        }
-
-        svgTables.push(`<g data-model-id="${tvm.tableId}" transform="translate(${x}, ${y})">
+    svgTables.push(`<g data-model-id="${tvm.tableId}" transform="translate(${x}, ${y})">
   <rect width="${tableW}" height="${tableH}" rx="${BORDER_RADIUS}" fill="#FDFDFD"/>
   <clipPath id="clip-hdr-${tvm.tableId}"><rect width="${tableW}" height="${headerH}" rx="${BORDER_RADIUS}"/></clipPath>
   <rect width="${tableW}" height="${headerH}" fill="${bgHex}" clip-path="url(#clip-hdr-${tvm.tableId})"/>
   <rect x="0" y="${headerH - BORDER_RADIUS}" width="${tableW}" height="${BORDER_RADIUS}" fill="${bgHex}"/>
-  <text x="${COL_PAD}" y="${headerH * 0.68}" fill="${fgHex}" font-size="${HEADER_FONT}" font-weight="600" font-family="sans-serif">${escSvg(tableName)}</text>
+  <text x="${COL_PAD}" y="${headerH * 0.68}" fill="${fgHex}" font-size="${HEADER_FONT}" font-weight="600" font-family="sans-serif">${escapeSvg(tableName)}</text>
   <line x1="0" y1="${headerH}" x2="${tableW}" y2="${headerH}" stroke="#000" stroke-width="0.5"/>
   ${rows}
   <rect width="${tableW}" height="${tableH}" rx="${BORDER_RADIUS}" fill="none" stroke="#000" stroke-width="1.5"/>
 </g>`);
-    }
+  }
 
-    const svgMemos: string[] = [];
-    for (const memo of allMemos) {
-        const rect = memo.rectangleViewModel;
-        const mx = rect.positionX + drawableArea.width / 2;
-        const my = rect.positionY + drawableArea.height / 2;
-        minX = Math.min(minX, mx); minY = Math.min(minY, my);
-        maxX = Math.max(maxX, mx + rect.width); maxY = Math.max(maxY, my + rect.height);
+  const svgMemos: string[] = [];
+  for (const memo of allMemos) {
+    const rect = memo.rectangleViewModel;
+    const mx = rect.positionX + drawableArea.width / 2;
+    const my = rect.positionY + drawableArea.height / 2;
+    minX = Math.min(minX, mx); minY = Math.min(minY, my);
+    maxX = Math.max(maxX, mx + rect.width); maxY = Math.max(maxY, my + rect.height);
 
-        const bgHex = memo.backgroundColor.toHex();
-        const fgHex = memo.foregroundColor.toHex();
-        const fontSize = memo.fontSize;
+    const bgHex = memo.backgroundColor.toHex();
+    const fgHex = memo.foregroundColor.toHex();
+    const fontSize = memo.fontSize;
 
-        const lines = memo.memo.split("\n");
-        const lineHeight = fontSize * 1.4;
-        let textAnchor = "start";
-        let textX = 10;
-        if (memo.horizontalAlign === "center") { textAnchor = "middle"; textX = rect.width / 2; }
-        else if (memo.horizontalAlign === "end") { textAnchor = "end"; textX = rect.width - 10; }
+    const lines = memo.memo.split("\n");
+    const lineHeight = fontSize * 1.4;
+    let textAnchor = "start";
+    let textX = 10;
+    if (memo.horizontalAlign === "center") { textAnchor = "middle"; textX = rect.width / 2; }
+    else if (memo.horizontalAlign === "end") { textAnchor = "end"; textX = rect.width - 10; }
 
-        let startY: number;
-        const totalTextH = lines.length * lineHeight;
-        if (memo.verticalAlign === "start") startY = lineHeight;
-        else if (memo.verticalAlign === "end") startY = rect.height - totalTextH + lineHeight;
-        else startY = (rect.height - totalTextH) / 2 + lineHeight;
+    let startY: number;
+    const totalTextH = lines.length * lineHeight;
+    if (memo.verticalAlign === "start") startY = lineHeight;
+    else if (memo.verticalAlign === "end") startY = rect.height - totalTextH + lineHeight;
+    else startY = (rect.height - totalTextH) / 2 + lineHeight;
 
-        const textEls = lines.map((line, i) =>
-            `<text x="${textX}" y="${startY + i * lineHeight}" fill="${fgHex}" font-size="${fontSize}" font-family="sans-serif" text-anchor="${textAnchor}">${escSvg(line)}</text>`
-        ).join("\n  ");
+    const textEls = lines.map((line, i) =>
+      `<text x="${textX}" y="${startY + i * lineHeight}" fill="${fgHex}" font-size="${fontSize}" font-family="sans-serif" text-anchor="${textAnchor}">${escapeSvg(line)}</text>`
+    ).join("\n  ");
 
-        svgMemos.push(`<g data-model-id="${memo.memoId}" transform="translate(${mx}, ${my})">
+    svgMemos.push(`<g data-model-id="${memo.memoId}" transform="translate(${mx}, ${my})">
   <rect width="${rect.width}" height="${rect.height}" fill="${bgHex}" rx="2"/>
   ${textEls}
 </g>`);
-    }
+  }
 
-    const renderedSvg = erdCanvas.querySelector("svg");
-    let defsContent = "";
-    let connectionGroups = "";
-    let labelGroups = "";
+  const renderedSvg = erdCanvas.querySelector("svg");
+  let defsContent = "";
+  let connectionGroups = "";
+  let labelGroups = "";
 
-    if (renderedSvg) {
-        const defs = renderedSvg.querySelector("defs");
-        if (defs) defsContent = defs.innerHTML;
+  if (renderedSvg) {
+    const defs = renderedSvg.querySelector("defs");
+    if (defs) defsContent = defs.innerHTML;
 
-        const connOffset = { x: drawableArea.width / 2, y: drawableArea.height / 2 };
-        renderedSvg.querySelectorAll("g[data-erd-relation-parent-table-id]").forEach(g => {
-            const clone = g.cloneNode(true) as SVGGElement;
-            clone.setAttribute("transform", `translate(${connOffset.x}, ${connOffset.y})`);
-            connectionGroups += clone.outerHTML + "\n";
-        });
-    }
-
-    erdCanvas.querySelectorAll("div[data-erd-relation-parent-table-id]").forEach(el => {
-        const htmlEl = el as HTMLElement;
-        const parent = htmlEl.getAttribute("data-erd-relation-parent-table-id") ?? "";
-        const child = htmlEl.getAttribute("data-erd-relation-child-table-id") ?? "";
-        const text = htmlEl.textContent ?? "";
-        if (!text) return;
-        const style = htmlEl.style;
-        const lx = (parseFloat(style.left) || 0) + drawableArea.width / 2;
-        const ly = (parseFloat(style.top) || 0) + drawableArea.height / 2;
-        const fs = parseFloat(window.getComputedStyle(htmlEl).fontSize) || 13;
-        const color = style.color || "rgba(60,60,60,0.95)";
-        const fw = style.fontWeight || "400";
-        const fst = style.fontStyle === "italic" ? "italic" : "normal";
-        const dec = style.textDecoration?.includes("line-through") ? "line-through" : "none";
-
-        labelGroups += `<text data-erd-relation-parent-table-id="${escSvg(parent)}" data-erd-relation-child-table-id="${escSvg(child)}" x="${lx}" y="${ly + fs}" fill="${color}" font-size="${fs}" font-weight="${fw}" font-style="${fst}" text-decoration="${dec}" font-family="sans-serif">${escSvg(text)}</text>\n`;
+    const connOffset = { x: drawableArea.width / 2, y: drawableArea.height / 2 };
+    renderedSvg.querySelectorAll("g[data-erd-relation-parent-table-id]").forEach(g => {
+      const clone = g.cloneNode(true) as SVGGElement;
+      clone.setAttribute("transform", `translate(${connOffset.x}, ${connOffset.y})`);
+      connectionGroups += clone.outerHTML + "\n";
     });
+  }
 
-    const memoTableMap: Record<string, string[]> = {};
-    for (const memo of allMemos) {
-        const r = memo.rectangleViewModel;
-        const mx = r.positionX + drawableArea.width / 2;
-        const my = r.positionY + drawableArea.height / 2;
-        const contained = tableRects
-            .filter(t => t.x >= mx && t.y >= my && t.x + t.w <= mx + r.width && t.y + t.h <= my + r.height)
-            .map(t => t.id);
-        if (contained.length > 0) memoTableMap[memo.memoId] = contained;
-    }
-    const memoTableJson = escCdata(JSON.stringify(memoTableMap));
+  erdCanvas.querySelectorAll("div[data-erd-relation-parent-table-id]").forEach(el => {
+    const htmlEl = el as HTMLElement;
+    const parent = htmlEl.getAttribute("data-erd-relation-parent-table-id") ?? "";
+    const child = htmlEl.getAttribute("data-erd-relation-child-table-id") ?? "";
+    const text = htmlEl.textContent ?? "";
+    if (!text) return;
+    const style = htmlEl.style;
+    const lx = (parseFloat(style.left) || 0) + drawableArea.width / 2;
+    const ly = (parseFloat(style.top) || 0) + drawableArea.height / 2;
+    const fs = parseFloat(window.getComputedStyle(htmlEl).fontSize) || 13;
+    const color = style.color || "rgba(60,60,60,0.95)";
+    const fw = style.fontWeight || "400";
+    const fst = style.fontStyle === "italic" ? "italic" : "normal";
+    const dec = style.textDecoration?.includes("line-through") ? "line-through" : "none";
 
-    const pad = 100;
-    const vbX = minX - pad;
-    const vbY = minY - pad;
-    const vbW = maxX - minX + pad * 2;
-    const vbH = maxY - minY + pad * 2;
+    labelGroups += `<text data-erd-relation-parent-table-id="${escapeSvg(parent)}" data-erd-relation-child-table-id="${escapeSvg(child)}" x="${lx}" y="${ly + fs}" fill="${color}" font-size="${fs}" font-weight="${fw}" font-style="${fst}" text-decoration="${dec}" font-family="sans-serif">${escapeSvg(text)}</text>\n`;
+  });
 
-    const perspOptions = perspectives.map(p => `<option value="${escSvg(p.perspectiveId)}">${escSvg(p.perspectiveName)}</option>`).join("");
+  const memoTableMap: Record<string, string[]> = {};
+  for (const memo of allMemos) {
+    const r = memo.rectangleViewModel;
+    const mx = r.positionX + drawableArea.width / 2;
+    const my = r.positionY + drawableArea.height / 2;
+    const contained = tableRects
+      .filter(t => t.x >= mx && t.y >= my && t.x + t.w <= mx + r.width && t.y + t.h <= my + r.height)
+      .map(t => t.id);
+    if (contained.length > 0) memoTableMap[memo.memoId] = contained;
+  }
+  const memoTableJson = escapeCdata(JSON.stringify(memoTableMap));
 
-    const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+  const pad = 100;
+  const vbX = minX - pad;
+  const vbY = minY - pad;
+  const vbW = maxX - minX + pad * 2;
+  const vbH = maxY - minY + pad * 2;
+
+  const perspOptions = perspectives.map(p => `<option value="${escapeSvg(p.perspectiveId)}">${escapeSvg(p.perspectiveName)}</option>`).join("");
+
+  const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg"
      viewBox="${vbX} ${vbY} ${vbW} ${vbH}" preserveAspectRatio="none" style="background:#fff;width:100vw;height:100vh;display:block">
 <defs>
@@ -267,7 +278,7 @@ ${defsContent}
       #toolbar button:hover { background: #f5f5f5 !important; }
       #toolbar select:focus, #toolbar input:focus { outline: 1px solid #999; }
     </style>
-    <span style="font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex-shrink:1">${escSvg(erdDocument.documentName)}</span>
+    <span style="font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex-shrink:1">${escapeSvg(erdDocument.documentName)}</span>
     <span style="font-weight:600;white-space:nowrap;flex-shrink:0">Perspective:</span>
     <select id="persp-select" style="padding:4px 8px;border-radius:4px;border:1px solid #ccc;font-size:13px;max-width:340px;background:#fff;color:#333;flex-shrink:0">
       <option value="all" selected="selected">All</option>
@@ -500,7 +511,12 @@ ${defsContent}
 ]]></script>
 </svg>`;
 
-    const blob = new Blob([svgContent], { type: "image/svg+xml" });
-    const fileName = `${erdDocument.documentName}.svg`;
-    download(fileName, blob);
+  const blob = new Blob([svgContent], { type: "image/svg+xml" });
+  const fileName = `${erdDocument.documentName}.svg`;
+
+  download(fileName, blob);
 };
+
+const escapeSvg = (value: string) =>
+  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const escapeCdata = (value: string) => value.replace(/]]>/g, "]]\\u003E");
