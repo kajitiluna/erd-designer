@@ -214,16 +214,84 @@ type SubMenuButtonProps = {
 
 const SubMenuPanel = ({ erdExportable }: SubMenuButtonProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
-    const { dispatchSelectAction } = React.useContext(SelectEntityContext);
-    const { localSetting, dispatchLocalSetting } = React.useContext(LocalSettingContext);
+    const { localSetting } = React.useContext(LocalSettingContext);
     const [configureElement, setConfigureElement] = React.useState<HTMLElement | null>();
     const [selectedMenu, setSelectedMenu] = React.useState<"export_ddl" | "">("");
-    const [exportImageElement, setExportImageElement] = React.useState<HTMLElement | null>(null);
-    const [batchExportQueue, setBatchExportQueue] = React.useState<PerspectiveModel[]>([]);
-    const [htmlExportPendingRestore, setHtmlExportPendingRestore] = React.useState<string | null>(null);
     const { exportSpecification } = React.useContext(ExportSpecificationContext);
 
     const erdDocument: ErdDocument = documentsHolder.current();
+
+    const handleOpenMenu = (event: React.MouseEvent<HTMLButtonElement>) => setConfigureElement(event.currentTarget);
+
+    const handleExportSpecification = () => {
+        downloadSpecification(erdDocument, exportSpecification);
+        handleCloseMenu();
+    };
+
+    const handleSaveToJson = () => {
+        downloadJson(erdDocument);
+        handleCloseMenu();
+    };
+
+    const handleCloseMenu = () => {
+        setSelectedMenu("");
+        setConfigureElement(null);
+    };
+
+    const exportImageMenu = initExportImageMenu(erdDocument, handleCloseMenu);
+
+    if (localSetting.perspectiveId !== "") {
+        return (
+            <Box sx={SUBMENU_BUTTON_STYLE}>
+                <Tooltip placement="right" arrow title="Export is only available in the default perspective.">
+                    <span style={{ display: 'flex', width: '100%' }}>
+                        <Button key="submenu-button" variant="text" disabled={true} sx={{ width: '100%' }}
+                            aria-expanded={false} aria-haspopup="true" endIcon={<KeyboardArrowDownIcon />}>
+                            Export
+                        </Button>
+                    </span>
+                </Tooltip>
+            </Box>
+        );
+    }
+
+    const isConfigureOpen = Boolean(configureElement);
+
+    return (<>
+        <Box sx={SUBMENU_BUTTON_STYLE}>
+            <Button key="submenu-button" variant="text"
+                aria-expanded={isConfigureOpen} aria-haspopup="true"
+                endIcon={isConfigureOpen ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+                onClick={handleOpenMenu}>
+                Export
+            </Button>
+        </Box>
+
+        <Menu anchorEl={configureElement} open={isConfigureOpen} onClose={handleCloseMenu}
+            slotProps={{ paper: { 'aria-labelledby': 'basic-button', } }}>
+            <MenuItem onClick={() => setSelectedMenu("export_ddl")}>Export DDL</MenuItem>
+            {exportImageMenu}
+            <MenuItem onClick={handleExportSpecification}>Export specification</MenuItem>
+            {erdExportable && <MenuItem onClick={handleSaveToJson}>Save to ERD file</MenuItem>}
+        </Menu>
+
+        {(selectedMenu === "export_ddl") && (
+            <ExportDdlView documentsHolder={documentsHolder}
+                isViewOpen={selectedMenu === "export_ddl"}
+                onClose={handleCloseMenu} />
+        )}
+    </>);
+};
+
+const SUBMENU_BUTTON_STYLE = { display: 'flex', flexDirection: 'column', height: '100%', width: '100%' };
+
+const initExportImageMenu = (erdDocument: ErdDocument, onCloseMenu: () => void) => {
+    const { dispatchSelectAction } = React.useContext(SelectEntityContext);
+    const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
+
+    const exportImageCloseTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [exportImageElement, setExportImageElement] = React.useState<HTMLElement | null>(null);
+    const [batchExportQueue, setBatchExportQueue] = React.useState<PerspectiveModel[]>([]);
 
     React.useEffect(() => {
         if (batchExportQueue.length === 0) {
@@ -244,38 +312,25 @@ const SubMenuPanel = ({ erdExportable }: SubMenuButtonProps) => {
                 const fileName = `${erdDocument.documentName} - ${current.perspectiveName}.png`;
                 download(fileName, contents.base64Value);
 
-                if (remaining.length > 0) {
-                    dispatchLocalSetting({ type: "perspective", perspectiveId: remaining[0].perspectiveId });
-                    setBatchExportQueue(remaining);
-                } else {
-                    dispatchLocalSetting({ type: "perspective", perspectiveId: "" });
-                    setBatchExportQueue([]);
-                }
+                const nextPerspectiveId = (remaining.length > 0) ? remaining[0].perspectiveId : "";
+                dispatchLocalSetting({ type: "perspective", perspectiveId: nextPerspectiveId });
+                setBatchExportQueue(remaining);
             });
         }, 500);
 
         return () => clearTimeout(timer);
     }, [batchExportQueue, erdDocument, dispatchLocalSetting]);
 
-    React.useEffect(() => {
-        if (htmlExportPendingRestore == null) return;
-
-        const timer = setTimeout(() => {
-            downloadHtml(erdDocument);
-            dispatchLocalSetting({ type: "perspective", perspectiveId: htmlExportPendingRestore });
-            setHtmlExportPendingRestore(null);
-        }, 500);
-
-        return () => clearTimeout(timer);
-    }, [htmlExportPendingRestore, erdDocument, dispatchLocalSetting]);
-
-    const handleOpenMenu = (event: React.MouseEvent<HTMLButtonElement>) => setConfigureElement(event.currentTarget);
+    const handleClose = () => {
+        setExportImageElement(null);
+        onCloseMenu();
+    };
 
     const handleExportAsImage = () => {
         dispatchSelectAction(RELEASE_ACTION);
 
         downloadImage(erdDocument);
-        handleCloseMenu();
+        handleClose();
     };
 
     const handleBatchExportPerspectives = () => {
@@ -283,48 +338,14 @@ const SubMenuPanel = ({ erdExportable }: SubMenuButtonProps) => {
 
         const perspectives = erdDocument.erdSettingModel.getPerspectiveModels();
         if (perspectives.length === 0) {
-            handleCloseMenu();
+            handleClose();
             return;
         }
 
         dispatchLocalSetting({ type: "perspective", perspectiveId: perspectives[0].perspectiveId });
         setBatchExportQueue(perspectives);
-        handleCloseMenu();
-    };
 
-    const handleSaveAsHtml = () => {
-        dispatchSelectAction(RELEASE_ACTION);
-        handleCloseMenu();
-
-        if (localSetting.perspectiveId !== "") {
-            dispatchLocalSetting({ type: "perspective", perspectiveId: "" });
-            setHtmlExportPendingRestore(localSetting.perspectiveId);
-        } else {
-            downloadHtml(erdDocument);
-        }
-    };
-
-    const handleSaveAsSvg = () => {
-        dispatchSelectAction(RELEASE_ACTION);
-
-        downloadSvg(erdDocument);
-        handleCloseMenu();
-    };
-
-    const handleExportSpecification = () => {
-        downloadSpecification(erdDocument, exportSpecification);
-        handleCloseMenu();
-    };
-
-    const handleSaveToJson = () => {
-        downloadJson(erdDocument);
-        handleCloseMenu();
-    };
-
-    const handleCloseMenu = () => {
-        setSelectedMenu("");
-        setConfigureElement(null);
-        setExportImageElement(null);
+        handleClose();
     };
 
     const perspectives = erdDocument.erdSettingModel.getPerspectiveModels();
@@ -335,48 +356,61 @@ const SubMenuPanel = ({ erdExportable }: SubMenuButtonProps) => {
             <MenuItem onClick={handleBatchExportPerspectives}>PNG (All perspectives)</MenuItem>
         ];
 
-    const isConfigureOpen = Boolean(configureElement);
+    const handleExportImageEnter = (event: React.MouseEvent<HTMLElement>) => {
+        if (exportImageCloseTimerRef.current != null) {
+            clearTimeout(exportImageCloseTimerRef.current);
+            exportImageCloseTimerRef.current = null;
+        }
+        setExportImageElement(event.currentTarget);
+    };
 
-    return (
-        <>
-            <Box sx={SUBMENU_BUTTON_STYLE}>
-                <Button key="submenu-button" variant="text"
-                    aria-expanded={isConfigureOpen} aria-haspopup="true"
-                    endIcon={isConfigureOpen ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
-                    onClick={handleOpenMenu}>
-                    Export
-                </Button>
-            </Box>
+    const handleExportImageLeave = () => {
+        exportImageCloseTimerRef.current = setTimeout(() => {
+            setExportImageElement(null);
+        }, 100);
+    };
 
-            <Menu anchorEl={configureElement} open={isConfigureOpen} onClose={handleCloseMenu}
-                slotProps={{ paper: { 'aria-labelledby': 'basic-button', } }}>
-                <MenuItem onClick={() => setSelectedMenu("export_ddl")}>Export DDL</MenuItem>
-                <MenuItem onClick={(event) => setExportImageElement(event.currentTarget)}>
-                    Export image as<ArrowRightIcon />
-                </MenuItem>
-                <MenuItem onClick={handleExportSpecification}>Export specification</MenuItem>
-                {erdExportable && <MenuItem onClick={handleSaveToJson}>Save to ERD file</MenuItem>}
-            </Menu>
+    const handleSaveAsHtml = () => {
+        dispatchSelectAction(RELEASE_ACTION);
+        handleClose();
 
-            <Menu anchorEl={exportImageElement} open={Boolean(exportImageElement)}
-                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                onClose={() => setExportImageElement(null)}>
-                {pngMenuItems}
-                <MenuItem onClick={handleSaveAsHtml}>interactive HTML</MenuItem>
-                <MenuItem onClick={handleSaveAsSvg}>interactive SVG</MenuItem>
-            </Menu>
+        downloadHtml(erdDocument);
+    };
 
-            {(selectedMenu === "export_ddl") && (
-                <ExportDdlView documentsHolder={documentsHolder}
-                    isViewOpen={selectedMenu === "export_ddl"}
-                    onClose={handleCloseMenu} />
-            )}
-        </>
-    );
+    const handleSaveAsSvg = () => {
+        dispatchSelectAction(RELEASE_ACTION);
+
+        downloadSvg(erdDocument);
+        handleClose();
+    };
+
+    return [
+        <MenuItem onMouseEnter={handleExportImageEnter} onMouseLeave={handleExportImageLeave}>
+            Export image as<ArrowRightIcon />
+        </MenuItem>,
+        <Menu anchorEl={exportImageElement} open={Boolean(exportImageElement)}
+            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+            onClose={() => setExportImageElement(null)}
+            sx={{ pointerEvents: 'none' }}
+            slotProps={{
+                list: {
+                    sx: { pointerEvents: 'auto' },
+                    onMouseEnter: () => {
+                        if (exportImageCloseTimerRef.current != null) {
+                            clearTimeout(exportImageCloseTimerRef.current);
+                            exportImageCloseTimerRef.current = null;
+                        }
+                    },
+                    onMouseLeave: handleExportImageLeave
+                }
+            }}>
+            {pngMenuItems}
+            <MenuItem onClick={handleSaveAsHtml}>interactive HTML</MenuItem>
+            <MenuItem onClick={handleSaveAsSvg}>interactive SVG</MenuItem>
+        </Menu>
+    ];
 };
-
-const SUBMENU_BUTTON_STYLE = { display: 'flex', flexDirection: 'column', height: '100%', width: '100%' };
 
 const downloadImage = (erdDocument: ErdDocument) => {
     const erdCanvas = document.getElementById("erd-canvas");
