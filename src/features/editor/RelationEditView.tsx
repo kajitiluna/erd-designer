@@ -101,8 +101,10 @@ const RelationEditView = ({
         });
 
         const labelModel = relationViewModel.labelViewModel;
-        const nextLabelModel = (relationName === labelModel.label)
-            ? labelModel : new LabelViewModel({ ...labelModel, label: relationName });
+        const nextLabelModel = (relationName === labelModel.label) ? labelModel : (
+            (relationName !== "") ? new LabelViewModel({ ...labelModel, label: relationName })
+                : new LabelViewModel({ label: "" })
+        );
 
         const nextRelationView = new RelationViewModel({
             ...relationViewModel,
