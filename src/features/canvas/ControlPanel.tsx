@@ -265,7 +265,7 @@ const SubMenuPanel = ({ erdExportable, drawableArea }: SubMenuButtonProps) => {
         if (htmlExportPendingRestore == null) return;
 
         const timer = setTimeout(() => {
-            downloadHtml(erdDocument, drawableArea);
+            downloadHtml(erdDocument);
             dispatchLocalSetting({ type: "perspective", perspectiveId: htmlExportPendingRestore });
             setHtmlExportPendingRestore(null);
         }, 500);
@@ -304,7 +304,7 @@ const SubMenuPanel = ({ erdExportable, drawableArea }: SubMenuButtonProps) => {
             dispatchLocalSetting({ type: "perspective", perspectiveId: "" });
             setHtmlExportPendingRestore(localSetting.perspectiveId);
         } else {
-            downloadHtml(erdDocument, drawableArea);
+            downloadHtml(erdDocument);
         }
     };
 
