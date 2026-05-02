@@ -1,6 +1,7 @@
 import download from "~/components/file-downloader";
 import ErdDocument from "~/models/ErdDocument";
 import { calculateImageArea } from "~/features/canvas/canvasArea";
+import { serializeMemo, serializePerspective } from "~/features/export/support";
 
 export const downloadHtml = (erdDocument: ErdDocument) => {
   const erdCanvas = document.getElementById("erd-canvas");
@@ -167,40 +168,9 @@ const initPortableFunction = (erdDocument: ErdDocument, erdCanvas: HTMLElement) 
   const { leftEdge, topEdge, rightEdge, bottomEdge } = calculateImageArea(erdCanvas);
   const padding = 100;
 
-  const perspectives = erdDocument.erdSettingModel.getPerspectiveModels()
-    .map(perspective => {
-      return {
-        id: perspective.perspectiveId,
-        name: perspective.perspectiveName,
-        ids: perspective.getContainIds()
-      };
-    });
-
-  const { frontMemos, backMemos } = erdDocument.getMemoViewModels();
-  const tableViewModels = erdDocument.getTableViewModels();
-
-  const containTablePairs = [...backMemos, ...frontMemos].map(memo => {
-    const memoRectanble = memo.rectangleViewModel;
-    const memoX = memoRectanble.positionX + erdCanvas.offsetWidth / 2;
-    const memoY = memoRectanble.positionY + erdCanvas.offsetHeight / 2;
-
-    const containedTableIds = tableViewModels.filter(tableView => {
-      const tableX = tableView.corner.left + erdCanvas.offsetWidth / 2;
-      const tableY = tableView.corner.top + erdCanvas.offsetHeight / 2;
-      const element = document.getElementById(tableView.tableId);
-      const tableWidth = element ? element.offsetWidth : 220;
-      const tableHeight = element ? element.offsetHeight : 100;
-
-      return (tableX >= memoX) && (tableY >= memoY)
-        && (tableX + tableWidth <= memoX + memoRectanble.width)
-        && (tableY + tableHeight <= memoY + memoRectanble.height);
-    }).map(tableView => tableView.tableId);
-
-    return [memo.memoId, containedTableIds] as const;
-  }).filter(([_, tableIds]) => tableIds.length > 0);
-
+  const serializedPerspectives = serializePerspective(erdDocument);
   // FIXME: テーブルを囲っているメモも描画するための設定のようだが、perspective の設定と異なる表示になっている。
-  const memoTableMap: Record<string, string[]> = Object.fromEntries(containTablePairs);
+  const memoTableMap = serializeMemo(erdDocument, erdCanvas);
 
   return `
   (function() {
@@ -211,7 +181,7 @@ const initPortableFunction = (erdDocument: ErdDocument, erdCanvas: HTMLElement) 
     const zoomDisplay = document.getElementById('zoom-display');
     const cropX = ${leftEdge - padding}, cropY = ${topEdge - padding};
     const contentW = ${rightEdge - leftEdge + padding * 2}, contentH = ${bottomEdge - topEdge + padding * 2};
-    const PERSPECTIVES = ${JSON.stringify(perspectives)};
+    const PERSPECTIVES = ${JSON.stringify(serializedPerspectives)};
     const MEMO_TABLES = ${JSON.stringify(memoTableMap)};
 
     PERSPECTIVES.forEach(p => {

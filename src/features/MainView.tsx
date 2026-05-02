@@ -66,7 +66,7 @@ const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) 
                                     <TitlePanel />
                                 </Box>
                                 <Box sx={{ position: "fixed", top: "50%", left: "50px", transform: "translateY(-50%)" }}>
-                                    <ControlPanel erdExportable={erdExportable} drawableArea={DRAWABLE_AREA} />
+                                    <ControlPanel erdExportable={erdExportable} />
                                 </Box>
                                 <Box sx={{ position: "fixed", bottom: "30px", right: "30px" }}>
                                     <DisplayScalePanel drawableArea={DRAWABLE_AREA} scaleStatus={scale}

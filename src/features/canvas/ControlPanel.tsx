@@ -31,19 +31,16 @@ import { downloadHtml } from "~/features/export/htmlExporter";
 import { downloadPng } from "~/features/export/pngExporter";
 import { downloadSvg } from "~/features/export/svgExporter";
 
-type CanvasArea = { width: number, height: number };
-
 type ControlPanelProps = {
-    erdExportable: boolean,
-    drawableArea: CanvasArea
+    erdExportable: boolean
 };
 
-const ControlPanel = ({ erdExportable, drawableArea }: ControlPanelProps) => {
+const ControlPanel = ({ erdExportable }: ControlPanelProps) => {
     return (
         <Box sx={PANEL_STYLE}>
             <EditModePanel />
             <ActionPanel />
-            <SubMenuPanel erdExportable={erdExportable} drawableArea={drawableArea} />
+            <SubMenuPanel erdExportable={erdExportable} />
         </Box>
     );
 };
@@ -212,11 +209,10 @@ const ACTION_BUTTON_STYLE = {
 };
 
 type SubMenuButtonProps = {
-    erdExportable: boolean,
-    drawableArea: CanvasArea
+    erdExportable: boolean
 };
 
-const SubMenuPanel = ({ erdExportable, drawableArea }: SubMenuButtonProps) => {
+const SubMenuPanel = ({ erdExportable }: SubMenuButtonProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { dispatchSelectAction } = React.useContext(SelectEntityContext);
     const { localSetting, dispatchLocalSetting } = React.useContext(LocalSettingContext);
@@ -311,7 +307,7 @@ const SubMenuPanel = ({ erdExportable, drawableArea }: SubMenuButtonProps) => {
     const handleSaveAsSvg = () => {
         dispatchSelectAction(RELEASE_ACTION);
 
-        downloadSvg(erdDocument, drawableArea);
+        downloadSvg(erdDocument);
         handleCloseMenu();
     };
 
