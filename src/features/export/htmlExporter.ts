@@ -1,7 +1,7 @@
 import download from "~/components/file-downloader";
 import ErdDocument from "~/models/ErdDocument";
 import { calculateImageArea } from "~/features/canvas/canvasArea";
-import { serializeMemo, serializePerspective } from "~/features/export/support";
+import { escapeCdata, serializeMemo, serializePerspective } from "~/features/export/support";
 
 export const downloadHtml = (erdDocument: ErdDocument) => {
   const erdCanvas = document.getElementById("erd-canvas");
@@ -168,8 +168,8 @@ const initPortableFunction = (erdDocument: ErdDocument, erdCanvas: HTMLElement) 
     const zoomDisplay = document.getElementById('zoom-display');
     const cropX = ${leftEdge - padding}, cropY = ${topEdge - padding};
     const contentW = ${rightEdge - leftEdge + padding * 2}, contentH = ${bottomEdge - topEdge + padding * 2};
-    const PERSPECTIVES = ${JSON.stringify(serializedPerspectives)};
-    const MEMO_TABLES = ${JSON.stringify(memoTableMap)};
+    const PERSPECTIVES = ${escapeCdata(JSON.stringify(serializedPerspectives))};
+    const MEMO_TABLES = ${escapeCdata(JSON.stringify(memoTableMap))};
 
     PERSPECTIVES.forEach(p => {
       const opt = document.createElement('option');

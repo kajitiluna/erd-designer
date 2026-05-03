@@ -1,5 +1,7 @@
 import ErdDocument from "~/models/ErdDocument";
 
+export const escapeCdata = (text: string) => text.replace(/]]>/g, "]]\\u003E");
+
 export const serializePerspective = (erdDocument: ErdDocument) => {
     const perspectives = erdDocument.erdSettingModel.getPerspectiveModels();
 

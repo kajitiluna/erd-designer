@@ -1,7 +1,7 @@
 import ErdDocument from "~/models/ErdDocument";
 import download from "~/components/file-downloader";
 import { overrideColumnName } from "~/models/database/support";
-import { serializeMemo, serializePerspective } from "~/features/export/support";
+import { escapeCdata, serializeMemo, serializePerspective } from "~/features/export/support";
 
 export const downloadSvg = (erdDocument: ErdDocument) => {
   const erdCanvas = document.getElementById("erd-canvas");
@@ -119,7 +119,7 @@ const initTableSvg = (erdDocument: ErdDocument, erdCanvas: HTMLElement) => {
     ));
 
     const tableHeaderDom = tableDom.querySelector("table")?.parentElement?.previousElementSibling as HTMLElement | null;
-    const headerHeigth = tableHeaderDom ? tableHeaderDom.offsetHeight : FALLBACK_HEADER_H;
+    const headerHeight = tableHeaderDom ? tableHeaderDom.offsetHeight : FALLBACK_HEADER_H;
 
     const tableTrDom = tableDom.querySelectorAll("tr");
     const rowHeights: number[] = (tableTrDom.length > 0)
@@ -143,8 +143,8 @@ const initTableSvg = (erdDocument: ErdDocument, erdCanvas: HTMLElement) => {
       const inRelation = erdDocument.inChildRelation(tableModel.tableModelId, columnModel.columnModelId);
       const columnType = shareModel.specifiedColumnType(inRelation);
 
-      const columnRowHeigth = rowHeights[indexColumn] ?? FALLBACK_ROW_H;
-      const textY = acc.heigth + columnRowHeigth * 0.68;
+      const columnRowHeight = rowHeights[indexColumn] ?? FALLBACK_ROW_H;
+      const textY = acc.heigth + columnRowHeight * 0.68;
 
       let xOffset = COL_PAD;
       const pkIcon = (columnModel.primaryKey === false) ? ""
@@ -177,8 +177,8 @@ const initTableSvg = (erdDocument: ErdDocument, erdCanvas: HTMLElement) => {
 
       const nextRow = separator + pkIcon + fkIcon + nameEl + typeEl + optEl;
 
-      return { svgText: acc.svgText + nextRow, heigth: acc.heigth + columnRowHeigth };
-    }, { svgText: "", heigth: headerHeigth });
+      return { svgText: acc.svgText + nextRow, heigth: acc.heigth + columnRowHeight };
+    }, { svgText: "", heigth: headerHeight });
 
     const bgHex = tableView.headerColor.background.toHex();
     const fgHex = tableView.headerColor.foreground.toHex();
@@ -187,13 +187,13 @@ const initTableSvg = (erdDocument: ErdDocument, erdCanvas: HTMLElement) => {
       `<g data-model-id="${tableView.tableId}" transform="translate(${tableX}, ${tableY})">`,
       `<rect width="${tableWidth}" height="${tableHeight}" rx="${BORDER_RADIUS}" fill="#FDFDFD"/>`,
       `<clipPath id="clip-hdr-${tableView.tableId}">`,
-      `<rect width="${tableWidth}" height="${headerHeigth}" rx="${BORDER_RADIUS}"/>`,
+      `<rect width="${tableWidth}" height="${headerHeight}" rx="${BORDER_RADIUS}"/>`,
       `</clipPath>`,
-      `<rect width="${tableWidth}" height="${headerHeigth}" fill="${bgHex}" clip-path="url(#clip-hdr-${tableView.tableId})"/>`,
-      `<rect x="0" y="${headerHeigth - BORDER_RADIUS}" width="${tableWidth}" height="${BORDER_RADIUS}" fill="${bgHex}"/>`,
-      `<text x="${COL_PAD}" y="${headerHeigth * 0.68}" fill="${fgHex}" `,
+      `<rect width="${tableWidth}" height="${headerHeight}" fill="${bgHex}" clip-path="url(#clip-hdr-${tableView.tableId})"/>`,
+      `<rect x="0" y="${headerHeight - BORDER_RADIUS}" width="${tableWidth}" height="${BORDER_RADIUS}" fill="${bgHex}"/>`,
+      `<text x="${COL_PAD}" y="${headerHeight * 0.68}" fill="${fgHex}" `,
       `font-size="${HEADER_FONT}" font-weight="600" font-family="sans-serif">${escapeSvg(tableName)}</text>`,
-      `<line x1="0" y1="${headerHeigth}" x2="${tableWidth}" y2="${headerHeigth}" stroke="#000" stroke-width="0.5"/>`,
+      `<line x1="0" y1="${headerHeight}" x2="${tableWidth}" y2="${headerHeight}" stroke="#000" stroke-width="0.5"/>`,
       svgColumns,
       `<rect width="${tableWidth}" height="${tableHeight}" rx="${BORDER_RADIUS}" fill="none" stroke="#000" stroke-width="1.5"/>`,
       `</g>`
@@ -565,4 +565,3 @@ const initPortableFunction = (
 
 const escapeSvg = (text: string) =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const escapeCdata = (text: string) => text.replace(/]]>/g, "]]\\u003E");
