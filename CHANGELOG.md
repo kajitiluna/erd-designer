@@ -50,6 +50,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Fixed an issue where relation lines extending outside the bounds of tables or memos
   were clipped and not fully rendered in the exported PNG image.
 
+- **Firefox: Unexpected drag ghost image when moving selected tables**:
+
+  Fixed an issue in Firefox where dragging tables after a rubber-band selection caused
+  the browser to display an unexpected ghost image roughly the size of the canvas.
+
 
 ## [0.20260426] - 2026-04-26
 

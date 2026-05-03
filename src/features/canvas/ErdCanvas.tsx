@@ -442,7 +442,7 @@ const useCanvasStyle = (drawableArea: CanvasArea, displayScale: number) => {
             width: drawableArea.width, height: drawableArea.height,
             overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center",
             // overscrollBehavior: "none", scrollbarWidth: "none", msOverflowStyle: "none",
-            backgroundColor: "white", backgroundAttachment: "local",
+            backgroundColor: "white", backgroundAttachment: "local", userSelect: "none",
             transform: `scale(${displayScale})`, transformOrigin: "center center"
         };
 
