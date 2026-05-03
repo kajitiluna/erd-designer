@@ -76,7 +76,8 @@ export default class ErdSettingModel {
         return new ErdSettingModel({
             displayStyle: this.displayStyle,
             exportDdlSetting: this.exportDdlSetting,
-            perspectiveModelStorage: nextPerspectiveStorage
+            perspectiveModelStorage: nextPerspectiveStorage,
+            showRelationNames: this.showRelationNames
         });
     }
 

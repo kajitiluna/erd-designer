@@ -29,6 +29,8 @@ import TableEditView from "~/features/editor/TableEditView";
 import StickyMemoView, { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
 import PortalCanvasContext from "~/context/PortalCanvasContext";
 
+export const ERD_CANVAS_ID = "erd-canvas";
+
 type ErdCanvasProps = { canvasArea: CanvasArea, onDragAction: React.Dispatch<DragAction> };
 type CanvasArea = { width: number; height: number };
 
@@ -224,8 +226,8 @@ const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasPr
             const relationViews = erdDocument
                 .fetchRelationsByTableIds(Array.from(selectState.tableIds))
                 .filter(relationView => relationView.lineViewModel.lineType === "orthogonal");
-            const nextArgs = toNextOrthogonalLines({
-                relationViews, tableRectangles: rectangleArea.tableRectangles, selectState, dragState
+            const nextArgs = toNextOrthogonalLines({ 
+                relationViews, tableRectangles: rectangleArea.tableRectangles, selectState, dragState 
             });
 
             documentsHolder.moveRectangle(selectState.tableIds, selectState.memoIds, offset, nextArgs);
@@ -242,6 +244,7 @@ const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasPr
             if (relationView == null) {
                 return;
             }
+
             if (relationView.lineViewModel.lineType === "orthogonal") {
                 const nextArgs = toNextOrthogonalLines({
                     relationViews: [relationView],
@@ -331,7 +334,7 @@ const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasPr
         window.scrollTo(
             (drawableArea.width - window.innerWidth) / 2,
             (drawableArea.height - window.innerHeight) / 2);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // スクロール可能領域の制御を window に登録
@@ -385,7 +388,7 @@ const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasPr
     const { canvasStyle, canvasSvgStyle, toolbarCanvasStyle, svgViewBox } = useCanvasStyle(drawableArea, displayScale);
 
     const mainCanvas = (<>
-        <div id="erd-canvas" ref={erdCanvasRef} style={canvasStyle}
+        <div id={ERD_CANVAS_ID} ref={erdCanvasRef} style={canvasStyle}
             onClick={handleClickOnCanvas} onMouseMove={handleMoveMouseOnCanvas}
             onMouseDown={handleDragStart} onMouseUp={handleDragEnd}>
 
@@ -437,7 +440,7 @@ const useCanvasStyle = (drawableArea: CanvasArea, displayScale: number) => {
         const baseCanvasStyle: React.CSSProperties = {
             position: "absolute", top: 0, left: 0,
             width: drawableArea.width, height: drawableArea.height,
-            overflow: "auto", display: "flex", flexDirection: "column", alignItems: "center",
+            overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center",
             // overscrollBehavior: "none", scrollbarWidth: "none", msOverflowStyle: "none",
             backgroundColor: "white", backgroundAttachment: "local",
             transform: `scale(${displayScale})`, transformOrigin: "center center"

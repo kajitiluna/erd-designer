@@ -28,6 +28,7 @@ type ErdDocumentsHolderOptions = {
 };
 
 const CANVAS_AREA = { width: 25000, height: 25000 } as const;
+const DRAWABLE_AREA = { width: CANVAS_AREA.width * 2, height: CANVAS_AREA.height * 2 } as const;
 
 const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) => {
 
@@ -68,7 +69,7 @@ const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) 
                                     <ControlPanel erdExportable={erdExportable} />
                                 </Box>
                                 <Box sx={{ position: "fixed", bottom: "30px", right: "30px" }}>
-                                    <DisplayScalePanel canvasArea={CANVAS_AREA} scaleStatus={scale}
+                                    <DisplayScalePanel drawableArea={DRAWABLE_AREA} scaleStatus={scale}
                                         onChangeScale={setScale} />
                                 </Box>
                             </DisplayScaleContext.Provider>

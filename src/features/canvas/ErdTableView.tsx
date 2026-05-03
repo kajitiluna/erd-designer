@@ -42,7 +42,7 @@ import { overrideColumnName } from "~/models/database/support";
 
 import styleClasses from "./ErdCanvas.module.css";
 
-export const ERD_TABLE_VIEW_CLASS_NAME = "erdTableView";
+export const ERD_TABLE_VIEW_CLASS_NAME = "erd-table-view";
 
 type ErdTableViewProps = {
     tableViewModel: TableViewModel,

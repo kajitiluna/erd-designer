@@ -15,7 +15,6 @@ import DisplayScaleContext from "~/context/DisplayScaleContext";
 import CanvasPositionContext from "~/context/CanvasPositionContext";
 import PortalCanvasContext from "~/context/PortalCanvasContext";
 import RelationModel from "~/models/database/RelationModel";
-import { OrthogonalDirection } from "~/models/LineViewModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
 import { EditModeType } from "~/models/EditMode";
@@ -28,12 +27,14 @@ import LineStraightIcon from "~/components/icons/LineStraightIcon";
 import LineOrthogonalIcon from "~/components/icons/LineOrthogonalIcon";
 import {
     handlePreventMouseEvent, ORTHOGONAL_THRESHOLD,
-    toDraggedOrthogonalPoints, toMarkerId, toOrthogonalPoints
+    toDraggedOrthogonalPoints, toMarkerId, toOrthogonalPoints, toRoundedPath
 } from "~/features/canvas/support";
 import EditAction from "~/features/canvas/EditAction";
 import RelationLabelOverlay from "~/features/canvas/RelationLabelOverlay";
 
 import styleClasses from "./ErdCanvas.module.css";
+
+export const ERD_RELATION_PATH_CLASS_NAME = "erd-relation-path";
 
 export type ErdRelationTooltipRef = {
     svgElements: () => { tableIds: string[], path: React.JSX.Element, label: React.JSX.Element }[]
@@ -245,7 +246,7 @@ const useRelationTooltip = (
                 return;
             }
 
-            const updateArg = { relationId: relationView.relationId, orthogonalLines: [] as OrthogonalDirection[] };
+            const updateArg = { relationId: relationView.relationId, orthogonalLines: [], changedIndex: 0 };
             documentsHolder.updateRelationOrthogonal([updateArg]);
 
             setLineEditElement(null);
@@ -258,7 +259,7 @@ const useRelationTooltip = (
             }
 
             const orthogonalLines = initOrthogonalLine(relationView, rectangleMap);
-            const updateArg = { relationId: relationView.relationId, orthogonalLines };
+            const updateArg = { relationId: relationView.relationId, orthogonalLines, changedIndex: 0 };
             documentsHolder.updateRelationOrthogonal([updateArg]);
 
             setLineEditElement(null);
@@ -425,16 +426,15 @@ const useStraightLineView = (
         const dualPoints = initDualPoints(relationView, parentTable, childTable);
         const { edge: parentEdge } = calculateRectangleEdge(parentTable, dualPoints.parentDual);
         const { edge: childEdge } = calculateRectangleEdge(childTable, dualPoints.childDual);
-
         const relationEdges = [parentEdge, ...relationView.lineViewModel.edges, childEdge];
         const relationLinePairs = relationEdges.slice(0, -1)
             .map((value, index) => [value, relationEdges[index + 1]]);
 
         const relationLineSegments = relationLinePairs.map((pair, index) => {
             const baseSvgPath: React.JSX.Element = initBaseSvgPath(relationView, index, pair);
-            const drawingLine: string = initDrawingLine(relationView, index, pair);
+            const drawingPoints: Point[] = initDrawingPoint(relationView, index, pair);
 
-            return { baseSvgPath, drawingLine };
+            return { baseSvgPath, drawingPoints };
         });
 
         const svgBasePaths = relationLineSegments.map(lineSegment => lineSegment.baseSvgPath);
@@ -444,8 +444,8 @@ const useStraightLineView = (
         const svgPaths = (svgRemoveEdgePath != null)
             ? [...svgBasePaths, ...svgEdges, svgRemoveEdgePath] : [...svgBasePaths, ...svgEdges];
 
-        const drawingPath = `M ${parentEdge.x},${parentEdge.y}`
-            + relationLineSegments.map(lineSegment => lineSegment.drawingLine).join(" ");
+        const edgePoints = [parentEdge, ...relationLineSegments.flatMap(lineSegment => lineSegment.drawingPoints)];
+        const drawingPath = toRoundedPath(edgePoints, 15);
 
         const labelEdges = [...relationEdges];
         if ((selectState.relationId === relationView.relationId)
@@ -561,8 +561,8 @@ const useStraightLineView = (
         );
     };
 
-    // ドラッグ中の状態を考慮したうえで、線分を描画する
-    const initDrawingLine = (relationView: RelationViewModel, index: number, pair: Point[]) => {
+    // ドラッグ中の状態を考慮したうえで、線分を描画する点を決定する
+    const initDrawingPoint = (relationView: RelationViewModel, index: number, pair: Point[]) => {
         if (
             (selectState.relationId !== relationView.relationId)
             || (selectState.edgeId !== index)
@@ -576,20 +576,19 @@ const useStraightLineView = (
                 && (index < relationView.lineViewModel.edges.length)
             ) ? dragState.delta() : { x: 0, y: 0 };
 
-            return `L ${pair[1].x + delta.x},${pair[1].y + delta.y}`;
+            return [{ x: pair[1].x + delta.x, y: pair[1].y + delta.y }];
         }
 
         if (selectState.edgeType === "real") {
-            return `L ${dragState.current.x},${dragState.current.y}`;
+            return [dragState.current];
         }
 
         // Edge 変更が有効な場所に移っていない場合は、元の線分を描画する
         if (!lineDragging.on_dragging || !lineDragging.majorChanging) {
-            return `L ${pair[1].x},${pair[1].y}`;
+            return [pair[1]];
         }
 
-        return `L ${dragState.current.x},${dragState.current.y}`
-            + ` L ${pair[1].x},${pair[1].y}`;
+        return [dragState.current, pair[1]];
     };
 
     const initHandleDragEdgeStart = (relationId: string, index: number) => {
@@ -736,16 +735,17 @@ const useStraightLineView = (
         const parentMarker = toMarkerId(relationModel.parentCardinality);
         const childMarker = toMarkerId(relationModel.childCardinality);
         const selected = (selectState.relationId === relationView.relationId);
+        const cssClassName = `${ERD_RELATION_PATH_CLASS_NAME} ${initPathCss(relationView, selected)}`;
 
         return {
             tableIds: [relationModel.parentTableModelId, relationModel.childTableModelId],
             path: (
-                <g key={`relation-line_${relationView.relationId}`}>
-                    <path d={lineSegment.drawingPath} fill="none"
-                        stroke={lineViewModel.color.toRgba()}
-                        strokeWidth={lineViewModel.strokeWidth}
-                        markerStart={parentMarker} markerEnd={childMarker}
-                        className={initPathCss(relationView, selected)} />
+                <g key={`relation-line_${relationView.relationId}`}
+                    data-erd-relation-parent-table-id={relationModel.parentTableModelId}
+                    data-erd-relation-child-table-id={relationModel.childTableModelId}>
+                    <path d={lineSegment.drawingPath} className={cssClassName} fill="none"
+                        stroke={lineViewModel.color.toRgba()} strokeWidth={lineViewModel.strokeWidth}
+                        markerStart={parentMarker} markerEnd={childMarker}/>
                     {lineSegment.svgPaths}
                 </g>
             ),
@@ -841,17 +841,16 @@ const useOrthogonalLine = (
     const dragState = React.useContext(DragActionContext);
     const { scale: displayScale } = React.useContext(DisplayScaleContext);
     const positionResolver = React.useContext(CanvasPositionContext);
-
     const initPathCss = (selected: boolean, isReducedLine: boolean) => {
         if (!selected) {
-            return "";
+            return ERD_RELATION_PATH_CLASS_NAME;
         }
 
         if (isReducedLine) {
-            return styleClasses.inactiveDraggedSvg;
+            return `${ERD_RELATION_PATH_CLASS_NAME} ${styleClasses.inactiveDraggedSvg}`;
         }
 
-        return styleClasses.selectedSvg;
+        return `${ERD_RELATION_PATH_CLASS_NAME} ${styleClasses.selectedSvg}`;
     };
 
     const doHandleDragEnd = (event: React.MouseEvent | MouseEvent) => {
@@ -947,17 +946,15 @@ const useOrthogonalLine = (
         const { draggedPoints, isReducedLine } = toDraggedOrthogonalPoints(
             { relationView, points, parentTable, childTable, selectState, dragState }
         );
-
-        const drawingLine = "M" + draggedPoints.map(point =>
-            `${point.x},${point.y}`
-        ).join(" L");
-
+        const drawingLine = toRoundedPath(draggedPoints, 10);
         const selected = (selectState.relationId === relationView.relationId);
 
         return {
             tableIds: [relationModel.parentTableModelId, relationModel.childTableModelId],
             path: (
-                <g key={`relation-line_${relationView.relationId}`}>
+                <g key={`relation-line_${relationView.relationId}`}
+                    data-erd-relation-parent-table-id={relationModel.parentTableModelId}
+                    data-erd-relation-child-table-id={relationModel.childTableModelId}>
                     <path d={drawingLine} fill="none"
                         stroke={relationView.lineViewModel.color.toRgba()}
                         strokeWidth={relationView.lineViewModel.strokeWidth}

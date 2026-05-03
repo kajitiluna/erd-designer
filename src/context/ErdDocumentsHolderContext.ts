@@ -9,9 +9,9 @@ import DbSchemaConfig from "~/models/DbSchemaConfig";
 import ErdDocument from "~/models/ErdDocument";
 import ErdSettingModel from "~/models/ErdSettingModel";
 import LabelViewModel, { LabelPosition, FontStyle } from "~/models/LabelViewModel";
-import LineViewModel, { OrthogonalDirection } from "~/models/LineViewModel";
+import LineViewModel from "~/models/LineViewModel";
 import MemoViewModel from "~/models/MemoViewModel";
-import RelationViewModel from "~/models/RelationViewModel";
+import RelationViewModel, { OrthogonalRelation } from "~/models/RelationViewModel";
 import TableViewModel from "~/models/TableViewModel";
 
 export class ErdDocumentsHolder {
@@ -236,16 +236,11 @@ export class ErdDocumentsHolder {
      * @param relationId リレーションID
      * @param orthogonalLines 直交線の情報
      */
-    public updateRelationOrthogonal(args: { relationId: string, orthogonalLines: OrthogonalDirection[] }[]) {
-        const updateArgs = args.map(({ relationId, orthogonalLines }) => (
-            {
-                relationId,
-                updateFunction: ((previous: LineViewModel) => previous.updateOrthogonalLines(orthogonalLines))
-            }
-        ));
+    public updateRelationOrthogonal(args: OrthogonalRelation[]) {
+        const updateRelation = (erdDocument: ErdDocument) => erdDocument.updateRelationOrthogonal(args);
 
         const loggingMessage = `Update relation orthogonal lines: ${JSON.stringify(args)}`;
-        this.doUpdateRelationEdge(loggingMessage, ...updateArgs);
+        this.doUpdate(updateRelation, loggingMessage);
     }
 
     /**
@@ -341,7 +336,7 @@ export class ErdDocumentsHolder {
      * @param relationId リレーションID
      * @param updating 更新内容
      */
-    public updateRelationLabelColor(relationId: string, updating: ColorValue){
+    public updateRelationLabelColor(relationId: string, updating: ColorValue) {
         const updatingFunction = (previous: LabelViewModel) => previous.updateColor(updating);
         const message = `Update relation label color: ${JSON.stringify({ relationId, color: updating })}`;
 
@@ -408,7 +403,7 @@ export class ErdDocumentsHolder {
     public moveRectangle(
         tableIds: Set<string>, memoIds: Set<string>,
         moving: { x: number, y: number },
-        nextOrthogonalObjects: { relationId: string, orthogonalLines: OrthogonalDirection[] }[]
+        nextOrthogonalObjects: OrthogonalRelation[]
     ) {
         this.doUpdate(
             previous => previous
