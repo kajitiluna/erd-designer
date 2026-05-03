@@ -33,7 +33,7 @@ import ColorValue from "~/models/ColorValue";
 
 import styleClasses from "./ErdCanvas.module.css";
 
-export const ERD_MEMO_VIEW_CLASS_NAME = "erdMemoView";
+export const ERD_MEMO_VIEW_CLASS_NAME = "erd-memo-view";
 
 type StickyNoteViewProps = {
     memoViewModel: MemoViewModel,

@@ -29,6 +29,8 @@ import TableEditView from "~/features/editor/TableEditView";
 import StickyMemoView, { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
 import PortalCanvasContext from "~/context/PortalCanvasContext";
 
+export const ERD_CANVAS_ID = "erd-canvas";
+
 type ErdCanvasProps = { canvasArea: CanvasArea, onDragAction: React.Dispatch<DragAction> };
 type CanvasArea = { width: number; height: number };
 
@@ -386,7 +388,7 @@ const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasPr
     const { canvasStyle, canvasSvgStyle, toolbarCanvasStyle, svgViewBox } = useCanvasStyle(drawableArea, displayScale);
 
     const mainCanvas = (<>
-        <div id="erd-canvas" ref={erdCanvasRef} style={canvasStyle}
+        <div id={ERD_CANVAS_ID} ref={erdCanvasRef} style={canvasStyle}
             onClick={handleClickOnCanvas} onMouseMove={handleMoveMouseOnCanvas}
             onMouseDown={handleDragStart} onMouseUp={handleDragEnd}>
 

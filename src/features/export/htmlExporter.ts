@@ -2,13 +2,10 @@ import download from "~/components/file-downloader";
 import ErdDocument from "~/models/ErdDocument";
 import { calculateImageArea } from "~/features/canvas/canvasArea";
 import { escapeCdata, serializeMemo, serializePerspective } from "~/features/export/support";
+import { ERD_TABLE_VIEW_CLASS_NAME } from "~/features/canvas/ErdTableView";
+import { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
 
-export const downloadHtml = (erdDocument: ErdDocument) => {
-  const erdCanvas = document.getElementById("erd-canvas");
-  if (erdCanvas == null) {
-    return;
-  }
-
+export const downloadHtml = (erdDocument: ErdDocument, erdCanvas: HTMLElement) => {
   const portableHtml = initPotableHtml(erdDocument, erdCanvas);
   const blob = new Blob([portableHtml], { type: "text/html" });
   const fileName = `${erdDocument.documentName}.html`;
@@ -62,7 +59,7 @@ const cloneCanvas = (erdCanvas: HTMLElement) => {
   clonedCanvas.querySelectorAll("[id='toolbar-portal'], [id='relation-toolbar-container']").forEach(el => el.remove());
   clonedCanvas.querySelectorAll(".MuiPopover-root, .MuiPopper-root").forEach(el => el.remove());
 
-  clonedCanvas.querySelectorAll('.erdTableView, .erdMemoView').forEach(el => {
+  clonedCanvas.querySelectorAll(`.${ERD_TABLE_VIEW_CLASS_NAME}, .${ERD_MEMO_VIEW_CLASS_NAME}`).forEach(el => {
     const wrapper = (el as HTMLElement).parentElement;
     if (wrapper) {
       wrapper.style.opacity = '';
@@ -70,7 +67,7 @@ const cloneCanvas = (erdCanvas: HTMLElement) => {
       wrapper.setAttribute('data-model-id', (el as HTMLElement).id);
     }
   });
-  clonedCanvas.querySelectorAll('.erdMemoView').forEach(el => {
+  clonedCanvas.querySelectorAll(`.${ERD_MEMO_VIEW_CLASS_NAME}`).forEach(el => {
     const wrapper = (el as HTMLElement).parentElement;
     if (wrapper) {
       wrapper.style.zIndex = '0';
@@ -285,7 +282,7 @@ const initPortableFunction = (erdDocument: ErdDocument, erdCanvas: HTMLElement) 
       const q = searchBox.value.toLowerCase().trim();
       wrapper.querySelectorAll('.search-highlight').forEach(el => el.classList.remove('search-highlight'));
       if (!q) return;
-      wrapper.querySelectorAll('.erdTableView').forEach(el => {
+      wrapper.querySelectorAll('.${ERD_TABLE_VIEW_CLASS_NAME}').forEach(el => {
         const header = el.querySelector('[class*="header"], div:first-child');
         if (header && header.textContent.toLowerCase().includes(q)) el.classList.add('search-highlight');
       });

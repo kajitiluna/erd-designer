@@ -5,6 +5,7 @@ import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import { inOpenControlPanel } from "~/features/canvas/support";
 import { ScaleState } from "~/context/DisplayScaleContext";
 import { DragActionContext } from "~/context/DragActionContext";
+import { ERD_CANVAS_ID } from "~/features/canvas/ErdCanvas";
 
 type DisplayScalePanelProps = {
     scaleStatus: ScaleState,
@@ -172,7 +173,7 @@ const initHandleWheel = (
             return { ...previous, phase: "scaling" };
         });
 
-        const canvas = document.getElementById("erd-canvas");
+        const canvas = document.getElementById(ERD_CANVAS_ID);
         if (canvas) {
             canvas.style.transform = `scale(${newScale})`;
         }

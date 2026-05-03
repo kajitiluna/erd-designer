@@ -37,10 +37,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
   Clearing the relation name in the relation editor now correctly resets the displayed label.
 
+
+### Fixed
+
 - **Relation rendering fix during drag**:
 
   Fixed an issue where dragging a table or relation line would cause incorrect rendering of relation lines
   when a relation label was displayed.
+
+- **PNG export clipping fix**:
+
+  Fixed an issue where relation lines extending outside the bounds of tables or memos
+  were clipped and not fully rendered in the exported PNG image.
 
 
 ## [0.20260426] - 2026-04-26

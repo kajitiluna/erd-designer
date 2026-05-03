@@ -5,9 +5,11 @@ import {
 } from "@mui/material";
 import ArrowRightIcon from '@mui/icons-material/ArrowRight';
 import HighlightAltIcon from '@mui/icons-material/HighlightAlt';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import PanToolIcon from '@mui/icons-material/PanTool';
-import TableChartIcon from '@mui/icons-material/TableChart';
 import PolylineIcon from '@mui/icons-material/Polyline';
+import TableChartIcon from '@mui/icons-material/TableChart';
 import StickyNote2Icon from '@mui/icons-material/StickyNote2';
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
@@ -16,20 +18,19 @@ import EditMode, { EditModeType } from "~/models/EditMode";
 import EditModeContext from "~/context/EditModeContext";
 import ErdDocument from "~/models/ErdDocument";
 import ColorValue from "~/models/ColorValue";
-import ColorSelector from "~/components/ColorSelector";
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import ExportDdlView from "~/features/editor/ExportDdlView";
-import download from "~/components/file-downloader";
 import PerspectiveModel from "~/models/PerspectiveModel";
+import ColorSelector from "~/components/ColorSelector";
+import download from "~/components/file-downloader";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
-import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
-import { LocalSettingContext } from "~/context/LocalSettingContext";
 import ExportSpecificationContext, { ImageContent } from "~/context/ExportSpecificationContext";
+import { LocalSettingContext } from "~/context/LocalSettingContext";
+import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
 import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
+import ExportDdlView from "~/features/editor/ExportDdlView";
 import { downloadHtml } from "~/features/export/htmlExporter";
 import { downloadPng } from "~/features/export/pngExporter";
 import { downloadSvg } from "~/features/export/svgExporter";
+import { ERD_CANVAS_ID } from "~/features/canvas/ErdCanvas";
 
 type ControlPanelProps = {
     erdExportable: boolean
@@ -299,7 +300,7 @@ const useExportImageMenu = (erdDocument: ErdDocument, onCloseMenu: () => void) =
         }
 
         const timer = setTimeout(() => {
-            const erdCanvas = document.getElementById("erd-canvas");
+            const erdCanvas = document.getElementById(ERD_CANVAS_ID);
             if (erdCanvas == null) {
                 setBatchExportQueue([]);
                 return;
@@ -374,14 +375,24 @@ const useExportImageMenu = (erdDocument: ErdDocument, onCloseMenu: () => void) =
         dispatchSelectAction(RELEASE_ACTION);
         handleClose();
 
-        downloadHtml(erdDocument);
+        const erdCanvas = document.getElementById(ERD_CANVAS_ID);
+        if (erdCanvas == null) {
+            return;
+        }
+
+        downloadHtml(erdDocument, erdCanvas);
     };
 
     const handleSaveAsSvg = () => {
         dispatchSelectAction(RELEASE_ACTION);
-
-        downloadSvg(erdDocument);
         handleClose();
+
+        const erdCanvas = document.getElementById(ERD_CANVAS_ID);
+        if (erdCanvas == null) {
+            return;
+        }
+
+        downloadSvg(erdDocument, erdCanvas);
     };
 
     return [
@@ -413,7 +424,7 @@ const useExportImageMenu = (erdDocument: ErdDocument, onCloseMenu: () => void) =
 };
 
 const downloadImage = (erdDocument: ErdDocument) => {
-    const erdCanvas = document.getElementById("erd-canvas");
+    const erdCanvas = document.getElementById(ERD_CANVAS_ID);
     if (erdCanvas == null) {
         return;
     }
@@ -429,7 +440,7 @@ const downloadSpecification = (
     erdDocument: ErdDocument,
     exportSpecification: (erdDocument: ErdDocument, contents: ImageContent) => void
 ) => {
-    const erdCanvas = document.getElementById("erd-canvas");
+    const erdCanvas = document.getElementById(ERD_CANVAS_ID);
     if (erdCanvas == null) {
         return;
     }

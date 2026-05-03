@@ -23,6 +23,8 @@ import { handlePreventMouseEvent } from "~/features/canvas/support";
 
 import styleClasses from "./ErdCanvas.module.css";
 
+export const ERD_RELATION_LABEL_CLASS_NAME = "erd-relation-label";
+
 type Point = { x: number, y: number };
 
 type RelationLabelOverlayProps = {
@@ -191,6 +193,8 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
     };
 
     const showingAnchor = (draggingPosition != null) || (selectState.relationId === relationView.relationId);
+    const cssClassName = showingAnchor ? `${ERD_RELATION_LABEL_CLASS_NAME} ${styleClasses.selectedLabel}`
+        : ERD_RELATION_LABEL_CLASS_NAME;
     const labelFont = labelView.style;
     const labelStyle: React.CSSProperties = {
         position: "absolute", left: `${labelX}px`, top: `${labelY}px`,
@@ -206,10 +210,9 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
     return (<>
         {initAnchorDrawing(showingAnchor)}
         {ReactDom.createPortal(
-            <div ref={labelRef} style={labelStyle}
+            <div ref={labelRef} style={labelStyle} className={cssClassName}
                 data-erd-relation-parent-table-id={relationView.relationModel.parentTableModelId}
                 data-erd-relation-child-table-id={relationView.relationModel.childTableModelId}
-                className={showingAnchor ? styleClasses.selectedLabel : ""}
                 onMouseDown={handleMouseDown} onClick={handleClick}>
                 {labelView.label}
             </div>,

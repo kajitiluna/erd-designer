@@ -4,9 +4,11 @@ import { calculateImageArea } from "~/features/canvas/canvasArea";
 
 export const downloadPng = (erdCanvas: HTMLElement, exportImage: (contents: ImageContent) => void) => {
     const orgScale = erdCanvas.style.transform;
-    erdCanvas.style.transform = "scale(1)";
 
+    // 描画領域を算出するために、一時的に拡大率をリセットする
+    erdCanvas.style.transform = "scale(1)";
     const { leftEdge, topEdge, rightEdge, bottomEdge } = calculateImageArea(erdCanvas);
+    erdCanvas.style.transform = orgScale;
 
     const options = {
         windowWidth: erdCanvas.scrollWidth,
@@ -15,13 +17,15 @@ export const downloadPng = (erdCanvas: HTMLElement, exportImage: (contents: Imag
         y: topEdge - 10,
         width: rightEdge - leftEdge + 20,
         height: bottomEdge - topEdge + 20,
+        onclone: (_doc: Document, element: HTMLElement) => {
+            element.style.transform = "scale(1)";
+        },
     };
 
     html2canvas(erdCanvas, options).then(drawCanvas => {
         const width = drawCanvas.width;
         const height = drawCanvas.height;
 
-        erdCanvas.style.transform = orgScale;
         const contents = drawCanvas.toDataURL("image/png");
 
         exportImage({ base64Value: contents, width, height });

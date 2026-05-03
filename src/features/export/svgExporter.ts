@@ -3,12 +3,7 @@ import download from "~/components/file-downloader";
 import { overrideColumnName } from "~/models/database/support";
 import { escapeCdata, serializeMemo, serializePerspective } from "~/features/export/support";
 
-export const downloadSvg = (erdDocument: ErdDocument) => {
-  const erdCanvas = document.getElementById("erd-canvas");
-  if (erdCanvas == null) {
-    return
-  };
-
+export const downloadSvg = (erdDocument: ErdDocument, erdCanvas: HTMLElement) => {
   const svgContent = initPortableSvg(erdDocument, erdCanvas);
 
   const blob = new Blob([svgContent], { type: "image/svg+xml" });

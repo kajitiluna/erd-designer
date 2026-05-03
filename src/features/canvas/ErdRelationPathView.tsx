@@ -31,7 +31,10 @@ import {
 } from "~/features/canvas/support";
 import EditAction from "~/features/canvas/EditAction";
 import RelationLabelOverlay from "~/features/canvas/RelationLabelOverlay";
+
 import styleClasses from "./ErdCanvas.module.css";
+
+export const ERD_RELATION_PATH_CLASS_NAME = "erd-relation-path";
 
 export type ErdRelationTooltipRef = {
     svgElements: () => { tableIds: string[], path: React.JSX.Element, label: React.JSX.Element }[]
@@ -732,6 +735,7 @@ const useStraightLineView = (
         const parentMarker = toMarkerId(relationModel.parentCardinality);
         const childMarker = toMarkerId(relationModel.childCardinality);
         const selected = (selectState.relationId === relationView.relationId);
+        const cssClassName = `${ERD_RELATION_PATH_CLASS_NAME} ${initPathCss(relationView, selected)}`;
 
         return {
             tableIds: [relationModel.parentTableModelId, relationModel.childTableModelId],
@@ -739,11 +743,9 @@ const useStraightLineView = (
                 <g key={`relation-line_${relationView.relationId}`}
                     data-erd-relation-parent-table-id={relationModel.parentTableModelId}
                     data-erd-relation-child-table-id={relationModel.childTableModelId}>
-                    <path d={lineSegment.drawingPath} fill="none"
-                        stroke={lineViewModel.color.toRgba()}
-                        strokeWidth={lineViewModel.strokeWidth}
-                        markerStart={parentMarker} markerEnd={childMarker}
-                        className={initPathCss(relationView, selected)} />
+                    <path d={lineSegment.drawingPath} className={cssClassName} fill="none"
+                        stroke={lineViewModel.color.toRgba()} strokeWidth={lineViewModel.strokeWidth}
+                        markerStart={parentMarker} markerEnd={childMarker}/>
                     {lineSegment.svgPaths}
                 </g>
             ),
@@ -841,14 +843,14 @@ const useOrthogonalLine = (
     const positionResolver = React.useContext(CanvasPositionContext);
     const initPathCss = (selected: boolean, isReducedLine: boolean) => {
         if (!selected) {
-            return "";
+            return ERD_RELATION_PATH_CLASS_NAME;
         }
 
         if (isReducedLine) {
-            return styleClasses.inactiveDraggedSvg;
+            return `${ERD_RELATION_PATH_CLASS_NAME} ${styleClasses.inactiveDraggedSvg}`;
         }
 
-        return styleClasses.selectedSvg;
+        return `${ERD_RELATION_PATH_CLASS_NAME} ${styleClasses.selectedSvg}`;
     };
 
     const doHandleDragEnd = (event: React.MouseEvent | MouseEvent) => {
