@@ -18,15 +18,7 @@ const initPortableSvg = (erdDocument: ErdDocument, erdCanvas: HTMLElement) => {
   const { svgRelationLines, edgeDefinition } = initRelationLineSvg(erdCanvas);
   const svgRelationLabels = initRelationLabelSvg(erdCanvas);
 
-  const minX = Math.min(tableLocation.minX, memoLocation.minX);
-  const minY = Math.min(tableLocation.minY, memoLocation.minY);
-  const maxX = Math.max(tableLocation.maxX, memoLocation.maxX);
-  const maxY = Math.max(tableLocation.maxY, memoLocation.maxY);
-
-  const padding = 100;
-  const viewBox = {
-    x: minX - padding, y: minY - padding, width: maxX - minX + padding * 2, height: maxY - minY + padding * 2
-  };
+  const viewBox = calculateViewBox(tableLocation, memoLocation, 100);
 
   const perspectives = erdDocument.erdSettingModel.getPerspectiveModels();
   const perspectiveOptions = perspectives.map(perspective =>
@@ -139,7 +131,7 @@ const initTableSvg = (erdDocument: ErdDocument, erdCanvas: HTMLElement) => {
       const columnType = shareModel.specifiedColumnType(inRelation);
 
       const columnRowHeight = rowHeights[indexColumn] ?? FALLBACK_ROW_H;
-      const textY = acc.heigth + columnRowHeight * 0.68;
+      const textY = acc.height + columnRowHeight * 0.68;
 
       let xOffset = COL_PAD;
       const pkIcon = (columnModel.primaryKey === false) ? ""
@@ -168,12 +160,12 @@ const initTableSvg = (erdDocument: ErdDocument, erdCanvas: HTMLElement) => {
         `${escapeSvg(options.join(", "))}</text>`;
 
       const separator = (indexColumn === 0) ? ""
-        : `<line x1="1" y1="${acc.heigth}" x2="${tableWidth - 1}" y2="${acc.heigth}" stroke="#e0e0e0" stroke-width="0.5"/>`;
+        : `<line x1="1" y1="${acc.height}" x2="${tableWidth - 1}" y2="${acc.height}" stroke="#e0e0e0" stroke-width="0.5"/>`;
 
       const nextRow = separator + pkIcon + fkIcon + nameEl + typeEl + optEl;
 
-      return { svgText: acc.svgText + nextRow, heigth: acc.heigth + columnRowHeight };
-    }, { svgText: "", heigth: headerHeight });
+      return { svgText: acc.svgText + nextRow, height: acc.height + columnRowHeight };
+    }, { svgText: "", height: headerHeight });
 
     const bgHex = tableView.headerColor.background.toHex();
     const fgHex = tableView.headerColor.foreground.toHex();
@@ -273,7 +265,26 @@ const initMemoSvg = (erdDocument: ErdDocument, erdCanvas: HTMLElement) => {
   }, { svgMemos: [] as string[], location: INIT_LOCATION });
 };
 
-const INIT_LOCATION = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+const INIT_LOCATION = {
+  minX: Number.MAX_SAFE_INTEGER, minY: Number.MAX_SAFE_INTEGER,
+  maxX: Number.MIN_SAFE_INTEGER, maxY: Number.MIN_SAFE_INTEGER
+};
+
+type ViewBoxLocation = typeof INIT_LOCATION;
+
+const calculateViewBox = (tableLocation: ViewBoxLocation, memoLocation: ViewBoxLocation, padding: number) => {
+  const minX = Math.min(tableLocation.minX, memoLocation.minX);
+  const minY = Math.min(tableLocation.minY, memoLocation.minY);
+  const maxX = Math.max(tableLocation.maxX, memoLocation.maxX);
+  const maxY = Math.max(tableLocation.maxY, memoLocation.maxY);
+
+  if ((minX > maxX) || (minY > maxY)) {
+    return { x: 0, y: 0, width: padding * 2, height: padding * 2 };
+  }
+
+  return { x: minX - padding, y: minY - padding, width: maxX - minX + padding * 2, height: maxY - minY + padding * 2 };
+};
+
 
 const initRelationLineSvg = (erdCanvas: HTMLElement) => {
   const renderedSvg = erdCanvas.querySelector("svg");
@@ -285,8 +296,8 @@ const initRelationLineSvg = (erdCanvas: HTMLElement) => {
   const edgeDefinition = defs ? defs.innerHTML : "";
 
   const connOffset = { x: erdCanvas.offsetWidth / 2, y: erdCanvas.offsetHeight / 2 };
-  const relatoinElements = Array.from(renderedSvg.querySelectorAll("g[data-erd-relation-parent-table-id]"));
-  const relations = relatoinElements.map(element => {
+  const relationElements = Array.from(renderedSvg.querySelectorAll("g[data-erd-relation-parent-table-id]"));
+  const relations = relationElements.map(element => {
     const clonedElement = element.cloneNode(true) as SVGGElement;
     clonedElement.setAttribute("transform", `translate(${connOffset.x}, ${connOffset.y})`);
 

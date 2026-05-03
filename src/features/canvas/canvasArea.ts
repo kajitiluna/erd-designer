@@ -40,6 +40,10 @@ export const calculateImageArea = (erdCanvas: HTMLElement) => {
 
     const { scrollX, scrollY } = getScroll();
 
+    if ((bounding.leftEdge > bounding.rightEdge) || (bounding.topEdge > bounding.bottomEdge)) {
+        return { leftEdge: 0, topEdge: 0, rightEdge: 100, bottomEdge: 100 };
+    }
+
     return {
         leftEdge: bounding.leftEdge + scrollX,
         topEdge: bounding.topEdge + scrollY,

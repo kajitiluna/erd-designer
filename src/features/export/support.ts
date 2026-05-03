@@ -19,9 +19,9 @@ export const serializeMemo = (erdDocument: ErdDocument, erdCanvas: HTMLElement):
     const tableViewModels = erdDocument.getTableViewModels();
 
     const containTablePairs = [...backMemos, ...frontMemos].map(memo => {
-        const memoRectanble = memo.rectangleViewModel;
-        const memoX = memoRectanble.positionX + erdCanvas.offsetWidth / 2;
-        const memoY = memoRectanble.positionY + erdCanvas.offsetHeight / 2;
+        const memoRectangle = memo.rectangleViewModel;
+        const memoX = memoRectangle.positionX + erdCanvas.offsetWidth / 2;
+        const memoY = memoRectangle.positionY + erdCanvas.offsetHeight / 2;
 
         const containedTableIds = tableViewModels.filter(tableView => {
             const tableX = tableView.corner.left + erdCanvas.offsetWidth / 2;
@@ -31,8 +31,8 @@ export const serializeMemo = (erdDocument: ErdDocument, erdCanvas: HTMLElement):
             const tableHeight = element ? element.offsetHeight : 100;
 
             return (tableX >= memoX) && (tableY >= memoY)
-                && (tableX + tableWidth <= memoX + memoRectanble.width)
-                && (tableY + tableHeight <= memoY + memoRectanble.height);
+                && (tableX + tableWidth <= memoX + memoRectangle.width)
+                && (tableY + tableHeight <= memoY + memoRectangle.height);
         }).map(tableView => tableView.tableId);
 
         return [memo.memoId, containedTableIds] as const;

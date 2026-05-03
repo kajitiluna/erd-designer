@@ -260,7 +260,7 @@ const SubMenuPanel = ({ erdExportable }: SubMenuButtonProps) => {
 
     return (<>
         <Box sx={SUBMENU_BUTTON_STYLE}>
-            <Button key="submenu-button" variant="text"
+            <Button id="submenu-export-button" key="submenu-button" variant="text"
                 aria-expanded={isConfigureOpen} aria-haspopup="true"
                 endIcon={isConfigureOpen ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
                 onClick={handleOpenMenu}>
@@ -269,7 +269,7 @@ const SubMenuPanel = ({ erdExportable }: SubMenuButtonProps) => {
         </Box>
 
         <Menu anchorEl={configureElement} open={isConfigureOpen} onClose={handleCloseMenu}
-            slotProps={{ paper: { 'aria-labelledby': 'basic-button', } }}>
+            slotProps={{ paper: { 'aria-labelledby': 'submenu-export-button', } }}>
             <MenuItem onClick={() => setSelectedMenu("export_ddl")}>Export DDL</MenuItem>
             {exportImageMenu}
             <MenuItem onClick={handleExportSpecification}>Export specification</MenuItem>
