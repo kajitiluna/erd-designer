@@ -990,7 +990,7 @@ const initCallbackForUpdatingColumnShare = (
         }
 
         const nextColumnShare = new ColumnShareModel({
-            columnShareModelId: previous.columnShareModelId,
+            ...previous,
             physicalName: updating.columnName?.physical ?? previous.physicalName,
             logicalName: updating.columnName?.logical ?? previous.logicalName,
             columnType: nextColumnType,

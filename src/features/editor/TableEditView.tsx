@@ -1,9 +1,19 @@
 import React from "react";
 import {
-    Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
-    FormControl, InputLabel, MenuItem, Select, SelectChangeEvent, Stack, Tab, Tabs, TextField
+    Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
+    FormControl, InputLabel, MenuItem, Select, SelectChangeEvent, Stack, Tab, Tabs, TextField, Typography
 } from "@mui/material";
 
+import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
+import ColumnGroupModel from "~/models/database/ColumnGroupModel";
+import ColumnModel from "~/models/database/ColumnModel";
+import { Database } from "~/models/database";
+import { overrideColumnName } from "~/models/database/support";
+import TableIndexModel from "~/models/database/TableIndexModel";
+import TableModel, { ColumnModelType } from "~/models/database/TableModel";
+import ErdDocument from "~/models/ErdDocument";
+import TableViewModel from "~/models/TableViewModel";
+import TableUniqueKeysModel from "~/models/database/TableUniqueKeysModel";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ColumnViewTable from "~/features/editor/ColumnViewTable";
@@ -12,16 +22,8 @@ import {
     ColumnWrapModel, initHandleChangeWithSyncPhysicalName,
     initHandleCloseDialog, initHandleEnterKeyDown
 } from "~/features/editor/support";
-import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
-import ColumnGroupModel from "~/models/database/ColumnGroupModel";
-import ColumnModel from "~/models/database/ColumnModel";
-import { overrideColumnName } from "~/models/database/support";
-import TableIndexModel from "~/models/database/TableIndexModel";
-import TableModel, { ColumnModelType } from "~/models/database/TableModel";
-import ErdDocument from "~/models/ErdDocument";
-import TableViewModel from "~/models/TableViewModel";
-import TableUniqueKeysModel from "~/models/database/TableUniqueKeysModel";
 import UniqueKeysGridView from "~/features/editor/UniqueKeysGridView";
+import { ExtraOption, initOptionCollatePanel } from "~/features/editor/view-support";
 
 type TableEditViewProps = {
     isOpen: boolean,
@@ -46,6 +48,12 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
         = React.useState<TableUniqueKeysModel[]>([...tableModel.uniqueKeysModels]);
     const [tableIndexModels, setTableIndexModels]
         = React.useState<TableIndexModel[]>([...tableModel.tableIndexModels]);
+    const [tableOption, setTableOption] = React.useState<TableExtraOption>({
+        characterSet: tableModel.characterSet,
+        collate: tableModel.collate,
+        definitionExpression: tableModel.definitionExpression,
+        optionExpression: tableModel.optionExpression
+    });
     const [description, setDescription] = React.useState<string>(tableModel.description);
 
     const [tabIndex, setTabIndex] = React.useState<number>(0);
@@ -116,7 +124,12 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             columns: columns,
             uniqueKeysModels: updatedUniqueKeys.tableUniqueKeysModels,
             tableIndexModels: updatedTableIndex.tableIndexModels,
-            description: description
+            description: description,
+            characterSet: (database.supportsTableCollate && database.editableCharacterSet)
+                ? tableOption.characterSet : "",
+            collate: database.supportsTableCollate ? tableOption.collate : "",
+            definitionExpression: tableOption.definitionExpression,
+            optionExpression: tableOption.optionExpression
         });
         const nextTableViewModel = new TableViewModel({
             tableModel: nextTableModel,
@@ -185,6 +198,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             <Tab label="Column" />
             <Tab label={`Unique constraint (${uniqueKeysModels.length})`} disabled={columnWrapModels.length < 2} />
             <Tab label={`Index (${tableIndexModels.length})`} disabled={columnWrapModels.length === 0} />
+            <Tab label="Other Option" />
         </Tabs>
         <div hidden={tabIndex !== 0}>
             <ColumnViewTable
@@ -209,6 +223,9 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
                 tableIndexModels={tableIndexModels}
                 isChildRelation={isChildRelation}
                 onUpdateTableIndexModels={setTableIndexModels} />
+        </div>
+        <div hidden={tabIndex !== 3}>
+            {initExtraOptionPanel({ extraOption: tableOption, database, onUpdateExtraOption: setTableOption })}
         </div>
     </>);
 
@@ -275,6 +292,85 @@ const TableNamePanel = ({ label, value, setValue, onEnterAction = () => { } }: T
     return (
         <TextField fullWidth required variant="outlined" sx={{ flex: 5 }}
             label={label} value={value} onChange={setValue} onKeyDown={handleKeyDown} />
+    );
+};
+
+type TableExtraOption = ExtraOption & { definitionExpression: string }
+
+type TableExtraOptionPanelProps = {
+    extraOption: TableExtraOption,
+    database: Database,
+    onUpdateExtraOption: (updateFunction: (prevOptions: TableExtraOption) => TableExtraOption) => void
+};
+
+const initExtraOptionPanel = ({ extraOption, database, onUpdateExtraOption }: TableExtraOptionPanelProps) => {
+    const handleChangeDefinitionExpression = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const value = event.target.value;
+        onUpdateExtraOption(previous => {
+            if (previous.definitionExpression === value) {
+                return previous;
+            }
+
+            return { ...previous, definitionExpression: value };
+        });
+    };
+
+    const handleChangeOptionExpression = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const value = event.target.value;
+        onUpdateExtraOption(previous => {
+            if (previous.optionExpression === value) {
+                return previous;
+            }
+
+            return { ...previous, optionExpression: value };
+        });
+    };
+
+    const expressionPanel = (
+        <Stack direction="column" spacing={2}>
+            <Stack direction="column">
+                <Typography variant="subtitle2" color="text.primary">Other Definition Expression</Typography>
+                <Stack direction="row" spacing={1} alignItems="baseline">
+                    <Typography variant="caption" color="text.secondary">
+                        Appended inside the column list in exported DDL:
+                    </Typography>
+                    <Typography variant="overline" color="text.primary">
+                        {'`CREATE TABLE ( ... <expression>) ...`'}
+                    </Typography>
+                </Stack>
+                <TextField id="extraDefinitionExpression" size="small" fullWidth variant="outlined" multiline minRows={2}
+                    value={extraOption.definitionExpression} onChange={handleChangeDefinitionExpression} />
+            </Stack>
+
+            <Stack direction="column">
+                <Typography variant="subtitle2" color="text.primary">Other Table Option Expression</Typography>
+                <Stack direction="row" spacing={1} alignItems="baseline">
+                    <Typography variant="caption" color="text.secondary">
+                        Appended after the column list in exported DDL:
+                    </Typography>
+                    <Typography variant="overline" color="text.primary">
+                        {'`CREATE TABLE ( ... ) ... <expression>`'}
+                    </Typography>
+                </Stack>
+                <TextField id="extraOptionExpression" size="small" fullWidth variant="outlined" multiline minRows={2}
+                    value={extraOption.optionExpression} onChange={handleChangeOptionExpression} />
+            </Stack>
+        </Stack>
+    );
+
+    return (
+        <Stack direction="column" spacing={2} sx={{ paddingLeft: 2, paddingRight: 2 }}>
+            {initOptionCollatePanel({ optionType: "table", extraOption, database, onUpdateExtraOption })}
+
+            <Alert variant="outlined" severity="warning">
+                <Typography variant="body2" sx={{ paddingBottom: 2 }}>
+                    These expressions are embedded directly into the exported DDL without any validation or evaluation.
+                    This is an advanced feature — please verify that the expressions are syntactically correct
+                    for your database before use.
+                </Typography>
+                {expressionPanel}
+            </Alert>
+        </Stack>
     );
 };
 

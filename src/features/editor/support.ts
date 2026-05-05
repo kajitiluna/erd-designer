@@ -12,11 +12,19 @@ export type ColumnWrapModel = {
     columnModels: ColumnModel[]
 };
 
+const PHYSICAL_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
 export const initHandleChangePhysicalName = (
     setPhysicalName: (updatingPhysicalName: string) => void
+): ((event: React.ChangeEvent<HTMLInputElement>) => void) =>
+    initHandleChangePattern(setPhysicalName, PHYSICAL_PATTERN);
+
+export const initHandleChangePattern = (
+    setPhysicalName: (updatingPhysicalName: string) => void,
+    pattern: RegExp = PHYSICAL_PATTERN
 ): ((event: React.ChangeEvent<HTMLInputElement>) => void) => {
     return (event: React.ChangeEvent<HTMLInputElement>) => {
-        const changedValue = validatePhysicalValue(event.target.value);
+        const changedValue = validatePattern(event.target.value, pattern);
         if (changedValue == null) {
             return;
         }
@@ -40,7 +48,7 @@ export const initHandleChangeWithSyncPhysicalName = (
 ): ((event: React.ChangeEvent<HTMLInputElement>) => void) => {
 
     return (event: React.ChangeEvent<HTMLInputElement>) => {
-        const changedValue = validatePhysicalValue(event.target.value);
+        const changedValue = validatePattern(event.target.value, PHYSICAL_PATTERN);
         if (changedValue == null) {
             return;
         }
@@ -53,15 +61,13 @@ export const initHandleChangeWithSyncPhysicalName = (
     };
 };
 
-const PHYSICAL_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-
-const validatePhysicalValue = (org: string) => {
+const validatePattern = (org: string, pattern: RegExp) => {
     if (org.length === 0) {
         return org;
     }
 
     const trimmedValue = org.trim();
-    if (PHYSICAL_PATTERN.test(trimmedValue) === false) {
+    if (pattern.test(trimmedValue) === false) {
         return null;
     }
 
