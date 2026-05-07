@@ -5,6 +5,7 @@ import DbSchemaModel from "~/models/database/DbSchemaModel";
 import RelationModel from "~/models/database/RelationModel";
 import { overrideColumnName } from "~/models/database/support";
 import TableModel from "~/models/database/TableModel";
+import TableUniqueKeysModel from "~/models/database/TableUniqueKeysModel";
 import ErdDocument from "~/models/ErdDocument";
 import TableViewModel from "~/models/TableViewModel";
 
@@ -39,7 +40,7 @@ type IndexQueryArgs = {
 class DatabaseDdlCreator {
 
     private readonly tableQueryWithOption: (query: string, tableModel: TableModel, option: DdlOption) => string;
-    private readonly columnQueryWithOption: (query: string, overrideName: OverrideName, option: DdlOption) => string;
+    private readonly columnQueryWithOption: (args: ColumnQueryArgs) => string;
     private readonly indexQuery: (args: IndexQueryArgs) => string;
     private readonly commentQuery: (erdDocument: ErdDocument, option: DdlOption, escape: (value: string) => string) => string[];
     private readonly autoIncrementKeyword: string;
@@ -48,7 +49,7 @@ class DatabaseDdlCreator {
 
     constructor(
         tableQueryWithOption: (query: string, tableModel: TableModel, option: DdlOption) => string,
-        columnQueryWithOption: (query: string, overrideName: OverrideName, option: DdlOption) => string,
+        columnQueryWithOption: (args: ColumnQueryArgs) => string,
         indexQuery: (args: IndexQueryArgs) => string,
         commentQuery: (erdDocument: ErdDocument, option: DdlOption, escape: (value: string) => string) => string[],
         autoIncrementKeyword: string,
@@ -102,67 +103,8 @@ class DatabaseDdlCreator {
         const tableViewModels = erdDocument.getTableViewModels();
         const queries = tableViewModels.map(tableViewModel => {
             const tableModel: TableModel = tableViewModel.tableModel;
-            const allColumnModels = erdDocument.toAllColumnModels(tableModel);
 
-            const columnPairs = allColumnModels.map(columnModel => {
-                const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
-                const inChildRelation = erdDocument.inChildRelation(tableModel.tableModelId, columnModel.columnModelId);
-
-                return { columnModel, columnShareModel, inChildRelation };
-            });
-
-            const columnQueries = columnPairs.map(columnPair => {
-                const { columnModel, columnShareModel, inChildRelation } = columnPair;
-                return this.columnQuery(columnModel, columnShareModel, inChildRelation, option);
-            });
-
-            const primaryKeys = columnPairs
-                .filter(columnPair => (columnPair.columnModel.primaryKey === true))
-                .map(columnPair => {
-                    const { columnModel, columnShareModel } = columnPair;
-                    const overrideName = overrideColumnName(columnModel, columnShareModel);
-                    return this.escape(overrideName.physicalName);
-                });
-
-            if (primaryKeys.length > 0) {
-                const primaryKeyQuery = `PRIMARY KEY (${primaryKeys.join(", ")})`
-                columnQueries.push(primaryKeyQuery);
-            }
-
-            if (tableModel.uniqueKeysModels.length > 0) {
-                const columnPairMapping = new Map(columnPairs.map(pair => [pair.columnModel.columnModelId, pair]));
-
-                const uniqueKeyConstraints = tableModel.uniqueKeysModels
-                    .filter(uniqueKeysModel => (uniqueKeysModel.uniqueKeysColumnModels.length > 0))
-                    .map(uniqueKeysModel => {
-                        const constraintName = (uniqueKeysModel.physicalName !== "")
-                            ? `CONSTRAINT ${this.escape(uniqueKeysModel.physicalName)} ` : "";
-                        const constraintDefinitions = uniqueKeysModel.uniqueKeysColumnModels
-                            .map(uniqueDefinition => {
-                                const pair = columnPairMapping.get(uniqueDefinition.columnModelId)!;
-                                return (pair != null) ? { uniqueDefinition, ...pair } : null;
-                            })
-                            .filter(pair => (pair != null))
-                            .map(pair => {
-                                const { uniqueDefinition, columnModel, columnShareModel } = pair;
-                                const overrideName = overrideColumnName(columnModel, columnShareModel);
-
-                                const order = (uniqueDefinition.sortOrderType != "")
-                                    ? ` ${uniqueDefinition.sortOrderType}` : "";
-                                return `${this.escape(overrideName.physicalName)}${order}`;
-                            });
-
-                        if (constraintDefinitions.length === 0) {
-                            return null;
-                        }
-
-                        return `${constraintName}UNIQUE (${constraintDefinitions.join(", ")})`;
-                    })
-                    .filter(constraint => (constraint != null));
-
-                columnQueries.push(...uniqueKeyConstraints);
-            }
-
+            const columnQueries = this.initTableDefinitionQuery(erdDocument, tableViewModel, option)
             const schemaModel = erdDocument.findSchema(tableModel.schemaId);
 
             return `${this.tableQuery(tableModel, schemaModel, columnQueries, option)};\n`;
@@ -181,17 +123,64 @@ class DatabaseDdlCreator {
         return this.tableQueryWithOption(query, tableModel, option);
     }
 
+    private initTableDefinitionQuery(erdDocument: ErdDocument, tableViewModel: TableViewModel, option: DdlOption) {
+        const tableModel: TableModel = tableViewModel.tableModel;
+        const allColumnModels = erdDocument.toAllColumnModels(tableModel);
+
+        const columnPairs = allColumnModels.map(columnModel => {
+            const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
+            const inChildRelation = erdDocument.inChildRelation(tableModel.tableModelId, columnModel.columnModelId);
+
+            return { columnModel, columnShareModel, inChildRelation };
+        });
+
+        const database = erdDocument.getDatabase();
+        const columnQueries = columnPairs.map(columnPair => {
+            const { columnModel, columnShareModel, inChildRelation } = columnPair;
+            return this.columnQuery(columnModel, columnShareModel, inChildRelation, database, option);
+        });
+
+        const primaryKeys = columnPairs
+            .filter(columnPair => (columnPair.columnModel.primaryKey === true))
+            .map(columnPair => {
+                const { columnModel, columnShareModel } = columnPair;
+                const overrideName = overrideColumnName(columnModel, columnShareModel);
+                return this.escape(overrideName.physicalName);
+            });
+
+        if (primaryKeys.length > 0) {
+            const primaryKeyQuery = `PRIMARY KEY (${primaryKeys.join(", ")})`
+            columnQueries.push(primaryKeyQuery);
+        }
+
+        if (tableModel.uniqueKeysModels.length > 0) {
+            const uniqueKeyConstraints = this.initUniqueConstraintQuery(tableModel.uniqueKeysModels, columnPairs);
+            columnQueries.push(...uniqueKeyConstraints);
+        }
+
+        if (tableModel.definitionExpression !== "") {
+            columnQueries.push(tableModel.definitionExpression);
+        }
+
+        return columnQueries;
+    }
+
     private columnQuery(
-        columnModel: ColumnModel, columnShareModel: ColumnShareModel, inChildRelation: boolean, option: DdlOption
+        columnModel: ColumnModel, columnShareModel: ColumnShareModel, inChildRelation: boolean,
+        database: Database, option: DdlOption
     ): string {
 
         const overrideName = overrideColumnName(columnModel, columnShareModel);
 
         const attributes = [columnShareModel.specifiedColumnType(inChildRelation)];
 
+        if ((columnShareModel.characterSet !== "") && database.editableCharacterSet) {
+            attributes.push(`CHARACTER SET ${columnShareModel.characterSet}`);
+        }
         if (columnShareModel.unsigned && columnShareModel.columnType.withUnsigned) {
             attributes.push("UNSIGNED");
         }
+
         if (columnModel.autoIncrement && columnShareModel.columnType.withAutoIncrement) {
             attributes.push(this.autoIncrementKeyword);
         }
@@ -206,8 +195,43 @@ class DatabaseDdlCreator {
         }
 
         const query = `${this.escape(overrideName.physicalName)} ` + attributes.join(" ")
+        const optionExpression = (columnShareModel.optionExpression !== "")
+            ? ` ${columnShareModel.optionExpression}` : "";
 
-        return this.columnQueryWithOption(query, overrideName, option);
+        return this.columnQueryWithOption({ query, columnShareModel, overrideName, option }) + optionExpression;
+    }
+
+    private initUniqueConstraintQuery(uniqueKeysModels: readonly TableUniqueKeysModel[], columnPairs: ColumnModelPair[]) {
+        const columnPairMapping = new Map(columnPairs.map(pair => [pair.columnModel.columnModelId, pair]));
+
+        return uniqueKeysModels
+            .filter(uniqueKeysModel => (uniqueKeysModel.uniqueKeysColumnModels.length > 0))
+            .map(uniqueKeysModel => {
+                const constraintName = (uniqueKeysModel.physicalName !== "")
+                    ? `CONSTRAINT ${this.escape(uniqueKeysModel.physicalName)} ` : "";
+
+                const constraintDefinitions = uniqueKeysModel.uniqueKeysColumnModels
+                    .map(uniqueDefinition => {
+                        const pair = columnPairMapping.get(uniqueDefinition.columnModelId)!;
+                        return (pair != null) ? { uniqueDefinition, ...pair } : null;
+                    })
+                    .filter(pair => (pair != null))
+                    .map(pair => {
+                        const { uniqueDefinition, columnModel, columnShareModel } = pair;
+                        const overrideName = overrideColumnName(columnModel, columnShareModel);
+
+                        const order = (uniqueDefinition.sortOrderType != "")
+                            ? ` ${uniqueDefinition.sortOrderType}` : "";
+                        return `${this.escape(overrideName.physicalName)}${order}`;
+                    });
+
+                if (constraintDefinitions.length === 0) {
+                    return null;
+                }
+
+                return `${constraintName}UNIQUE (${constraintDefinitions.join(", ")})`;
+            })
+            .filter(constraint => (constraint != null));
     }
 
     createIndexDdl(erdDocument: ErdDocument, option: DdlOption): string[] {
@@ -313,6 +337,8 @@ class DatabaseDdlCreator {
         return this.escapeString(org);
     }
 }
+
+type ColumnModelPair = { columnModel: ColumnModel, columnShareModel: ColumnShareModel, inChildRelation: boolean };
 
 // cSpell:disable
 
@@ -475,24 +501,53 @@ const msSqlServerReservedWords = [
 
 // cSpell:enable
 
-const tableQueryForMySql = (query: string, tableModel: TableModel, option: DdlOption) => {
-    if ((option.withComment === false) || (tableModel.logicalName === tableModel.physicalName)) {
-        return query
-    }
-
-    return `${query} COMMENT '${escapeComment(tableModel.logicalName)}'`;
+const tableQuery = (query: string, tableModel: TableModel) => {
+    return (tableModel.optionExpression !== "") ? `${query}\n${tableModel.optionExpression}` : query;
 };
 
-const columnQueryForMySql = (query: string, overrideName: OverrideName, option: DdlOption) => {
-    if (option.withComment === false) {
-        return query
-    }
+const tableQueryForMySql = (query: string, tableModel: TableModel, option: DdlOption) => {
+    const tableOptions = [
+        (tableModel.characterSet !== "") ? `CHARACTER SET ${tableModel.characterSet}` : null,
+        (tableModel.collate !== "") ? `COLLATE ${tableModel.collate}` : null,
+        (option.withComment && (tableModel.logicalName !== tableModel.physicalName))
+            ? `COMMENT '${escapeComment(tableModel.logicalName)}'` : null,
+        (tableModel.optionExpression !== "") ? `\n${tableModel.optionExpression}` : null
+    ].filter(option => (option != null));
 
-    if (overrideName.physicalName === overrideName.logicalName) {
+    return (tableOptions.length === 0) ? query : `${query} ${tableOptions.join(", ")}`;
+};
+
+type ColumnQueryArgs = {
+    query: string, columnShareModel: ColumnShareModel, overrideName: OverrideName, option: DdlOption
+};
+
+const columnQueryForPostgres = ({ query, columnShareModel }: ColumnQueryArgs) => {
+    if (columnShareModel.collate === "") {
         return query;
     }
 
-    return `${query} COMMENT '${escapeComment(overrideName.logicalName)}'`;
+    const collate = (columnShareModel.collate.startsWith("'") && columnShareModel.collate.endsWith("'"))
+        ? columnShareModel.collate : `'${escapeComment(columnShareModel.collate)}'`;
+
+    return `${query} COLLATE ${collate}`;
+};
+
+const columnQueryForMySql = ({ query, columnShareModel, overrideName, option }: ColumnQueryArgs) => {
+    const queryWithCollate = (columnShareModel.collate !== "") ? `${query} COLLATE ${columnShareModel.collate}` : query;
+
+    if (option.withComment === false) {
+        return queryWithCollate
+    }
+
+    if (overrideName.physicalName === overrideName.logicalName) {
+        return queryWithCollate;
+    }
+
+    return `${queryWithCollate} COMMENT '${escapeComment(overrideName.logicalName)}'`;
+};
+
+const columnQueryForMsSqlServer = ({ query, columnShareModel }: ColumnQueryArgs) => {
+    return (columnShareModel.collate !== "") ? `${query} COLLATE ${columnShareModel.collate}` : query;
 };
 
 const commentQueryForPostgres = (
@@ -546,8 +601,8 @@ const escapeComment = (comment: string) => {
 
 const exportConfigs: { [key in DatabaseType]: DatabaseDdlCreator } = {
     "postgres": new DatabaseDdlCreator(
-        (query: string) => query,
-        (query: string) => query,
+        tableQuery,
+        columnQueryForPostgres,
         (args: IndexQueryArgs) =>
             `CREATE ${args.indexOption}INDEX ${args.indexName} ON ${args.tableName}`
             + `${args.indexTypeQuery} (${args.columnQueries.join(", ")});`,
@@ -568,8 +623,8 @@ const exportConfigs: { [key in DatabaseType]: DatabaseDdlCreator } = {
         (value: string) => '`' + value + '`' // MySQL uses backticks as escape character
     ),
     "ms_sqlserver": new DatabaseDdlCreator(
-        (query: string) => query,
-        (query: string) => query,
+        tableQuery,
+        columnQueryForMsSqlServer,
         (args: IndexQueryArgs) =>
             `CREATE ${args.indexOption}INDEX ${args.indexName} ON ${args.tableName}`
             + ` (${args.columnQueries.join(", ")});`,
