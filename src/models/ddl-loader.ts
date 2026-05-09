@@ -502,7 +502,11 @@ const loadCreateTableDdl = (query: Create, separator: string): ([TableBaseDefini
     ];
 };
 
-const parseValue = (value: any) => {
+const parseValue = (value: unknown) => {
+    if (value == null) {
+        return "";
+    }
+
     if (typeof value === "string") {
         return value;
     }

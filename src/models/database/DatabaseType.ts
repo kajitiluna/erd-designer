@@ -69,7 +69,7 @@ const databases: { [key in DatabaseType]: Database } = {
             indexTypes: ["BTREE", "HASH", "GIST", "SPGIST", "GIN", "BRIN"],
             nullsOrder: true
         }),
-        { supportsSchema: true, supportsTableCollate: false, collatePattern: /^[a-zA-Z][a-zA-Z0-9_\.\-]*$/ } as const,
+        { supportsSchema: true, supportsTableCollate: false, collatePattern: /^[a-zA-Z][a-zA-Z0-9_.-]*$/ } as const,
         { autoIncrementLabel: "Generated Always As Identity", editableCharacterSet: false, supportArray: true } as const
     ),
     "mysql": new Database(
