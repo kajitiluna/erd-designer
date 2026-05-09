@@ -6,7 +6,7 @@ import { Parser as MsSqlServerParser } from "node-sql-parser/build/transactsql";
 import { Alter, AST, Create, Parser, ValueExpr } from "node-sql-parser";
 
 import {
-    DatabaseType, findDatabaseColumns, IndexColumnModel, TableReferenceActionType
+    Database, DatabaseType, findDatabaseColumns, IndexColumnModel, TableReferenceActionType
 } from "~/models/database";
 import ErdDocument from "~/models/ErdDocument";
 import { TableIndexOption, TableIndexType } from "~/models/database/TableIndexSupport";
@@ -43,6 +43,7 @@ class DdlLoader {
     private readonly existedTableNames: Set<string>;
     private readonly parseOption;
     private readonly resolver: ColumnTypeResolver;
+    private readonly tableOptionSeparator: string;
 
     private tableNames: string[];
     private tableBaseDefinitions: Map<string, TableBaseDefinition>;
@@ -50,13 +51,15 @@ class DdlLoader {
     private summaries: DdlLoadSummary[];
 
     constructor(erdDocument: ErdDocument, separator: string = "") {
-        const databaseType = erdDocument.databaseSettingModel.databaseType;
+        const database = erdDocument.getDatabase();
+        const databaseType = database.databaseType;
 
         this.parser = dispatchInitParser[databaseType]();
         this.existedTableNames = new Set(erdDocument.getTableViewModels()
             .map(tableView => tableView.tableModel.physicalName));
         this.parseOption = parseOptions[databaseType];
-        this.resolver = new ColumnTypeResolver(databaseType, erdDocument.getColumnShareModelStorage(), separator);
+        this.resolver = new ColumnTypeResolver(database, erdDocument.getColumnShareModelStorage(), separator);
+        this.tableOptionSeparator = tableOptionSeparators[databaseType];
 
         this.tableNames = [];
         this.tableBaseDefinitions = new Map<string, TableBaseDefinition>();
@@ -152,7 +155,7 @@ class DdlLoader {
     private doLoadCreateTableDdl(query: Create) {
         const sql = this.parser.sqlify(query, this.parseOption);
 
-        const [tableDefinition, noSuccessResult] = loadCreateTableDdl(query);
+        const [tableDefinition, noSuccessResult] = loadCreateTableDdl(query, this.tableOptionSeparator);
         if (noSuccessResult != null) {
             this.summaries.push({
                 result: noSuccessResult.result,
@@ -290,6 +293,12 @@ const parseOptions: { [key in DatabaseType]: { database: string } } = {
     "ms_sqlserver": { database: "TransactSQL" },
 };
 
+const tableOptionSeparators: { [key in DatabaseType]: string } = {
+    "postgres": " ",
+    "mysql": ", ",
+    "ms_sqlserver": " ",
+};
+
 export type DdlLoadSummary = {
     result: "success" | "warning" | "failure" | "skipped";
     message: string;
@@ -307,6 +316,9 @@ type TableBaseDefinition = {
     tableIndexDefinitions: TableIndexDefinition[];
     skippedReasons: LoadFailure[];
     comment: string;
+    characterSet: string;
+    collate: string;
+    tableOption: string;
 };
 
 type ColumnBaseDefinition = {
@@ -324,24 +336,14 @@ type ColumnBaseDefinition = {
     isArray: boolean;
     defaultValue: string;
     comment: string;
+    characterSet: string;
+    collate: string;
+    columnOption: string;
 };
 
-export type DdlTableDefinition = {
-    tableName: string;
-    columnDefinitions: ColumnDefinition[];
-    tableIndexDefinitions: TableIndexDefinition[];
-    skippedReasons: LoadFailure[];
-    comment: string;
-};
+export type DdlTableDefinition = { columnDefinitions: ColumnDefinition[] } & TableBaseDefinition;
 
-type ColumnDefinition = {
-    columnShareModel: ColumnShareModel;
-    primaryKey: boolean;
-    notNull: boolean;
-    unique: boolean;
-    autoIncrement: boolean;
-    defaultValue: string;
-};
+type ColumnDefinition = ColumnBaseDefinition & { columnShareModel: ColumnShareModel };
 
 type UpdateColumnDefinition = {
     index: number;
@@ -379,7 +381,7 @@ const skip = (message: string): LoadFailure => {
 type CreateDefinition = NonNullable<Create["create_definitions"]>[number];
 type CreateColumnDefinition = Extract<CreateDefinition, { resource: 'column' }>;
 
-const loadCreateTableDdl = (query: Create): ([TableBaseDefinition, null] | [null, LoadFailure]) => {
+const loadCreateTableDdl = (query: Create, separator: string): ([TableBaseDefinition, null] | [null, LoadFailure]) => {
     const [tableObj, failure] = doFindTableObj(query);
     if (failure != null) {
         return [null, failure];
@@ -444,14 +446,39 @@ const loadCreateTableDdl = (query: Create): ([TableBaseDefinition, null] | [null
     }
 
     let comment = "";
+    let characterSet = "";
+    let collate = "";
+    const tableOptions = [];
     if (("table_options" in query) && (query.table_options != null) && Array.isArray(query.table_options)) {
-        const commentOption = query.table_options
-            .find(option => ("keyword" in option) && (option.keyword === "comment") && ("value" in option));
-        if (commentOption != null) {
-            comment = commentOption.value || "";
-            if (comment.startsWith("'") && (comment.endsWith("'")) && (comment.length > 1)) {
-                comment = comment.slice(1, -1); // Remove surrounding single quotes
+        for (const option of query.table_options) {
+            if ((("keyword" in option) === false) || (("value" in option) === false)) {
+                continue;
             }
+
+            if (option.keyword === "comment") {
+                comment = option.value || "";
+                if (comment.startsWith("'") && (comment.endsWith("'")) && (comment.length > 1)) {
+                    comment = comment.slice(1, -1); // Remove surrounding single quotes
+                }
+
+                continue;
+            }
+
+            if (option.keyword === "character set") {
+                characterSet = parseValue(option.value);
+                continue;
+            }
+            if (option.keyword === "collate") {
+                collate = parseValue(option.value);
+                continue;
+            }
+
+            const tableOption = [
+                option.keyword.toUpperCase(),
+                ("symbol" in option) ? option.symbol : null,
+                parseValue(option.value)
+            ].filter(option => (option != null)).join(" ");
+            tableOptions.push(tableOption);
         }
     }
 
@@ -469,11 +496,22 @@ const loadCreateTableDdl = (query: Create): ([TableBaseDefinition, null] | [null
                     indexName: `index_${tableName}__${definition.indexColumns.join("_")}`,
                 }
             }),
-            skippedReasons: skippedReasons,
-            comment: comment,
+            skippedReasons, comment, characterSet, collate, tableOption: tableOptions.join(separator)
         },
         null
     ];
+};
+
+const parseValue = (value: any) => {
+    if (typeof value === "string") {
+        return value;
+    }
+
+    if ((typeof value === "object") && ("value" in value)) {
+        return String(value.value);
+    }
+
+    return String(value);
 };
 
 const doFindTableObj = (query: Create): ([{ db: string | null; table: string }, null] | [null, LoadFailure]) => {
@@ -560,10 +598,24 @@ const loadCreateColumnDefinition = (
         }
     }
 
+    const characterSet = (createDefinition.character_set != null)
+        ? parseValue(createDefinition.character_set.value) : "";
+
+    const collate = ((createDefinition.collate != null) && ("name" in createDefinition.collate.collate))
+        ? String(createDefinition.collate.collate.name) : "";
+
+    const columnOption = [
+        ((createDefinition.column_format != null) && ("value" in createDefinition.column_format))
+            ? `COLUMN_FORMAT ${String(createDefinition.column_format.value).toUpperCase()}` : null,
+        ((createDefinition.storage != null) && ("value" in createDefinition.storage))
+            ? `STORAGE ${String(createDefinition.storage.value).toUpperCase()}` : null
+    ].filter(option => (option != null)).join(" ");
+
     return [
         {
             columnName, columnType, timezone, unsigned, zeroFill, precision, scale,
-            primaryKey: false, notNull, unique, autoIncrement, isArray, defaultValue, comment
+            primaryKey: false, notNull, unique, autoIncrement, isArray, defaultValue, comment,
+            characterSet, collate, columnOption
         }, null
     ];
 };
@@ -1145,12 +1197,12 @@ type Comment = {
 
 class ColumnTypeResolver {
 
-    private readonly databaseType: DatabaseType;
+    private readonly database: Database;
     private readonly columnNameToColumnShare: Map<string, ColumnShareModel[]>;
     private readonly separator: string;
 
-    constructor(databaseType: DatabaseType, columnModelShareStorage: ColumnShareModelStorage, separator: string) {
-        this.databaseType = databaseType;
+    constructor(database: Database, columnModelShareStorage: ColumnShareModelStorage, separator: string) {
+        this.database = database;
         this.columnNameToColumnShare = ColumnTypeResolver.initMapping(columnModelShareStorage);
         this.separator = separator;
     }
@@ -1191,6 +1243,15 @@ class ColumnTypeResolver {
             if (target.description !== description) {
                 continue;
             }
+            if (this.database.editableCharacterSet && (target.characterSet !== columnDefinition.characterSet)) {
+                continue;
+            }
+            if (target.collate !== columnDefinition.collate) {
+                continue;
+            }
+            if (target.optionExpression !== columnDefinition.columnOption) {
+                continue;
+            }
 
             const specifiedColumnType = target.specifiedColumnType().toUpperCase();
             if (specifiedColumnType !== columnType) {
@@ -1206,7 +1267,7 @@ class ColumnTypeResolver {
             return target;
         }
 
-        const columnTypes = findDatabaseColumns(this.databaseType);
+        const columnTypes = findDatabaseColumns(this.database.databaseType);
         const targetColumnType = columnTypes.find(target => {
             const columnTypeName = target.baseQuery.replace("[[PARAM]]", "").toUpperCase();
             const definedColumnType = (columnDefinition.columnType
@@ -1247,6 +1308,10 @@ class ColumnTypeResolver {
             unsigned: columnDefinition.unsigned,
             isArray: columnDefinition.isArray,
             description: description,
+            characterSet: (this.database.editableCharacterSet && (targetColumnType.category === "text"))
+                ? columnDefinition.characterSet : "",
+            collate: (targetColumnType.category === "text") ? columnDefinition.collate : "",
+            optionExpression: columnDefinition.columnOption
         });
 
         columnShareModels.push(columnShareModel);
@@ -1272,10 +1337,11 @@ const parseComment = (comment: string, separator: string): [string, string] => {
     ];
 }
 
-export const importDdl = (loadResult: DdlLoadResult, separator: string = "") => {
+export const importDdl = (database: Database, loadResult: DdlLoadResult, separator: string = "") => {
     const { tableDefinitions, relationDefinitions } = loadResult;
 
-    const { tableModels, columnShareModels, nameToColumnModels } = doInitTableModels(tableDefinitions, separator);
+    const { tableModels, columnShareModels, nameToColumnModels }
+        = doInitTableModels(database, tableDefinitions, separator);
 
     const nameToTableModelIds = new Map<string, string>(
         tableModels.map(tableModel => [tableModel.physicalName, tableModel.tableModelId])
@@ -1312,7 +1378,7 @@ export const importDdl = (loadResult: DdlLoadResult, separator: string = "") => 
     return { tableModels, columnModels, columnShareModels, relationModels };
 };
 
-const doInitTableModels = (tableDefinitions: DdlTableDefinition[], separator: string) => {
+const doInitTableModels = (database: Database, tableDefinitions: DdlTableDefinition[], separator: string) => {
     const columnShareModels: ColumnShareModel[] = [];
     const nameToColumnModels = new Map<string, ColumnModel>();
 
@@ -1392,6 +1458,10 @@ const doInitTableModels = (tableDefinitions: DdlTableDefinition[], separator: st
             uniqueKeysModels: uniqueKeysModels,
             tableIndexModels: tableIndexModels,
             description: description,
+            characterSet: (database.supportsTableCollate && database.editableCharacterSet)
+                ? tableDefinition.characterSet : "",
+            collate: (database.supportsTableCollate) ? tableDefinition.collate : "",
+            optionExpression: tableDefinition.tableOption,
         });
     });
 
