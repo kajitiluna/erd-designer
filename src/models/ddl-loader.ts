@@ -43,7 +43,6 @@ class DdlLoader {
     private readonly existedTableNames: Set<string>;
     private readonly parseOption;
     private readonly resolver: ColumnTypeResolver;
-    private readonly tableOptionSeparator: string;
 
     private tableNames: string[];
     private tableBaseDefinitions: Map<string, TableBaseDefinition>;
@@ -59,7 +58,6 @@ class DdlLoader {
             .map(tableView => tableView.tableModel.physicalName));
         this.parseOption = parseOptions[databaseType];
         this.resolver = new ColumnTypeResolver(database, erdDocument.getColumnShareModelStorage(), separator);
-        this.tableOptionSeparator = tableOptionSeparators[databaseType];
 
         this.tableNames = [];
         this.tableBaseDefinitions = new Map<string, TableBaseDefinition>();
@@ -155,7 +153,7 @@ class DdlLoader {
     private doLoadCreateTableDdl(query: Create) {
         const sql = this.parser.sqlify(query, this.parseOption);
 
-        const [tableDefinition, noSuccessResult] = loadCreateTableDdl(query, this.tableOptionSeparator);
+        const [tableDefinition, noSuccessResult] = loadCreateTableDdl(query);
         if (noSuccessResult != null) {
             this.summaries.push({
                 result: noSuccessResult.result,
@@ -293,12 +291,6 @@ const parseOptions: { [key in DatabaseType]: { database: string } } = {
     "ms_sqlserver": { database: "TransactSQL" },
 };
 
-const tableOptionSeparators: { [key in DatabaseType]: string } = {
-    "postgres": " ",
-    "mysql": ", ",
-    "ms_sqlserver": " ",
-};
-
 export type DdlLoadSummary = {
     result: "success" | "warning" | "failure" | "skipped";
     message: string;
@@ -381,7 +373,7 @@ const skip = (message: string): LoadFailure => {
 type CreateDefinition = NonNullable<Create["create_definitions"]>[number];
 type CreateColumnDefinition = Extract<CreateDefinition, { resource: 'column' }>;
 
-const loadCreateTableDdl = (query: Create, separator: string): ([TableBaseDefinition, null] | [null, LoadFailure]) => {
+const loadCreateTableDdl = (query: Create): ([TableBaseDefinition, null] | [null, LoadFailure]) => {
     const [tableObj, failure] = doFindTableObj(query);
     if (failure != null) {
         return [null, failure];
@@ -496,7 +488,7 @@ const loadCreateTableDdl = (query: Create, separator: string): ([TableBaseDefini
                     indexName: `index_${tableName}__${definition.indexColumns.join("_")}`,
                 }
             }),
-            skippedReasons, comment, characterSet, collate, tableOption: tableOptions.join(separator)
+            skippedReasons, comment, characterSet, collate, tableOption: tableOptions.join(" ")
         },
         null
     ];

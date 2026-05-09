@@ -275,7 +275,7 @@ export const migrateColumns = (databaseType: DatabaseType, orgColumnTypes: Colum
             return new ColumnType({
                 ...columnType,
                 category: latestColumnType.category
-            });;
+            });
         });
     }
 

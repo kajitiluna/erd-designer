@@ -526,8 +526,8 @@ const columnQueryForPostgres = ({ query, columnShareModel }: ColumnQueryArgs) =>
         return query;
     }
 
-    const collate = (columnShareModel.collate.startsWith("'") && columnShareModel.collate.endsWith("'"))
-        ? columnShareModel.collate : `'${escapeComment(columnShareModel.collate)}'`;
+    const collate = (columnShareModel.collate.startsWith('"') && columnShareModel.collate.endsWith('"'))
+        ? columnShareModel.collate : `"${escapeComment(columnShareModel.collate)}"`;
 
     return `${query} COLLATE ${collate}`;
 };
