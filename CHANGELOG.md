@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.20260509] - 2026-05-09
+
+### Added
+
+- **CHARACTER SET, COLLATE, and option expression for tables and columns**:
+
+  You can now specify CHARACTER SET, COLLATE, and custom option expressions
+  for tables and columns directly in their edit dialogs. The fields available vary by database type.
+
+  - **Table edit dialog**:
+
+    A new "Other Option" tab provides fields for CHARACTER SET, COLLATE, a definition expression,
+    and a table option expression.
+
+  - **Column edit dialog**:
+
+    An expandable "Other option" section appears for text-type columns, with fields for CHARACTER SET, COLLATE,
+    and a column option expression.
+
+  These settings are reflected in DDL export and parsed when importing DDL files.
+
+### Changed
+
+- **Relation edit dialog**:
+
+  Improved the layout of the cardinality input section.
+
+
 ## [0.20260503] - 2026-05-03
 
 ### Added
