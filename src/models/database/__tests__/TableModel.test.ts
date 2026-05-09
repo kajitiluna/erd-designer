@@ -54,7 +54,11 @@ describe('TableModel', () => {
                 ] as ColumnModelType[],
                 uniqueKeysModels: [uniqueKeysModel],
                 tableIndexModels: [tableIndexModel],
-                description: 'Test description'
+                description: 'Test description',
+                characterSet: 'utf8mb4',
+                collate: 'utf8mb4_unicode_ci',
+                definitionExpression: 'DEF EXPR',
+                optionExpression: 'OPT EXPR'
             };
 
             const model = new TableModel(options);
@@ -67,6 +71,10 @@ describe('TableModel', () => {
             expect(model.uniqueKeysModels).toEqual(options.uniqueKeysModels);
             expect(model.tableIndexModels).toEqual(options.tableIndexModels);
             expect(model.description).toBe(options.description);
+            expect(model.characterSet).toBe(options.characterSet);
+            expect(model.collate).toBe(options.collate);
+            expect(model.definitionExpression).toBe(options.definitionExpression);
+            expect(model.optionExpression).toBe(options.optionExpression);
         });
 
         test('should generate new UUID when tableModelId is empty string', () => {
@@ -86,6 +94,20 @@ describe('TableModel', () => {
 
             expect(model.physicalName).toBe('test_table');
             expect(model.logicalName).toBe('Test Table');
+        });
+
+        test('should trim characterSet, collate, definitionExpression, and optionExpression', () => {
+            const model = new TableModel({
+                characterSet: '  utf8mb4  ',
+                collate: '  utf8mb4_unicode_ci  ',
+                definitionExpression: '  DEF EXPR  ',
+                optionExpression: '  OPT EXPR  '
+            });
+
+            expect(model.characterSet).toBe('utf8mb4');
+            expect(model.collate).toBe('utf8mb4_unicode_ci');
+            expect(model.definitionExpression).toBe('DEF EXPR');
+            expect(model.optionExpression).toBe('OPT EXPR');
         });
 
         test('should set schemaId when provided', () => {
@@ -175,7 +197,11 @@ describe('TableModel', () => {
                 schemaId: 'test-schema',
                 columns: [{ modelType: 'single', columnModelId: 'col1' }] as ColumnModelType[],
                 uniqueKeysModels: [uniqueKeysModel],
-                description: 'Test description'
+                description: 'Test description',
+                characterSet: 'utf8mb4',
+                collate: 'utf8mb4_unicode_ci',
+                definitionExpression: 'DEF EXPR',
+                optionExpression: 'OPT EXPR'
             };
             const model = new TableModel(originalData);
 
@@ -187,6 +213,10 @@ describe('TableModel', () => {
             expect(result.schemaId).toBe(originalData.schemaId);
             expect(result.uniqueKeysModels).toEqual(originalData.uniqueKeysModels);
             expect(result.description).toBe(originalData.description);
+            expect(result.characterSet).toBe(originalData.characterSet);
+            expect(result.collate).toBe(originalData.collate);
+            expect(result.definitionExpression).toBe(originalData.definitionExpression);
+            expect(result.optionExpression).toBe(originalData.optionExpression);
         });
 
         test('should handle columns with group types correctly', () => {
@@ -392,6 +422,34 @@ describe('TableModel', () => {
 
             expect(model1.equals(model2)).toBe(false);
         });
+
+        test('should return false for different characterSet', () => {
+            const model1 = new TableModel({ characterSet: 'utf8mb4' });
+            const model2 = new TableModel({ characterSet: 'utf8' });
+
+            expect(model1.equals(model2)).toBe(false);
+        });
+
+        test('should return false for different collate', () => {
+            const model1 = new TableModel({ collate: 'utf8mb4_unicode_ci' });
+            const model2 = new TableModel({ collate: 'utf8mb4_general_ci' });
+
+            expect(model1.equals(model2)).toBe(false);
+        });
+
+        test('should return false for different definitionExpression', () => {
+            const model1 = new TableModel({ definitionExpression: 'EXPR 1' });
+            const model2 = new TableModel({ definitionExpression: 'EXPR 2' });
+
+            expect(model1.equals(model2)).toBe(false);
+        });
+
+        test('should return false for different optionExpression', () => {
+            const model1 = new TableModel({ optionExpression: 'OPT 1' });
+            const model2 = new TableModel({ optionExpression: 'OPT 2' });
+
+            expect(model1.equals(model2)).toBe(false);
+        });
     });
 
     describe('toJSON', () => {
@@ -423,7 +481,11 @@ describe('TableModel', () => {
                 ] as ColumnModelType[],
                 uniqueKeysModels: [uniqueKeysModel],
                 tableIndexModels: [tableIndexModel],
-                description: 'Test description'
+                description: 'Test description',
+                characterSet: 'utf8mb4',
+                collate: 'utf8mb4_unicode_ci',
+                definitionExpression: 'DEF EXPR',
+                optionExpression: 'OPT EXPR'
             });
 
             const json = model.toJSON();
@@ -436,7 +498,11 @@ describe('TableModel', () => {
                 columnModelIds: ['col1', 'group:group1'],
                 uniqueKeysModels: [uniqueKeysModel.toJSON()],
                 tableIndexModels: [tableIndexModel.toJSON()],
-                description: 'Test description'
+                description: 'Test description',
+                characterSet: 'utf8mb4',
+                collate: 'utf8mb4_unicode_ci',
+                definitionExpression: 'DEF EXPR',
+                optionExpression: 'OPT EXPR'
             });
         });
 
@@ -500,6 +566,40 @@ describe('TableModel', () => {
             expect(json).not.toHaveProperty('uniqueKeysModels');
             expect(json).not.toHaveProperty('tableIndexModels');
         });
+
+        test('should omit empty characterSet, collate, definitionExpression, and optionExpression from JSON', () => {
+            const model = new TableModel({
+                tableModelId: 'test-id',
+                physicalName: 'test_table',
+                logicalName: 'Test Table'
+            });
+
+            const json = model.toJSON();
+
+            expect(json).not.toHaveProperty('characterSet');
+            expect(json).not.toHaveProperty('collate');
+            expect(json).not.toHaveProperty('definitionExpression');
+            expect(json).not.toHaveProperty('optionExpression');
+        });
+
+        test('should include characterSet, collate, definitionExpression, and optionExpression in JSON when set', () => {
+            const model = new TableModel({
+                tableModelId: 'test-id',
+                physicalName: 'test_table',
+                logicalName: 'Test Table',
+                characterSet: 'utf8mb4',
+                collate: 'utf8mb4_unicode_ci',
+                definitionExpression: 'DEF EXPR',
+                optionExpression: 'OPT EXPR'
+            });
+
+            const json = model.toJSON();
+
+            expect(json.characterSet).toBe('utf8mb4');
+            expect(json.collate).toBe('utf8mb4_unicode_ci');
+            expect(json.definitionExpression).toBe('DEF EXPR');
+            expect(json.optionExpression).toBe('OPT EXPR');
+        });
     });
 
     describe('toObject', () => {
@@ -553,6 +653,10 @@ describe('TableModel', () => {
             expect(model.uniqueKeysModels).toEqual([]);
             expect(model.tableIndexModels).toEqual([]);
             expect(model.description).toBe('');
+            expect(model.characterSet).toBe('');
+            expect(model.collate).toBe('');
+            expect(model.definitionExpression).toBe('');
+            expect(model.optionExpression).toBe('');
         });
 
         test('should throw PropertyNotExistsError for missing required properties', () => {
@@ -643,6 +747,26 @@ describe('TableModel', () => {
             expect(model.uniqueKeysModels).toHaveLength(1);
             expect(model.uniqueKeysModels[0].equals(uniqueKeysModel)).toBe(true);
         });
+
+        test('should deserialize characterSet, collate, definitionExpression, and optionExpression', () => {
+            const jsonData = {
+                tableModelId: 'test-id',
+                physicalName: 'test_table',
+                logicalName: 'Test Table',
+                columnModelIds: [],
+                characterSet: 'utf8mb4',
+                collate: 'utf8mb4_unicode_ci',
+                definitionExpression: 'DEF EXPR',
+                optionExpression: 'OPT EXPR'
+            };
+
+            const model = TableModel.toObject(jsonData);
+
+            expect(model.characterSet).toBe('utf8mb4');
+            expect(model.collate).toBe('utf8mb4_unicode_ci');
+            expect(model.definitionExpression).toBe('DEF EXPR');
+            expect(model.optionExpression).toBe('OPT EXPR');
+        });
     });
 
     describe('serialization roundtrip', () => {
@@ -674,7 +798,11 @@ describe('TableModel', () => {
                 ] as ColumnModelType[],
                 uniqueKeysModels: [uniqueKeysModel],
                 tableIndexModels: [tableIndexModel],
-                description: 'Test description'
+                description: 'Test description',
+                characterSet: 'utf8mb4',
+                collate: 'utf8mb4_unicode_ci',
+                definitionExpression: 'DEF EXPR',
+                optionExpression: 'OPT EXPR'
             });
 
             const json = original.toJSON();

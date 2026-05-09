@@ -1,8 +1,8 @@
 import { v4 as uuidV4 } from 'uuid';
 import React from "react";
 import {
-    Accordion, AccordionDetails, AccordionSummary, Autocomplete, Box, Button, Checkbox,
-    Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider,
+    Accordion, AccordionDetails, AccordionSummary, Alert, Autocomplete, Box, Button, Checkbox,
+    Collapse, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider,
     FormControlLabel, IconButton, Paper, Stack, TextField, Tooltip, Typography
 } from "@mui/material";
 import Grid from '@mui/material/Grid2';
@@ -12,18 +12,20 @@ import ClearIcon from '@mui/icons-material/Clear';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
-import {
-    ColumnWrapModel, initHandleChangePhysicalName,
-    initHandleChangeWithSyncPhysicalName, initHandleCloseDialog, initHandleEnterKeyDown
-} from "~/features/editor/support";
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
 import ColumnType from "~/models/database/ColumnType";
-import { ColumnShareModelStorageContext } from '~/context/ColumnShareModelStorageContext';
-import EdgedIconButton from '~/components/EdgedIconButton';
-import { ErdDocumentsHolder, ErdDocumentsHolderContext } from '~/context/ErdDocumentsHolderContext';
-import ErdDocument from '~/models/ErdDocument';
+import { Database } from '~/models/database';
 import DatabaseSettingModel from '~/models/DatabaseSettingModel';
+import ErdDocument from '~/models/ErdDocument';
+import EdgedIconButton from '~/components/EdgedIconButton';
+import { ColumnShareModelStorageContext } from '~/context/ColumnShareModelStorageContext';
+import { ErdDocumentsHolder, ErdDocumentsHolderContext } from '~/context/ErdDocumentsHolderContext';
+import {
+    ColumnWrapModel, initHandleChangePhysicalName, initHandleChangeWithSyncPhysicalName,
+    initHandleCloseDialog, initHandleEnterKeyDown
+} from "~/features/editor/support";
+import { initOptionCollatePanel } from '~/features/editor/view-support';
 import SearchColumnShareModelDialog from '~/features/editor/SearchColumnShareModelDialog';
 
 type ColumnEditDialogProps = {
@@ -35,11 +37,14 @@ type ColumnEditDialogProps = {
 };
 
 type ColumnTypeAttribute = {
-    columnType: ColumnType,
+    columnType: ColumnType | null,
     precision: string,
     scale: string,
     unsigned: boolean,
-    isArray: boolean
+    isArray: boolean,
+    characterSet: string,
+    collate: string,
+    optionExpression: string
 }
 
 const ColumnEditDialog = ({
@@ -54,8 +59,6 @@ const ColumnEditDialog = ({
     const [checkedNotNull, setNotNull] = React.useState<boolean>(columnModel.notNull);
     const [checkedUnique, setUnique] = React.useState<boolean>(columnModel.unique);
     const [checkAutoIncrement, setAutoIncrement] = React.useState<boolean>(columnModel.autoIncrement);
-    const [editableAutoIncrement, setEditableAutoIncrement] =
-        React.useState<boolean>(columnShareModel ? columnShareModel.columnType.withAutoIncrement : false);
     const [overriddenPhysicalName, setOverriddenPhysicalName] = React.useState<string>(columnModel.physicalName);
     const [overriddenLogicalName, setOverriddenLogicalName] = React.useState<string>(columnModel.logicalName);
     const [defaultValue, setDefaultValue] = React.useState<string>(columnModel.defaultValue);
@@ -66,13 +69,12 @@ const ColumnEditDialog = ({
         React.useState<string>(columnShareModel ? columnShareModel.physicalName : "");
     const [logicalName, setLogicalName] = React.useState<string>(columnShareModel ? columnShareModel.logicalName : "");
     const [columnTypeAttribute, setColumnTypeAttribute] =
-        React.useState<ColumnTypeAttribute | null>(columnShareModel ? toColumnTypeAttribute(columnShareModel) : null);
+        React.useState<ColumnTypeAttribute>(toColumnTypeAttribute(columnShareModel));
     const [description, setDescription] = React.useState<string>(columnShareModel ? columnShareModel.description : "");
 
-    const updateColumnType = (attribute: ColumnTypeAttribute) => {
-        setEditableAutoIncrement(attribute.columnType.withAutoIncrement);
-        setColumnTypeAttribute(attribute);
-    };
+    const erdDocument: ErdDocument = documentsHolder.current();
+    const databaseSetting: DatabaseSettingModel = erdDocument.databaseSettingModel
+    const database = databaseSetting.getDatabase();
 
     const associateColumnModel = (columnShareModel: ColumnShareModel) => {
         const columnTypeAttribute = toColumnTypeAttribute(columnShareModel);
@@ -80,7 +82,7 @@ const ColumnEditDialog = ({
         setColumnShareModelId(columnShareModel.columnShareModelId);
         setPhysicalName(columnShareModel.physicalName);
         setLogicalName(columnShareModel.logicalName);
-        updateColumnType(columnTypeAttribute);
+        setColumnTypeAttribute(columnTypeAttribute);
         setDescription(columnShareModel.description);
     };
 
@@ -108,17 +110,22 @@ const ColumnEditDialog = ({
         && validateColumnTypeAttribute(columnTypeAttribute);
 
     const handleCompleted = () => {
-        if ((columnTypeAttribute == null) || (validatedValue === false)) {
+        const columnType = columnTypeAttribute.columnType;
+        if ((columnType == null) || (validatedValue === false)) {
             return;
         }
 
-        // ShareModel の更新
+        const availableCollate = (columnType.category === "text");
+
         const updatedShareModel = new ColumnShareModel({
             columnShareModelId: columnShareModelId ? columnShareModelId : uuidV4(),
             physicalName: physicalName,
             logicalName: logicalName,
             description: description,
-            ...columnTypeAttribute
+            ...columnTypeAttribute,
+            columnType: columnType,
+            characterSet: (availableCollate && database.editableCharacterSet) ? columnTypeAttribute.characterSet : "",
+            collate: availableCollate ? columnTypeAttribute.collate : "",
         });
         const nextShareModelStorage = columnShareModelStorage.addModel(updatedShareModel);
 
@@ -130,7 +137,7 @@ const ColumnEditDialog = ({
             primaryKey: checkedPrimaryKey,
             notNull: checkedNotNull,
             unique: checkedUnique,
-            autoIncrement: columnTypeAttribute.columnType.withAutoIncrement ? checkAutoIncrement : false,
+            autoIncrement: columnType.withAutoIncrement ? checkAutoIncrement : false,
             defaultValue: defaultValue
         });
 
@@ -160,10 +167,6 @@ const ColumnEditDialog = ({
         onClose();
     };
 
-    const erdDocument: ErdDocument = documentsHolder.current();
-    const databaseSetting: DatabaseSettingModel = erdDocument.databaseSettingModel
-    const database = databaseSetting.getDatabase();
-
     const constraintPanel = (
         <Stack direction="row" spacing={2}>
             <FormControlLabel label="Primary Key" control={
@@ -174,7 +177,7 @@ const ColumnEditDialog = ({
             <FormControlLabel label="Unique" control={
                 <Checkbox checked={checkedUnique} disabled={checkedPrimaryKey}
                     onChange={event => setUnique(event.target.checked)} />} />
-            {editableAutoIncrement &&
+            {(columnTypeAttribute.columnType != null) && (columnTypeAttribute.columnType.withAutoIncrement) &&
                 <FormControlLabel label={database.autoIncrementLabel()} control={
                     <Checkbox checked={checkAutoIncrement}
                         onChange={event => setAutoIncrement(event.target.checked)} />} />
@@ -242,7 +245,7 @@ const ColumnEditDialog = ({
                 </Stack>
                 <ColumnTypeEditPanel
                     columnTypeAttribute={columnTypeAttribute} disabled={!editableColumnType}
-                    updateColumnType={updateColumnType} onEnterAction={handleEnterDown} />
+                    updateColumnType={setColumnTypeAttribute} onEnterAction={handleEnterDown} />
                 <TextField variant="outlined" id="description" label="Description"
                     multiline rows={3} slotProps={{ input: { style: { resize: 'vertical' } } }}
                     value={description} onChange={event => setDescription(event.target.value)} />
@@ -282,23 +285,35 @@ const messageForOverrideNames =
     "Allows you to override physical or logical names defined in the column model for this specific column." +
     " This is useful when you want to customize names individually while maintaining shared column definitions.";
 
-const toColumnTypeAttribute = (columnShareModel: ColumnShareModel) => {
+const toColumnTypeAttribute = (columnShareModel: ColumnShareModel | null) => {
+    if (columnShareModel == null) {
+        return {
+            columnType: null,
+            precision: "",
+            scale: "",
+            unsigned: false,
+            isArray: false,
+            characterSet: "",
+            collate: "",
+            optionExpression: ""
+        };
+    }
+
     return {
         columnType: columnShareModel.columnType,
         precision: columnShareModel.precision,
         scale: columnShareModel.scale,
         unsigned: columnShareModel.unsigned,
-        isArray: columnShareModel.isArray
+        isArray: columnShareModel.isArray,
+        characterSet: columnShareModel.characterSet,
+        collate: columnShareModel.collate,
+        optionExpression: columnShareModel.optionExpression
     };
 }
 
-const validateColumnTypeAttribute = (value: ColumnTypeAttribute | null): boolean => {
-    if (value == null) {
-        return false;
-    }
-
+const validateColumnTypeAttribute = (value: ColumnTypeAttribute): boolean => {
     const columnType = value.columnType;
-    if (!columnType) {
+    if (columnType == null) {
         return false;
     }
 
@@ -313,8 +328,8 @@ const validateColumnTypeAttribute = (value: ColumnTypeAttribute | null): boolean
     return !!value.precision;
 };
 
-const initDefaultValueCandidates = (attribute: ColumnTypeAttribute | null) => {
-    if (attribute == null) {
+const initDefaultValueCandidates = (attribute: ColumnTypeAttribute) => {
+    if (attribute.columnType == null) {
         return [];
     }
 
@@ -401,40 +416,40 @@ const ColumnModelPanel = ({ columnShareModelId, associateColumnModel, unlinkColu
 };
 
 type ColumnTypeEditPanelProps = {
-    columnTypeAttribute: ColumnTypeAttribute | null,
+    columnTypeAttribute: ColumnTypeAttribute,
     disabled?: boolean,
-    updateColumnType: (value: ColumnTypeAttribute) => void
+    updateColumnType: (updateFunction: (previous: ColumnTypeAttribute) => ColumnTypeAttribute) => void,
     onEnterAction?: (event: React.KeyboardEvent) => void
 };
 
 const ColumnTypeEditPanel = ({
-    columnTypeAttribute, disabled = false, updateColumnType, onEnterAction = () => { }
+    columnTypeAttribute: attribute, disabled = false, updateColumnType, onEnterAction = () => { }
 }: ColumnTypeEditPanelProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
+
+    const [optionExpanded, setOptionExpanded] = React.useState<boolean>(
+        (attribute.characterSet != "") || (attribute.collate != "") || (attribute.optionExpression != "")
+    );
+
     const erdDocument: ErdDocument = documentsHolder.current();
     const databaseSetting: DatabaseSettingModel = erdDocument.databaseSettingModel
     const database = databaseSetting.getDatabase();
 
     const editableArray = database.supportsArrayType;
 
-    const columnType = columnTypeAttribute ? columnTypeAttribute.columnType : null;
-    const precision = columnTypeAttribute ? columnTypeAttribute.precision : "";
-    const scale = columnTypeAttribute ? columnTypeAttribute.scale : "";
-    const unsigned = columnTypeAttribute ? columnTypeAttribute.unsigned : false;
-    const isArray = columnTypeAttribute ? columnTypeAttribute.isArray && editableArray : false;
-
+    const columnType = attribute.columnType;
     const editablePrecision = columnType ? columnType.withPrecision : false;
     const editableScale = columnType ? columnType.withScale : false
     const editableUnsigned = columnType ? columnType.withUnsigned : false;
 
     const handleChangeColumnType = (nextColumnTypeId: number) => {
         const nextColumnType = databaseSetting.findColumnType(nextColumnTypeId) as ColumnType;
-        updateColumnType({
-            columnType: nextColumnType,
-            precision: precision,
-            scale: scale,
-            unsigned: unsigned,
-            isArray: isArray
+        updateColumnType(previous => {
+            if ((previous.columnType != null) && (nextColumnType.id === previous.columnType.id)) {
+                return previous;
+            }
+
+            return { ...previous, columnType: nextColumnType };
         });
     };
 
@@ -442,12 +457,13 @@ const ColumnTypeEditPanel = ({
     const handleChangePrecision = (event: React.ChangeEvent<HTMLInputElement>) => {
         const inputValue = event.target.value;
         const updatedValue = Number(inputValue) > 0 ? inputValue : "";
-        updateColumnType({
-            columnType: columnType as ColumnType,
-            precision: updatedValue,
-            scale: scale,
-            unsigned: unsigned,
-            isArray: isArray
+
+        updateColumnType(previous => {
+            if (previous.precision === updatedValue) {
+                return previous;
+            }
+
+            return { ...previous, precision: updatedValue };
         });
     };
 
@@ -455,34 +471,37 @@ const ColumnTypeEditPanel = ({
     const handleChangeScale = (event: React.ChangeEvent<HTMLInputElement>) => {
         const inputValue = event.target.value;
         const updatedValue = Number(inputValue) > 0 ? inputValue : "";
-        updateColumnType({
-            columnType: columnType as ColumnType,
-            precision: precision,
-            scale: updatedValue,
-            unsigned: unsigned,
-            isArray: isArray
+
+        updateColumnType(previous => {
+            if (previous.scale === updatedValue) {
+                return previous;
+            }
+
+            return { ...previous, scale: updatedValue };
         });
     };
 
     const handleChangeUnsigned = (event: React.ChangeEvent<HTMLInputElement>) => {
         const checked = event.target.checked;
-        updateColumnType({
-            columnType: columnType as ColumnType,
-            precision: precision,
-            scale: scale,
-            unsigned: checked,
-            isArray: isArray
+
+        updateColumnType(previous => {
+            if (previous.unsigned === checked) {
+                return previous;
+            }
+
+            return { ...previous, unsigned: checked };
         });
     };
 
     const handleChangeArray = (event: React.ChangeEvent<HTMLInputElement>) => {
         const checked = event.target.checked;
-        updateColumnType({
-            columnType: columnType as ColumnType,
-            precision: precision,
-            scale: scale,
-            unsigned: unsigned,
-            isArray: checked
+
+        updateColumnType(previous => {
+            if (previous.isArray === checked) {
+                return previous;
+            }
+
+            return { ...previous, isArray: checked };
         });
     };
 
@@ -502,20 +521,21 @@ const ColumnTypeEditPanel = ({
             <Grid size={{ xs: 3, md: 2 }}>
                 <TextField variant="outlined" id="precision" label="Precision" type="number"
                     disabled={!editablePrecision || disabled} required={editablePrecision}
-                    error={editablePrecision && (precision === "")}
-                    value={precision} onChange={handleChangePrecision} onKeyDown={onEnterAction} />
+                    error={editablePrecision && (attribute.precision === "")}
+                    value={attribute.precision} onChange={handleChangePrecision} onKeyDown={onEnterAction} />
             </Grid>
             <Grid size={{ xs: 3, md: 2 }}>
                 <TextField variant="outlined" id="scale" label="Scale" type="number"
                     disabled={!editableScale || disabled} required={editableScale}
-                    error={editableScale && (scale === "")}
-                    value={scale} onChange={handleChangeScale} onKeyDown={onEnterAction} />
+                    error={editableScale && (attribute.scale === "")}
+                    value={attribute.scale} onChange={handleChangeScale} onKeyDown={onEnterAction} />
             </Grid>
             {editableUnsigned && (
                 <Grid size={{ xs: 4, md: 2 }}>
                     <Box display="flex" alignItems="center" height="100%" sx={{ pl: 1 }}>
                         <FormControlLabel label="unsigned" control={
-                            <Checkbox disabled={disabled} checked={unsigned} onChange={handleChangeUnsigned} />
+                            <Checkbox disabled={disabled} checked={attribute.unsigned}
+                                onChange={handleChangeUnsigned} />
                         } />
                     </Box>
                 </Grid>
@@ -524,7 +544,8 @@ const ColumnTypeEditPanel = ({
                 <Grid size={{ xs: 4, md: 2 }}>
                     <Box display="flex" alignItems="center" height="100%" sx={{ pl: 1 }}>
                         <FormControlLabel label="isArray" control={
-                            <Checkbox disabled={disabled} checked={isArray} onChange={handleChangeArray} />
+                            <Checkbox disabled={disabled} checked={attribute.isArray && editableArray}
+                                onChange={handleChangeArray} />
                         } />
                     </Box>
                 </Grid>
@@ -538,6 +559,26 @@ const ColumnTypeEditPanel = ({
                     </Box>
                 </Grid>
             )}
+            {!disabled && (
+                <Grid size={{ xs: 2, md: 1 }} offset="auto">
+                    <Box display="flex" alignItems="center" justifyContent="center" height="100%">
+                        <Tooltip placement="left" arrow title="Other option">
+                            <IconButton disabled={columnType == null}
+                                onClick={() => setOptionExpanded(previous => !previous)}>
+                                <ExpandMoreIcon sx={{ transform: optionExpanded ? 'rotate(180deg)' : 'none' }} />
+                            </IconButton>
+                        </Tooltip>
+                    </Box>
+                </Grid>
+            )}
+            <Grid size={{ xs: 12, md: 12 }}>
+                <Collapse in={(columnType != null) && optionExpanded}>
+                    {(columnType != null) && initExtraOptionPanel({
+                        extraOption: attribute, database, columnType,
+                        onUpdateExtraOption: updateColumnType
+                    })}
+                </Collapse>
+            </Grid>
         </Grid>
     );
 };
@@ -545,5 +586,51 @@ const ColumnTypeEditPanel = ({
 const messageForForeignColumn =
     "Unable to change column type: the column is set as a foreign key." +
     " Please remove the relation to proceed."
+
+type ColumnExtraOptionPanelProps = {
+    extraOption: ColumnTypeAttribute,
+    database: Database,
+    columnType: ColumnType,
+    onUpdateExtraOption: (updateFunction: (previous: ColumnTypeAttribute) => ColumnTypeAttribute) => void
+};
+
+const initExtraOptionPanel = ({
+    extraOption, database, columnType, onUpdateExtraOption
+}: ColumnExtraOptionPanelProps) => {
+
+    const handleChangeOptionExpression = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const value = event.target.value;
+        onUpdateExtraOption(previous => {
+            if (previous.optionExpression === value) {
+                return previous;
+            }
+
+            return { ...previous, optionExpression: value };
+        });
+    };
+
+    return (
+        <Stack direction="column" spacing={2} sx={{ paddingTop: 2, paddingLeft: 2, paddingRight: 2 }}>
+            <Typography variant="subtitle2">Other Column Option</Typography>
+            {initOptionCollatePanel({ optionType: "column", extraOption, database, columnType, onUpdateExtraOption })}
+
+            <Alert variant="outlined" severity="warning">
+                <Typography variant="body2" sx={{ paddingBottom: 2 }}>
+                    This expression is embedded directly into the exported DDL without any validation or evaluation.
+                    This is an advanced feature — please verify that the expression is syntactically correct
+                    for your database before use.
+                </Typography>
+                <Stack direction="column">
+                    <Typography variant="subtitle2" color="text.primary">Other Option Expression</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                        Appended after the column definition in exported DDL:
+                    </Typography>
+                    <TextField id="extraOptionExpression" size="small" fullWidth variant="outlined" multiline minRows={2}
+                        value={extraOption.optionExpression} onChange={handleChangeOptionExpression} />
+                </Stack>
+            </Alert>
+        </Stack>
+    );
+};
 
 export default ColumnEditDialog;

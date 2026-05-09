@@ -657,6 +657,7 @@ const initCallbackForAddTable = (documentResource: DocumentResource): ToolCallba
 
         const [columns, columnShares] = buildAddingColumnPairs(erdBudget, table.columns);
 
+        // TODO charset, collate の対応
         const addTable = new TableModel({
             physicalName: table.tableName.physical,
             logicalName: table.tableName.logical || table.tableName.physical,

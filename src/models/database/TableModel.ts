@@ -1,4 +1,5 @@
 import { v4 as uuidV4 } from 'uuid';
+
 import TableIndexModel from '~/models/database/TableIndexModel';
 import TableUniqueKeysModel from '~/models/database/TableUniqueKeysModel';
 import { PropertyNotExistsError } from '~/models/exceptions';
@@ -12,7 +13,11 @@ type TableModelOptions = {
     columns?: readonly ColumnModelType[],
     uniqueKeysModels?: readonly TableUniqueKeysModel[],
     tableIndexModels?: readonly TableIndexModel[],
-    description?: string
+    description?: string,
+    characterSet?: string,
+    collate?: string,
+    definitionExpression?: string,
+    optionExpression?: string
 }
 
 export type ColumnModelType = {
@@ -33,10 +38,15 @@ export default class TableModel {
     public readonly uniqueKeysModels: readonly TableUniqueKeysModel[];
     public readonly tableIndexModels: readonly TableIndexModel[];
     public readonly description: string;
+    public readonly characterSet: string;
+    public readonly collate: string;
+    public readonly definitionExpression: string;
+    public readonly optionExpression: string;
 
     constructor({
         tableModelId = "", physicalName = "", logicalName = "", schemaId = "",
-        columns = [], uniqueKeysModels = [], tableIndexModels = [], description = ""
+        columns = [], uniqueKeysModels = [], tableIndexModels = [], description = "",
+        characterSet = "", collate = "", definitionExpression = "", optionExpression = ""
     }: TableModelOptions) {
         this.tableModelId = tableModelId ? tableModelId : uuidV4();
         this.physicalName = physicalName.trim();
@@ -45,7 +55,11 @@ export default class TableModel {
         this.columns = columns;
         this.uniqueKeysModels = uniqueKeysModels;
         this.tableIndexModels = tableIndexModels;
-        this.description = description;
+        this.description = description.trim();
+        this.characterSet = characterSet.trim();
+        this.collate = collate.trim();
+        this.definitionExpression = definitionExpression.trim();
+        this.optionExpression = optionExpression.trim();
     }
 
     public addColumnModelIds(columnModelIds: string[]): TableModel {
@@ -69,7 +83,11 @@ export default class TableModel {
             columns: this.columns.concat(addingColumnModelIds),
             uniqueKeysModels: this.uniqueKeysModels,
             tableIndexModels: this.tableIndexModels,
-            description: this.description
+            description: this.description,
+            characterSet: this.characterSet,
+            collate: this.collate,
+            definitionExpression: this.definitionExpression,
+            optionExpression: this.optionExpression
         });
     }
 
@@ -130,6 +148,18 @@ export default class TableModel {
         if (this.description !== other.description) {
             return false;
         }
+        if (this.characterSet !== other.characterSet) {
+            return false;
+        }
+        if (this.collate !== other.collate) {
+            return false;
+        }
+        if (this.definitionExpression !== other.definitionExpression) {
+            return false;
+        }
+        if (this.optionExpression !== other.optionExpression) {
+            return false;
+        }
 
         return true;
     }
@@ -149,7 +179,11 @@ export default class TableModel {
                 && { uniqueKeysModels: this.uniqueKeysModels.map(model => model.toJSON()) }),
             ...((this.tableIndexModels.length > 0)
                 && { tableIndexModels: this.tableIndexModels.map(model => model.toJSON()) }),
-            ...((this.description !== "") && { description: this.description })
+            ...((this.description !== "") && { description: this.description }),
+            ...((this.characterSet !== "") && { characterSet: this.characterSet }),
+            ...((this.collate !== "") && { collate: this.collate }),
+            ...((this.definitionExpression !== "") && { definitionExpression: this.definitionExpression }),
+            ...((this.optionExpression !== "") && { optionExpression: this.optionExpression })
         };
     }
 
@@ -177,15 +211,17 @@ export default class TableModel {
             )
 
         const uniqueKeysModels = ("uniqueKeysModels" in obj)
-            ? toObjects(obj.uniqueKeysModels, "uniqueKeysModels",
-                value => TableUniqueKeysModel.toObject(value))
+            ? toObjects(obj.uniqueKeysModels, "uniqueKeysModels", value => TableUniqueKeysModel.toObject(value))
             : [];
 
         const tableIndexModels = ("tableIndexModels" in obj)
-            ? toObjects(obj.tableIndexModels, "tableIndexModels",
-                value => TableIndexModel.toObject(value))
+            ? toObjects(obj.tableIndexModels, "tableIndexModels", value => TableIndexModel.toObject(value))
             : [];
         const description = ("description" in obj) ? obj.description as string : "";
+        const characterSet = ("characterSet" in obj) ? obj.characterSet as string : "";
+        const collate = ("collate" in obj) ? obj.collate as string : "";
+        const definitionExpression = ("definitionExpression" in obj) ? obj.definitionExpression as string : "";
+        const optionExpression = ("optionExpression" in obj) ? obj.optionExpression as string : "";
 
         return new TableModel({
             tableModelId: obj.tableModelId as string,
@@ -195,7 +231,11 @@ export default class TableModel {
             columns: columns,
             uniqueKeysModels: uniqueKeysModels,
             tableIndexModels: tableIndexModels,
-            description: description
+            description: description,
+            characterSet: characterSet,
+            collate: collate,
+            definitionExpression: definitionExpression,
+            optionExpression: optionExpression
         });
     }
 }

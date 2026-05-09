@@ -122,7 +122,8 @@ const ImportFromDdlView = ({ isOpen, onClose }: ImportFromDdlViewProps) => {
             return;
         }
 
-        const { tableModels, columnModels, columnShareModels, relationModels } = importDdl(loadResult, commentSeparator);
+        const { tableModels, columnModels, columnShareModels, relationModels }
+            = importDdl(erdDocument.getDatabase(), loadResult, commentSeparator);
 
         const arrangeCount = Math.ceil(Math.sqrt(tableModels.length));
         const tableViewModels = tableModels.map((tableModel, index) => {
@@ -176,7 +177,7 @@ const ImportFromDdlView = ({ isOpen, onClose }: ImportFromDdlViewProps) => {
                             <li>Not all DDL statements are currently supported.</li>
                         </ul>
                         If the import results differ from what you expected, please submit an issue on
-                        <a href="https://github.com/kajitiluna/erd-designer/issues" target="_blank" rel="noreferrer">GitHub</a>
+                        <a href="https://github.com/kajitiluna/erd-designer/issues" target="_blank" rel="noreferrer"> GitHub </a>
                         with the following information:
                         <ul>
                             <li>The DDL you attempted to import</li>

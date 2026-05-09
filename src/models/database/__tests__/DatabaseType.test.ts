@@ -7,7 +7,12 @@ describe('Database', () => {
         test('should create with all required properties', () => {
             const uniqueKeySupport = new TableUniqueKeySupport({ orderable: false });
             const indexSupport = new TableIndexSupport({ indexOptions: ['UNIQUE'], indexTypes: ['BTREE'] });
-            const database = new Database('postgres', 'PostgreSQL', true, uniqueKeySupport, indexSupport, { supportArray: true });
+            const database = new Database(
+                'postgres', 'PostgreSQL',
+                uniqueKeySupport, indexSupport,
+                { supportsSchema: true, supportsTableCollate: false, collatePattern: /^.*$/ },
+                { supportArray: true, editableCharacterSet: false, autoIncrementLabel: '' }
+            );
 
             expect(database.databaseType).toBe('postgres');
             expect(database.name).toBe('PostgreSQL');

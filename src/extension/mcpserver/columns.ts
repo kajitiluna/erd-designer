@@ -627,6 +627,7 @@ const buildColumnShare = (
         throw initInvalidParams(`Array type is not supported by the database : ${database.name}`);
     }
 
+    // TODO charSet, collation の指定
     return new ColumnShareModel({
         columnShareModelId: uuidV4(),
         physicalName,
@@ -990,7 +991,7 @@ const initCallbackForUpdatingColumnShare = (
         }
 
         const nextColumnShare = new ColumnShareModel({
-            columnShareModelId: previous.columnShareModelId,
+            ...previous,
             physicalName: updating.columnName?.physical ?? previous.physicalName,
             logicalName: updating.columnName?.logical ?? previous.logicalName,
             columnType: nextColumnType,
