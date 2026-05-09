@@ -315,15 +315,9 @@ const RelationCardinalityPanel = ({
                 <Typography variant="subtitle1" gutterBottom>Cardinality</Typography>
                 <Grid container alignItems="center" spacing={2}>
                     <Grid size={{ xs: 6 }}>
-                        <Typography variant="body2" gutterBottom>Parent cardinality</Typography>
-                    </Grid>
-                    <Grid size={{ xs: 6 }}>
                         <CardinalitySelector sourceName="parent"
                             cardinalityType={parentCardinality}
                             setCardinalityType={onUpdateParentCardinality} />
-                    </Grid>
-                    <Grid size={{ xs: 6 }}>
-                        <Typography variant="body2" gutterBottom>Child cardinality</Typography>
                     </Grid>
                     <Grid size={{ xs: 6 }}>
                         <CardinalitySelector sourceName="child"
