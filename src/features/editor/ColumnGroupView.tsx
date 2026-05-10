@@ -1,11 +1,9 @@
 import React from "react";
 import {
-    Alert,
-    Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider,
-    List, ListItemButton, ListItemIcon, ListItemText, Paper, Stack,
+    Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider,
+    Grid, List, ListItemButton, ListItemIcon, ListItemText, Paper, Stack,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography
 } from "@mui/material";
-import Grid from '@mui/material/Grid2';
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -86,7 +84,7 @@ const ColumnGroupView = ({ isOpen, viewMode, onSelect = () => { }, onClose }: Co
 
         return (
             <Box sx={{ mt: 'auto' }} onClick={handlePreventMouseEvent}>
-                <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "center" }}>
                     <Button variant="outlined" startIcon={<AddIcon />} onClick={handleAddGroup}>
                         Add
                     </Button>
@@ -189,7 +187,8 @@ const ColumnGroupView = ({ isOpen, viewMode, onSelect = () => { }, onClose }: Co
         };
 
         return (
-            <Stack direction="column" spacing={1} alignItems="stretch" justifyContent="space-between" sx={{ height: "100%" }}>
+            <Stack direction="column" spacing={1}
+                sx={{ alignItems: "stretch", justifyContent: "space-between", height: "100%" }}>
                 <TableContainer>
                     <Table stickyHeader size="small" aria-label="column view table" style={{ tableLayout: "fixed" }}>
                         {tableHeader}

@@ -3,14 +3,13 @@ import React from "react";
 import {
     Accordion, AccordionDetails, AccordionSummary, Alert, Autocomplete, Box, Button, Checkbox,
     Collapse, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider,
-    FormControlLabel, IconButton, Paper, Stack, TextField, Tooltip, Typography
+    FormControlLabel, Grid, IconButton, Paper, Stack, TextField, Tooltip, Typography
 } from "@mui/material";
-import Grid from '@mui/material/Grid2';
 import SearchIcon from "@mui/icons-material/Search";
 import CloseIcon from "@mui/icons-material/Close";
 import ClearIcon from '@mui/icons-material/Clear';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined';
 
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
@@ -201,11 +200,11 @@ const ColumnEditDialog = ({
         <Accordion defaultExpanded={(overriddenPhysicalName != "") || (overriddenLogicalName != "")}>
             <AccordionSummary id="override-names-header"
                 aria-controls="override-names-content" expandIcon={<ExpandMoreIcon />}>
-                <Stack direction="row" spacing={2} alignItems="center" width="100%">
+                <Stack direction="row" spacing={2} sx={{ alignItems: "center", width: "100%" }}>
                     <Typography variant="body2">Override Names (optional)</Typography>
-                    <Box display="flex" alignItems="center" justifyContent="center" height="100%">
+                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
                         <Tooltip placement="right" arrow title={messageForOverrideNames}>
-                            <HelpOutlineIcon fontSize="small" />
+                            <HelpOutlineOutlinedIcon fontSize="small" />
                         </Tooltip>
                     </Box>
                 </Stack>
@@ -366,7 +365,7 @@ const ColumnModelPanel = ({ columnShareModelId, associateColumnModel, unlinkColu
 
     if (columnShareModel == null) {
         return (
-            <Stack direction="row" alignItems="center" spacing={2}>
+            <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
                 <Typography variant="body2">
                     Create new column model.
                 </Typography>
@@ -385,7 +384,7 @@ const ColumnModelPanel = ({ columnShareModelId, associateColumnModel, unlinkColu
     };
 
     return (
-        <Stack direction="row" alignItems="center" spacing={2}>
+        <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
             <Typography variant="body2">
                 Associated with column model
             </Typography>
@@ -532,7 +531,7 @@ const ColumnTypeEditPanel = ({
             </Grid>
             {editableUnsigned && (
                 <Grid size={{ xs: 4, md: 2 }}>
-                    <Box display="flex" alignItems="center" height="100%" sx={{ pl: 1 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", height: "100%", pl: 1 }}>
                         <FormControlLabel label="unsigned" control={
                             <Checkbox disabled={disabled} checked={attribute.unsigned}
                                 onChange={handleChangeUnsigned} />
@@ -542,7 +541,7 @@ const ColumnTypeEditPanel = ({
             )}
             {editableArray && (
                 <Grid size={{ xs: 4, md: 2 }}>
-                    <Box display="flex" alignItems="center" height="100%" sx={{ pl: 1 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", height: "100%", pl: 1 }}>
                         <FormControlLabel label="isArray" control={
                             <Checkbox disabled={disabled} checked={attribute.isArray && editableArray}
                                 onChange={handleChangeArray} />
@@ -552,16 +551,16 @@ const ColumnTypeEditPanel = ({
             )}
             {disabled && (
                 <Grid size={{ xs: 2, md: 1 }}>
-                    <Box display="flex" alignItems="center" justifyContent="center" height="100%">
+                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
                         <Tooltip placement="left" arrow title={messageForForeignColumn}>
-                            <HelpOutlineIcon fontSize="small" />
+                            <HelpOutlineOutlinedIcon fontSize="small" />
                         </Tooltip>
                     </Box>
                 </Grid>
             )}
             {!disabled && (
                 <Grid size={{ xs: 2, md: 1 }} offset="auto">
-                    <Box display="flex" alignItems="center" justifyContent="center" height="100%">
+                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
                         <Tooltip placement="left" arrow title="Other option">
                             <span>
                                 <IconButton disabled={columnType == null}
@@ -623,8 +622,8 @@ const initExtraOptionPanel = ({
                     for your database before use.
                 </Typography>
                 <Stack direction="column">
-                    <Typography variant="subtitle2" color="text.primary">Other Option Expression</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="subtitle2" sx={{ color: "text.primary" }}>Other Option Expression</Typography>
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         Appended after the column definition in exported DDL:
                     </Typography>
                     <TextField id="extraOptionExpression" size="small" fullWidth variant="outlined" multiline minRows={2}

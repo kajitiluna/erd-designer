@@ -1,8 +1,7 @@
 import React from "react";
 import {
-    Paper, Stack, Table, TableBody, TableCell, TableContainer, TableRow, Typography
+    Grid, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableRow, Typography
 } from "@mui/material";
-import Grid from '@mui/material/Grid2';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
@@ -124,7 +123,7 @@ const ColumnTransferPanel = <INDEXED_ENTITY extends { columnModelId: string },>(
     };
 
     const transferButtonPanel = (
-        <Stack direction="column" spacing={3} alignItems="center" justifyContent="center">
+        <Stack direction="column" spacing={3} sx={{ alignItems: "center", justifyContent: "center" }}>
             <EdgedIconButton tooltip="Add to index" disabled={selectedFromId == null}
                 onClick={handleAddColumnToIndex}>
                 <ArrowForwardIcon fontSize="small" />
@@ -201,7 +200,7 @@ const ColumnTransferPanel = <INDEXED_ENTITY extends { columnModelId: string },>(
     };
 
     const orderPanel = (
-        <Stack direction="column" spacing={3} alignItems="center" justifyContent="center">
+        <Stack direction="column" spacing={3} sx={{ alignItems: "center", justifyContent: "center" }}>
             <EdgedIconButton tooltip="Move up"
                 disabled={(selectedIndexedId == null) || (indexedColumns.length < 2)
                     || (indexedColumns[0].columnModelId === selectedIndexedId)}
@@ -219,7 +218,7 @@ const ColumnTransferPanel = <INDEXED_ENTITY extends { columnModelId: string },>(
 
     return (
         <Paper elevation={4} sx={{ p: 2 }}>
-            <Grid container spacing={1} justifyContent="flex-start" alignItems="center">
+            <Grid container spacing={1} sx={{ justifyContent: "flex-start", alignItems: "center" }}>
                 <Grid size={{ xs: 4 }}>
                     <Typography variant="subtitle1" gutterBottom>Base columns</Typography>
                 </Grid>
@@ -228,7 +227,7 @@ const ColumnTransferPanel = <INDEXED_ENTITY extends { columnModelId: string },>(
                     <Typography variant="subtitle1" gutterBottom>Indexed columns</Typography>
                 </Grid>
             </Grid>
-            <Grid container spacing={1} justifyContent="center" alignItems="center">
+            <Grid container spacing={1} sx={{ justifyContent: "center", alignItems: "center" }}>
                 <Grid size={{ xs: 4 }} >
                     <Paper>
                         <TableContainer>

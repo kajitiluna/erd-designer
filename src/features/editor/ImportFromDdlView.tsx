@@ -1,10 +1,8 @@
 import React from "react";
 import {
-    Alert, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
-    Divider, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField,
-    Typography
+    Alert, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider, Grid,
+    Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography
 } from "@mui/material";
-import Grid from '@mui/material/Grid2';
 
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ErdDocument from "~/models/ErdDocument";
@@ -51,7 +49,7 @@ const ImportFromDdlView = ({ isOpen, onClose }: ImportFromDdlViewProps) => {
                         <DialogContentText>Input DDL to import tables, columns and relations.</DialogContentText>
                         <TextField label="DDL" variant="outlined" fullWidth multiline rows="10"
                             value={ddl} onChange={event => setDdl(event.target.value)} />
-                        <Grid container spacing={1} alignItems="center" sx={{ paddingLeft: 1 }}>
+                        <Grid container spacing={1} sx={{ alignItems: "center", paddingLeft: 1 }}>
                             <Grid size={{ xs: 9 }}>
                                 <Typography variant="subtitle2">
                                     If the string specified as the Comment Separator is found in a comment,
@@ -167,8 +165,8 @@ const ImportFromDdlView = ({ isOpen, onClose }: ImportFromDdlViewProps) => {
                 </Stack>
             </DialogContent>
             <DialogActions>
-                <Stack direction="column" alignItems="stretch" spacing={2}
-                    sx={{ width: "100%", paddingLeft: 2, paddingRight: 2, userSelect: "none" }}>
+                <Stack direction="column" spacing={2}
+                    sx={{ alignItems: "stretch", width: "100%", paddingLeft: 2, paddingRight: 2, userSelect: "none" }}>
                     <Alert severity="warning" sx={{ margin: 2 }}>
                         This is an experimental feature. Please note the following limitations:
                         <ul>
@@ -184,7 +182,7 @@ const ImportFromDdlView = ({ isOpen, onClose }: ImportFromDdlViewProps) => {
                             <li>Your expected results and the actual outcome or error messages that occurred</li>
                         </ul>
                     </Alert>
-                    <Stack direction="row" spacing={2} justifyContent="flex-end">
+                    <Stack direction="row" spacing={2} sx={{ justifyContent: "flex-end" }}>
                         <Button onClick={onClose}>Cancel</Button>
                         <Button variant="outlined" onClick={handleBack}>Back</Button>
                         <Button variant="contained" disabled={invalidState} onClick={handleComplete}>Import</Button>

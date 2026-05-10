@@ -65,18 +65,15 @@ const BaseGridView = <RECORD_ENTITY,>({
 
     // ヘッダー行の描画
     const boxHeader = (
-        <Stack direction="row" alignItems="center" justifyContent="flex-start">
+        <Stack direction="row" sx={{ alignItems: "center", justifyContent: "flex-start" }}>
             {headerTitle}
             <Box ref={headerScrollRef} sx={{ overflow: "hidden", pointerEvents: "none" }}>
-                <Stack direction="row" alignItems="center" justifyContent="flex-start">
+                <Stack direction="row" sx={{ alignItems: "center", justifyContent: "flex-start" }}>
                     {records.map((record, recordIndex) => (
                         <Box key={`record-header-${record.key}`} sx={{
                             ...GRID_CELL_STYLE,
                             ...initRecordHeaderStyle(recordIndex),
-                            textAlign: "center",
-                            minWidth: "60px",
-                            maxWidth: "60px",
-                            minHeight: "24px"
+                            textAlign: "center", minWidth: "60px", maxWidth: "60px", minHeight: "24px"
                         }}>
                             {(selectedIndex === recordIndex) && "✔"}
                         </Box>
@@ -123,10 +120,9 @@ const BaseGridView = <RECORD_ENTITY,>({
         });
 
         return (
-            <Stack key={`record-column-${record.key}`}
-                direction="column" alignItems="center" justifyContent="center"
-                draggable={isDraggable}
-                {...(isDraggable ? initDragEventHandler(recordIndex) : {})}>
+            <Stack key={`record-column-${record.key}`} direction="column" draggable={isDraggable}
+                {...(isDraggable ? initDragEventHandler(recordIndex) : {})}
+                sx={{ alignItems: "center", justifyContent: "center" }}>
                 {cells}
             </Stack>
         );
@@ -161,12 +157,12 @@ const BaseGridView = <RECORD_ENTITY,>({
     };
 
     const operationPanel = (
-        <Stack direction="row" justifyContent="space-between" sx={{ margin: 1, marginBottom: 0.5 }}>
+        <Stack direction="row" sx={{ justifyContent: "space-between", margin: 1, marginBottom: 0.5 }}>
             <EdgedIconButton tooltip={`Add ${modelName}`} withText onClick={operations.onAdd}>
                 <AddIcon />
             </EdgedIconButton>
 
-            <Stack justifyContent="flex-end" direction="row" spacing={2}>
+            <Stack direction="row" spacing={2} sx={{ justifyContent: "flex-end" }}>
                 <EdgedIconButton tooltip={`Edit ${modelName}`} disabled={selectedIndex < 0}
                     onClick={handleEdit}>
                     <EditIcon fontSize="small" />
@@ -202,14 +198,14 @@ const BaseGridView = <RECORD_ENTITY,>({
             <Stack direction="column" sx={{ overflow: 'hidden' }}>
                 {boxHeader}
                 <Box sx={{ maxHeight: window.innerHeight - 587, ...SCROLL_STYLE }}>
-                    <Stack direction="row" alignItems="flex-start" justifyContent="flex-start">
+                    <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "flex-start" }}>
                         <Box sx={{ position: 'sticky', left: 0, zIndex: 1, borderRight: '1px solid #e0e0e0' }}>
-                            <Stack direction="column" alignItems="flex-start" justifyContent="flex-start">
+                            <Stack direction="column" sx={{ alignItems: "flex-start", justifyContent: "flex-start" }}>
                                 {attributeHeaders.map(header => header.content)}
                             </Stack>
                         </Box>
                         <Box ref={columnScrollRef} onScroll={handleScroll} sx={{ overflow: 'auto' }}>
-                            <Stack direction="row" alignItems="flex-start" justifyContent="flex-start">
+                            <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "flex-start" }}>
                                 {records.map((record, recordIndex) => initRecord(record, recordIndex))}
                             </Stack>
                         </Box>

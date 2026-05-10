@@ -18,17 +18,14 @@ const EdgedIconButton = ({
 
     const iconButton = (
         <IconButton disabled={disabled} onClick={onClick} size="small"
-            sx={{
-                borderRadius: '25%',
-                backgroundColor: 'rgba(50, 50, 50, 0.1)',
-            }}>
+            sx={{ borderRadius: '25%', backgroundColor: 'rgba(50, 50, 50, 0.1)', }}>
             {children}
         </IconButton>
     );
 
     if (!tooltip) {
         return (
-            <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "center" }}>
                 {iconButton}
             </Stack>
         );
@@ -36,7 +33,7 @@ const EdgedIconButton = ({
 
     if (disabled) {
         return (
-            <Stack direction="row" alignItems="center" spacing={1}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                 {iconButton}
                 {withText && <Typography variant="body2">{tooltip}</Typography>}
             </Stack>
@@ -44,7 +41,7 @@ const EdgedIconButton = ({
     }
 
     return (
-        <Stack direction="row" alignItems="center" spacing={1}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <TopLeftTooltip title={tooltip}>{iconButton}</TopLeftTooltip>
             {withText && <Typography variant="body2">{tooltip}</Typography>}
         </Stack>

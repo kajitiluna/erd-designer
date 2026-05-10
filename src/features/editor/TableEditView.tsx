@@ -329,12 +329,12 @@ const initExtraOptionPanel = ({ extraOption, database, onUpdateExtraOption }: Ta
     const expressionPanel = (
         <Stack direction="column" spacing={2}>
             <Stack direction="column">
-                <Typography variant="subtitle2" color="text.primary">Other Definition Expression</Typography>
-                <Stack direction="row" spacing={1} alignItems="baseline">
-                    <Typography variant="caption" color="text.secondary">
+                <Typography variant="subtitle2" sx={{ color: "text.primary" }}>Other Definition Expression</Typography>
+                <Stack direction="row" spacing={1} sx={{ alignItems: "baseline" }}>
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         Appended inside the column list in exported DDL:
                     </Typography>
-                    <Typography variant="overline" color="text.primary">
+                    <Typography variant="overline" sx={{ color: "text.primary" }}>
                         {'`CREATE TABLE ( ... <expression>) ...`'}
                     </Typography>
                 </Stack>
@@ -343,12 +343,12 @@ const initExtraOptionPanel = ({ extraOption, database, onUpdateExtraOption }: Ta
             </Stack>
 
             <Stack direction="column">
-                <Typography variant="subtitle2" color="text.primary">Other Table Option Expression</Typography>
-                <Stack direction="row" spacing={1} alignItems="baseline">
-                    <Typography variant="caption" color="text.secondary">
+                <Typography variant="subtitle2" sx={{ color: "text.primary" }}>Other Table Option Expression</Typography>
+                <Stack direction="row" spacing={1} sx={{ alignItems: "baseline" }}>
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         Appended after the column list in exported DDL:
                     </Typography>
-                    <Typography variant="overline" color="text.primary">
+                    <Typography variant="overline" sx={{ color: "text.primary" }}>
                         {'`CREATE TABLE ( ... ) ... <expression>`'}
                     </Typography>
                 </Stack>

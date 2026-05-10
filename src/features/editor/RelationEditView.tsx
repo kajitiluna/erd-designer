@@ -2,10 +2,9 @@ import { v4 as uuidV4 } from 'uuid';
 import React from "react";
 import {
     Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
-    FormControl, InputLabel, MenuItem, Paper, Select, SelectChangeEvent, Stack,
+    FormControl, Grid, InputLabel, MenuItem, Paper, Select, SelectChangeEvent, Stack,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography
 } from "@mui/material";
-import Grid from '@mui/material/Grid2';
 
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import RelationModel, { CardinalityType, TableReferenceActionType } from "~/models/database/RelationModel";
@@ -313,7 +312,7 @@ const RelationCardinalityPanel = ({
         <Paper elevation={4} sx={{ p: 2 }}>
             <Stack direction="column">
                 <Typography variant="subtitle1" gutterBottom>Cardinality</Typography>
-                <Grid container alignItems="center" spacing={2}>
+                <Grid container spacing={2} sx={{ alignItems: "center" }}>
                     <Grid size={{ xs: 6 }}>
                         <CardinalitySelector sourceName="parent"
                             cardinalityType={parentCardinality}
@@ -370,7 +369,7 @@ const RelationActionPanel = ({
         <Paper elevation={4} sx={{ p: 2 }}>
             <Stack direction="column">
                 <Typography variant="subtitle1" gutterBottom>Actions</Typography>
-                <Grid container alignItems="center" spacing={2}>
+                <Grid container spacing={2} sx={{ alignItems: "center" }}>
                     <Grid size={{ xs: 6 }}>
                         <Typography variant="body2" gutterBottom>ON UPDATE</Typography>
                     </Grid>

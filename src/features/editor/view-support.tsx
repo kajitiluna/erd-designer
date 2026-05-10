@@ -17,7 +17,7 @@ export const initGridColumnHeaders = (
     // ヘッダータイトル
     const keyIconHeaderStyle = initGridColumnHeaderStyle(10);
     const headerTitle = (
-        <Stack direction="row" alignItems="center">
+        <Stack direction="row" sx={{ alignItems: "center" }}>
             <Box sx={keyIconHeaderStyle}>PK</Box>
             <Box sx={keyIconHeaderStyle}>FK</Box>
             <Box sx={initGridColumnHeaderStyle(200)}>Physical Name</Box>
@@ -44,7 +44,7 @@ export const initGridColumnHeaders = (
             key: columnModel.columnModelId,
             content: (
                 <Stack key={`attribute-header_${columnModel.columnModelId}`}
-                    direction="row" alignItems="center">
+                    direction="row" sx={{ alignItems: "center" }}>
                     <Box sx={initGridColumnTitleStyle(10, true)}>
                         {columnModel.primaryKey && <PrimaryKeyIcon />}
                     </Box>

@@ -276,10 +276,10 @@ const useRelationTooltip = (
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'center' }}
                 onClose={handleClose}>
-                <Stack direction="column" alignItems="center" justifyContent="flex-start"
-                    divider={<Divider flexItem />} >
-                    <Stack direction="row" alignItems="center">{widthButtons}</Stack>
-                    <Stack direction="row" alignItems="center">
+                <Stack direction="column" divider={<Divider flexItem />}
+                    sx={{ alignItems: "center", justifyContent: "flex-start" }}>
+                    <Stack direction="row" sx={{ alignItems: "center" }}>{widthButtons}</Stack>
+                    <Stack direction="row" sx={{ alignItems: "center" }}>
                         <IconButton color={(lineView.lineType === "straight") ? "primary" : "default"}
                             disabled={relationModel.parentTableModelId === relationModel.childTableModelId}
                             onClick={handleLineStraight}>
