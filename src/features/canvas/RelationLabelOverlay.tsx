@@ -7,6 +7,7 @@ import StrikethroughSIcon from "@mui/icons-material/StrikethroughS";
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 
+import useStateRef from "~/components/useStateRef";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import DisplayScaleContext from "~/context/DisplayScaleContext";
 import CanvasPositionContext from "~/context/CanvasPositionContext";
@@ -40,13 +41,13 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { scale: displayScale } = React.useContext(DisplayScaleContext);
     const positionResolver = React.useContext(CanvasPositionContext);
-    const { toolbarCanvasRef, svgCanvasRef } = React.useContext(PortalCanvasContext);
+    const { toolbarCanvasElement, svgCanvasElement } = React.useContext(PortalCanvasContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
 
-    const labelRef = React.useRef<HTMLDivElement>(null);
-    const stableAnchorRef = React.useRef<Point | null>(null);
-    const prevPointCountRef = React.useRef(0);
+    const [labelElement, labelRef] = useStateRef<HTMLDivElement>();
+    const [stableAnchor, setStableAnchor] = React.useState<Point | null>(null);
+    const [prevPointCount, setPrevPointCount] = React.useState(0);
     const mouseMoveHandlerRef = React.useRef<((event: MouseEvent) => void) | null>(null);
     const mouseUpHandlerRef = React.useRef<((event: MouseEvent) => void) | null>(null);
     const [draggingPosition, setDraggingPosition] = React.useState<Point | null>(null);
@@ -76,28 +77,32 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
     // find the correct segment on the new path.
     if ((pathPoints.length >= 2)
         && hasPosition
-        && (stableAnchorRef.current !== null)
-        && (prevPointCountRef.current > 0)
-        && (prevPointCountRef.current !== pathPoints.length)
+        && (stableAnchor !== null)
+        && (prevPointCount > 0)
+        && (prevPointCount !== pathPoints.length)
     ) {
-        const reproj = projectOntoPath(pathPoints, stableAnchorRef.current);
+        const reproj = projectOntoPath(pathPoints, stableAnchor);
         segment = reproj.segment;
         fraction = reproj.fraction;
     }
 
     const anchorPoint = (pathPoints.length >= 2) ? pointOnSegment(pathPoints, segment, fraction) : { x: 0, y: 0 };
     if (pathPoints.length >= 2) {
-        stableAnchorRef.current = anchorPoint;
-        prevPointCountRef.current = pathPoints.length;
+        if (prevPointCount !== pathPoints.length) {
+            setPrevPointCount(pathPoints.length);
+        }
+        if (stableAnchor === null || stableAnchor.x !== anchorPoint.x || stableAnchor.y !== anchorPoint.y) {
+            setStableAnchor(anchorPoint);
+        }
     }
 
     const { x: labelX, y: labelY } = draggingPosition ?? { x: anchorPoint.x + offsetX, y: anchorPoint.y + offsetY };
     const labelToolbar = useRelationLabelToolbar({
-        relationView, toolbarCanvasRef, labelRef, labelLeft: labelX, labelTop: labelY,
+        relationView, toolbarCanvasElement, labelElement, labelLeft: labelX, labelTop: labelY,
         isLabelDragging: (draggingPosition != null)
     });
 
-    if (!toolbarCanvasRef.current) {
+    if (!toolbarCanvasElement) {
         return null;
     }
 
@@ -169,8 +174,8 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
             return null;
         }
 
-        const labelElement = labelRef.current ?? { offsetWidth: 0, offsetHeight: 0 };
-        const labelCenter = { x: labelX + labelElement.offsetWidth / 2, y: labelY + labelElement.offsetHeight / 2 };
+        const actualElement = labelElement ?? { offsetWidth: 0, offsetHeight: 0 };
+        const labelCenter = { x: labelX + actualElement.offsetWidth / 2, y: labelY + actualElement.offsetHeight / 2 };
         const proj = projectOntoPath(pathPoints, labelCenter);
         const anchorPoint = pointOnSegment(pathPoints, proj.segment, proj.fraction);
 
@@ -187,8 +192,8 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
         );
 
         return (<>
-            {svgCanvasRef.current && ReactDom.createPortal(anchorLine, svgCanvasRef.current)}
-            {toolbarCanvasRef.current && ReactDom.createPortal(anchorDot, toolbarCanvasRef.current)}
+            {svgCanvasElement && ReactDom.createPortal(anchorLine, svgCanvasElement)}
+            {toolbarCanvasElement && ReactDom.createPortal(anchorDot, toolbarCanvasElement)}
         </>);
     };
 
@@ -216,7 +221,7 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
                 onMouseDown={handleMouseDown} onClick={handleClick}>
                 {labelView.label}
             </div>,
-            toolbarCanvasRef.current
+            toolbarCanvasElement
         )}
         {labelToolbar}
     </>);
@@ -224,13 +229,13 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
 
 type RelationLabelToolbarProps = {
     relationView: RelationViewModel,
-    toolbarCanvasRef: React.RefObject<HTMLDivElement | null>,
-    labelRef: React.RefObject<HTMLDivElement | null>,
+    toolbarCanvasElement: HTMLDivElement | null,
+    labelElement: HTMLDivElement | null,
     labelLeft: number, labelTop: number, isLabelDragging: boolean
 };
 
 const useRelationLabelToolbar = ({
-    relationView, toolbarCanvasRef, labelRef, labelLeft, labelTop, isLabelDragging
+    relationView, toolbarCanvasElement, labelElement, labelLeft, labelTop, isLabelDragging
 }: RelationLabelToolbarProps) => {
 
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
@@ -239,7 +244,7 @@ const useRelationLabelToolbar = ({
     const { selectState } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
 
-    if (!toolbarCanvasRef.current) {
+    if (!toolbarCanvasElement) {
         return null;
     }
 
@@ -284,7 +289,7 @@ const useRelationLabelToolbar = ({
 
     const toolbarStyle: React.CSSProperties = {
         position: "absolute",
-        left: labelLeft, top: labelTop + (labelRef.current?.offsetHeight ?? 16),
+        left: labelLeft, top: labelTop + (labelElement?.offsetHeight ?? 16),
         marginTop: 4,
         pointerEvents: "auto",
         display: "flex",
@@ -332,7 +337,7 @@ const useRelationLabelToolbar = ({
         </div>
     );
 
-    return ReactDom.createPortal(toolbar, toolbarCanvasRef.current);
+    return ReactDom.createPortal(toolbar, toolbarCanvasElement);
 };
 
 const FONT_SIZE_STYLE: React.CSSProperties = {

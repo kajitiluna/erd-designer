@@ -359,7 +359,7 @@ const InnerErdTableView = ({
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
     const { scale: displayScale } = React.useContext(DisplayScaleContext);
     const positionResolver = React.useContext(CanvasPositionContext);
-    const { toolbarCanvasRef } = React.useContext(PortalCanvasContext);
+    const { toolbarCanvasElement } = React.useContext(PortalCanvasContext);
 
     const containerRef = React.useRef<HTMLDivElement>(null);
     const [selfSelectableMode, setSelfSelectableMode] = React.useState<SelfSelectableMode>("none");
@@ -564,7 +564,7 @@ const InnerErdTableView = ({
         : ERD_TABLE_VIEW_CLASS_NAME;
 
     const initControlPanel = () => {
-        if (!containerRef.current || !toolbarCanvasRef.current) {
+        if (!containerRef.current || !toolbarCanvasElement) {
             return (<></>);
         }
 
@@ -574,7 +574,7 @@ const InnerErdTableView = ({
             return (<></>);
         }
 
-        const portalRect = toolbarCanvasRef.current.getBoundingClientRect();
+        const portalRect = toolbarCanvasElement.getBoundingClientRect();
         const containerRect = containerRef.current.getBoundingClientRect();
         const controlPanelStyle: React.CSSProperties = {
             justifyContent: "flex-end",
@@ -615,7 +615,7 @@ const InnerErdTableView = ({
             </Stack>
         );
 
-        return ReactDOM.createPortal(controlMenu, toolbarCanvasRef.current);
+        return ReactDOM.createPortal(controlMenu, toolbarCanvasElement);
     };
 
     const controlPanel = initControlPanel();

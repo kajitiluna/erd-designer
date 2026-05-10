@@ -1,12 +1,12 @@
 import React from "react";
 
 type PortalCanvas = {
-    toolbarCanvasRef: React.RefObject<HTMLDivElement | null>,
-    svgCanvasRef: React.RefObject<SVGSVGElement | null>
+    toolbarCanvasElement: HTMLDivElement | null,
+    svgCanvasElement: SVGSVGElement | null
 };
 
 const PortalCanvasContext = React.createContext<PortalCanvas>({
-    toolbarCanvasRef: { current: null }, svgCanvasRef: { current: null }
+    toolbarCanvasElement: null, svgCanvasElement: null
 });
 
 export default PortalCanvasContext;

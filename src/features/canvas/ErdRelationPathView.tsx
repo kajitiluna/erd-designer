@@ -151,7 +151,7 @@ const useRelationTooltip = (
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
     const { scale: displayScale } = React.useContext(DisplayScaleContext);
-    const { toolbarCanvasRef } = React.useContext(PortalCanvasContext);
+    const { toolbarCanvasElement } = React.useContext(PortalCanvasContext);
 
     const [lineEditElement, setLineEditElement] = React.useState<HTMLElement | null>(null);
     const [resetLabelElement, setResetLabelElement] = React.useState<HTMLElement | null>(null);
@@ -339,7 +339,7 @@ const useRelationTooltip = (
         transform: `scale(${1 / displayScale})`,
     };
 
-    if (!toolbarCanvasRef.current) {
+    if (!toolbarCanvasElement) {
         return (<></>);
     }
 
@@ -378,7 +378,7 @@ const useRelationTooltip = (
             {initLinePopover(lineEditElement)}
             {initLabelPopover(resetLabelElement)}
         </ButtonGroup >
-    ), toolbarCanvasRef.current);
+    ), toolbarCanvasElement);
 };
 
 type LineDragging = {
