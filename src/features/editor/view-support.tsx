@@ -94,6 +94,7 @@ type ExtraOptionPanelProps<EXTRA_OPTION extends ExtraOption> = {
 } | {
     optionType: "column",
     extraOption: EXTRA_OPTION,
+    disabled: boolean,
     database: Database,
     columnType: ColumnType,
     onUpdateExtraOption: (updateFunction: (prevOptions: EXTRA_OPTION) => EXTRA_OPTION) => void
@@ -132,13 +133,17 @@ export const initOptionCollatePanel = <EXTRA_OPTION extends ExtraOption>(
         });
     }, database.collatePattern);
 
+    const disabled = (optionType === "column") && props.disabled;
+
     return (
         <Stack direction="row" spacing={1}>
             {database.editableCharacterSet && (
-                <TextField id="extraOptionCharset" label="Character Set" size="small" fullWidth variant="outlined"
+                <TextField id="extraOptionCharset" label="Character Set" disabled={disabled}
+                    size="small" fullWidth variant="outlined"
                     value={extraOption.characterSet} onChange={handleChangeCharacterSet} />
             )}
-            <TextField id="extraOptionCollate" label="Collate" size="small" fullWidth variant="outlined"
+            <TextField id="extraOptionCollate" label="Collate" disabled={disabled}
+                size="small" fullWidth variant="outlined"
                 value={extraOption.collate} onChange={handleChangeCollate} />
         </Stack>
     );

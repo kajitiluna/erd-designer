@@ -13,6 +13,7 @@ type ColumnShareModelOptions = {
     unsigned?: boolean,
     isArray?: boolean,
     description?: string,
+    checkExpression?: string,
     characterSet?: string,
     collate?: string,
     optionExpression?: string,
@@ -30,6 +31,7 @@ export default class ColumnShareModel {
     public readonly unsigned: boolean;
     public readonly isArray: boolean;
     public readonly description: string;
+    public readonly checkExpression: string;
     public readonly optionExpression: string;
     private readonly characterSetValue: string;
     private readonly collateValue: string;
@@ -37,8 +39,8 @@ export default class ColumnShareModel {
 
     constructor({
         columnShareModelId, physicalName, logicalName,
-        columnType, precision = "", scale = "", unsigned = false, isArray = false,
-        description = "", characterSet = "", collate = "", optionExpression = "", createdAt = null
+        columnType, precision = "", scale = "", unsigned = false, isArray = false, description = "",
+        checkExpression = "", characterSet = "", collate = "", optionExpression = "", createdAt = null
     }: ColumnShareModelOptions) {
 
         this.columnShareModelId = columnShareModelId;
@@ -50,6 +52,7 @@ export default class ColumnShareModel {
         this.unsigned = columnType.withUnsigned ? unsigned : false;
         this.isArray = isArray;
         this.description = description.trim();
+        this.checkExpression = checkExpression.trim();
         this.characterSetValue = characterSet.trim();
         this.collateValue = collate.trim();
         this.optionExpression = optionExpression.trim();
@@ -96,6 +99,7 @@ export default class ColumnShareModel {
             ...(this.unsigned && { unsigned: this.unsigned }),
             ...(this.isArray && { isArray: this.isArray }),
             ...((this.description !== "") && { description: this.description }),
+            ...((this.checkExpression !== "") && { checkExpression: this.checkExpression }),
             ...((this.characterSetValue !== "") && (this.columnType.category === "text")
                 && { characterSet: this.characterSetValue }),
             ...((this.collateValue !== "") && (this.columnType.category === "text") && { collate: this.collateValue }),
@@ -128,6 +132,7 @@ export default class ColumnShareModel {
             unsigned: ("unsigned" in obj) ? (obj.unsigned as boolean) : false,
             isArray: ("isArray" in obj) ? (obj.isArray as boolean) : false,
             description: ("description" in obj) ? (obj.description as string) : "",
+            checkExpression: ("checkExpression" in obj) ? (obj.checkExpression as string) : "",
             characterSet: ("characterSet" in obj) ? (obj.characterSet as string) : "",
             collate: ("collate" in obj) ? (obj.collate as string) : "",
             optionExpression: ("optionExpression" in obj) ? (obj.optionExpression as string) : "",
@@ -146,6 +151,7 @@ export default class ColumnShareModel {
             && (this.unsigned === other.unsigned)
             && (this.isArray === other.isArray)
             && (this.description === other.description)
+            && (this.checkExpression === other.checkExpression)
             && (this.characterSetValue === other.characterSetValue)
             && (this.collateValue === other.collateValue)
             && (this.optionExpression === other.optionExpression)

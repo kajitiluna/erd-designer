@@ -14,6 +14,7 @@ type TableModelOptions = {
     uniqueKeysModels?: readonly TableUniqueKeysModel[],
     tableIndexModels?: readonly TableIndexModel[],
     description?: string,
+    checkExpression?: string,
     characterSet?: string,
     collate?: string,
     definitionExpression?: string,
@@ -38,6 +39,7 @@ export default class TableModel {
     public readonly uniqueKeysModels: readonly TableUniqueKeysModel[];
     public readonly tableIndexModels: readonly TableIndexModel[];
     public readonly description: string;
+    public readonly checkExpression: string;
     public readonly characterSet: string;
     public readonly collate: string;
     public readonly definitionExpression: string;
@@ -46,7 +48,7 @@ export default class TableModel {
     constructor({
         tableModelId = "", physicalName = "", logicalName = "", schemaId = "",
         columns = [], uniqueKeysModels = [], tableIndexModels = [], description = "",
-        characterSet = "", collate = "", definitionExpression = "", optionExpression = ""
+        checkExpression = "", characterSet = "", collate = "", definitionExpression = "", optionExpression = ""
     }: TableModelOptions) {
         this.tableModelId = tableModelId ? tableModelId : uuidV4();
         this.physicalName = physicalName.trim();
@@ -56,6 +58,7 @@ export default class TableModel {
         this.uniqueKeysModels = uniqueKeysModels;
         this.tableIndexModels = tableIndexModels;
         this.description = description.trim();
+        this.checkExpression = checkExpression.trim();
         this.characterSet = characterSet.trim();
         this.collate = collate.trim();
         this.definitionExpression = definitionExpression.trim();
@@ -76,19 +79,30 @@ export default class TableModel {
         }
 
         return new TableModel({
-            tableModelId: this.tableModelId,
-            physicalName: this.physicalName,
-            logicalName: this.logicalName,
-            schemaId: this.schemaId,
+            ...this,
             columns: this.columns.concat(addingColumnModelIds),
-            uniqueKeysModels: this.uniqueKeysModels,
-            tableIndexModels: this.tableIndexModels,
-            description: this.description,
-            characterSet: this.characterSet,
-            collate: this.collate,
-            definitionExpression: this.definitionExpression,
-            optionExpression: this.optionExpression
         });
+    }
+
+    public updateCheckExpression(
+        chaingingNames: { previousName: { physicalName: string }, nextName: { physicalName: string } }[]
+    ): TableModel {
+        if ((this.checkExpression === "") || (chaingingNames.length === 0)) {
+            return this;
+        }
+
+        let nextExpression = this.checkExpression;
+        for (const changingName of chaingingNames) {
+            const before = `\$\{${changingName.previousName.physicalName}\}`;
+            const after = `\$\{${changingName.nextName.physicalName}\}`;
+            nextExpression = nextExpression.replaceAll(before, after);
+        }
+
+        if (nextExpression === this.checkExpression) {
+            return this;
+        }
+
+        return new TableModel({ ...this, checkExpression: nextExpression });
     }
 
     public equals(other: TableModel): boolean {
@@ -148,6 +162,9 @@ export default class TableModel {
         if (this.description !== other.description) {
             return false;
         }
+        if (this.checkExpression !== other.checkExpression) {
+            return false;
+        }
         if (this.characterSet !== other.characterSet) {
             return false;
         }
@@ -180,6 +197,7 @@ export default class TableModel {
             ...((this.tableIndexModels.length > 0)
                 && { tableIndexModels: this.tableIndexModels.map(model => model.toJSON()) }),
             ...((this.description !== "") && { description: this.description }),
+            ...((this.checkExpression !== "") && { checkExpression: this.checkExpression }),
             ...((this.characterSet !== "") && { characterSet: this.characterSet }),
             ...((this.collate !== "") && { collate: this.collate }),
             ...((this.definitionExpression !== "") && { definitionExpression: this.definitionExpression }),
@@ -203,21 +221,18 @@ export default class TableModel {
 
         const schemaId = ("schemaId" in obj) ? obj.schemaId as string : "";
 
-        const columns: ColumnModelType[] =
-            (obj.columnModelIds as string[]).map(id =>
-                id.startsWith("group:")
-                    ? { modelType: "group", columnGroupId: id.substring(6) }
-                    : { modelType: "single", columnModelId: id }
-            )
+        const columns: ColumnModelType[] = (obj.columnModelIds as string[]).map(id =>
+            id.startsWith("group:")
+                ? { modelType: "group", columnGroupId: id.substring(6) }
+                : { modelType: "single", columnModelId: id }
+        )
 
         const uniqueKeysModels = ("uniqueKeysModels" in obj)
-            ? toObjects(obj.uniqueKeysModels, "uniqueKeysModels", value => TableUniqueKeysModel.toObject(value))
-            : [];
-
+            ? toObjects(obj.uniqueKeysModels, "uniqueKeysModels", value => TableUniqueKeysModel.toObject(value)) : [];
         const tableIndexModels = ("tableIndexModels" in obj)
-            ? toObjects(obj.tableIndexModels, "tableIndexModels", value => TableIndexModel.toObject(value))
-            : [];
+            ? toObjects(obj.tableIndexModels, "tableIndexModels", value => TableIndexModel.toObject(value)) : [];
         const description = ("description" in obj) ? obj.description as string : "";
+        const checkExpression = ("checkExpression" in obj) ? obj.checkExpression as string : "";
         const characterSet = ("characterSet" in obj) ? obj.characterSet as string : "";
         const collate = ("collate" in obj) ? obj.collate as string : "";
         const definitionExpression = ("definitionExpression" in obj) ? obj.definitionExpression as string : "";
@@ -232,6 +247,7 @@ export default class TableModel {
             uniqueKeysModels: uniqueKeysModels,
             tableIndexModels: tableIndexModels,
             description: description,
+            checkExpression: checkExpression,
             characterSet: characterSet,
             collate: collate,
             definitionExpression: definitionExpression,

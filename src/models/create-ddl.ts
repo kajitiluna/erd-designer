@@ -167,11 +167,27 @@ class DatabaseDdlCreator {
             columnQueries.push(...uniqueKeyConstraints);
         }
 
+        if (tableModel.checkExpression !== "") {
+            const resolvedExpression = this.initTableCheckExpression(tableModel.checkExpression, columnPairs);
+            columnQueries.push(`CHECK (${resolvedExpression})`);
+        }
+
         if (tableModel.definitionExpression !== "") {
             columnQueries.push(tableModel.definitionExpression);
         }
 
         return columnQueries;
+    }
+
+    private initTableCheckExpression(checkExpression: string, columnPairs: ColumnModelPair[]): string {
+        const nameMap = new Map(columnPairs.map(pair => {
+            const overrideName = overrideColumnName(pair.columnModel, pair.columnShareModel);
+            return [overrideName.physicalName, this.escape(overrideName.physicalName)];
+        }));
+
+        return checkExpression.replace(/\$\{([a-zA-Z][a-zA-Z0-9_]*)\}/g, (_, name) => {
+            return nameMap.get(name) ?? `\${${name}}`;
+        });
     }
 
     private columnQuery(
@@ -209,8 +225,22 @@ class DatabaseDdlCreator {
         }
 
         const overrideName = overrideColumnName(columnModel, columnShareModel);
+
+        const checkExpression = this.initColumnCheckExpression(columnShareModel, overrideName);
+
         const query = `${this.escape(overrideName.physicalName)} ` + attributes.join(" ")
-        return this.columnQueryWithOption(query, overrideName, option);
+        return this.columnQueryWithOption(query, overrideName, option) + checkExpression;
+    }
+
+    private initColumnCheckExpression(columnShare: ColumnShareModel, overrideName: { physicalName: string }) {
+        if (columnShare.checkExpression === "") {
+            return "";
+        }
+
+        const escapedName = this.escape(overrideName.physicalName);
+        const resolved = columnShare.checkExpression.replace(/\$\{this\}/g, escapedName);
+
+        return ` CHECK (${resolved})`;
     }
 
     private initUniqueConstraintQuery(uniqueKeysModels: readonly TableUniqueKeysModel[], columnPairs: ColumnModelPair[]) {

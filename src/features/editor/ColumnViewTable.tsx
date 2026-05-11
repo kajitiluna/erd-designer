@@ -24,11 +24,13 @@ type ColumnViewTableProps = {
     availableColumnGroup: boolean,
     isChildRelation: (columnModelId: string) => boolean,
     isEditableColumnType: (columnModel: ColumnModel) => boolean,
-    onUpdateColumnWrapModels: (updateFunction: ((previous: ColumnWrapModel[]) => ColumnWrapModel[])) => void
+    onUpdateColumnWrapModels: (updateFunction: ((previous: ColumnWrapModel[]) => ColumnWrapModel[])) => void,
+    onUpdateCheckExpression: (updateFunction: ((previous: string) => string)) => void
 };
 
 const ColumnViewTable = ({
-    columnWrapModels, availableColumnGroup, isChildRelation, isEditableColumnType, onUpdateColumnWrapModels
+    columnWrapModels, availableColumnGroup, 
+    isChildRelation, isEditableColumnType, onUpdateColumnWrapModels, onUpdateCheckExpression
 }: ColumnViewTableProps) => {
 
     const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
@@ -324,6 +326,7 @@ const ColumnViewTable = ({
                     columnModel={selectedWrappedModel.columnModel}
                     isEditableColumnType={isEditableColumnType}
                     onUpdateWrapColumnModels={onUpdateColumnWrapModels}
+                    onUpdateCheckExpression={onUpdateCheckExpression}
                     onClose={() => setEditMode("")} />
             )}
             {((editMode === "add_group") || (editMode === "edit_group")) && (
