@@ -44,7 +44,7 @@ type DatabaseDdlCreatorArgs = {
     commentQuery: (erdDocument: ErdDocument, option: DdlOption, escape: (value: string) => string) => string[],
     autoIncrementKeyword: string,
     reservedWords: string[],
-    escapeString: (value: string) => string
+    escapeString: (value: string) => string,
     escapeCollate?: (value: string) => string
 };
 
