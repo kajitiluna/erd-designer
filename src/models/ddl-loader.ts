@@ -1239,7 +1239,7 @@ class ColumnTypeResolver {
             if (target.description !== description) {
                 continue;
             }
-            if (this.database.editableCharacterSet && (target.characterSet !== columnDefinition.characterSet)) {
+            if (target.characterSet(this.database) !== columnDefinition.characterSet) {
                 continue;
             }
             if (target.collate !== columnDefinition.collate) {

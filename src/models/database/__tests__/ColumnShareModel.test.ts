@@ -1,5 +1,6 @@
 import ColumnShareModel from '../ColumnShareModel';
 import ColumnType from '../ColumnType';
+import { Database } from '../DatabaseType';
 import { PropertyNotExistsError } from '../../exceptions';
 
 describe('ColumnShareModel', () => {
@@ -32,6 +33,27 @@ describe('ColumnShareModel', () => {
         baseQuery: "OTHER"
     });
 
+    // category: "text" の ColumnType (characterSet, collate テスト用)
+    const mockTextType = new ColumnType({
+        id: 3,
+        name: "TEXT_TYPE",
+        description: "Text type",
+        baseQuery: "TEXT",
+        category: "text"
+    });
+
+    // category: "text" かつ unsigned / precision / scale 対応の ColumnType
+    const mockTextUnsignedType = new ColumnType({
+        id: 4,
+        name: "TEXT_UNSIGNED_TYPE",
+        description: "Text unsigned type",
+        baseQuery: "TEXT",
+        category: "text",
+        withUnsigned: true,
+        withPrecision: true,
+        withScale: true
+    });
+
     describe('constructor', () => {
         test('should create with minimum required values', () => {
             const model = new ColumnShareModel({
@@ -49,7 +71,7 @@ describe('ColumnShareModel', () => {
             expect(model.scale).toBe('');
             expect(model.unsigned).toBe(false);
             expect(model.description).toBe('');
-            expect(model.characterSet).toBe('');
+            expect(model.characterSet(Database.get('mysql'))).toBe('');
             expect(model.collate).toBe('');
             expect(model.optionExpression).toBe('');
         });
@@ -75,8 +97,8 @@ describe('ColumnShareModel', () => {
             expect(model.scale).toBe('2');
             expect(model.unsigned).toBe(false);
             expect(model.description).toBe('test description');
-            expect(model.characterSet).toBe('utf8mb4');
-            expect(model.collate).toBe('utf8mb4_unicode_ci');
+            expect(model.characterSet(Database.get('mysql'))).toBe('');
+            expect(model.collate).toBe('');
             expect(model.optionExpression).toBe('opt expr');
         });
 
@@ -101,8 +123,8 @@ describe('ColumnShareModel', () => {
             expect(model.scale).toBe('2');
             expect(model.unsigned).toBe(true);
             expect(model.description).toBe('test description');
-            expect(model.characterSet).toBe('utf8mb4');
-            expect(model.collate).toBe('utf8mb4_unicode_ci');
+            expect(model.characterSet(Database.get('mysql'))).toBe('');
+            expect(model.collate).toBe('');
             expect(model.optionExpression).toBe('opt expr');
         });
 
@@ -111,13 +133,13 @@ describe('ColumnShareModel', () => {
                 columnShareModelId: 'test-id',
                 physicalName: 'test_column',
                 logicalName: 'Test Column',
-                columnType: mockWithoutUnsigned,
+                columnType: mockTextType,
                 characterSet: '  utf8mb4  ',
                 collate: '  utf8mb4_unicode_ci  ',
                 optionExpression: '  opt expr  '
             });
 
-            expect(model.characterSet).toBe('utf8mb4');
+            expect(model.characterSet(Database.get('mysql'))).toBe('utf8mb4');
             expect(model.collate).toBe('utf8mb4_unicode_ci');
             expect(model.optionExpression).toBe('opt expr');
         });
@@ -353,7 +375,7 @@ describe('ColumnShareModel', () => {
                 columnShareModelId: 'test-id',
                 physicalName: 'test_column',
                 logicalName: 'Test Column',
-                columnType: mockWithUnsigned,
+                columnType: mockTextUnsignedType,
                 precision: '10',
                 scale: '2',
                 unsigned: true,
@@ -370,7 +392,7 @@ describe('ColumnShareModel', () => {
             expect(json.columnShareModelId).toBe('test-id');
             expect(json.physicalName).toBe('test_column');
             expect(json.logicalName).toBe('Test Column');
-            expect(json.columnTypeId).toBe(1);
+            expect(json.columnTypeId).toBe(4);
             expect(json.precision).toBe('10');
             expect(json.scale).toBe('2');
             expect(json.unsigned).toBe(true);
@@ -429,7 +451,7 @@ describe('ColumnShareModel', () => {
                 columnShareModelId: 'test-id',
                 physicalName: 'test_column',
                 logicalName: 'Test Column',
-                columnType: mockWithoutUnsigned,
+                columnType: mockTextType,
                 characterSet: 'utf8mb4',
                 collate: 'utf8mb4_unicode_ci',
                 optionExpression: 'opt expr'
@@ -447,6 +469,7 @@ describe('ColumnShareModel', () => {
         const toColumnType = (id: number): ColumnType => {
             if (id === 1) return mockWithUnsigned;
             if (id === 2) return mockDifferentType;
+            if (id === 4) return mockTextUnsignedType;
             throw new Error(`Unknown columnTypeId: ${id}`);
         };
 
@@ -456,7 +479,7 @@ describe('ColumnShareModel', () => {
                 columnShareModelId: 'test-id',
                 physicalName: 'test_column',
                 logicalName: 'Test Column',
-                columnTypeId: 1,
+                columnTypeId: 4,
                 precision: '10',
                 scale: '2',
                 unsigned: true,
@@ -473,13 +496,13 @@ describe('ColumnShareModel', () => {
             expect(model.columnShareModelId).toBe('test-id');
             expect(model.physicalName).toBe('test_column');
             expect(model.logicalName).toBe('Test Column');
-            expect(model.columnType).toBe(mockWithUnsigned);
+            expect(model.columnType).toBe(mockTextUnsignedType);
             expect(model.precision).toBe('10');
             expect(model.scale).toBe('2');
             expect(model.unsigned).toBe(true);
             expect(model.isArray).toBe(true);
             expect(model.description).toBe('desc');
-            expect(model.characterSet).toBe('utf8mb4');
+            expect(model.characterSet(Database.get('mysql'))).toBe('utf8mb4');
             expect(model.collate).toBe('utf8mb4_unicode_ci');
             expect(model.optionExpression).toBe('opt expr');
         });
@@ -500,7 +523,7 @@ describe('ColumnShareModel', () => {
             expect(model.unsigned).toBe(false);
             expect(model.isArray).toBe(false);
             expect(model.description).toBe('');
-            expect(model.characterSet).toBe('');
+            expect(model.characterSet(Database.get('mysql'))).toBe('');
             expect(model.collate).toBe('');
             expect(model.optionExpression).toBe('');
         });
@@ -534,6 +557,7 @@ describe('ColumnShareModel', () => {
     describe('serialization roundtrip', () => {
         const toColumnType = (id: number): ColumnType => {
             if (id === 1) return mockWithUnsigned;
+            if (id === 4) return mockTextUnsignedType;
             throw new Error(`Unknown columnTypeId: ${id}`);
         };
 
@@ -542,7 +566,7 @@ describe('ColumnShareModel', () => {
                 columnShareModelId: 'test-id',
                 physicalName: 'test_column',
                 logicalName: 'Test Column',
-                columnType: mockWithUnsigned,
+                columnType: mockTextUnsignedType,
                 precision: '10',
                 scale: '2',
                 unsigned: true,

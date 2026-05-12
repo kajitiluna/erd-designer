@@ -33,6 +33,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
   Improved the layout of the cardinality input section.
 
+- **Optimized ERD file output format**:
+
+  The serialization of column type definitions in `.erd` files has been optimized to omit default values,
+  reducing file size while maintaining full compatibility during import.
 
 ## [0.20260503] - 2026-05-03
 

@@ -208,7 +208,7 @@ const DelayActionTextField = ({
 
     return (
         <TextField inputRef={inputRef}
-            size="small" label={`filtering in ${filterType}`}
+            size="small" fullWidth label={`filtering in ${filterType}`}
             value={filterCondition[filterType]} onChange={handleChangeValue} />
     );
 };
