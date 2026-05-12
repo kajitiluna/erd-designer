@@ -37,24 +37,32 @@ type IndexQueryArgs = {
     columnQueries: string[];
 };
 
+type DatabaseDdlCreatorArgs = {
+    tableQueryWithOption: (query: string, tableModel: TableModel, option: DdlOption) => string,
+    columnQueryWithOption?: (query: string, overrideName: OverrideName, option: DdlOption) => string,
+    indexQuery: (args: IndexQueryArgs) => string,
+    commentQuery: (erdDocument: ErdDocument, option: DdlOption, escape: (value: string) => string) => string[],
+    autoIncrementKeyword: string,
+    reservedWords: string[],
+    escapeString: (value: string) => string,
+    escapeCollate?: (value: string) => string
+};
+
 class DatabaseDdlCreator {
 
     private readonly tableQueryWithOption: (query: string, tableModel: TableModel, option: DdlOption) => string;
-    private readonly columnQueryWithOption: (args: ColumnQueryArgs) => string;
+    private readonly columnQueryWithOption: (query: string, overrideName: OverrideName, option: DdlOption) => string;
     private readonly indexQuery: (args: IndexQueryArgs) => string;
     private readonly commentQuery: (erdDocument: ErdDocument, option: DdlOption, escape: (value: string) => string) => string[];
     private readonly autoIncrementKeyword: string;
     private readonly reservedWords: Set<string>;
     private readonly escapeString: (value: string) => string;
+    private readonly escapeCollate: ((value: string) => string);
 
-    constructor(
-        tableQueryWithOption: (query: string, tableModel: TableModel, option: DdlOption) => string,
-        columnQueryWithOption: (args: ColumnQueryArgs) => string,
-        indexQuery: (args: IndexQueryArgs) => string,
-        commentQuery: (erdDocument: ErdDocument, option: DdlOption, escape: (value: string) => string) => string[],
-        autoIncrementKeyword: string,
-        reservedWords: string[], escapeString: (value: string) => string
-    ) {
+    constructor({
+        tableQueryWithOption, columnQueryWithOption = (query: string) => query, indexQuery, commentQuery,
+        autoIncrementKeyword, reservedWords, escapeString, escapeCollate = (value: string) => value
+    }: DatabaseDdlCreatorArgs) {
         this.tableQueryWithOption = tableQueryWithOption;
         this.columnQueryWithOption = columnQueryWithOption;
         this.indexQuery = indexQuery;
@@ -62,6 +70,7 @@ class DatabaseDdlCreator {
         this.autoIncrementKeyword = autoIncrementKeyword;
         this.reservedWords = new Set(reservedWords);
         this.escapeString = escapeString;
+        this.escapeCollate = escapeCollate;
     }
 
     public create(erdDocument: ErdDocument, option: DdlOption) {
@@ -169,23 +178,28 @@ class DatabaseDdlCreator {
         columnModel: ColumnModel, columnShareModel: ColumnShareModel, inChildRelation: boolean,
         database: Database, option: DdlOption
     ): string {
-
-        const overrideName = overrideColumnName(columnModel, columnShareModel);
-
         const attributes = [columnShareModel.specifiedColumnType(inChildRelation)];
 
-        if ((columnShareModel.characterSet !== "") && database.editableCharacterSet) {
-            attributes.push(`CHARACTER SET ${columnShareModel.characterSet}`);
+        const characterSet = columnShareModel.characterSet(database);
+        if (characterSet !== "") {
+            attributes.push(`CHARACTER SET ${characterSet}`);
+        }
+        if (columnShareModel.collate !== "") {
+            attributes.push(`COLLATE ${this.escapeCollate(columnShareModel.collate)}`);
         }
         if (columnShareModel.unsigned && columnShareModel.columnType.withUnsigned) {
             attributes.push("UNSIGNED");
         }
 
-        if (columnModel.autoIncrement && columnShareModel.columnType.withAutoIncrement) {
-            attributes.push(this.autoIncrementKeyword);
+        if (columnShareModel.optionExpression !== "") {
+            attributes.push(columnShareModel.optionExpression);
         }
+
         if (columnModel.notNull) {
             attributes.push("NOT NULL");
+        }
+        if (columnModel.autoIncrement && columnShareModel.columnType.withAutoIncrement) {
+            attributes.push(this.autoIncrementKeyword);
         }
         if (columnModel.unique) {
             attributes.push("UNIQUE");
@@ -194,11 +208,9 @@ class DatabaseDdlCreator {
             attributes.push("DEFAULT " + columnModel.defaultValue);
         }
 
+        const overrideName = overrideColumnName(columnModel, columnShareModel);
         const query = `${this.escape(overrideName.physicalName)} ` + attributes.join(" ")
-        const optionExpression = (columnShareModel.optionExpression !== "")
-            ? ` ${columnShareModel.optionExpression}` : "";
-
-        return this.columnQueryWithOption({ query, columnShareModel, overrideName, option }) + optionExpression;
+        return this.columnQueryWithOption(query, overrideName, option);
     }
 
     private initUniqueConstraintQuery(uniqueKeysModels: readonly TableUniqueKeysModel[], columnPairs: ColumnModelPair[]) {
@@ -517,37 +529,16 @@ const tableQueryForMySql = (query: string, tableModel: TableModel, option: DdlOp
     return (tableOptions.length === 0) ? query : `${query} ${tableOptions.join(", ")}`;
 };
 
-type ColumnQueryArgs = {
-    query: string, columnShareModel: ColumnShareModel, overrideName: OverrideName, option: DdlOption
-};
-
-const columnQueryForPostgres = ({ query, columnShareModel }: ColumnQueryArgs) => {
-    if (columnShareModel.collate === "") {
-        return query;
-    }
-
-    const collate = (columnShareModel.collate.startsWith('"') && columnShareModel.collate.endsWith('"'))
-        ? columnShareModel.collate : `"${escapeComment(columnShareModel.collate)}"`;
-
-    return `${query} COLLATE ${collate}`;
-};
-
-const columnQueryForMySql = ({ query, columnShareModel, overrideName, option }: ColumnQueryArgs) => {
-    const queryWithCollate = (columnShareModel.collate !== "") ? `${query} COLLATE ${columnShareModel.collate}` : query;
-
+const columnQueryForMySql = (query: string, overrideName: OverrideName, option: DdlOption) => {
     if (option.withComment === false) {
-        return queryWithCollate
+        return query
     }
 
     if (overrideName.physicalName === overrideName.logicalName) {
-        return queryWithCollate;
+        return query;
     }
 
-    return `${queryWithCollate} COMMENT '${escapeComment(overrideName.logicalName)}'`;
-};
-
-const columnQueryForMsSqlServer = ({ query, columnShareModel }: ColumnQueryArgs) => {
-    return (columnShareModel.collate !== "") ? `${query} COLLATE ${columnShareModel.collate}` : query;
+    return `${query} COMMENT '${escapeComment(overrideName.logicalName)}'`;
 };
 
 const commentQueryForPostgres = (
@@ -600,37 +591,38 @@ const escapeComment = (comment: string) => {
 };
 
 const exportConfigs: { [key in DatabaseType]: DatabaseDdlCreator } = {
-    "postgres": new DatabaseDdlCreator(
-        tableQuery,
-        columnQueryForPostgres,
-        (args: IndexQueryArgs) =>
+    "postgres": new DatabaseDdlCreator({
+        tableQueryWithOption: tableQuery,
+        indexQuery: (args: IndexQueryArgs) =>
             `CREATE ${args.indexOption}INDEX ${args.indexName} ON ${args.tableName}`
             + `${args.indexTypeQuery} (${args.columnQueries.join(", ")});`,
-        commentQueryForPostgres,
-        "GENERATED ALWAYS AS IDENTITY",
-        [...commonReservedWords, ...postgresReservedWords],
-        (value: string) => `"${value}"` // PostgreSQL uses double quotes as escape character
-    ),
-    "mysql": new DatabaseDdlCreator(
-        tableQueryForMySql,
-        columnQueryForMySql,
-        (args: IndexQueryArgs) =>
+        commentQuery: commentQueryForPostgres,
+        autoIncrementKeyword: "GENERATED ALWAYS AS IDENTITY",
+        reservedWords: [...commonReservedWords, ...postgresReservedWords],
+        escapeString: (value: string) => `"${value}"`, // PostgreSQL uses double quotes as escape character
+        escapeCollate: (collate: string) => (collate.startsWith('"') && collate.endsWith('"')) ? collate : `"${collate}"`
+    }),
+
+    "mysql": new DatabaseDdlCreator({
+        tableQueryWithOption: tableQueryForMySql,
+        columnQueryWithOption: columnQueryForMySql,
+        indexQuery: (args: IndexQueryArgs) =>
             `CREATE ${args.indexOption}INDEX ${args.indexName}${args.indexTypeQuery}`
             + ` ON ${args.tableName} (${args.columnQueries.join(", ")});`,
-        () => [],
-        "AUTO_INCREMENT",
-        [...commonReservedWords, ...mysqlReservedWords],
-        (value: string) => '`' + value + '`' // MySQL uses backticks as escape character
-    ),
-    "ms_sqlserver": new DatabaseDdlCreator(
-        tableQuery,
-        columnQueryForMsSqlServer,
-        (args: IndexQueryArgs) =>
+        commentQuery: () => [],
+        autoIncrementKeyword: "AUTO_INCREMENT",
+        reservedWords: [...commonReservedWords, ...mysqlReservedWords],
+        escapeString: (value: string) => '`' + value + '`' // MySQL uses backticks as escape character
+    }),
+
+    "ms_sqlserver": new DatabaseDdlCreator({
+        tableQueryWithOption: tableQuery,
+        indexQuery: (args: IndexQueryArgs) =>
             `CREATE ${args.indexOption}INDEX ${args.indexName} ON ${args.tableName}`
             + ` (${args.columnQueries.join(", ")});`,
-        () => [],
-        "IDENTITY",
-        [...commonReservedWords, ...msSqlServerReservedWords],
-        (value: string) => `[${value}]` // MS SQL Server uses square brackets as escape character
-    )
+        commentQuery: () => [],
+        autoIncrementKeyword: "IDENTITY",
+        reservedWords: [...commonReservedWords, ...msSqlServerReservedWords],
+        escapeString: (value: string) => `[${value}]` // MS SQL Server uses square brackets as escape character
+    })
 };

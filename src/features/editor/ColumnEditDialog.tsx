@@ -63,21 +63,21 @@ const ColumnEditDialog = ({
     const [overriddenLogicalName, setOverriddenLogicalName] = React.useState<string>(columnModel.logicalName);
     const [defaultValue, setDefaultValue] = React.useState<string>(columnModel.defaultValue);
 
+    const erdDocument: ErdDocument = documentsHolder.current();
+    const databaseSetting: DatabaseSettingModel = erdDocument.databaseSettingModel
+    const database = databaseSetting.getDatabase();
+
     const [columnShareModelId, setColumnShareModelId] =
         React.useState<string>(columnShareModel ? columnShareModel.columnShareModelId : "");
     const [physicalName, setPhysicalName] =
         React.useState<string>(columnShareModel ? columnShareModel.physicalName : "");
     const [logicalName, setLogicalName] = React.useState<string>(columnShareModel ? columnShareModel.logicalName : "");
     const [columnTypeAttribute, setColumnTypeAttribute] =
-        React.useState<ColumnTypeAttribute>(toColumnTypeAttribute(columnShareModel));
+        React.useState<ColumnTypeAttribute>(toColumnTypeAttribute(columnShareModel, database));
     const [description, setDescription] = React.useState<string>(columnShareModel ? columnShareModel.description : "");
 
-    const erdDocument: ErdDocument = documentsHolder.current();
-    const databaseSetting: DatabaseSettingModel = erdDocument.databaseSettingModel
-    const database = databaseSetting.getDatabase();
-
     const associateColumnModel = (columnShareModel: ColumnShareModel) => {
-        const columnTypeAttribute = toColumnTypeAttribute(columnShareModel);
+        const columnTypeAttribute = toColumnTypeAttribute(columnShareModel, database);
 
         setColumnShareModelId(columnShareModel.columnShareModelId);
         setPhysicalName(columnShareModel.physicalName);
@@ -285,7 +285,7 @@ const messageForOverrideNames =
     "Allows you to override physical or logical names defined in the column model for this specific column." +
     " This is useful when you want to customize names individually while maintaining shared column definitions.";
 
-const toColumnTypeAttribute = (columnShareModel: ColumnShareModel | null) => {
+const toColumnTypeAttribute = (columnShareModel: ColumnShareModel | null, database: Database) => {
     if (columnShareModel == null) {
         return {
             columnType: null,
@@ -305,7 +305,7 @@ const toColumnTypeAttribute = (columnShareModel: ColumnShareModel | null) => {
         scale: columnShareModel.scale,
         unsigned: columnShareModel.unsigned,
         isArray: columnShareModel.isArray,
-        characterSet: columnShareModel.characterSet,
+        characterSet: columnShareModel.characterSet(database),
         collate: columnShareModel.collate,
         optionExpression: columnShareModel.optionExpression
     };
@@ -563,10 +563,12 @@ const ColumnTypeEditPanel = ({
                 <Grid size={{ xs: 2, md: 1 }} offset="auto">
                     <Box display="flex" alignItems="center" justifyContent="center" height="100%">
                         <Tooltip placement="left" arrow title="Other option">
-                            <IconButton disabled={columnType == null}
-                                onClick={() => setOptionExpanded(previous => !previous)}>
-                                <ExpandMoreIcon sx={{ transform: optionExpanded ? 'rotate(180deg)' : 'none' }} />
-                            </IconButton>
+                            <span>
+                                <IconButton disabled={columnType == null}
+                                    onClick={() => setOptionExpanded(previous => !previous)}>
+                                    <ExpandMoreIcon sx={{ transform: optionExpanded ? 'rotate(180deg)' : 'none' }} />
+                                </IconButton>
+                            </span>
                         </Tooltip>
                     </Box>
                 </Grid>

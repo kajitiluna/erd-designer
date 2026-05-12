@@ -1,4 +1,5 @@
 import ColumnType from "~/models/database/ColumnType";
+import { Database } from "~/models/database/DatabaseType";
 import { PropertyNotExistsError } from "~/models/exceptions";
 import { toDateTime } from "~/models/util";
 
@@ -29,9 +30,9 @@ export default class ColumnShareModel {
     public readonly unsigned: boolean;
     public readonly isArray: boolean;
     public readonly description: string;
-    public readonly characterSet: string;
-    public readonly collate: string;
     public readonly optionExpression: string;
+    private readonly characterSetValue: string;
+    private readonly collateValue: string;
     private readonly createdAt: Date;
 
     constructor({
@@ -49,10 +50,18 @@ export default class ColumnShareModel {
         this.unsigned = columnType.withUnsigned ? unsigned : false;
         this.isArray = isArray;
         this.description = description.trim();
-        this.characterSet = characterSet.trim();
-        this.collate = collate.trim();
+        this.characterSetValue = characterSet.trim();
+        this.collateValue = collate.trim();
         this.optionExpression = optionExpression.trim();
         this.createdAt = createdAt ? createdAt : new Date();
+    }
+
+    public get collate(): string {
+        return (this.columnType.category === "text") ? this.collateValue : "";
+    }
+
+    public characterSet(database: Database): string {
+        return (this.columnType.category === "text") && database.editableCharacterSet ? this.characterSetValue : "";
     }
 
     public specifiedColumnType(inChildRelation: boolean = false): string {
@@ -87,8 +96,9 @@ export default class ColumnShareModel {
             ...(this.unsigned && { unsigned: this.unsigned }),
             ...(this.isArray && { isArray: this.isArray }),
             ...((this.description !== "") && { description: this.description }),
-            ...((this.characterSet !== "") && { characterSet: this.characterSet }),
-            ...((this.collate !== "") && { collate: this.collate }),
+            ...((this.characterSetValue !== "") && (this.columnType.category === "text")
+                && { characterSet: this.characterSetValue }),
+            ...((this.collateValue !== "") && (this.columnType.category === "text") && { collate: this.collateValue }),
             ...((this.optionExpression !== "") && { optionExpression: this.optionExpression }),
             createdAt: this.createdAt
         };
@@ -136,8 +146,8 @@ export default class ColumnShareModel {
             && (this.unsigned === other.unsigned)
             && (this.isArray === other.isArray)
             && (this.description === other.description)
-            && (this.characterSet === other.characterSet)
-            && (this.collate === other.collate)
+            && (this.characterSetValue === other.characterSetValue)
+            && (this.collateValue === other.collateValue)
             && (this.optionExpression === other.optionExpression)
         );
     }
