@@ -1,13 +1,15 @@
 import React from "react";
 import { Box } from "@mui/material";
 
+import useStateRef from "~/components/useStateRef";
+import CanvasPositionContext, { CanvasPositionResolver } from "~/context/CanvasPositionContext";
 import DisplayScaleContext from "~/context/DisplayScaleContext";
 import { DragAction, DragActionContext, DragState } from "~/context/DragActionContext";
 import EditModeContext from "~/context/EditModeContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { RELEASE_ACTION, SelectAction, SelectEntityContext, SelectState } from "~/context/SelectEntityContext";
 import { LocalSetting, LocalSettingContext } from "~/context/LocalSettingContext";
-import CanvasPositionContext, { CanvasPositionResolver } from "~/context/CanvasPositionContext";
+import PortalCanvasContext from "~/context/PortalCanvasContext";
 import TableModel from "~/models/database/TableModel";
 import EditMode, { EditModeType } from "~/models/EditMode";
 import RectangleViewModel from "~/models/RectangleViewModel";
@@ -27,7 +29,6 @@ import PerspectiveSettingView from "~/features/editor/PerspectiveSettingView";
 import RelationEditView from "~/features/editor/RelationEditView";
 import TableEditView from "~/features/editor/TableEditView";
 import StickyMemoView, { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
-import PortalCanvasContext from "~/context/PortalCanvasContext";
 
 export const ERD_CANVAS_ID = "erd-canvas";
 
@@ -35,16 +36,15 @@ type ErdCanvasProps = { canvasArea: CanvasArea, onDragAction: React.Dispatch<Dra
 type CanvasArea = { width: number; height: number };
 
 const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasProps) => {
-    const erdCanvasRef = React.useRef<HTMLDivElement>(null);
-    const toolbarCanvasRef = React.useRef<HTMLDivElement>(null);
-    const svgCanvasRef = React.useRef<SVGSVGElement>(null);
     const dragState = React.useContext(DragActionContext);
-
-    const documentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode, dispatchEditMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const { localSetting, dispatchLocalSetting } = React.useContext(LocalSettingContext);
     const { scale: displayScale, phase } = React.useContext(DisplayScaleContext);
+
+    const erdCanvasRef = React.useRef<HTMLDivElement>(null);
+    const [toolbarCanvasElement, toolbarCanvasRef] = useStateRef<HTMLDivElement>()
+    const [svgCanvasElement, svgCanvasRef] = useStateRef<SVGSVGElement>();
 
     // Canvas に描画されている短形の情報を保持する
     const [rectangleArea, setRectangleArea] = React.useState<RectangleArea>(
@@ -66,6 +66,8 @@ const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasPr
         () => ({ width: canvasArea.width * 2, height: canvasArea.height * 2 }),
         [canvasArea]
     );
+
+    const documentsHolder = React.useContext(ErdDocumentsHolderContext);
 
     const positionResolver = new CanvasPositionResolver(erdCanvasRef.current, canvasArea);
     // Grab 操作に関する制御
@@ -226,8 +228,8 @@ const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasPr
             const relationViews = erdDocument
                 .fetchRelationsByTableIds(Array.from(selectState.tableIds))
                 .filter(relationView => relationView.lineViewModel.lineType === "orthogonal");
-            const nextArgs = toNextOrthogonalLines({ 
-                relationViews, tableRectangles: rectangleArea.tableRectangles, selectState, dragState 
+            const nextArgs = toNextOrthogonalLines({
+                relationViews, tableRectangles: rectangleArea.tableRectangles, selectState, dragState
             });
 
             documentsHolder.moveRectangle(selectState.tableIds, selectState.memoIds, offset, nextArgs);
@@ -428,7 +430,7 @@ const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasPr
 
     return (
         <CanvasPositionContext.Provider value={positionResolver}>
-            <PortalCanvasContext.Provider value={{ toolbarCanvasRef, svgCanvasRef }} >
+            <PortalCanvasContext.Provider value={{ toolbarCanvasElement, svgCanvasElement }} >
                 {mainCanvas}
             </PortalCanvasContext.Provider>
         </CanvasPositionContext.Provider>

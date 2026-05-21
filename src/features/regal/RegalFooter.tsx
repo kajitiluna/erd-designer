@@ -5,7 +5,7 @@ import appVersionSetting from "~/config/AppVersionSetting";
 const RegalFooter = () => {
     return (
         <Box sx={{ position: "relative", width: "100%" }}>
-            <Stack direction="row" spacing={4} sx={{ p: 4 }} justifyContent="center">
+            <Stack direction="row" spacing={4} sx={{ justifyContent: "center", p: 4 }}>
                 <Link href="/erd-designer/terms_of_service" target="_blank" rel="noopener noreferrer">
                     <Typography variant="body2">
                         Terms of Service
@@ -18,7 +18,7 @@ const RegalFooter = () => {
                 </Link>
             </Stack>
             <Box sx={{position: "absolute", right: 16,bottom: 30}}>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                     Version: {appVersionSetting().appVersion}
                 </Typography>
             </Box>

@@ -48,6 +48,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
         = React.useState<TableUniqueKeysModel[]>([...tableModel.uniqueKeysModels]);
     const [tableIndexModels, setTableIndexModels]
         = React.useState<TableIndexModel[]>([...tableModel.tableIndexModels]);
+    const [checkExpression, setCheckExpression] = React.useState<string>(tableModel.checkExpression);
     const [tableOption, setTableOption] = React.useState<TableExtraOption>({
         characterSet: tableModel.characterSet,
         collate: tableModel.collate,
@@ -125,6 +126,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             uniqueKeysModels: updatedUniqueKeys.tableUniqueKeysModels,
             tableIndexModels: updatedTableIndex.tableIndexModels,
             description: description,
+            checkExpression: checkExpression.trim(),
             characterSet: (database.supportsTableCollate && database.editableCharacterSet)
                 ? tableOption.characterSet : "",
             collate: database.supportsTableCollate ? tableOption.collate : "",
@@ -193,12 +195,16 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
         return (parentColumnModel.columnShareModelId === columnModel.columnShareModelId);
     };
 
+    const hasOtherOption = tableOption.characterSet || tableOption.collate ||
+        tableOption.definitionExpression || tableOption.optionExpression;
+
     const tabPanel = (<>
         <Tabs value={tabIndex} onChange={(_, newValue) => setTabIndex(newValue)}>
             <Tab label="Column" />
             <Tab label={`Unique constraint (${uniqueKeysModels.length})`} disabled={columnWrapModels.length < 2} />
             <Tab label={`Index (${tableIndexModels.length})`} disabled={columnWrapModels.length === 0} />
-            <Tab label="Other Option" />
+            <Tab label={`Check${checkExpression ? " (+)" : ""}`} />
+            <Tab label={`Other Option${hasOtherOption ? " (+)" : ""}`} />
         </Tabs>
         <div hidden={tabIndex !== 0}>
             <ColumnViewTable
@@ -206,7 +212,8 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
                 availableColumnGroup={true}
                 isChildRelation={isChildRelation}
                 isEditableColumnType={isEditableColumnType}
-                onUpdateColumnWrapModels={setColumnWrapModels} />
+                onUpdateColumnWrapModels={setColumnWrapModels}
+                onUpdateCheckExpression={setCheckExpression} />
         </div>
         <div hidden={tabIndex !== 1}>
             <UniqueKeysGridView
@@ -225,6 +232,15 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
                 onUpdateTableIndexModels={setTableIndexModels} />
         </div>
         <div hidden={tabIndex !== 3}>
+            <Stack direction="column" spacing={2}>
+                <TextField label="Check Expression" size="small" fullWidth variant="outlined" multiline minRows={4}
+                    value={checkExpression} onChange={event => setCheckExpression(event.target.value)} />
+                <Alert severity="info" variant="outlined">
+                    <Typography variant="body2" gutterBottom>{explanationForExpression}</Typography>
+                </Alert>
+            </Stack>
+        </div>
+        <div hidden={tabIndex !== 4}>
             {initExtraOptionPanel({ extraOption: tableOption, database, onUpdateExtraOption: setTableOption })}
         </div>
     </>);
@@ -242,8 +258,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
                         <Divider />
                         {definitionPanel}
                         {tabPanel}
-                        <TextField variant="outlined"
-                            id="description" label="Description" multiline rows={3}
+                        <TextField variant="outlined" label="Description" multiline rows={3}
                             sx={{ '& .MuiInputBase-root': { resize: 'vertical', overflow: 'auto' } }}
                             value={description} onChange={(event) => setDescription(event.target.value)} />
                     </Stack>
@@ -256,6 +271,14 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
         </ColumnShareModelStorageContext.Provider>
     );
 };
+
+const explanationForExpression = (<>
+Use {"${column_name}"} to reference a column&apos;s physical name (e.g., {"${price} > ${cost}"}).<br />
+Placeholders are resolved at export time, so this expression always reflects the column&apos;s current physical name.
+Renaming a column — or updating a shared column definition used across multiple tables —
+is automatically reflected without any manual edits.<br />
+If a column has an override physical name configured, specify that override name in the placeholder.
+</>);
 
 const initColumnWrapModels = (erdDocument: ErdDocument, tableModel: TableModel): ColumnWrapModel[] => {
     return tableModel.columns.map(column => {
@@ -329,30 +352,30 @@ const initExtraOptionPanel = ({ extraOption, database, onUpdateExtraOption }: Ta
     const expressionPanel = (
         <Stack direction="column" spacing={2}>
             <Stack direction="column">
-                <Typography variant="subtitle2" color="text.primary">Other Definition Expression</Typography>
-                <Stack direction="row" spacing={1} alignItems="baseline">
-                    <Typography variant="caption" color="text.secondary">
+                <Typography variant="subtitle2" sx={{ color: "text.primary" }}>Other Definition Expression</Typography>
+                <Stack direction="row" spacing={1} sx={{ alignItems: "baseline" }}>
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         Appended inside the column list in exported DDL:
                     </Typography>
-                    <Typography variant="overline" color="text.primary">
+                    <Typography variant="overline" sx={{ color: "text.primary" }}>
                         {'`CREATE TABLE ( ... <expression>) ...`'}
                     </Typography>
                 </Stack>
-                <TextField id="extraDefinitionExpression" size="small" fullWidth variant="outlined" multiline minRows={2}
+                <TextField size="small" fullWidth variant="outlined" multiline minRows={2}
                     value={extraOption.definitionExpression} onChange={handleChangeDefinitionExpression} />
             </Stack>
 
             <Stack direction="column">
-                <Typography variant="subtitle2" color="text.primary">Other Table Option Expression</Typography>
-                <Stack direction="row" spacing={1} alignItems="baseline">
-                    <Typography variant="caption" color="text.secondary">
+                <Typography variant="subtitle2" sx={{ color: "text.primary" }}>Other Table Option Expression</Typography>
+                <Stack direction="row" spacing={1} sx={{ alignItems: "baseline" }}>
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         Appended after the column list in exported DDL:
                     </Typography>
-                    <Typography variant="overline" color="text.primary">
+                    <Typography variant="overline" sx={{ color: "text.primary" }}>
                         {'`CREATE TABLE ( ... ) ... <expression>`'}
                     </Typography>
                 </Stack>
-                <TextField id="extraOptionExpression" size="small" fullWidth variant="outlined" multiline minRows={2}
+                <TextField size="small" fullWidth variant="outlined" multiline minRows={2}
                     value={extraOption.optionExpression} onChange={handleChangeOptionExpression} />
             </Stack>
         </Stack>

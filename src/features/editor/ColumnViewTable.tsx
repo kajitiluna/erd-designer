@@ -24,11 +24,13 @@ type ColumnViewTableProps = {
     availableColumnGroup: boolean,
     isChildRelation: (columnModelId: string) => boolean,
     isEditableColumnType: (columnModel: ColumnModel) => boolean,
-    onUpdateColumnWrapModels: (updateFunction: ((previous: ColumnWrapModel[]) => ColumnWrapModel[])) => void
+    onUpdateColumnWrapModels: (updateFunction: ((previous: ColumnWrapModel[]) => ColumnWrapModel[])) => void,
+    onUpdateCheckExpression: (updateFunction: ((previous: string) => string)) => void
 };
 
 const ColumnViewTable = ({
-    columnWrapModels, availableColumnGroup, isChildRelation, isEditableColumnType, onUpdateColumnWrapModels
+    columnWrapModels, availableColumnGroup, 
+    isChildRelation, isEditableColumnType, onUpdateColumnWrapModels, onUpdateCheckExpression
 }: ColumnViewTableProps) => {
 
     const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
@@ -189,7 +191,7 @@ const ColumnViewTable = ({
     };
 
     const addButtonPanel = (
-        <Stack direction="row" spacing={5} justifyContent="flex-start" alignItems="center">
+        <Stack direction="row" spacing={5} sx={{ justifyContent: "flex-start", alignItems: "center" }}>
             <EdgedIconButton tooltip="Add column" withText onClick={handleAddColumn}>
                 <AddIcon />
             </EdgedIconButton>
@@ -251,7 +253,7 @@ const ColumnViewTable = ({
     }
 
     const editButtonPanel = (
-        <Stack justifyContent="flex-end" direction="row" spacing={2}>
+        <Stack direction="row" spacing={2} sx={{ justifyContent: "flex-end" }}>
             <EdgedIconButton tooltip="Edit column" disabled={selectedIndex < 0}
                 onClick={handleEditColumn}>
                 <EditIcon fontSize="small" />
@@ -314,7 +316,7 @@ const ColumnViewTable = ({
                     </TableBody>
                 </Table>
             </TableContainer>
-            <Stack direction="row" justifyContent="space-between" sx={{ margin: 1, marginBottom: 0.5 }}>
+            <Stack direction="row" sx={{ justifyContent: "space-between", margin: 1, marginBottom: 0.5 }}>
                 {addButtonPanel}
                 {editButtonPanel}
             </Stack>
@@ -324,6 +326,7 @@ const ColumnViewTable = ({
                     columnModel={selectedWrappedModel.columnModel}
                     isEditableColumnType={isEditableColumnType}
                     onUpdateWrapColumnModels={onUpdateColumnWrapModels}
+                    onUpdateCheckExpression={onUpdateCheckExpression}
                     onClose={() => setEditMode("")} />
             )}
             {((editMode === "add_group") || (editMode === "edit_group")) && (

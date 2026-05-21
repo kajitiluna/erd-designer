@@ -1,10 +1,9 @@
+import { v4 as uuidV4 } from 'uuid';
 import React from "react";
 import {
     Alert, AlertTitle, Box, Button, Container, CssBaseline,
-    Dialog, DialogActions, DialogContent, DialogTitle, Divider, Stack, Typography
+    Dialog, DialogActions, DialogContent, DialogTitle, Divider, Grid, Stack, Typography
 } from "@mui/material";
-import Grid from '@mui/material/Grid2';
-import { v4 as uuidV4 } from 'uuid';
 
 import ErdDocument from "~/models/ErdDocument";
 import ErdDocumentListPanel from "~/features/start_up/ErdDocumentListPanel";
@@ -151,7 +150,7 @@ const LoadFileDialog = ({ isOpen, onLoadDocument, onClose }: LoadFileDialogProp)
                 <DialogContent>
                     <Divider />
                     <Stack spacing={3} style={{ margin: "20px" }}>
-                        <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                        <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "space-between" }}>
                             <Typography variant="body1">{(fileName !== "" ? fileName : "Select JSON file.")}</Typography>
                             <Button variant="contained" onClick={handleSelectFileDialog} >Select file</Button>
                         </Stack>
@@ -218,29 +217,29 @@ const initDocumentSummary = (document: ErdDocument | null) => {
             <Alert severity="success">
                 <AlertTitle>Succeed to load file.</AlertTitle>
             </Alert>
-            <Grid container alignItems="center" style={{ margin: "20px" }}>
-                <Grid justifyContent="flex-start" size={6}>
+            <Grid container style={{ margin: "20px" }} sx={{ alignItems: "center" }}>
+                <Grid sx={{ justifyContent: "flex-start" }} size={6}>
                     <Typography variant="body1">Document name :</Typography>
                 </Grid>
-                <Grid justifyContent="center" size={6}>
+                <Grid sx={{ justifyContent: "center" }} size={6}>
                     <Typography variant="button">{document.documentName}</Typography>
                 </Grid>
-                <Grid justifyContent="flex-start" size={6}>
+                <Grid sx={{ justifyContent: "flex-start" }} size={6}>
                     <Typography variant="body1">Database type :</Typography>
                 </Grid>
-                <Grid justifyContent="center" size={6}>
+                <Grid sx={{ justifyContent: "center" }} size={6}>
                     <Typography variant="button">{document.getDatabase().name}</Typography>
                 </Grid>
-                <Grid justifyContent="flex-start" size={6}>
+                <Grid sx={{ justifyContent: "flex-start" }} size={6}>
                     <Typography variant="body1">The count of tables :</Typography>
                 </Grid>
-                <Grid justifyContent="center" size={6}>
+                <Grid sx={{ justifyContent: "center" }} size={6}>
                     <Typography variant="button">{document.getTableViewModels().length}</Typography>
                 </Grid>
-                <Grid justifyContent="flex-start" size={6}>
+                <Grid sx={{ justifyContent: "flex-start" }} size={6}>
                     <Typography variant="body1">The count of relations :</Typography>
                 </Grid>
-                <Grid justifyContent="center" size={6}>
+                <Grid sx={{ justifyContent: "center" }} size={6}>
                     <Typography variant="button">{document.getRelationViewModels().length}</Typography>
                 </Grid>
             </Grid>

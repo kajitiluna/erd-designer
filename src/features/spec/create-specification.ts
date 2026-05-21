@@ -101,7 +101,7 @@ const initTablePhysicalName = (tableModel: TableModel, schemaModel: DbSchemaMode
  * @param erdDocument 
  * @returns 
  */
-const initExportAllTablesGenerator = (erdDocument: ErdDocument) => function* () {
+const initExportAllTablesGenerator = (erdDocument: ErdDocument) => (function*() {
     const tableViews = sortTableViews(erdDocument);
     for (const tableView of tableViews) {
         const tableModel = tableView.tableModel;
@@ -113,7 +113,7 @@ const initExportAllTablesGenerator = (erdDocument: ErdDocument) => function* () 
             description: tableModel.description
         };
     }
-};
+});
 
 /**
  * カラム一覧を出力するジェネレータを作成する。
@@ -121,16 +121,16 @@ const initExportAllTablesGenerator = (erdDocument: ErdDocument) => function* () 
  * @param erdDocument 
  * @returns 
  */
-const initExportAllColumnsGenerator = (erdDocument: ErdDocument) => function* () {
+const initExportAllColumnsGenerator = (erdDocument: ErdDocument) => (function*() {
     const tableViews = sortTableViews(erdDocument);
     for (const tableView of tableViews) {
         const exportColumns = initExportColumnGenerator(erdDocument, tableView.tableModel)
 
         yield* exportColumns();
     }
-};
+});
 
-const initExportColumnGenerator = (erdDocument: ErdDocument, tableModel: TableModel) => function* () {
+const initExportColumnGenerator = (erdDocument: ErdDocument, tableModel: TableModel) => (function*() {
     const schemaModel = erdDocument.findSchema(tableModel.schemaId);
 
     for (const columnModel of erdDocument.toAllColumnModels(tableModel)) {
@@ -160,7 +160,7 @@ const initExportColumnGenerator = (erdDocument: ErdDocument, tableModel: TableMo
             description: columnShareModel.description,
         };
     }
-};
+});
 
 const initForeignRelation = (erdDocument: ErdDocument, parentRelation: ParentRelation | null) => {
     if (parentRelation == null) {
@@ -191,7 +191,7 @@ const initForeignRelation = (erdDocument: ErdDocument, parentRelation: ParentRel
  * @param erdDocument 
  * @returns 
  */
-const initExportTableSpecsGenerator = (erdDocument: ErdDocument) => function* () {
+const initExportTableSpecsGenerator = (erdDocument: ErdDocument) => (function*() {
     const tableViews = sortTableViews(erdDocument);
     for (const tableView of tableViews) {
         const tableModel = tableView.tableModel;
@@ -210,11 +210,11 @@ const initExportTableSpecsGenerator = (erdDocument: ErdDocument) => function* ()
             exportTableIndexes: exportTableIndexes
         };
     }
-};
+});
 
 const initExportUniqueKeysConstraintsGenerator = (
     erdDocument: ErdDocument, tableModel: TableModel
-) => function* () {
+) => (function*() {
     for (const uniqueKeysModel of tableModel.uniqueKeysModels) {
         const uniqueKeyColumns = uniqueKeysModel.uniqueKeysColumnModels.map(model => {
             const columnModel = erdDocument.findColumnModel(model.columnModelId);
@@ -241,9 +241,9 @@ const initExportUniqueKeysConstraintsGenerator = (
             uniqueKeyColumns: uniqueKeyColumns
         };
     }
-}
+})
 
-const initExportTableIndexesGenerator = (erdDocument: ErdDocument, tableModel: TableModel) => function* () {
+const initExportTableIndexesGenerator = (erdDocument: ErdDocument, tableModel: TableModel) => (function*() {
     for (const tableIndex of tableModel.tableIndexModels) {
         const indexedColumns = tableIndex.indexColumnModels.map(model => {
             const columnModel = erdDocument.findColumnModel(model.columnModelId);
@@ -277,7 +277,7 @@ const initExportTableIndexesGenerator = (erdDocument: ErdDocument, tableModel: T
             indexedColumns: indexedColumns
         };
     }
-};
+});
 
 type ParentRelation = {
     tableModelId: string,

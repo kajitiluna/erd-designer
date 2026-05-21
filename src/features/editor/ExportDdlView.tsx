@@ -1,9 +1,8 @@
 import React from "react";
 import {
     Alert, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
-    FormControlLabel, Paper, Stack, TextField, Typography
+    FormControlLabel, Grid, Paper, Stack, TextField, Typography
 } from "@mui/material";
-import Grid from '@mui/material/Grid2';
 
 import download from "~/components/file-downloader";
 import ErdDocument from "~/models/ErdDocument";
@@ -71,7 +70,7 @@ const ExportDdlView = ({ documentsHolder, isViewOpen, onClose }: ExportDdlViewPr
     const optionPanel = (
         <Paper elevation={4} sx={{ p: 2 }}>
             <Typography variant="subtitle1" gutterBottom>CREATE :</Typography>
-            <Grid container justifyContent="flex-start" alignItems="center">
+            <Grid container sx={{ justifyContent: "flex-start", alignItems: "center" }}>
                 <Grid size={{ md: 3, sm: 6 }}>
                     <FormControlLabel label="Tables" control={
                         <Checkbox checked={withTable === true}

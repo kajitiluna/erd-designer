@@ -17,6 +17,7 @@ import FormatAlignRightIcon from "@mui/icons-material/FormatAlignRight";
 import VisibilityIcon from '@mui/icons-material/Visibility';
 
 import ColorSelector from "~/components/ColorSelector";
+import useStateRef from "~/components/useStateRef";
 import PortalCanvasContext from "~/context/PortalCanvasContext";
 import DisplayScaleContext from "~/context/DisplayScaleContext";
 import { DragAction, DragActionContext } from "~/context/DragActionContext";
@@ -54,7 +55,7 @@ const StickyMemoView = ({
     const { scale: displayScale } = React.useContext(DisplayScaleContext);
     const positionResolver = React.useContext(CanvasPositionContext);
 
-    const stickyMemoRef = React.useRef<HTMLDivElement>(null);
+    const [stickyMemoEl, stickyMemoRef] = useStateRef<HTMLDivElement>();
     const textAreaRef = React.useRef<HTMLTextAreaElement>(null);
     const [isTextEdit, setTextEdit] = React.useState<boolean>(false);
     const [mouseCursorStyle, setMouseCursorStyle] = React.useState<string>("pointer");
@@ -308,11 +309,11 @@ const StickyMemoView = ({
                 className={stickyClassName} onBlur={handleFocusOut}>
                 {initTextAreaElement()}
             </Box>
-            {stickyMemoRef.current && selected && (!isTextEdit) && (dragState.status !== "on_dragging")
+            {stickyMemoEl && selected && (!isTextEdit) && (dragState.status !== "on_dragging")
                 && (selectState.tableIds.size + selectState.memoIds.size === 1)
                 && <StickyControlPane
                     memoViewModel={memoViewModel}
-                    stickyDom={stickyMemoRef.current}
+                    stickyDom={stickyMemoEl}
                     onSettingAction={onSettingAction} />}
         </Box>
     );
@@ -434,7 +435,7 @@ const StickyControlPane = ({ memoViewModel, stickyDom, onSettingAction }: Sticky
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
     const { dispatchSelectAction } = React.useContext(SelectEntityContext);
-    const { toolbarCanvasRef } = React.useContext(PortalCanvasContext);
+    const { toolbarCanvasElement } = React.useContext(PortalCanvasContext);
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
     const { scale: displayScale } = React.useContext(DisplayScaleContext);
 
@@ -601,7 +602,7 @@ const StickyControlPane = ({ memoViewModel, stickyDom, onSettingAction }: Sticky
         </div>
     );
 
-    const portalContainer = toolbarCanvasRef.current;
+    const portalContainer = toolbarCanvasElement;
     if (!portalContainer) {
         return deleteDialog;
     };

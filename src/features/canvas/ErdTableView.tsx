@@ -2,7 +2,7 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import {
-    Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Grid2, IconButton,
+    Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Grid, IconButton,
     Stack, Table, TableBody, TableCell, TableContainer, TableRow, Tooltip
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
@@ -264,18 +264,18 @@ const initUniqueKeysMarkers = (
             ) : (<span style={STYLE_MARKER_MARGIN}></span>);
 
         return (
-            <Grid2 key={`table-unique_${uniqueKeysModel.tableUniqueKeysModelId}`}
+            <Grid key={`table-unique_${uniqueKeysModel.tableUniqueKeysModelId}`}
                 sx={STYLE_MARKER_GRID}>
                 {marker}
-            </Grid2>
+            </Grid>
         );
     };
 
     return (
         <TableCell sx={STYLE_MARKER_CELL}>
-            <Grid2 container columns={uniqueKeysModels.length} spacing="1" sx={{ flexWrap: 'nowrap' }}>
+            <Grid container columns={uniqueKeysModels.length} spacing="1" sx={{ flexWrap: 'nowrap' }}>
                 {uniqueKeysModels.map(uniqueKeysModel => doInitIndexMarker(uniqueKeysModel))}
-            </Grid2>
+            </Grid>
         </TableCell>
     );
 };
@@ -299,18 +299,18 @@ const initTableIndexMarkers = (
             ) : (<span style={STYLE_MARKER_MARGIN}></span>);
 
         return (
-            <Grid2 key={`table-index_${tableIndex.tableIndexModelId}`}
+            <Grid key={`table-index_${tableIndex.tableIndexModelId}`}
                 sx={STYLE_MARKER_GRID}>
                 {marker}
-            </Grid2>
+            </Grid>
         );
     };
 
     return (
         <TableCell sx={STYLE_MARKER_CELL}>
-            <Grid2 container columns={tableIndexModels.length} spacing="1" sx={{ flexWrap: 'nowrap' }}>
+            <Grid container columns={tableIndexModels.length} spacing="1" sx={{ flexWrap: 'nowrap' }}>
                 {tableIndexModels.map(tableIndex => doInitIndexMarker(tableIndex))}
-            </Grid2>
+            </Grid>
         </TableCell>
     );
 };
@@ -359,7 +359,7 @@ const InnerErdTableView = ({
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
     const { scale: displayScale } = React.useContext(DisplayScaleContext);
     const positionResolver = React.useContext(CanvasPositionContext);
-    const { toolbarCanvasRef } = React.useContext(PortalCanvasContext);
+    const { toolbarCanvasElement } = React.useContext(PortalCanvasContext);
 
     const containerRef = React.useRef<HTMLDivElement>(null);
     const [selfSelectableMode, setSelfSelectableMode] = React.useState<SelfSelectableMode>("none");
@@ -564,7 +564,7 @@ const InnerErdTableView = ({
         : ERD_TABLE_VIEW_CLASS_NAME;
 
     const initControlPanel = () => {
-        if (!containerRef.current || !toolbarCanvasRef.current) {
+        if (!containerRef.current || !toolbarCanvasElement) {
             return (<></>);
         }
 
@@ -574,9 +574,10 @@ const InnerErdTableView = ({
             return (<></>);
         }
 
-        const portalRect = toolbarCanvasRef.current.getBoundingClientRect();
+        const portalRect = toolbarCanvasElement.getBoundingClientRect();
         const containerRect = containerRef.current.getBoundingClientRect();
         const controlPanelStyle: React.CSSProperties = {
+            justifyContent: "flex-end",
             position: "absolute",
             left: (containerRect.right - portalRect.left) / displayScale,
             top: (containerRect.bottom - portalRect.top + 10) / displayScale,
@@ -586,7 +587,7 @@ const InnerErdTableView = ({
         };
 
         const controlMenu = (
-            <Stack direction="row" justifyContent="flex-end" sx={controlPanelStyle}
+            <Stack direction="row" sx={controlPanelStyle}
                 onClick={handlePreventMouseEvent}
                 onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
                 <div style={CONTROL_PANEL_STYLE}>
@@ -614,7 +615,7 @@ const InnerErdTableView = ({
             </Stack>
         );
 
-        return ReactDOM.createPortal(controlMenu, toolbarCanvasRef.current);
+        return ReactDOM.createPortal(controlMenu, toolbarCanvasElement);
     };
 
     const controlPanel = initControlPanel();

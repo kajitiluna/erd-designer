@@ -6,6 +6,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **CHECK constraint expression for tables and columns**:
+
+  You can now define CHECK constraint expressions for both tables and individual columns.
+
+  - **Table edit dialog**:
+
+    A new "Check" tab provides a text field for entering a table-level CHECK expression.
+    Use `${column_name}` placeholders to reference column physical names.
+    Placeholders are automatically resolved at DDL export time, and are updated in sync
+    when a column's physical name is renamed.
+
+  - **Column edit dialog**:
+
+    A CHECK expression field is now available for individual columns.
+    Use `${this}` as a placeholder to refer to the column itself (e.g., `${this} > 0`).
+
+  These expressions are reflected in the DDL export as `CHECK (...)` constraints.
+
+
+### Changed
+
+- **Relation context menu**:
+
+  Added a "Reset label" option to the relation context menu.
+  You can now quickly restore a relation label to display its relation name.
+
+
 ## [0.20260509] - 2026-05-09
 
 ### Added
@@ -27,6 +56,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
   These settings are reflected in DDL export and parsed when importing DDL files.
 
+
 ### Changed
 
 - **Relation edit dialog**:
@@ -37,6 +67,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
   The serialization of column type definitions in `.erd` files has been optimized to omit default values,
   reducing file size while maintaining full compatibility during import.
+
 
 ## [0.20260503] - 2026-05-03
 

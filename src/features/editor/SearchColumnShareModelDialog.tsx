@@ -156,7 +156,7 @@ const SearchColumnShareModelDialog = ({
                     <Box sx={{ margin: "25px", textAlign: "center" }}>No Contents.</Box>
                 )}
                 {inSearching &&
-                    <Stack justifyContent="center" alignItems="center" sx={{ p: 10 }}>
+                    <Stack sx={{ justifyContent: "center", alignItems: "center", p: 10 }}>
                         <CircularProgress />
                     </Stack>
                 }

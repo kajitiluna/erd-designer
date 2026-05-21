@@ -6,6 +6,7 @@ import {
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import TextFormatIcon from '@mui/icons-material/TextFormat';
 
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import EditModeContext from "~/context/EditModeContext";
@@ -33,6 +34,7 @@ import EditAction from "~/features/canvas/EditAction";
 import RelationLabelOverlay from "~/features/canvas/RelationLabelOverlay";
 
 import styleClasses from "./ErdCanvas.module.css";
+import LabelViewModel from "~/models/LabelViewModel";
 
 export const ERD_RELATION_PATH_CLASS_NAME = "erd-relation-path";
 
@@ -149,9 +151,10 @@ const useRelationTooltip = (
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
     const { scale: displayScale } = React.useContext(DisplayScaleContext);
-    const { toolbarCanvasRef } = React.useContext(PortalCanvasContext);
+    const { toolbarCanvasElement } = React.useContext(PortalCanvasContext);
 
     const [lineEditElement, setLineEditElement] = React.useState<HTMLElement | null>(null);
+    const [resetLabelElement, setResetLabelElement] = React.useState<HTMLElement | null>(null);
 
     if (
         (selectState.relationId == null)
@@ -210,10 +213,15 @@ const useRelationTooltip = (
         dispatchSelectAction(RELEASE_ACTION);
     };
 
-    const initLinePopover = (lineEditElement: HTMLElement | null) => {
-        if (lineEditElement == null) {
+    const initLinePopover = (element: HTMLElement | null) => {
+        if (element == null) {
             return null;
         }
+
+        const handleClose = () => {
+            setLineEditElement(null);
+            dispatchSelectAction(RELEASE_ACTION);
+        };
 
         const lineView = relationView.lineViewModel;
         const widthButtons = [1, 2, 3].map((width, index) => {
@@ -225,8 +233,7 @@ const useRelationTooltip = (
                 })}`;
                 documentsHolder.updateRelationWidth(relationView.relationId, width, loggingMessage);
 
-                setLineEditElement(null);
-                dispatchSelectAction(RELEASE_ACTION);
+                handleClose();
             };
 
             return (
@@ -249,8 +256,7 @@ const useRelationTooltip = (
             const updateArg = { relationId: relationView.relationId, orthogonalLines: [], changedIndex: 0 };
             documentsHolder.updateRelationOrthogonal([updateArg]);
 
-            setLineEditElement(null);
-            dispatchSelectAction(RELEASE_ACTION);
+            handleClose();
         };
 
         const handleLineOrthogonal = () => {
@@ -262,19 +268,18 @@ const useRelationTooltip = (
             const updateArg = { relationId: relationView.relationId, orthogonalLines, changedIndex: 0 };
             documentsHolder.updateRelationOrthogonal([updateArg]);
 
-            setLineEditElement(null);
-            dispatchSelectAction(RELEASE_ACTION);
+            handleClose();
         };
 
         return (
-            <Popover open={Boolean(lineEditElement)} anchorEl={lineEditElement}
+            <Popover open={Boolean(element)} anchorEl={element}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'center' }}
-                onClose={() => setLineEditElement(null)}>
-                <Stack direction="column" alignItems="center" justifyContent="flex-start"
-                    divider={<Divider flexItem />} >
-                    <Stack direction="row" alignItems="center">{widthButtons}</Stack>
-                    <Stack direction="row" alignItems="center">
+                onClose={handleClose}>
+                <Stack direction="column" divider={<Divider flexItem />}
+                    sx={{ alignItems: "center", justifyContent: "flex-start" }}>
+                    <Stack direction="row" sx={{ alignItems: "center" }}>{widthButtons}</Stack>
+                    <Stack direction="row" sx={{ alignItems: "center" }}>
                         <IconButton color={(lineView.lineType === "straight") ? "primary" : "default"}
                             disabled={relationModel.parentTableModelId === relationModel.childTableModelId}
                             onClick={handleLineStraight}>
@@ -290,6 +295,40 @@ const useRelationTooltip = (
         );
     };
 
+    const initLabelPopover = (element: HTMLElement | null) => {
+        if (element == null) {
+            return null;
+        }
+
+        const handleClose = () => {
+            setResetLabelElement(null);
+            dispatchSelectAction(RELEASE_ACTION);
+        };
+
+        const handleResetLabel = () => {
+            const relationModel = relationView.relationModel;
+            const nextLabelModel = new LabelViewModel({ label: relationModel.relationName })
+            const nextRelationView = new RelationViewModel({
+                ...relationView,
+                labelViewModel: nextLabelModel
+            });
+
+            const loggingMessage = `Reset relation label. relationId = ${relationView.relationId}`
+            documentsHolder.updateRelation(nextRelationView, loggingMessage);
+
+            handleClose();
+        };
+
+        return (
+            <Popover open={Boolean(element)} anchorEl={element}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                onClose={handleClose}>
+                <Button variant="text" sx={{ padding: "8px" }} onClick={handleResetLabel}>Reset label</Button>
+            </Popover>
+        );
+    };
+
     const tooltipStyle: React.CSSProperties = {
         position: "absolute",
         left: clickedPosition.x + 15,
@@ -300,9 +339,12 @@ const useRelationTooltip = (
         transform: `scale(${1 / displayScale})`,
     };
 
-    if (!toolbarCanvasRef.current) {
+    if (!toolbarCanvasElement) {
         return (<></>);
     }
+
+    const erdDocument = documentsHolder.current();
+    const erdSetting = erdDocument.erdSettingModel;
 
     return ReactDOM.createPortal((
         <ButtonGroup key={`relation-line_${relationView.relationId}_tooltip`}
@@ -321,14 +363,22 @@ const useRelationTooltip = (
                     <EditIcon />
                 </IconButton>
             </Tooltip>
+            {erdSetting.showRelationNames && (
+                <Tooltip title="Reset label" placement="top-end">
+                    <IconButton onClick={event => setResetLabelElement(event.currentTarget)}>
+                        <TextFormatIcon />
+                    </IconButton>
+                </Tooltip>
+            )}
             <Tooltip title="Delete relation" placement="top-end">
                 <IconButton onClick={() => setDeletingRelation(relationView)}>
                     <DeleteIcon />
                 </IconButton>
             </Tooltip>
             {initLinePopover(lineEditElement)}
+            {initLabelPopover(resetLabelElement)}
         </ButtonGroup >
-    ), toolbarCanvasRef.current);
+    ), toolbarCanvasElement);
 };
 
 type LineDragging = {
@@ -745,7 +795,7 @@ const useStraightLineView = (
                     data-erd-relation-child-table-id={relationModel.childTableModelId}>
                     <path d={lineSegment.drawingPath} className={cssClassName} fill="none"
                         stroke={lineViewModel.color.toRgba()} strokeWidth={lineViewModel.strokeWidth}
-                        markerStart={parentMarker} markerEnd={childMarker}/>
+                        markerStart={parentMarker} markerEnd={childMarker} />
                     {lineSegment.svgPaths}
                 </g>
             ),

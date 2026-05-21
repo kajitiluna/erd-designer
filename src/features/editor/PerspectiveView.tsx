@@ -168,7 +168,9 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
 
         return (
             <Stack key={`perspective-table_header-${perspectiveIndex}`}
-                direction="column" alignItems="center" justifyContent="center" sx={{
+                direction="column" sx={{
+                    alignItems: "center",
+                    justifyContent: "center",
                     ...BASE_CELL_STYLE,
                     ...initHeaderCellStyle(perspectiveIndex)
                 }} {...initRecordClickHandler(perspective)}>
@@ -182,11 +184,11 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
     };
 
     const tableHeader = (
-        <Stack direction="row" alignItems="center" justifyContent="flex-start">
+        <Stack direction="row" sx={{ alignItems: "center", justifyContent: "flex-start" }}>
             <Box sx={initHeaderStyle(25)}>Type</Box>
             <Box sx={initHeaderStyle(170)}>Name</Box>
             <Box ref={headerScrollRef} sx={{ overflow: "hidden" }}>
-                <Stack direction="row" alignItems="center" justifyContent="flex-start">
+                <Stack direction="row" sx={{ alignItems: "center", justifyContent: "flex-start" }}>
                     {perspectiveModels.map((perspective, index) =>
                         initRecordHeaderCell(perspective, index))}
                 </Stack>
@@ -195,7 +197,7 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
     );
 
     const attributeHeaders = (
-        <Stack direction="column" alignItems="center" justifyContent="flex-start">
+        <Stack direction="column" sx={{ alignItems: "center", justifyContent: "flex-start" }}>
             {tableViewModels.map((tableViewModel, index) => (
                 initAttributeHeadCell(`table-${index}`, "table", tableViewModel.tableModel.physicalName,
                     tableViewModel.headerColor.background, tableViewModel.headerColor.foreground)
@@ -282,7 +284,7 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
 
         return (
             <Stack key={`perspective-record_${perspective.perspectiveId}`}
-                direction="column" alignItems="center" justifyContent="center"
+                direction="column" sx={{ alignItems: "center", justifyContent: "center" }}
                 draggable={perspectiveModels.length > 1}
                 {...initDragEventHandler(perspectiveIndex)}>
                 {cells}
@@ -302,12 +304,12 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
         <Stack direction="column" sx={{ overflow: 'hidden' }}>
             {tableHeader}
             <Box sx={SCROLL_STYLE}>
-                <Stack direction="row" alignItems="flex-start" justifyContent="flex-start">
+                <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "flex-start" }}>
                     <Box sx={{ position: 'sticky', left: 0, zIndex: 1, borderRight: '1px solid #e0e0e0' }}>
                         {attributeHeaders}
                     </Box>
                     <Box ref={columnScrollRef} onScroll={handleScroll} sx={{ overflow: 'auto' }}>
-                        <Stack direction="row" alignItems="flex-start" justifyContent="flex-start">
+                        <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "flex-start" }}>
                             {perspectiveModels.map((perspectiveModel, index) =>
                                 initRecordBox(perspectiveModel, index))}
                         </Stack>
@@ -353,12 +355,12 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
     );
 
     const operationPanel = (
-        <Stack direction="row" justifyContent="space-between" sx={{ margin: 1, marginBottom: 0.5 }}>
+        <Stack direction="row" sx={{ justifyContent: "space-between", margin: 1, marginBottom: 0.5 }}>
             <EdgedIconButton tooltip="Add perspective" withText onClick={handleAddPerspective}>
                 <AddIcon />
             </EdgedIconButton>
 
-            <Stack justifyContent="flex-end" direction="row" spacing={2}>
+            <Stack direction="row" spacing={2} sx={{ justifyContent: "flex-end" }}>
                 <EdgedIconButton tooltip="Edit perspective" disabled={selectedIndex < 0}
                     onClick={() => setOpenEditDialog(true)}>
                     <EditIcon fontSize="small" />

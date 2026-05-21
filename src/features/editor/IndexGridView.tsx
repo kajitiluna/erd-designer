@@ -325,7 +325,7 @@ const IndexEditDialog = ({
                 <Stack spacing={3}>
                     <Divider />
                     {indexOptionPanel}
-                    <Stack direction="row" justifyContent="center" alignItems="center" spacing={2}>
+                    <Stack direction="row" spacing={2} sx={{ justifyContent: "center", alignItems: "center" }}>
                         <TextField id="physicalName" label="Physical Name" required fullWidth
                             variant="outlined" sx={{ flex: 1 }} value={physicalName}
                             onChange={initHandleChangePhysicalName(setPhysicalName)}

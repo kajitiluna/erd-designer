@@ -9,16 +9,15 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 
-import {
-    initHandleChangePhysicalName, initHandleCloseDialog, initHandleEnterKeyDown,
-    SELECTED_CELL_COLOR
-} from "~/features/editor/support";
-import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
-import ErdDocument from "~/models/ErdDocument";
 import DbSchemaModel from "~/models/database/DbSchemaModel";
-import { handlePreventMouseEvent } from "~/features/canvas/support";
 import DbSchemaConfig from "~/models/DbSchemaConfig";
+import ErdDocument from "~/models/ErdDocument";
 import EdgedIconButton from "~/components/EdgedIconButton";
+import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
+import {
+    initHandleChangePhysicalName, initHandleCloseDialog, initHandleEnterKeyDown, SELECTED_CELL_COLOR
+} from "~/features/editor/support";
+import { handlePreventMouseEvent } from "~/features/canvas/support";
 
 type DbSchemaViewProps = {
     isOpen: boolean;
@@ -207,12 +206,12 @@ const DbSchemaView = ({ isOpen, onClose }: DbSchemaViewProps) => {
     );
 
     const operationPanel = (
-        <Stack direction="row" justifyContent="space-between" sx={{ margin: 1, marginBottom: 0.5 }}>
+        <Stack direction="row" sx={{ justifyContent: "space-between", margin: 1, marginBottom: 0.5 }}>
             <EdgedIconButton tooltip="Add schema" withText onClick={handleAddSchema}>
                 <AddIcon />
             </EdgedIconButton>
 
-            <Stack justifyContent="flex-end" direction="row" spacing={2}>
+            <Stack direction="row" spacing={2} sx={{ justifyContent: "flex-end" }}>
                 <EdgedIconButton tooltip="Edit schema" disabled={selectedIndex < 0}
                     onClick={() => setOpenEditDialog(true)}>
                     <EditIcon fontSize="small" />

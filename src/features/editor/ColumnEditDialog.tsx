@@ -2,15 +2,13 @@ import { v4 as uuidV4 } from 'uuid';
 import React from "react";
 import {
     Accordion, AccordionDetails, AccordionSummary, Alert, Autocomplete, Box, Button, Checkbox,
-    Collapse, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider,
-    FormControlLabel, IconButton, Paper, Stack, TextField, Tooltip, Typography
+    Chip, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider,
+    FormControlLabel, Grid, IconButton, Paper, Stack, Tab, Tabs, TextField, Tooltip, Typography
 } from "@mui/material";
-import Grid from '@mui/material/Grid2';
 import SearchIcon from "@mui/icons-material/Search";
-import CloseIcon from "@mui/icons-material/Close";
 import ClearIcon from '@mui/icons-material/Clear';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined';
 
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
@@ -27,12 +25,14 @@ import {
 } from "~/features/editor/support";
 import { initOptionCollatePanel } from '~/features/editor/view-support';
 import SearchColumnShareModelDialog from '~/features/editor/SearchColumnShareModelDialog';
+import { overrideColumnName } from '~/models/database/support';
 
 type ColumnEditDialogProps = {
     isOpen: boolean,
     columnModel: ColumnModel,
     isEditableColumnType: (columnModel: ColumnModel) => boolean,
     onUpdateWrapColumnModels: (updateFunction: ((previous: ColumnWrapModel[]) => ColumnWrapModel[])) => void,
+    onUpdateCheckExpression: (updateFunction: ((previous: string) => string)) => void,
     onClose: () => void
 };
 
@@ -42,13 +42,15 @@ type ColumnTypeAttribute = {
     scale: string,
     unsigned: boolean,
     isArray: boolean,
+    description: string,
+    checkExpression: string,
     characterSet: string,
     collate: string,
     optionExpression: string
 }
 
 const ColumnEditDialog = ({
-    isOpen, columnModel, isEditableColumnType, onUpdateWrapColumnModels, onClose
+    isOpen, columnModel, isEditableColumnType, onUpdateWrapColumnModels, onUpdateCheckExpression, onClose
 }: ColumnEditDialogProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { columnShareModelStorage, updateStorage } = React.useContext(ColumnShareModelStorageContext);
@@ -74,7 +76,6 @@ const ColumnEditDialog = ({
     const [logicalName, setLogicalName] = React.useState<string>(columnShareModel ? columnShareModel.logicalName : "");
     const [columnTypeAttribute, setColumnTypeAttribute] =
         React.useState<ColumnTypeAttribute>(toColumnTypeAttribute(columnShareModel, database));
-    const [description, setDescription] = React.useState<string>(columnShareModel ? columnShareModel.description : "");
 
     const associateColumnModel = (columnShareModel: ColumnShareModel) => {
         const columnTypeAttribute = toColumnTypeAttribute(columnShareModel, database);
@@ -83,7 +84,6 @@ const ColumnEditDialog = ({
         setPhysicalName(columnShareModel.physicalName);
         setLogicalName(columnShareModel.logicalName);
         setColumnTypeAttribute(columnTypeAttribute);
-        setDescription(columnShareModel.description);
     };
 
     // 論理名が物理名と合致もしくは論理名が空の場合は、論理名に物理名の値を設定する
@@ -121,7 +121,6 @@ const ColumnEditDialog = ({
             columnShareModelId: columnShareModelId ? columnShareModelId : uuidV4(),
             physicalName: physicalName,
             logicalName: logicalName,
-            description: description,
             ...columnTypeAttribute,
             columnType: columnType,
             characterSet: (availableCollate && database.editableCharacterSet) ? columnTypeAttribute.characterSet : "",
@@ -141,22 +140,35 @@ const ColumnEditDialog = ({
             defaultValue: defaultValue
         });
 
-        onUpdateWrapColumnModels(previousColumnModels => {
-            const previousColumnModelIds = new Set(previousColumnModels
+        onUpdateWrapColumnModels(previousColumns => {
+            const previousColumnIds = new Set(previousColumns
                 .map(model => (model.modelType === "single") ? model.columnModel.columnModelId : null)
                 .filter(columnModelId => columnModelId != null) as string[]
             );
 
             // 新規の場合は追加
-            if (previousColumnModelIds.has(updatedModel.columnModelId) === false) {
-                return [...previousColumnModels, { modelType: "single", columnModel: updatedModel }];
+            if (previousColumnIds.has(updatedModel.columnModelId) === false) {
+                return [...previousColumns, { modelType: "single", columnModel: updatedModel }];
             }
 
-            return previousColumnModels.map(model =>
+            return previousColumns.map(model =>
                 ((model.modelType === "single") && (model.columnModel.columnModelId === updatedModel.columnModelId))
                     ? { modelType: "single", columnModel: updatedModel } : model
             );
         });
+
+        if (columnShareModel != null) {
+            const previousOverrideName = overrideColumnName(columnModel, columnShareModel);
+            const nextOverrideName = overrideColumnName(updatedModel, updatedShareModel);
+            if (previousOverrideName.physicalName !== nextOverrideName.physicalName) {
+                onUpdateCheckExpression(previous => {
+                    const previousPlaceholder = `\${${previousOverrideName.physicalName}}`;
+                    const nextPlaceholder = `\${${nextOverrideName.physicalName}}`;
+
+                    return previous.replaceAll(previousPlaceholder, nextPlaceholder);
+                });
+            }
+        }
 
         updateStorage(nextShareModelStorage);
         onClose();
@@ -201,27 +213,25 @@ const ColumnEditDialog = ({
         <Accordion defaultExpanded={(overriddenPhysicalName != "") || (overriddenLogicalName != "")}>
             <AccordionSummary id="override-names-header"
                 aria-controls="override-names-content" expandIcon={<ExpandMoreIcon />}>
-                <Stack direction="row" spacing={2} alignItems="center" width="100%">
+                <Stack direction="row" spacing={2} sx={{ alignItems: "center", width: "100%" }}>
                     <Typography variant="body2">Override Names (optional)</Typography>
-                    <Box display="flex" alignItems="center" justifyContent="center" height="100%">
+                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
                         <Tooltip placement="right" arrow title={messageForOverrideNames}>
-                            <HelpOutlineIcon fontSize="small" />
+                            <HelpOutlineOutlinedIcon fontSize="small" />
                         </Tooltip>
                     </Box>
                 </Stack>
             </AccordionSummary>
             <AccordionDetails>
                 <Stack direction="row" spacing={1}>
-                    <TextField id="overriddenPhysicalName" label="Physical Name"
-                        fullWidth variant="outlined" size="small" value={overriddenPhysicalName}
+                    <TextField label="Physical Name" fullWidth variant="outlined" size="small"
                         slotProps={initClearButton(overriddenPhysicalName, setOverriddenPhysicalName)}
-                        onChange={initHandleChangePhysicalName(setOverriddenPhysicalName)}
-                        onKeyDown={handleEnterDown} />
-                    <TextField id="overriddenLogicalName" label="Logical Name"
-                        fullWidth variant="outlined" size="small" value={overriddenLogicalName}
+                        value={overriddenPhysicalName} onKeyDown={handleEnterDown}
+                        onChange={initHandleChangePhysicalName(setOverriddenPhysicalName)} />
+                    <TextField label="Logical Name" fullWidth variant="outlined" size="small"
                         slotProps={initClearButton(overriddenLogicalName, setOverriddenLogicalName)}
-                        onChange={event => setOverriddenLogicalName(event.target.value)}
-                        onKeyDown={handleEnterDown} />
+                        value={overriddenLogicalName} onKeyDown={handleEnterDown}
+                        onChange={event => setOverriddenLogicalName(event.target.value)} />
                 </Stack>
             </AccordionDetails>
         </Accordion>
@@ -229,26 +239,20 @@ const ColumnEditDialog = ({
 
     const attributePanel = (
         <Paper elevation={4} sx={{ p: 2 }}>
-            <Stack spacing={3}>
+            <Stack useFlexGap spacing={3}>
                 <ColumnModelPanel
                     columnShareModelId={columnShareModelId}
                     associateColumnModel={associateColumnModel}
                     unlinkColumnModel={() => setColumnShareModelId("")} />
                 <Stack direction="row" spacing={1}>
-                    <TextField id="physicalName" label="Physical Name"
-                        required fullWidth variant="outlined" value={physicalName}
+                    <TextField label="Physical Name" required fullWidth variant="outlined" value={physicalName}
                         onChange={handleChangePhysicalName} onKeyDown={handleEnterDown} />
-                    <TextField id="logicalName" label="Logical Name"
-                        required fullWidth variant="outlined" value={logicalName}
-                        onChange={event => setLogicalName(event.target.value)}
-                        onKeyDown={handleEnterDown} />
+                    <TextField label="Logical Name" required fullWidth variant="outlined" value={logicalName}
+                        onChange={event => setLogicalName(event.target.value)} onKeyDown={handleEnterDown} />
                 </Stack>
                 <ColumnTypeEditPanel
-                    columnTypeAttribute={columnTypeAttribute} disabled={!editableColumnType}
+                    attribute={columnTypeAttribute} disabled={!editableColumnType}
                     updateColumnType={setColumnTypeAttribute} onEnterAction={handleEnterDown} />
-                <TextField variant="outlined" id="description" label="Description"
-                    multiline rows={3} slotProps={{ input: { style: { resize: 'vertical' } } }}
-                    value={description} onChange={event => setDescription(event.target.value)} />
             </Stack>
         </Paper>
     );
@@ -269,8 +273,8 @@ const ColumnEditDialog = ({
                         onInputChange={(_, newValue) => setDefaultValue(newValue ?? "")}
                         onChange={(_, newValue) => setDefaultValue(newValue ?? "")}
                         renderInput={params =>
-                            <TextField {...params} id="defaultValue" label="Default Value"
-                                variant="outlined" fullWidth />} />
+                            <TextField {...params} label="Default Value" variant="outlined" fullWidth />
+                        } />
                 </Stack>
             </DialogContent>
             <DialogActions>
@@ -293,6 +297,8 @@ const toColumnTypeAttribute = (columnShareModel: ColumnShareModel | null, databa
             scale: "",
             unsigned: false,
             isArray: false,
+            description: "",
+            checkExpression: "",
             characterSet: "",
             collate: "",
             optionExpression: ""
@@ -305,6 +311,8 @@ const toColumnTypeAttribute = (columnShareModel: ColumnShareModel | null, databa
         scale: columnShareModel.scale,
         unsigned: columnShareModel.unsigned,
         isArray: columnShareModel.isArray,
+        description: columnShareModel.description,
+        checkExpression: columnShareModel.checkExpression,
         characterSet: columnShareModel.characterSet(database),
         collate: columnShareModel.collate,
         optionExpression: columnShareModel.optionExpression
@@ -345,31 +353,28 @@ type ColumnModelPanelProps = {
 const ColumnModelPanel = ({ columnShareModelId, associateColumnModel, unlinkColumnModel }: ColumnModelPanelProps) => {
 
     const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
-    const columnShareModel = columnShareModelId ? columnShareModelStorage.find(columnShareModelId) : null;
 
     const [isOpenSearchDialog, setOpenSearchDialog] = React.useState<boolean>(false);
     const [isOpenUnlinkDialog, setOpenUnlinkDialog] = React.useState<boolean>(false);
 
-    const searchButton = (
-        <>
-            <EdgedIconButton
-                tooltip="Search for column model to be associated"
-                onClick={() => { setOpenSearchDialog(true) }}>
-                <SearchIcon />
-            </EdgedIconButton>
-            <SearchColumnShareModelDialog
-                isOpen={isOpenSearchDialog}
-                associateColumnModel={associateColumnModel}
-                onClose={() => setOpenSearchDialog(false)} />
-        </>
-    );
+    const columnShareModel = columnShareModelId ? columnShareModelStorage.find(columnShareModelId) : null;
+
+    const searchButton = (<>
+        <EdgedIconButton
+            tooltip="Search for column model to be associated"
+            onClick={() => { setOpenSearchDialog(true) }}>
+            <SearchIcon />
+        </EdgedIconButton>
+        <SearchColumnShareModelDialog
+            isOpen={isOpenSearchDialog}
+            associateColumnModel={associateColumnModel}
+            onClose={() => setOpenSearchDialog(false)} />
+    </>);
 
     if (columnShareModel == null) {
         return (
-            <Stack direction="row" alignItems="center" spacing={2}>
-                <Typography variant="body2">
-                    Create new column model.
-                </Typography>
+            <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+                <Typography variant="body2">Create new column :</Typography>
                 {searchButton}
             </Stack>
         );
@@ -385,16 +390,10 @@ const ColumnModelPanel = ({ columnShareModelId, associateColumnModel, unlinkColu
     };
 
     return (
-        <Stack direction="row" alignItems="center" spacing={2}>
-            <Typography variant="body2">
-                Associated with column model
-            </Typography>
-            <Typography variant="body1">{`'${columnShareModel.logicalName}'`}</Typography>
-            <EdgedIconButton
-                tooltip="Unrelated with column model"
-                onClick={handleOpenUnlinkDialog}>
-                <CloseIcon />
-            </EdgedIconButton>
+        <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+            <Typography variant="body2">Associated with :</Typography>
+            <Chip variant="outlined" color="primary" label={columnShareModel.logicalName}
+                onDelete={handleOpenUnlinkDialog} />
             {searchButton}
             <Dialog open={isOpenUnlinkDialog} onClose={handleCloseUnlinkDialog}>
                 <DialogTitle>Unlink column model?</DialogTitle>
@@ -416,20 +415,42 @@ const ColumnModelPanel = ({ columnShareModelId, associateColumnModel, unlinkColu
 };
 
 type ColumnTypeEditPanelProps = {
-    columnTypeAttribute: ColumnTypeAttribute,
-    disabled?: boolean,
+    attribute: ColumnTypeAttribute,
+    disabled: boolean,
     updateColumnType: (updateFunction: (previous: ColumnTypeAttribute) => ColumnTypeAttribute) => void,
-    onEnterAction?: (event: React.KeyboardEvent) => void
+    onEnterAction: (event: React.KeyboardEvent) => void
 };
 
-const ColumnTypeEditPanel = ({
-    columnTypeAttribute: attribute, disabled = false, updateColumnType, onEnterAction = () => { }
-}: ColumnTypeEditPanelProps) => {
+const ColumnTypeEditPanel = ({ attribute, disabled, updateColumnType, onEnterAction }: ColumnTypeEditPanelProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
 
-    const [optionExpanded, setOptionExpanded] = React.useState<boolean>(
-        (attribute.characterSet != "") || (attribute.collate != "") || (attribute.optionExpression != "")
-    );
+    const [tabIndex, setTabIndex] = React.useState<number>(0);
+    const baseEditPanel = useBaseEditPanel({ attribute, disabled, updateColumnType, onEnterAction });
+
+    const erdDocument: ErdDocument = documentsHolder.current();
+    const database = erdDocument.getDatabase();
+    const columnType = attribute.columnType;
+    const hasCheckExpression = (columnType != null) && (attribute.checkExpression !== "");
+    const hasOtherOption = attribute.characterSet || attribute.collate || attribute.optionExpression;
+
+    return (<>
+        <Tabs value={tabIndex} sx={{ mt: -1.5 }} onChange={(_, newValue) => setTabIndex(newValue)}>
+            <Tab label="Base" />
+            <Tab label={`Check${hasCheckExpression ? " (+)" : ""}`} disabled={columnType == null} />
+            <Tab label={`Other Option${hasOtherOption ? " (+)" : ""}`} disabled={columnType == null} />
+        </Tabs>
+        <div hidden={tabIndex !== 0}>{baseEditPanel}</div>
+        <div hidden={tabIndex !== 1}>{initCheckPanel({ attribute, disabled, updateColumnType })}</div>
+        <div hidden={tabIndex !== 2}>
+            {(columnType != null) && initExtraOptionPanel({
+                extraOption: attribute, disabled, database, columnType, onUpdateExtraOption: updateColumnType
+            })}
+        </div>
+    </>);
+};
+
+const useBaseEditPanel = ({ attribute, disabled, updateColumnType, onEnterAction }: ColumnTypeEditPanelProps) => {
+    const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
 
     const erdDocument: ErdDocument = documentsHolder.current();
     const databaseSetting: DatabaseSettingModel = erdDocument.databaseSettingModel
@@ -505,83 +526,78 @@ const ColumnTypeEditPanel = ({
         });
     };
 
+    const handleChangeDescription = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const inputValue = event.target.value;
+
+        updateColumnType(previous => {
+            if (previous.description === inputValue) {
+                return previous;
+            }
+
+            return { ...previous, description: inputValue };
+        });
+    };
+
     return (
-        <Grid container spacing={1}>
-            <Grid size={{ xs: 12, md: 5 }}>
-                <Autocomplete id="columnType" disableClearable disabled={disabled}
-                    renderInput={params => <TextField  {...params} label="Column Type" />}
-                    options={databaseSetting.columnTypes.map(columnType => {
-                        return { label: columnType.name, id: columnType.id }
-                    })}
-                    value={columnType ? { label: columnType.name, id: columnType.id } : { label: "", id: 0 }}
-                    isOptionEqualToValue={(option, value) => option.id === value.id}
-                    onChange={(_event, newValue) => handleChangeColumnType(newValue.id)}
-                />
-            </Grid>
-            <Grid size={{ xs: 3, md: 2 }}>
-                <TextField variant="outlined" id="precision" label="Precision" type="number"
-                    disabled={!editablePrecision || disabled} required={editablePrecision}
-                    error={editablePrecision && (attribute.precision === "")}
-                    value={attribute.precision} onChange={handleChangePrecision} onKeyDown={onEnterAction} />
-            </Grid>
-            <Grid size={{ xs: 3, md: 2 }}>
-                <TextField variant="outlined" id="scale" label="Scale" type="number"
-                    disabled={!editableScale || disabled} required={editableScale}
-                    error={editableScale && (attribute.scale === "")}
-                    value={attribute.scale} onChange={handleChangeScale} onKeyDown={onEnterAction} />
-            </Grid>
-            {editableUnsigned && (
-                <Grid size={{ xs: 4, md: 2 }}>
-                    <Box display="flex" alignItems="center" height="100%" sx={{ pl: 1 }}>
-                        <FormControlLabel label="unsigned" control={
-                            <Checkbox disabled={disabled} checked={attribute.unsigned}
-                                onChange={handleChangeUnsigned} />
-                        } />
-                    </Box>
+        <Stack spacing={3}>
+            <Grid container spacing={1}>
+                <Grid size={{ xs: 12, md: 5 }}>
+                    <Autocomplete disableClearable disabled={disabled}
+                        renderInput={params => <TextField  {...params} label="Column Type" />}
+                        options={databaseSetting.columnTypes.map(columnType => {
+                            return { label: columnType.name, id: columnType.id }
+                        })}
+                        value={columnType ? { label: columnType.name, id: columnType.id } : { label: "", id: 0 }}
+                        isOptionEqualToValue={(option, value) => option.id === value.id}
+                        onChange={(_event, newValue) => handleChangeColumnType(newValue.id)}
+                    />
                 </Grid>
-            )}
-            {editableArray && (
-                <Grid size={{ xs: 4, md: 2 }}>
-                    <Box display="flex" alignItems="center" height="100%" sx={{ pl: 1 }}>
-                        <FormControlLabel label="isArray" control={
-                            <Checkbox disabled={disabled} checked={attribute.isArray && editableArray}
-                                onChange={handleChangeArray} />
-                        } />
-                    </Box>
+                <Grid size={{ xs: 3, md: 2 }}>
+                    <TextField variant="outlined" label="Precision" type="number"
+                        disabled={!editablePrecision || disabled} required={editablePrecision}
+                        error={editablePrecision && (attribute.precision === "")}
+                        value={attribute.precision} onChange={handleChangePrecision} onKeyDown={onEnterAction} />
                 </Grid>
-            )}
-            {disabled && (
-                <Grid size={{ xs: 2, md: 1 }}>
-                    <Box display="flex" alignItems="center" justifyContent="center" height="100%">
-                        <Tooltip placement="left" arrow title={messageForForeignColumn}>
-                            <HelpOutlineIcon fontSize="small" />
-                        </Tooltip>
-                    </Box>
+                <Grid size={{ xs: 3, md: 2 }}>
+                    <TextField variant="outlined" label="Scale" type="number"
+                        disabled={!editableScale || disabled} required={editableScale}
+                        error={editableScale && (attribute.scale === "")}
+                        value={attribute.scale} onChange={handleChangeScale} onKeyDown={onEnterAction} />
                 </Grid>
-            )}
-            {!disabled && (
-                <Grid size={{ xs: 2, md: 1 }} offset="auto">
-                    <Box display="flex" alignItems="center" justifyContent="center" height="100%">
-                        <Tooltip placement="left" arrow title="Other option">
-                            <span>
-                                <IconButton disabled={columnType == null}
-                                    onClick={() => setOptionExpanded(previous => !previous)}>
-                                    <ExpandMoreIcon sx={{ transform: optionExpanded ? 'rotate(180deg)' : 'none' }} />
-                                </IconButton>
-                            </span>
-                        </Tooltip>
-                    </Box>
-                </Grid>
-            )}
-            <Grid size={{ xs: 12, md: 12 }}>
-                <Collapse in={(columnType != null) && optionExpanded}>
-                    {(columnType != null) && initExtraOptionPanel({
-                        extraOption: attribute, database, columnType,
-                        onUpdateExtraOption: updateColumnType
-                    })}
-                </Collapse>
+                {editableUnsigned && (
+                    <Grid size={{ xs: 4, md: 2 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", height: "100%", pl: 1 }}>
+                            <FormControlLabel label="unsigned" control={
+                                <Checkbox disabled={disabled} checked={attribute.unsigned}
+                                    onChange={handleChangeUnsigned} />
+                            } />
+                        </Box>
+                    </Grid>
+                )}
+                {editableArray && (
+                    <Grid size={{ xs: 4, md: 2 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", height: "100%", pl: 1 }}>
+                            <FormControlLabel label="isArray" control={
+                                <Checkbox disabled={disabled} checked={attribute.isArray && editableArray}
+                                    onChange={handleChangeArray} />
+                            } />
+                        </Box>
+                    </Grid>
+                )}
+                {disabled && (
+                    <Grid size={{ xs: 2, md: 1 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+                            <Tooltip placement="left" arrow title={messageForForeignColumn}>
+                                <HelpOutlineOutlinedIcon fontSize="small" />
+                            </Tooltip>
+                        </Box>
+                    </Grid>
+                )}
             </Grid>
-        </Grid>
+            <TextField variant="outlined" label="Description"
+                multiline rows={3} slotProps={{ input: { style: { resize: 'vertical' } } }}
+                value={attribute.description} onChange={handleChangeDescription} />
+        </Stack>
     );
 };
 
@@ -589,15 +605,47 @@ const messageForForeignColumn =
     "Unable to change column type: the column is set as a foreign key." +
     " Please remove the relation to proceed."
 
+type ColumnCheckPanelProps = Omit<ColumnTypeEditPanelProps, "onEnterAction">;
+
+const initCheckPanel = ({ attribute, disabled, updateColumnType }: ColumnCheckPanelProps) => {
+
+    const handleChangeCheckExpression = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const inputValue = event.target.value;
+
+        updateColumnType(previous => {
+            if (previous.checkExpression === inputValue) {
+                return previous;
+            }
+
+            return { ...previous, checkExpression: inputValue };
+        });
+    }
+
+    return (
+        <Stack direction="column" spacing={2}>
+            <TextField label="Check Expression" size="small" disabled={disabled} fullWidth variant="outlined"
+                multiline minRows={3} value={attribute.checkExpression} onChange={handleChangeCheckExpression} />
+            <Alert severity="info" variant="outlined">
+                <Typography variant="body2" gutterBottom>
+                    Use {"${this}"} as a placeholder for this column&apos;s physical name.
+                    When exporting DDL, it is replaced with the actual column name —
+                    so the expression stays correct even if the column is renamed.
+                </Typography>
+            </Alert>
+        </Stack>
+    );
+};
+
 type ColumnExtraOptionPanelProps = {
     extraOption: ColumnTypeAttribute,
+    disabled: boolean,
     database: Database,
     columnType: ColumnType,
     onUpdateExtraOption: (updateFunction: (previous: ColumnTypeAttribute) => ColumnTypeAttribute) => void
 };
 
 const initExtraOptionPanel = ({
-    extraOption, database, columnType, onUpdateExtraOption
+    extraOption, disabled, database, columnType, onUpdateExtraOption
 }: ColumnExtraOptionPanelProps) => {
 
     const handleChangeOptionExpression = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -612,9 +660,10 @@ const initExtraOptionPanel = ({
     };
 
     return (
-        <Stack direction="column" spacing={2} sx={{ paddingTop: 2, paddingLeft: 2, paddingRight: 2 }}>
-            <Typography variant="subtitle2">Other Column Option</Typography>
-            {initOptionCollatePanel({ optionType: "column", extraOption, database, columnType, onUpdateExtraOption })}
+        <Stack direction="column" spacing={2}>
+            {initOptionCollatePanel({
+                optionType: "column", extraOption, disabled, database, columnType, onUpdateExtraOption
+            })}
 
             <Alert variant="outlined" severity="warning">
                 <Typography variant="body2" sx={{ paddingBottom: 2 }}>
@@ -623,11 +672,11 @@ const initExtraOptionPanel = ({
                     for your database before use.
                 </Typography>
                 <Stack direction="column">
-                    <Typography variant="subtitle2" color="text.primary">Other Option Expression</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="subtitle2" sx={{ color: "text.primary" }}>Other Option Expression</Typography>
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         Appended after the column definition in exported DDL:
                     </Typography>
-                    <TextField id="extraOptionExpression" size="small" fullWidth variant="outlined" multiline minRows={2}
+                    <TextField size="small" disabled={disabled} fullWidth variant="outlined" multiline minRows={2}
                         value={extraOption.optionExpression} onChange={handleChangeOptionExpression} />
                 </Stack>
             </Alert>

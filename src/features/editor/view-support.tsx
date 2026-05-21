@@ -17,7 +17,7 @@ export const initGridColumnHeaders = (
     // ヘッダータイトル
     const keyIconHeaderStyle = initGridColumnHeaderStyle(10);
     const headerTitle = (
-        <Stack direction="row" alignItems="center">
+        <Stack direction="row" sx={{ alignItems: "center" }}>
             <Box sx={keyIconHeaderStyle}>PK</Box>
             <Box sx={keyIconHeaderStyle}>FK</Box>
             <Box sx={initGridColumnHeaderStyle(200)}>Physical Name</Box>
@@ -44,7 +44,7 @@ export const initGridColumnHeaders = (
             key: columnModel.columnModelId,
             content: (
                 <Stack key={`attribute-header_${columnModel.columnModelId}`}
-                    direction="row" alignItems="center">
+                    direction="row" sx={{ alignItems: "center" }}>
                     <Box sx={initGridColumnTitleStyle(10, true)}>
                         {columnModel.primaryKey && <PrimaryKeyIcon />}
                     </Box>
@@ -94,6 +94,7 @@ type ExtraOptionPanelProps<EXTRA_OPTION extends ExtraOption> = {
 } | {
     optionType: "column",
     extraOption: EXTRA_OPTION,
+    disabled: boolean,
     database: Database,
     columnType: ColumnType,
     onUpdateExtraOption: (updateFunction: (prevOptions: EXTRA_OPTION) => EXTRA_OPTION) => void
@@ -132,13 +133,17 @@ export const initOptionCollatePanel = <EXTRA_OPTION extends ExtraOption>(
         });
     }, database.collatePattern);
 
+    const disabled = (optionType === "column") && props.disabled;
+
     return (
         <Stack direction="row" spacing={1}>
             {database.editableCharacterSet && (
-                <TextField id="extraOptionCharset" label="Character Set" size="small" fullWidth variant="outlined"
+                <TextField id="extraOptionCharset" label="Character Set" disabled={disabled}
+                    size="small" fullWidth variant="outlined"
                     value={extraOption.characterSet} onChange={handleChangeCharacterSet} />
             )}
-            <TextField id="extraOptionCollate" label="Collate" size="small" fullWidth variant="outlined"
+            <TextField id="extraOptionCollate" label="Collate" disabled={disabled}
+                size="small" fullWidth variant="outlined"
                 value={extraOption.collate} onChange={handleChangeCollate} />
         </Stack>
     );

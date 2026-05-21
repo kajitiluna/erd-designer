@@ -74,7 +74,8 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
                             availableColumnGroup={false}
                             isChildRelation={() => false}
                             isEditableColumnType={() => true}
-                            onUpdateColumnWrapModels={setColumnWrapModels} />
+                            onUpdateColumnWrapModels={setColumnWrapModels}
+                            onUpdateCheckExpression={() => {}} />
                         <TextField variant="outlined" id="description" label="Description" multiline rows={3}
                             sx={{ '& .MuiInputBase-root': { resize: 'vertical', overflow: 'auto' } }}
                             value={description} onChange={(event) => setDescription(event.target.value)} />
