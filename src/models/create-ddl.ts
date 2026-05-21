@@ -185,7 +185,7 @@ class DatabaseDdlCreator {
             return [overrideName.physicalName, this.escape(overrideName.physicalName)];
         }));
 
-        return checkExpression.replace(/\$\{([a-zA-Z][a-zA-Z0-9_]*)\}/g, (_, name) => {
+        return checkExpression.replace(/\$\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g, (_, name) => {
             return nameMap.get(name) ?? `\${${name}}`;
         });
     }
