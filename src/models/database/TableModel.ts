@@ -85,16 +85,16 @@ export default class TableModel {
     }
 
     public updateCheckExpression(
-        chaingingNames: { previousName: { physicalName: string }, nextName: { physicalName: string } }[]
+        changingNames: { previousName: { physicalName: string }, nextName: { physicalName: string } }[]
     ): TableModel {
-        if ((this.checkExpression === "") || (chaingingNames.length === 0)) {
+        if ((this.checkExpression === "") || (changingNames.length === 0)) {
             return this;
         }
 
         let nextExpression = this.checkExpression;
-        for (const changingName of chaingingNames) {
-            const before = `\$\{${changingName.previousName.physicalName}\}`;
-            const after = `\$\{${changingName.nextName.physicalName}\}`;
+        for (const changingName of changingNames) {
+            const before = `\${${changingName.previousName.physicalName}}`;
+            const after = `\${${changingName.nextName.physicalName}}`;
             nextExpression = nextExpression.replaceAll(before, after);
         }
 
