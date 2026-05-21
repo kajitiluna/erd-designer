@@ -224,16 +224,14 @@ const ColumnEditDialog = ({
             </AccordionSummary>
             <AccordionDetails>
                 <Stack direction="row" spacing={1}>
-                    <TextField id="overriddenPhysicalName" label="Physical Name"
-                        fullWidth variant="outlined" size="small" value={overriddenPhysicalName}
+                    <TextField label="Physical Name" fullWidth variant="outlined" size="small"
                         slotProps={initClearButton(overriddenPhysicalName, setOverriddenPhysicalName)}
-                        onChange={initHandleChangePhysicalName(setOverriddenPhysicalName)}
-                        onKeyDown={handleEnterDown} />
-                    <TextField id="overriddenLogicalName" label="Logical Name"
-                        fullWidth variant="outlined" size="small" value={overriddenLogicalName}
+                        value={overriddenPhysicalName} onKeyDown={handleEnterDown}
+                        onChange={initHandleChangePhysicalName(setOverriddenPhysicalName)} />
+                    <TextField label="Logical Name" fullWidth variant="outlined" size="small"
                         slotProps={initClearButton(overriddenLogicalName, setOverriddenLogicalName)}
-                        onChange={event => setOverriddenLogicalName(event.target.value)}
-                        onKeyDown={handleEnterDown} />
+                        value={overriddenLogicalName} onKeyDown={handleEnterDown}
+                        onChange={event => setOverriddenLogicalName(event.target.value)} />
                 </Stack>
             </AccordionDetails>
         </Accordion>
@@ -247,13 +245,10 @@ const ColumnEditDialog = ({
                     associateColumnModel={associateColumnModel}
                     unlinkColumnModel={() => setColumnShareModelId("")} />
                 <Stack direction="row" spacing={1}>
-                    <TextField id="physicalName" label="Physical Name"
-                        required fullWidth variant="outlined" value={physicalName}
+                    <TextField label="Physical Name" required fullWidth variant="outlined" value={physicalName}
                         onChange={handleChangePhysicalName} onKeyDown={handleEnterDown} />
-                    <TextField id="logicalName" label="Logical Name"
-                        required fullWidth variant="outlined" value={logicalName}
-                        onChange={event => setLogicalName(event.target.value)}
-                        onKeyDown={handleEnterDown} />
+                    <TextField label="Logical Name" required fullWidth variant="outlined" value={logicalName}
+                        onChange={event => setLogicalName(event.target.value)} onKeyDown={handleEnterDown} />
                 </Stack>
                 <ColumnTypeEditPanel
                     attribute={columnTypeAttribute} disabled={!editableColumnType}
@@ -278,8 +273,8 @@ const ColumnEditDialog = ({
                         onInputChange={(_, newValue) => setDefaultValue(newValue ?? "")}
                         onChange={(_, newValue) => setDefaultValue(newValue ?? "")}
                         renderInput={params =>
-                            <TextField {...params} id="defaultValue" label="Default Value"
-                                variant="outlined" fullWidth />} />
+                            <TextField {...params} label="Default Value" variant="outlined" fullWidth />
+                        } />
                 </Stack>
             </DialogContent>
             <DialogActions>
@@ -547,7 +542,7 @@ const useBaseEditPanel = ({ attribute, disabled, updateColumnType, onEnterAction
         <Stack spacing={3}>
             <Grid container spacing={1}>
                 <Grid size={{ xs: 12, md: 5 }}>
-                    <Autocomplete id="columnType" disableClearable disabled={disabled}
+                    <Autocomplete disableClearable disabled={disabled}
                         renderInput={params => <TextField  {...params} label="Column Type" />}
                         options={databaseSetting.columnTypes.map(columnType => {
                             return { label: columnType.name, id: columnType.id }
@@ -558,13 +553,13 @@ const useBaseEditPanel = ({ attribute, disabled, updateColumnType, onEnterAction
                     />
                 </Grid>
                 <Grid size={{ xs: 3, md: 2 }}>
-                    <TextField variant="outlined" id="precision" label="Precision" type="number"
+                    <TextField variant="outlined" label="Precision" type="number"
                         disabled={!editablePrecision || disabled} required={editablePrecision}
                         error={editablePrecision && (attribute.precision === "")}
                         value={attribute.precision} onChange={handleChangePrecision} onKeyDown={onEnterAction} />
                 </Grid>
                 <Grid size={{ xs: 3, md: 2 }}>
-                    <TextField variant="outlined" id="scale" label="Scale" type="number"
+                    <TextField variant="outlined" label="Scale" type="number"
                         disabled={!editableScale || disabled} required={editableScale}
                         error={editableScale && (attribute.scale === "")}
                         value={attribute.scale} onChange={handleChangeScale} onKeyDown={onEnterAction} />
@@ -599,7 +594,7 @@ const useBaseEditPanel = ({ attribute, disabled, updateColumnType, onEnterAction
                     </Grid>
                 )}
             </Grid>
-            <TextField variant="outlined" id="description" label="Description"
+            <TextField variant="outlined" label="Description"
                 multiline rows={3} slotProps={{ input: { style: { resize: 'vertical' } } }}
                 value={attribute.description} onChange={handleChangeDescription} />
         </Stack>
@@ -628,9 +623,8 @@ const initCheckPanel = ({ attribute, disabled, updateColumnType }: ColumnCheckPa
 
     return (
         <Stack direction="column" spacing={2}>
-            <TextField id="checkExpression" label="Check Expression" size="small" disabled={disabled}
-                fullWidth variant="outlined" multiline minRows={3}
-                value={attribute.checkExpression} onChange={handleChangeCheckExpression} />
+            <TextField label="Check Expression" size="small" disabled={disabled} fullWidth variant="outlined"
+                multiline minRows={3} value={attribute.checkExpression} onChange={handleChangeCheckExpression} />
             <Alert severity="info" variant="outlined">
                 <Typography variant="body2" gutterBottom>
                     Use {"${this}"} as a placeholder for this column&apos;s physical name.
@@ -682,8 +676,7 @@ const initExtraOptionPanel = ({
                     <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         Appended after the column definition in exported DDL:
                     </Typography>
-                    <TextField id="extraOptionExpression" size="small" disabled={disabled}
-                        fullWidth variant="outlined" multiline minRows={2}
+                    <TextField size="small" disabled={disabled} fullWidth variant="outlined" multiline minRows={2}
                         value={extraOption.optionExpression} onChange={handleChangeOptionExpression} />
                 </Stack>
             </Alert>

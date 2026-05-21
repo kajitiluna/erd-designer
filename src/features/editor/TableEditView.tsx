@@ -233,8 +233,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
         </div>
         <div hidden={tabIndex !== 3}>
             <Stack direction="column" spacing={2}>
-                <TextField id="checkExpression" label="Check Expression" size="small"
-                    fullWidth variant="outlined" multiline minRows={4}
+                <TextField label="Check Expression" size="small" fullWidth variant="outlined" multiline minRows={4}
                     value={checkExpression} onChange={event => setCheckExpression(event.target.value)} />
                 <Alert severity="info" variant="outlined">
                     <Typography variant="body2" gutterBottom>{explanationForExpression}</Typography>
@@ -259,8 +258,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
                         <Divider />
                         {definitionPanel}
                         {tabPanel}
-                        <TextField variant="outlined"
-                            id="description" label="Description" multiline rows={3}
+                        <TextField variant="outlined" label="Description" multiline rows={3}
                             sx={{ '& .MuiInputBase-root': { resize: 'vertical', overflow: 'auto' } }}
                             value={description} onChange={(event) => setDescription(event.target.value)} />
                     </Stack>
@@ -363,7 +361,7 @@ const initExtraOptionPanel = ({ extraOption, database, onUpdateExtraOption }: Ta
                         {'`CREATE TABLE ( ... <expression>) ...`'}
                     </Typography>
                 </Stack>
-                <TextField id="extraDefinitionExpression" size="small" fullWidth variant="outlined" multiline minRows={2}
+                <TextField size="small" fullWidth variant="outlined" multiline minRows={2}
                     value={extraOption.definitionExpression} onChange={handleChangeDefinitionExpression} />
             </Stack>
 
@@ -377,7 +375,7 @@ const initExtraOptionPanel = ({ extraOption, database, onUpdateExtraOption }: Ta
                         {'`CREATE TABLE ( ... ) ... <expression>`'}
                     </Typography>
                 </Stack>
-                <TextField id="extraOptionExpression" size="small" fullWidth variant="outlined" multiline minRows={2}
+                <TextField size="small" fullWidth variant="outlined" multiline minRows={2}
                     value={extraOption.optionExpression} onChange={handleChangeOptionExpression} />
             </Stack>
         </Stack>
