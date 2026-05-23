@@ -116,7 +116,7 @@ const ExportDdlView = ({ documentsHolder, isViewOpen, onClose }: ExportDdlViewPr
                         </FormControl>
                     </Grid>
                     <Grid size={{ xs: 3 }} sx={{ textAlign: "right", paddingRight: 2 }}>
-                        <Typography variant="body2" color={disabledSeparator ? "textSecondary" : ""}>
+                        <Typography variant="body2" color={disabledSeparator ? "textSecondary" : "textPrimary"}>
                             Comment separator :
                         </Typography>
                     </Grid>

@@ -1,17 +1,17 @@
 import { PropertyNotExistsError } from "~/models/exceptions";
 
+export type DdlCommentStyle = "logical_name" | "with_description";
+
 type ExportDdlSettingModelOptions = {
     fileName: string,
     withTable?: boolean,
     withIndex?: boolean,
     withForeignKey?: boolean,
     withSchema?: boolean,
-    withComment?: boolean
-    commentStyle?: "logical_name" | "with_description"
-    commentSeparator?: string
+    withComment?: boolean,
+    commentStyle?: DdlCommentStyle,
+    commentSeparator?: string,
 };
-
-export type DdlCommentStyle = "logical_name" | "with_description";
 
 export default class ExportDdlSettingModel {
 
@@ -92,7 +92,7 @@ export default class ExportDdlSettingModel {
         const withSchema = ("withSchema" in obj) ? obj.withSchema as boolean : false;
         const withComment = ("withComment" in obj) ? obj.withComment as boolean : true;
         const commentStyle = ("commentStyle" in obj) ? obj.commentStyle as DdlCommentStyle : "logical_name";
-        const commentSeparator = ("commentSeparator" in obj) ? obj.commentSeparator as string : ":";
+        const commentSeparator = ("commentSeparator" in obj) ? obj.commentSeparator as string : " : ";
 
         return new ExportDdlSettingModel({
             fileName: obj.fileName as string,

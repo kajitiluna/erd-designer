@@ -636,7 +636,7 @@ const initColumnCommentQueryForPostgres = (
 };
 
 const escapeComment = (comment: string) => {
-    return comment.replace("'", '"');
+    return comment.replaceAll("'", '"');
 };
 
 const exportConfigs: { [key in DatabaseType]: DatabaseDdlCreator } = {
