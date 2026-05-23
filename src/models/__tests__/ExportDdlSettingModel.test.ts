@@ -262,7 +262,7 @@ describe('ExportDdlSettingModel', () => {
             const model = ExportDdlSettingModel.toObject(obj);
 
             expect(model.commentStyle).toBe('logical_name');
-            expect(model.commentSeparator).toBe(':');
+            expect(model.commentSeparator).toBe(' : ');
         });
 
         test('should convert from plain object with missing optional properties (defaults to true)', () => {
