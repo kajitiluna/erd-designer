@@ -598,8 +598,11 @@ const initCallbackForExportDdl = (
             withTable: exportDdlSetting?.withTable ?? exportSetting.withTable,
             withIndex: exportDdlSetting?.withIndex ?? exportSetting.withIndex,
             withForeignKey: exportDdlSetting?.withForeignKey ?? exportSetting.withForeignKey,
+            withSchema: exportDdlSetting?.withSchema ?? exportSetting.withSchema,
             withComment: exportDdlSetting?.withComment ?? exportSetting.withComment,
-            withSchema: exportDdlSetting?.withSchema ?? exportSetting.withSchema
+            // TODO
+            commentStyle: "logical_name",
+            commentSeparator: ""
         });
 
         return {
