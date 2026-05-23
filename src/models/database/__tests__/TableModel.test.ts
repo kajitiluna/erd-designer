@@ -110,6 +110,18 @@ describe('TableModel', () => {
             expect(model.optionExpression).toBe('OPT EXPR');
         });
 
+        test('should set checkExpression to empty string by default', () => {
+            const model = new TableModel({});
+
+            expect(model.checkExpression).toBe('');
+        });
+
+        test('should set and trim checkExpression when provided', () => {
+            const model = new TableModel({ checkExpression: '  ${col} > 0  ' });
+
+            expect(model.checkExpression).toBe('${col} > 0');
+        });
+
         test('should set schemaId when provided', () => {
             const schemaId = 'test-schema';
             const model = new TableModel({ schemaId });
@@ -423,6 +435,13 @@ describe('TableModel', () => {
             expect(model1.equals(model2)).toBe(false);
         });
 
+        test('should return false for different checkExpression', () => {
+            const model1 = new TableModel({ checkExpression: '${col} > 0' });
+            const model2 = new TableModel({ checkExpression: '${col} > 1' });
+
+            expect(model1.equals(model2)).toBe(false);
+        });
+
         test('should return false for different characterSet', () => {
             const model1 = new TableModel({ characterSet: 'utf8mb4' });
             const model2 = new TableModel({ characterSet: 'utf8' });
@@ -536,6 +555,31 @@ describe('TableModel', () => {
             const json = model.toJSON();
 
             expect(json).not.toHaveProperty('description');
+        });
+
+        test('should omit empty checkExpression from JSON', () => {
+            const model = new TableModel({
+                tableModelId: 'test-id',
+                physicalName: 'test_table',
+                logicalName: 'Test Table'
+            });
+
+            const json = model.toJSON();
+
+            expect(json).not.toHaveProperty('checkExpression');
+        });
+
+        test('should include checkExpression in JSON when set', () => {
+            const model = new TableModel({
+                tableModelId: 'test-id',
+                physicalName: 'test_table',
+                logicalName: 'Test Table',
+                checkExpression: '${col} > 0'
+            });
+
+            const json = model.toJSON();
+
+            expect(json.checkExpression).toBe('${col} > 0');
         });
 
         test('should handle group columns in columnModelIds', () => {
@@ -766,6 +810,115 @@ describe('TableModel', () => {
             expect(model.collate).toBe('utf8mb4_unicode_ci');
             expect(model.definitionExpression).toBe('DEF EXPR');
             expect(model.optionExpression).toBe('OPT EXPR');
+        });
+
+        test('should deserialize checkExpression', () => {
+            const jsonData = {
+                tableModelId: 'test-id',
+                physicalName: 'test_table',
+                logicalName: 'Test Table',
+                columnModelIds: [],
+                checkExpression: '${col} > 0'
+            };
+
+            const model = TableModel.toObject(jsonData);
+
+            expect(model.checkExpression).toBe('${col} > 0');
+        });
+
+        test('should default checkExpression to empty string when missing', () => {
+            const jsonData = {
+                tableModelId: 'test-id',
+                physicalName: 'test_table',
+                logicalName: 'Test Table',
+                columnModelIds: []
+            };
+
+            const model = TableModel.toObject(jsonData);
+
+            expect(model.checkExpression).toBe('');
+        });
+    });
+
+    describe('updateCheckExpression', () => {
+        test('should return same instance when checkExpression is empty', () => {
+            const model = new TableModel({ checkExpression: '' });
+
+            const result = model.updateCheckExpression([
+                { previousName: { physicalName: 'col' }, nextName: { physicalName: 'new_col' } }
+            ]);
+
+            expect(result).toBe(model);
+        });
+
+        test('should return same instance when changingNames is empty', () => {
+            const model = new TableModel({ checkExpression: '${col} > 0' });
+
+            const result = model.updateCheckExpression([]);
+
+            expect(result).toBe(model);
+        });
+
+        test('should return same instance when no placeholder matches', () => {
+            const model = new TableModel({ checkExpression: '${col} > 0' });
+
+            const result = model.updateCheckExpression([
+                { previousName: { physicalName: 'other' }, nextName: { physicalName: 'new_other' } }
+            ]);
+
+            expect(result).toBe(model);
+        });
+
+        test('should replace matching placeholder with new column name', () => {
+            const model = new TableModel({ checkExpression: '${col} > 0' });
+
+            const result = model.updateCheckExpression([
+                { previousName: { physicalName: 'col' }, nextName: { physicalName: 'new_col' } }
+            ]);
+
+            expect(result).not.toBe(model);
+            expect(result.checkExpression).toBe('${new_col} > 0');
+        });
+
+        test('should replace all occurrences of the matching placeholder', () => {
+            const model = new TableModel({ checkExpression: '${col} > 0 AND ${col} < 100' });
+
+            const result = model.updateCheckExpression([
+                { previousName: { physicalName: 'col' }, nextName: { physicalName: 'amount' } }
+            ]);
+
+            expect(result.checkExpression).toBe('${amount} > 0 AND ${amount} < 100');
+        });
+
+        test('should handle multiple column name replacements', () => {
+            const model = new TableModel({ checkExpression: '${a} > 0 AND ${b} < 100' });
+
+            const result = model.updateCheckExpression([
+                { previousName: { physicalName: 'a' }, nextName: { physicalName: 'col_a' } },
+                { previousName: { physicalName: 'b' }, nextName: { physicalName: 'col_b' } }
+            ]);
+
+            expect(result.checkExpression).toBe('${col_a} > 0 AND ${col_b} < 100');
+        });
+
+        test('should preserve other properties after update', () => {
+            const model = new TableModel({
+                tableModelId: 'test-id',
+                physicalName: 'test_table',
+                logicalName: 'Test Table',
+                description: 'desc',
+                checkExpression: '${col} > 0'
+            });
+
+            const result = model.updateCheckExpression([
+                { previousName: { physicalName: 'col' }, nextName: { physicalName: 'new_col' } }
+            ]);
+
+            expect(result.tableModelId).toBe('test-id');
+            expect(result.physicalName).toBe('test_table');
+            expect(result.logicalName).toBe('Test Table');
+            expect(result.description).toBe('desc');
+            expect(result.checkExpression).toBe('${new_col} > 0');
         });
     });
 

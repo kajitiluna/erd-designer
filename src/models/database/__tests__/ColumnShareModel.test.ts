@@ -71,6 +71,7 @@ describe('ColumnShareModel', () => {
             expect(model.scale).toBe('');
             expect(model.unsigned).toBe(false);
             expect(model.description).toBe('');
+            expect(model.checkExpression).toBe('');
             expect(model.characterSet(Database.get('mysql'))).toBe('');
             expect(model.collate).toBe('');
             expect(model.optionExpression).toBe('');
@@ -142,6 +143,18 @@ describe('ColumnShareModel', () => {
             expect(model.characterSet(Database.get('mysql'))).toBe('utf8mb4');
             expect(model.collate).toBe('utf8mb4_unicode_ci');
             expect(model.optionExpression).toBe('opt expr');
+        });
+
+        test('should set and trim checkExpression when provided', () => {
+            const model = new ColumnShareModel({
+                columnShareModelId: 'test-id',
+                physicalName: 'test_column',
+                logicalName: 'Test Column',
+                columnType: mockWithoutUnsigned,
+                checkExpression: '  ${col} > 0  '
+            });
+
+            expect(model.checkExpression).toBe('${col} > 0');
         });
     });
 
@@ -366,6 +379,25 @@ describe('ColumnShareModel', () => {
 
             expect(model1.equals(model2)).toBe(false);
         });
+
+        test('should return false for different checkExpression', () => {
+            const model1 = new ColumnShareModel({
+                columnShareModelId: 'test-id',
+                physicalName: 'test_column',
+                logicalName: 'Test Column',
+                columnType: mockWithoutUnsigned,
+                checkExpression: '${col} > 0'
+            });
+            const model2 = new ColumnShareModel({
+                columnShareModelId: 'test-id',
+                physicalName: 'test_column',
+                logicalName: 'Test Column',
+                columnType: mockWithoutUnsigned,
+                checkExpression: '${col} > 1'
+            });
+
+            expect(model1.equals(model2)).toBe(false);
+        });
     });
 
     describe('toJSON', () => {
@@ -419,6 +451,7 @@ describe('ColumnShareModel', () => {
             expect(json).not.toHaveProperty('unsigned');
             expect(json).not.toHaveProperty('isArray');
             expect(json).not.toHaveProperty('description');
+            expect(json).not.toHaveProperty('checkExpression');
             expect(json).not.toHaveProperty('characterSet');
             expect(json).not.toHaveProperty('collate');
             expect(json).not.toHaveProperty('optionExpression');
@@ -462,6 +495,20 @@ describe('ColumnShareModel', () => {
             expect(json.characterSet).toBe('utf8mb4');
             expect(json.collate).toBe('utf8mb4_unicode_ci');
             expect(json.optionExpression).toBe('opt expr');
+        });
+
+        test('should include checkExpression in JSON when set', () => {
+            const model = new ColumnShareModel({
+                columnShareModelId: 'test-id',
+                physicalName: 'test_column',
+                logicalName: 'Test Column',
+                columnType: mockWithoutUnsigned,
+                checkExpression: '${col} > 0'
+            });
+
+            const json = model.toJSON();
+
+            expect(json.checkExpression).toBe('${col} > 0');
         });
     });
 
@@ -523,6 +570,7 @@ describe('ColumnShareModel', () => {
             expect(model.unsigned).toBe(false);
             expect(model.isArray).toBe(false);
             expect(model.description).toBe('');
+            expect(model.checkExpression).toBe('');
             expect(model.characterSet(Database.get('mysql'))).toBe('');
             expect(model.collate).toBe('');
             expect(model.optionExpression).toBe('');

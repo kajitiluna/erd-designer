@@ -12,6 +12,8 @@ describe('ExportDdlSettingModel', () => {
             expect(model.withForeignKey).toBe(true);
             expect(model.withComment).toBe(true);
             expect(model.withSchema).toBe(true);
+            expect(model.commentStyle).toBe('logical_name');
+            expect(model.commentSeparator).toBe(' : ');
         });
 
         test('should create with all values provided', () => {
@@ -21,7 +23,9 @@ describe('ExportDdlSettingModel', () => {
                 withIndex: false,
                 withForeignKey: false,
                 withComment: false,
-                withSchema: false
+                withSchema: false,
+                commentStyle: 'with_description',
+                commentSeparator: ' - '
             });
 
             expect(model.fileName).toBe('custom.sql');
@@ -30,6 +34,8 @@ describe('ExportDdlSettingModel', () => {
             expect(model.withForeignKey).toBe(false);
             expect(model.withComment).toBe(false);
             expect(model.withSchema).toBe(false);
+            expect(model.commentStyle).toBe('with_description');
+            expect(model.commentSeparator).toBe(' - ');
         });
 
         test('should create with partial values (some true, some false)', () => {
@@ -79,7 +85,9 @@ describe('ExportDdlSettingModel', () => {
                 withIndex: false,
                 withForeignKey: true,
                 withComment: false,
-                withSchema: true
+                withSchema: true,
+                commentStyle: 'logical_name',
+                commentSeparator: ' : '
             });
 
             const setting2 = new ExportDdlSettingModel({
@@ -88,10 +96,26 @@ describe('ExportDdlSettingModel', () => {
                 withIndex: false,
                 withForeignKey: true,
                 withComment: false,
-                withSchema: true
+                withSchema: true,
+                commentStyle: 'logical_name',
+                commentSeparator: ' : '
             });
 
             expect(setting1.equals(setting2)).toBe(true);
+        });
+
+        test('should return false for different commentStyle', () => {
+            const setting1 = new ExportDdlSettingModel({ fileName: 'test.sql', commentStyle: 'logical_name' });
+            const setting2 = new ExportDdlSettingModel({ fileName: 'test.sql', commentStyle: 'with_description' });
+
+            expect(setting1.equals(setting2)).toBe(false);
+        });
+
+        test('should return false for different commentSeparator', () => {
+            const setting1 = new ExportDdlSettingModel({ fileName: 'test.sql', commentSeparator: ' : ' });
+            const setting2 = new ExportDdlSettingModel({ fileName: 'test.sql', commentSeparator: ' - ' });
+
+            expect(setting1.equals(setting2)).toBe(false);
         });
 
         test('should return false for different fileName', () => {
@@ -161,7 +185,9 @@ describe('ExportDdlSettingModel', () => {
                 withIndex: false,
                 withForeignKey: true,
                 withComment: false,
-                withSchema: true
+                withSchema: true,
+                commentStyle: 'logical_name',
+                commentSeparator: ' : '
             });
         });
 
@@ -176,7 +202,30 @@ describe('ExportDdlSettingModel', () => {
                 withIndex: true,
                 withForeignKey: true,
                 withComment: true,
-                withSchema: true
+                withSchema: true,
+                commentStyle: 'logical_name',
+                commentSeparator: ' : '
+            });
+        });
+
+        test('should convert to plain object with custom commentStyle and commentSeparator', () => {
+            const model = new ExportDdlSettingModel({
+                fileName: 'test.sql',
+                commentStyle: 'with_description',
+                commentSeparator: ' - '
+            });
+
+            const json = model.toJSON();
+
+            expect(json).toEqual({
+                fileName: 'test.sql',
+                withTable: true,
+                withIndex: true,
+                withForeignKey: true,
+                withComment: true,
+                withSchema: true,
+                commentStyle: 'with_description',
+                commentSeparator: ' - '
             });
         });
     });
@@ -189,7 +238,9 @@ describe('ExportDdlSettingModel', () => {
                 withIndex: true,
                 withForeignKey: false,
                 withComment: true,
-                withSchema: false
+                withSchema: false,
+                commentStyle: 'with_description' as const,
+                commentSeparator: ' - '
             };
 
             const model = ExportDdlSettingModel.toObject(obj);
@@ -201,6 +252,17 @@ describe('ExportDdlSettingModel', () => {
             expect(model.withForeignKey).toBe(false);
             expect(model.withComment).toBe(true);
             expect(model.withSchema).toBe(false);
+            expect(model.commentStyle).toBe('with_description');
+            expect(model.commentSeparator).toBe(' - ');
+        });
+
+        test('should convert from plain object with default commentStyle and commentSeparator', () => {
+            const obj = { fileName: 'test.sql' };
+
+            const model = ExportDdlSettingModel.toObject(obj);
+
+            expect(model.commentStyle).toBe('logical_name');
+            expect(model.commentSeparator).toBe(' : ');
         });
 
         test('should convert from plain object with missing optional properties (defaults to true)', () => {
@@ -270,7 +332,9 @@ describe('ExportDdlSettingModel', () => {
                 withIndex: true,
                 withForeignKey: false,
                 withComment: true,
-                withSchema: false
+                withSchema: false,
+                commentStyle: 'with_description',
+                commentSeparator: ' - '
             });
 
             const json = original.toJSON();
@@ -283,6 +347,8 @@ describe('ExportDdlSettingModel', () => {
             expect(deserialized.withForeignKey).toBe(original.withForeignKey);
             expect(deserialized.withComment).toBe(original.withComment);
             expect(deserialized.withSchema).toBe(original.withSchema);
+            expect(deserialized.commentStyle).toBe(original.commentStyle);
+            expect(deserialized.commentSeparator).toBe(original.commentSeparator);
             expect(deserialized.equals(original)).toBe(true);
         });
 

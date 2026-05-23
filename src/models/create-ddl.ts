@@ -7,14 +7,17 @@ import { overrideColumnName } from "~/models/database/support";
 import TableModel from "~/models/database/TableModel";
 import TableUniqueKeysModel from "~/models/database/TableUniqueKeysModel";
 import ErdDocument from "~/models/ErdDocument";
+import { DdlCommentStyle } from "~/models/ExportDdlSettingModel";
 import TableViewModel from "~/models/TableViewModel";
 
 type DdlOption = {
     withTable: boolean,
     withIndex: boolean,
     withForeignKey: boolean,
+    withSchema: boolean,
     withComment: boolean,
-    withSchema: boolean
+    commentStyle: DdlCommentStyle,
+    commentSeparator: string
 };
 
 export const createDdl = (erdDocument: ErdDocument, option: DdlOption) => {
@@ -39,7 +42,7 @@ type IndexQueryArgs = {
 
 type DatabaseDdlCreatorArgs = {
     tableQueryWithOption: (query: string, tableModel: TableModel, option: DdlOption) => string,
-    columnQueryWithOption?: (query: string, overrideName: OverrideName, option: DdlOption) => string,
+    columnQueryWithOption?: (query: string, columnShare: ColumnShareModel, overrideName: OverrideName, option: DdlOption) => string,
     indexQuery: (args: IndexQueryArgs) => string,
     commentQuery: (erdDocument: ErdDocument, option: DdlOption, escape: (value: string) => string) => string[],
     autoIncrementKeyword: string,
@@ -51,9 +54,13 @@ type DatabaseDdlCreatorArgs = {
 class DatabaseDdlCreator {
 
     private readonly tableQueryWithOption: (query: string, tableModel: TableModel, option: DdlOption) => string;
-    private readonly columnQueryWithOption: (query: string, overrideName: OverrideName, option: DdlOption) => string;
+    private readonly columnQueryWithOption: (
+        query: string, columnShare: ColumnShareModel, overrideName: OverrideName, option: DdlOption
+    ) => string;
     private readonly indexQuery: (args: IndexQueryArgs) => string;
-    private readonly commentQuery: (erdDocument: ErdDocument, option: DdlOption, escape: (value: string) => string) => string[];
+    private readonly commentQuery: (
+        erdDocument: ErdDocument, option: DdlOption, escape: (value: string) => string
+    ) => string[];
     private readonly autoIncrementKeyword: string;
     private readonly reservedWords: Set<string>;
     private readonly escapeString: (value: string) => string;
@@ -97,9 +104,7 @@ class DatabaseDdlCreator {
         }
 
         const schemaModels = erdDocument.schemaConfig.getSchemas();
-        const queries = schemaModels.map(schema => {
-            return `CREATE SCHEMA ${this.escape(schema.schemaName)};`;
-        });
+        const queries = schemaModels.map(schema => `CREATE SCHEMA ${this.escape(schema.schemaName)};`);
 
         return (queries.length > 0) ? ["/* create schemas. */", ...queries, "\n"] : [];
     }
@@ -229,7 +234,7 @@ class DatabaseDdlCreator {
         const checkExpression = this.initColumnCheckExpression(columnShareModel, overrideName);
 
         const query = `${this.escape(overrideName.physicalName)} ` + attributes.join(" ")
-        return this.columnQueryWithOption(query, overrideName, option) + checkExpression;
+        return this.columnQueryWithOption(query, columnShareModel, overrideName, option) + checkExpression;
     }
 
     private initColumnCheckExpression(columnShare: ColumnShareModel, overrideName: { physicalName: string }) {
@@ -543,32 +548,42 @@ const msSqlServerReservedWords = [
 
 // cSpell:enable
 
+const initComment = (physicalName: string, logicalName: string, description: string, option: DdlOption): string => {
+    if (option.withComment === false) {
+        return "";
+    }
+
+    if (option.commentStyle === "logical_name") {
+        return (logicalName !== physicalName) ? logicalName : "";
+    }
+
+    const comment = (description !== "") ? `${logicalName}${option.commentSeparator}${description}` : logicalName;
+    return (comment !== physicalName) ? comment : "";
+};
+
 const tableQuery = (query: string, tableModel: TableModel) => {
     return (tableModel.optionExpression !== "") ? `${query}\n${tableModel.optionExpression}` : query;
 };
 
 const tableQueryForMySql = (query: string, tableModel: TableModel, option: DdlOption) => {
+    const tableComment = initComment(tableModel.physicalName, tableModel.logicalName, tableModel.description, option);
+
     const tableOptions = [
         (tableModel.characterSet !== "") ? `CHARACTER SET ${tableModel.characterSet}` : null,
         (tableModel.collate !== "") ? `COLLATE ${tableModel.collate}` : null,
-        (option.withComment && (tableModel.logicalName !== tableModel.physicalName))
-            ? `COMMENT '${escapeComment(tableModel.logicalName)}'` : null,
+        (tableComment !== "") ? `COMMENT '${escapeComment(tableComment)}'` : null,
         (tableModel.optionExpression !== "") ? `\n${tableModel.optionExpression}` : null
     ].filter(option => (option != null));
 
     return (tableOptions.length === 0) ? query : `${query} ${tableOptions.join(", ")}`;
 };
 
-const columnQueryForMySql = (query: string, overrideName: OverrideName, option: DdlOption) => {
-    if (option.withComment === false) {
-        return query
-    }
+const columnQueryForMySql = (
+    query: string, column: ColumnShareModel, overrideName: OverrideName, option: DdlOption
+) => {
+    const columnComment = initComment(overrideName.physicalName, overrideName.logicalName, column.description, option);
 
-    if (overrideName.physicalName === overrideName.logicalName) {
-        return query;
-    }
-
-    return `${query} COMMENT '${escapeComment(overrideName.logicalName)}'`;
+    return (columnComment !== "") ? `${query} COMMENT '${escapeComment(columnComment)}'` : query;
 };
 
 const commentQueryForPostgres = (
@@ -582,28 +597,16 @@ const commentQueryForPostgres = (
     const queries = tableViewModels.flatMap(tableViewModel => {
         const tableModel: TableModel = tableViewModel.tableModel;
         const schemaModel = erdDocument.findSchema(tableModel.schemaId);
+        const tableName = ((schemaModel != null) ? `${escape(schemaModel.schemaName)}.` : "")
+            + escape(tableModel.physicalName);
 
         const commentQueries = erdDocument.toAllColumnModels(tableModel)
-            .map(columnModel => {
-                const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
-                if (columnShareModel.logicalName === columnShareModel.physicalName) {
-                    return null;
-                }
+            .map(columnModel => initColumnCommentQueryForPostgres(columnModel, tableName, erdDocument, option, escape))
+            .filter(comment => (comment != null));
 
-                const tableName = ((schemaModel != null) ? `${escape(schemaModel.schemaName)}.` : "")
-                    + escape(tableModel.physicalName);
-                const overrideName = overrideColumnName(columnModel, columnShareModel);
-                const columnName = escape(overrideName.physicalName);
-
-                return `COMMENT ON COLUMN ${tableName}.${columnName}`
-                    + ` IS '${escapeComment(overrideName.logicalName)}';`;
-            })
-            .filter((comment): comment is string => (comment != null));
-
-        if (tableModel.logicalName !== tableModel.physicalName) {
-            const tableName = ((schemaModel != null) ? `${escape(schemaModel.schemaName)}.` : "")
-                + escape(tableModel.physicalName);
-            commentQueries.unshift(`COMMENT ON TABLE ${tableName} IS '${escapeComment(tableModel.logicalName)}';`);
+        const tableComment = initComment(tableModel.physicalName, tableModel.logicalName, tableModel.description, option);
+        if (tableComment !== "") {
+            commentQueries.unshift(`COMMENT ON TABLE ${tableName} IS '${escapeComment(tableComment)}';`);
         }
 
         if (commentQueries.length > 0) {
@@ -616,8 +619,24 @@ const commentQueryForPostgres = (
     return (queries.length > 0) ? ["/* create comments. */", ...queries, ""] : [];
 };
 
+const initColumnCommentQueryForPostgres = (
+    columnModel: ColumnModel, tableName: string, erdDocument: ErdDocument, option: DdlOption,
+    escape: (value: string) => string
+) => {
+    const columnShare = erdDocument.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
+    const overrideName = overrideColumnName(columnModel, columnShare);
+    const comment = initComment(overrideName.physicalName, overrideName.logicalName, columnShare.description, option);
+
+    if (comment === "") {
+        return null;
+    }
+
+    const columnName = escape(overrideName.physicalName);
+    return `COMMENT ON COLUMN ${tableName}.${columnName} IS '${escapeComment(comment)}';`;
+};
+
 const escapeComment = (comment: string) => {
-    return comment.replace("'", '"');
+    return comment.replaceAll("'", '"');
 };
 
 const exportConfigs: { [key in DatabaseType]: DatabaseDdlCreator } = {
