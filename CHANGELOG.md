@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.20260523] - 2026-05-23
+
+### Added
+
+- **Comment style options for DDL export**:
+
+  When exporting DDL, you can now choose how comments are generated for tables and columns.
+
+  - **Logical Name** *(default)*: Uses only the logical name as a comment. This matches the previous behavior.
+  - **Logical Name + Description**: Combines the logical name and description into a single comment,
+    joined by a configurable separator string.
+
+  The separator can be freely customized in the export dialog.
+  The Comment Style selector and separator input are enabled only when the "Comments" option is checked.
+
+
+## [0.20260521] - 2026-05-21
+
 ### Added
 
 - **CHECK constraint expression for tables and columns**:
