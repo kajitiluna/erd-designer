@@ -41,7 +41,7 @@ class DdlLoader {
 
     private readonly parser: Parser;
     private readonly existedTableNames: Set<string>;
-    private readonly parseOption;
+    private readonly parseOption: { database: string };
     private readonly resolver: ColumnTypeResolver;
 
     private tableNames: string[];
@@ -150,10 +150,17 @@ class DdlLoader {
         });
     }
 
+    private parserEngine(): ParserEngine {
+        const parser = this.parser;
+        const parseOption = this.parseOption;
+
+        return { parse: (query: object) => parser.exprToSQL(query, parseOption) };
+    }
+
     private doLoadCreateTableDdl(query: Create) {
         const sql = this.parser.sqlify(query, this.parseOption);
 
-        const [tableDefinition, noSuccessResult] = loadCreateTableDdl(query);
+        const [tableDefinition, noSuccessResult] = loadCreateTableDdl(query, this.parserEngine());
         if (noSuccessResult != null) {
             this.summaries.push({
                 result: noSuccessResult.result,
@@ -285,6 +292,8 @@ class DdlLoader {
     }
 }
 
+type ParserEngine = { parse: (query: object) => string };
+
 const parseOptions: { [key in DatabaseType]: { database: string } } = {
     "postgres": { database: "PostgreSQL" },
     "mysql": { database: "MySQL" },
@@ -308,6 +317,7 @@ type TableBaseDefinition = {
     tableIndexDefinitions: TableIndexDefinition[];
     skippedReasons: LoadFailure[];
     comment: string;
+    checkExpression: string;
     characterSet: string;
     collate: string;
     tableOption: string;
@@ -328,6 +338,7 @@ type ColumnBaseDefinition = {
     isArray: boolean;
     defaultValue: string;
     comment: string;
+    checkExpression: string;
     characterSet: string;
     collate: string;
     columnOption: string;
@@ -373,7 +384,7 @@ const skip = (message: string): LoadFailure => {
 type CreateDefinition = NonNullable<Create["create_definitions"]>[number];
 type CreateColumnDefinition = Extract<CreateDefinition, { resource: 'column' }>;
 
-const loadCreateTableDdl = (query: Create): ([TableBaseDefinition, null] | [null, LoadFailure]) => {
+const loadCreateTableDdl = (query: Create, engine: ParserEngine): ([TableBaseDefinition, null] | [null, LoadFailure]) => {
     const [tableObj, failure] = doFindTableObj(query);
     if (failure != null) {
         return [null, failure];
@@ -386,13 +397,14 @@ const loadCreateTableDdl = (query: Create): ([TableBaseDefinition, null] | [null
 
     const columnBaseDefinitions: ColumnBaseDefinition[] = [];
     const tableIndexDefinitions: TableIndexDefinition[] = [];
+    let checkExpression = "";
     const skippedReasons: LoadFailure[] = [];
 
     for (const [index, createDefinition] of (query.create_definitions || []).entries()) {
         // CreateColumnDefinition 型の場合
         if (createDefinition.resource === "column") {
             const [columnDefinition, noSuccessResult] =
-                loadCreateColumnDefinition(createDefinition as CreateColumnDefinition, index);
+                loadCreateColumnDefinition(createDefinition as CreateColumnDefinition, index, engine);
             if (noSuccessResult != null) {
                 return [null, noSuccessResult];
             }
@@ -403,8 +415,9 @@ const loadCreateTableDdl = (query: Create): ([TableBaseDefinition, null] | [null
 
         // CreateConstraintDefinition 型の場合
         if (createDefinition.resource === "constraint") {
-            const [nextColumnDefinitions, tableIndexDefinition, noSuccessResult] =
-                loadCreateConstraintDefinition(createDefinition as CreateConstraintDefinition, index, columnBaseDefinitions);
+            const constraintDefinition = createDefinition as CreateConstraintDefinition;
+            const [result, noSuccessResult] =
+                loadCreateConstraintDefinition(constraintDefinition, index, columnBaseDefinitions, engine);
             if (noSuccessResult != null) {
                 if (noSuccessResult.result === "failure") {
                     return [null, noSuccessResult];
@@ -414,11 +427,18 @@ const loadCreateTableDdl = (query: Create): ([TableBaseDefinition, null] | [null
                 continue;
             }
 
+            const { nextColumnDefinitions, tableIndexDefinition, checkExpression: expression } = result;
+
             nextColumnDefinitions.forEach(nextColumnDefinition => {
                 columnBaseDefinitions[nextColumnDefinition.index] = nextColumnDefinition.columnDefinition;
             });
+
             if (tableIndexDefinition != null) {
                 tableIndexDefinitions.push(tableIndexDefinition);
+            }
+
+            if (expression != null) {
+                checkExpression = expression;
             }
 
             continue;
@@ -488,7 +508,8 @@ const loadCreateTableDdl = (query: Create): ([TableBaseDefinition, null] | [null
                     indexName: `index_${tableName}__${definition.indexColumns.join("_")}`,
                 }
             }),
-            skippedReasons, comment, characterSet, collate, tableOption: tableOptions.join(" ")
+            skippedReasons, comment, checkExpression, characterSet, collate,
+            tableOption: tableOptions.join(" ")
         },
         null
     ];
@@ -530,7 +551,7 @@ const doFindTableObj = (query: Create): ([{ db: string | null; table: string }, 
 };
 
 const loadCreateColumnDefinition = (
-    createDefinition: CreateColumnDefinition, index: number
+    createDefinition: CreateColumnDefinition, index: number, engine: ParserEngine
 ): [ColumnBaseDefinition, null] | [null, LoadFailure] => {
 
     if (createDefinition.column.type !== "column_ref") {
@@ -561,28 +582,7 @@ const loadCreateColumnDefinition = (
     const unique = (createDefinition.unique != null) || false;
     const autoIncrement = (createDefinition.auto_increment != null) || false;
 
-    let defaultValue = "";
-    if (createDefinition.default_val != null) {
-        const defaultValueObj = createDefinition.default_val.value;
-        if (defaultValueObj.type === "function") {
-            if (!("name" in defaultValueObj.name)) {
-                return [null, fail(`Unexpected analysis for default value function at position ${index + 1}. `
-                    + `create_definitions[${index}].default_val.value.name : ${JSON.stringify(defaultValueObj.name)}`)];
-            }
-            if ((Array.isArray(defaultValueObj.name.name) == false) || (defaultValueObj.name.name.length !== 1)) {
-                return [null, fail(`Unexpected analysis for default value function at position ${index + 1}. `
-                    + `create_definitions[${index}].default_val.value.name.name : ${JSON.stringify(defaultValueObj.name.name)}`)];
-            }
-
-            defaultValue = defaultValueObj.name.name[0].value;
-        } else if (defaultValueObj.type === "single_quote_string") {
-            defaultValue = `'${defaultValueObj.value}'`
-        } else if (defaultValueObj.type === "double_quote_string") {
-            defaultValue = `"${defaultValueObj.value}"`
-        } else {
-            defaultValue = defaultValueObj.value != null ? String(defaultValueObj.value) : "";
-        }
-    }
+    const defaultValue = (createDefinition.default_val != null) ? engine.parse(createDefinition.default_val.value) : "";
 
     let comment = "";
     if (createDefinition.comment != null) {
@@ -593,6 +593,12 @@ const loadCreateColumnDefinition = (
             comment = String(commentObj);
         }
     }
+
+    const checkExpression = (
+        ("check" in createDefinition) && (typeof createDefinition.check === "object")
+        && (createDefinition.check !== null) && ("definition" in createDefinition.check)
+        && (Array.isArray(createDefinition.check.definition)) && (createDefinition.check.definition.length > 0)
+    ) ? engine.parse(createDefinition.check.definition[0]) : "";
 
     const characterSet = (createDefinition.character_set != null)
         ? parseValue(createDefinition.character_set.value) : "";
@@ -611,7 +617,7 @@ const loadCreateColumnDefinition = (
         {
             columnName, columnType, timezone, unsigned, zeroFill, precision, scale,
             primaryKey: false, notNull, unique, autoIncrement, isArray, defaultValue, comment,
-            characterSet, collate, columnOption
+            checkExpression, characterSet, collate, columnOption
         }, null
     ];
 };
@@ -622,19 +628,26 @@ type CreateConstraintUnique = Extract<CreateConstraintDefinition, {
     constraint_type: 'unique' | 'unique key' | 'unique index';
 }>;
 
+type LoadedConstraintDefinition = {
+    nextColumnDefinitions: UpdateColumnDefinition[],
+    tableIndexDefinition?: TableIndexDefinition,
+    checkExpression?: string,
+};
+
 const loadCreateConstraintDefinition = (
-    createDefinition: CreateConstraintDefinition, index: number, columnDefinitions: ColumnBaseDefinition[]
-): (
-        [UpdateColumnDefinition[], null, null]
-        | [UpdateColumnDefinition[], TableIndexDefinition, null]
-        | [UpdateColumnDefinition[], null, LoadFailure]
-    ) => {
+    createDefinition: CreateConstraintDefinition, index: number, columnDefinitions: ColumnBaseDefinition[],
+    engine: ParserEngine
+): ([LoadedConstraintDefinition, null] | [null, LoadFailure]) => {
 
     if (createDefinition.constraint_type === "primary key") {
         const [nextColumnDefinitions, noSuccessResult] =
             doLoadCreatePrimaryKeyDefinition(createDefinition as CreateConstraintPrimary, index, columnDefinitions);
 
-        return [nextColumnDefinitions, null, noSuccessResult];
+        if (noSuccessResult != null) {
+            return [null, noSuccessResult];
+        }
+
+        return [{ nextColumnDefinitions }, null];
     }
 
     if ((createDefinition.constraint_type === "unique")
@@ -647,16 +660,22 @@ const loadCreateConstraintDefinition = (
                 uniqueKeyConstraint, index, columnDefinitions);
 
         if (noSuccessResult != null) {
-            return [[], null, noSuccessResult];
-        }
-        if (nextColumnDefinition != null) {
-            return [[nextColumnDefinition], null, null];
+            return [null, noSuccessResult];
         }
 
-        return [[], tableIndexDefinition, null];
+        if (nextColumnDefinition != null) {
+            return [{ nextColumnDefinitions: [nextColumnDefinition] }, null];
+        }
+
+        return [{ nextColumnDefinitions: [], tableIndexDefinition }, null];
     }
 
-    return [[], null, skip(`Unsupported constraint type "${createDefinition.constraint_type}" at position ${index + 1}.`)];
+    if ((createDefinition.constraint_type === "check") && (createDefinition.definition.length > 0)) {
+        const checkExpression = engine.parse(createDefinition.definition[0]);
+        return [{ nextColumnDefinitions: [], checkExpression }, null]
+    }
+
+    return [null, skip(`Unsupported constraint type "${createDefinition.constraint_type}" at position ${index + 1}.`)];
 };
 
 const doLoadCreatePrimaryKeyDefinition = (
@@ -1239,6 +1258,9 @@ class ColumnTypeResolver {
             if (target.description !== description) {
                 continue;
             }
+            if (target.checkExpression !== columnDefinition.checkExpression) {
+                continue;
+            }
             if (target.characterSet(this.database) !== columnDefinition.characterSet) {
                 continue;
             }
@@ -1304,6 +1326,7 @@ class ColumnTypeResolver {
             unsigned: columnDefinition.unsigned,
             isArray: columnDefinition.isArray,
             description: description,
+            checkExpression: columnDefinition.checkExpression,
             characterSet: (this.database.editableCharacterSet && (targetColumnType.category === "text"))
                 ? columnDefinition.characterSet : "",
             collate: (targetColumnType.category === "text") ? columnDefinition.collate : "",
@@ -1454,6 +1477,7 @@ const doInitTableModels = (database: Database, tableDefinitions: DdlTableDefinit
             uniqueKeysModels: uniqueKeysModels,
             tableIndexModels: tableIndexModels,
             description: description,
+            checkExpression: tableDefinition.checkExpression,
             characterSet: (database.supportsTableCollate && database.editableCharacterSet)
                 ? tableDefinition.characterSet : "",
             collate: (database.supportsTableCollate) ? tableDefinition.collate : "",
