@@ -112,3 +112,47 @@ jobs:
         run: npx @vscode/vsce publish --packagePath erd-designer-*.vsix --pat ${VSCE_PAT}
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+  create-release:
+    runs-on: ubuntu-latest
+    needs: [build, generate_version]
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APP_VERSION: ${{ needs.generate_version.outputs.app_version }}
+        run: |
+          DATE_PART=$(echo "${APP_VERSION}" | cut -d'.' -f2)
+          YEAR="20${DATE_PART:0:2}"
+          MONTH="${DATE_PART:2:2}"
+          DAY="${DATE_PART:4:2}"
+          APP_DATE="${YEAR}-${MONTH}-${DAY}"
+
+          TAG_VERSION="github-page/${YEAR}/${MONTH}/v${APP_VERSION}"
+          RELEASE_TITLE="v${APP_VERSION}"
+
+          CHANGELOG_VERSION="0.${YEAR}${MONTH}${DAY}"
+          CHANGELOG_HEADER="## [${CHANGELOG_VERSION}] - ${APP_DATE}"
+
+          CHANGELOG_BODY=$(awk -v header="${CHANGELOG_HEADER}" '
+            $0 == header {found=1; next}
+            found && /^## \[/ {exit}
+            found {print}
+          ' CHANGELOG.md)
+
+          if [ -n "$(echo "$CHANGELOG_BODY" | tr -d '[:space:]')" ]; then
+            printf '%s\n' "$CHANGELOG_BODY" > /tmp/release_notes.md
+            gh release create "${TAG_VERSION}" \
+              --title "${RELEASE_TITLE}" \
+              --notes-file /tmp/release_notes.md \
+              --generate-notes
+          else
+            gh release create "${TAG_VERSION}" \
+              --title "${RELEASE_TITLE}" \
+              --generate-notes
+          fi

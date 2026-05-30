@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.20260530] - 2026-05-30
+
+### Added
+
+- **DDL import: CHECK constraint expression for columns**:
+
+  When importing DDL, column-level `CHECK (...)` constraints are now recognized.
+  The expression is populated into the CHECK field in the column edit dialog,
+  and is reflected in subsequent DDL exports as a `CHECK (...)` clause.
+  Previously, CHECK expressions were silently ignored during import.
+
+- **MCP Server: CHECK constraint, CHARACTER SET/COLLATE, and expression options for tables and columns**:
+
+  The MCP server tools for adding and updating tables and column-shares now support the fields
+  introduced in versions 0.20260509 and 0.20260521:
+  `checkExpression`, `characterSet`, `collate`, `optionExpression` (columns), and `definitionExpression` (tables).
+
+- **MCP Server: Comment style options for DDL export**:
+
+  The `export-ddl` tool now accepts `commentStyle` and `commentSeparator` in `exportDdlSetting`,
+  as introduced in version 0.20260523.
+
+
 ## [0.20260523] - 2026-05-23
 
 ### Added
