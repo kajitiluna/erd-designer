@@ -651,7 +651,7 @@ const addTableInputSchema = {
             .describe("The schema ID where the new table will be created. Only applicable if the RDBMS supports schemas."),
         description: z.string().optional().describe("The description of the new table."),
         checkExpression: z.string().optional().describe(
-            "The CHECK constraint expression for the table. Use ${column_name} as a placeholder for column physical names."
+            "The CHECK constraint expression for the table. Use `${column_name}` as a placeholder for column physical names."
         ),
         characterSet: z.string().optional().describe("The character set for the table."),
         collate: z.string().optional().describe("The collation for the table."),
