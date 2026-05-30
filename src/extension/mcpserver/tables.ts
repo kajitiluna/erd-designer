@@ -97,6 +97,11 @@ An array of table objects, each containing:
 - tableId: The unique identifier of the table (auto-generated UUID).
 - tableName: Object containing physical and logical names of the table.
 - description: A brief description of the table (may be empty string).
+- checkExpression: The CHECK constraint expression for the table (only present if specified).
+- characterSet: The character set for the table (only present if specified).
+- collate: The collation for the table (only present if specified).
+- definitionExpression: Additional definition expression inside CREATE TABLE (only present if specified).
+- optionExpression: Option expression after CREATE TABLE closing parenthesis (only present if specified).
 - view: Display settings including:
   - position: Object with x and y coordinates of the table on the ERD canvas.
   - size: Object with width and height of the table (may be null if not yet rendered).
@@ -246,6 +251,11 @@ An object containing detailed information about the specified table:
 - tableId: The unique identifier of the table (auto-generated UUID).
 - tableName: Object containing physical and logical names of the table.
 - description: A brief description of the table (may be empty string).
+- checkExpression: The CHECK constraint expression for the table (only present if specified).
+- characterSet: The character set for the table (only present if specified).
+- collate: The collation for the table (only present if specified).
+- definitionExpression: Additional definition expression inside CREATE TABLE (only present if specified).
+- optionExpression: Option expression after CREATE TABLE closing parenthesis (only present if specified).
 - view: Display settings including:
   - position: Object with x and y coordinates of the table on the ERD canvas.
   - size: Object with width and height of the table (may be null if not yet rendered).
@@ -335,6 +345,11 @@ export const toTableSummary = (erdBudget: DocumentBudget, tableView: TableViewMo
             logical: tableView.tableModel.logicalName
         },
         description: tableView.tableModel.description,
+        ...(tableView.tableModel.checkExpression && { checkExpression: tableView.tableModel.checkExpression }),
+        ...(tableView.tableModel.characterSet && { characterSet: tableView.tableModel.characterSet }),
+        ...(tableView.tableModel.collate && { collate: tableView.tableModel.collate }),
+        ...(tableView.tableModel.definitionExpression && { definitionExpression: tableView.tableModel.definitionExpression }),
+        ...(tableView.tableModel.optionExpression && { optionExpression: tableView.tableModel.optionExpression }),
         view: {
             position: {
                 x: tableView.corner.left,
@@ -549,6 +564,11 @@ REQUEST:
     Only applicable if the database type supports schemas.
     Can be obtained from the document's schemas array.
   - description: (optional) A description of the table.
+  - checkExpression: (optional) A CHECK constraint expression for the table. Use ${"`${column_name}`"} as a placeholder for column physical names.
+  - characterSet: (optional) The character set for the table.
+  - collate: (optional) The collation for the table.
+  - definitionExpression: (optional) Additional definition expression appended inside CREATE TABLE.
+  - optionExpression: (optional) Option expression appended after the closing parenthesis of CREATE TABLE.
   - columns: An array of column specifications. Each column can be defined using one of two approaches:
 
     APPROACH 1: Reference an existing column-share (recommended for reusing common column definitions):
@@ -630,6 +650,13 @@ const addTableInputSchema = {
         schemaId: z.string().optional()
             .describe("The schema ID where the new table will be created. Only applicable if the RDBMS supports schemas."),
         description: z.string().optional().describe("The description of the new table."),
+        checkExpression: z.string().optional().describe(
+            "The CHECK constraint expression for the table. Use ${column_name} as a placeholder for column physical names."
+        ),
+        characterSet: z.string().optional().describe("The character set for the table."),
+        collate: z.string().optional().describe("The collation for the table."),
+        definitionExpression: z.string().optional().describe("Additional definition expression appended inside CREATE TABLE (e.g. table-level constraints)."),
+        optionExpression: z.string().optional().describe("Option expression appended after the closing parenthesis of CREATE TABLE."),
         columns: z.array(addColumnSchema).describe("The columns to add to the new table."),
         view: z.object({
             position: z.object({
@@ -657,12 +684,16 @@ const initCallbackForAddTable = (documentResource: DocumentResource): ToolCallba
 
         const [columns, columnShares] = buildAddingColumnPairs(erdBudget, table.columns);
 
-        // TODO charset, collate の対応
         const addTable = new TableModel({
             physicalName: table.tableName.physical,
             logicalName: table.tableName.logical || table.tableName.physical,
             schemaId: schemaId,
             description: table.description || "",
+            checkExpression: table.checkExpression || "",
+            characterSet: table.characterSet || "",
+            collate: table.collate || "",
+            definitionExpression: table.definitionExpression || "",
+            optionExpression: table.optionExpression || "",
             columns: columns.map(column => ({
                 modelType: "single" as const,
                 columnModelId: column.columnModelId
@@ -736,6 +767,11 @@ REQUEST:
     Only applicable if the database type supports schemas.
     Can be obtained from the document's schemas array.
   - description: (optional) The new description of the table.
+  - checkExpression: (optional) The new CHECK constraint expression for the table. Use ${"`${column_name}`"} as a placeholder for column physical names.
+  - characterSet: (optional) The new character set for the table.
+  - collate: (optional) The new collation for the table.
+  - definitionExpression: (optional) The new additional definition expression for the table.
+  - optionExpression: (optional) The new option expression for the table.
   - view: (optional) Display settings to update:
     - position: (optional) Object containing the new table position on the ERD canvas:
       - x: (optional) The new x-coordinate of the top-left corner.
@@ -782,6 +818,13 @@ const updateTableInputSchema = {
         schemaId: z.string().optional()
             .describe("The schema ID where the table belongs. Only applicable if the RDBMS supports schemas."),
         description: z.string().optional().describe("The description of the table to update."),
+        checkExpression: z.string().optional().describe(
+            "The CHECK constraint expression for the table. Use `${column_name}` as a placeholder for column physical names."
+        ),
+        characterSet: z.string().optional().describe("The character set for the table."),
+        collate: z.string().optional().describe("The collation for the table."),
+        definitionExpression: z.string().optional().describe("Additional definition expression appended inside CREATE TABLE."),
+        optionExpression: z.string().optional().describe("Option expression appended after the closing parenthesis of CREATE TABLE."),
         view: z.object({
             position: z.object({
                 x: z.number().optional().describe("The x-coordinate of the top-left corner of the table."),
@@ -811,6 +854,11 @@ const initCallbackForUpdateTable = (documentResource: DocumentResource): ToolCal
             logicalName: table.tableName?.logical || previousTable.logicalName,
             schemaId: nextSchemaId,
             description: table.description || previousTable.description,
+            checkExpression: table.checkExpression ?? previousTable.checkExpression,
+            characterSet: table.characterSet ?? previousTable.characterSet,
+            collate: table.collate ?? previousTable.collate,
+            definitionExpression: table.definitionExpression ?? previousTable.definitionExpression,
+            optionExpression: table.optionExpression ?? previousTable.optionExpression,
         });
 
         const nextCorner = table.view?.position

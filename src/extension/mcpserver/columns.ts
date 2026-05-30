@@ -147,8 +147,8 @@ const addingColumnShareModelSchema = {
             }).describe("The physical name for the new column-share."),
         logical: z.string().optional().describe("The logical name for the new column-share."),
     }).describe("The names for the new column-share."),
-    columnTypeId: z.number().describe("The column type ID for the new column-share. "
-        + "Available column types can be obtained from 'erd-designer://documents/{documentId}/database' resource's columnTypes array."),
+    columnTypeId: z.number().describe("The column type ID for the new column-share. Available column types can be " +
+        "obtained from 'erd-designer://documents/{documentId}/database' resource's columnTypes array."),
     precision: z.string()
         .refine(validatePositiveNumber, {
             message: "Precision must be empty string or a non-negative integer"
@@ -160,6 +160,13 @@ const addingColumnShareModelSchema = {
     unsigned: z.boolean().optional().describe("The unsigned property for the new column-share."),
     isArray: z.boolean().optional().describe("The array type property for the new column-share."),
     description: z.string().optional().describe("The description for the new column-share."),
+    checkExpression: z.string().optional().describe(
+        "The CHECK constraint expression for the column. Use `${this}` as a placeholder for the column's physical name."
+    ),
+    characterSet: z.string().optional().describe("The character set for the column-share " +
+        "(only applicable to text types and databases that support character set specification)."),
+    collate: z.string().optional().describe("The collation for the column-share (only applicable to text types)."),
+    optionExpression: z.string().optional().describe("Custom column option expression appended to the column definition."),
 } as const;
 
 const descriptionAddColumnsToTable = `\
@@ -627,7 +634,19 @@ const buildColumnShare = (
         throw initInvalidParams(`Array type is not supported by the database : ${database.name}`);
     }
 
-    // TODO charSet, collation の指定
+    if ((columnType.category !== "text") && (input.collate != null)) {
+        throw initInvalidParams(`Collate must not be specified for the selected column type : ${columnType.name}`);
+    }
+
+    if (input.characterSet != null) {
+        if (columnType.category !== "text") {
+            throw initInvalidParams(`Character set must not be specified for the selected column type : ${columnType.name}`);
+        }
+        if (!database.editableCharacterSet) {
+            throw initInvalidParams(`Character set is not supported by the database : ${database.name}`);
+        }
+    }
+
     return new ColumnShareModel({
         columnShareModelId: uuidV4(),
         physicalName,
@@ -638,6 +657,10 @@ const buildColumnShare = (
         unsigned: input.unsigned,
         isArray: input.isArray,
         description: input.description,
+        checkExpression: input.checkExpression,
+        ...(columnType.category === "text" && { collate: input.collate }),
+        ...(columnType.category === "text" && database.editableCharacterSet && { characterSet: input.characterSet }),
+        optionExpression: input.optionExpression,
     });
 };
 
@@ -655,7 +678,11 @@ const responseColumnShareSummary = `\
 - scale: The scale setting (only present if column type supports scale).
 - unsigned: Boolean indicating unsigned property (only present if column type supports unsigned).
 - isArray: Boolean indicating if array type is enabled (only present if database supports array types).
-- description: A brief description of the column-share.\
+- description: A brief description of the column-share.
+- checkExpression: The CHECK constraint expression for the column (only present if specified). Use ${"`${this}`"} as a placeholder for column physical names.
+- characterSet: The character set for the column-share (only present if specified and applicable to text types).
+- collate: The collation for the column-share (only present if specified and applicable to text types).
+- optionExpression: Custom column option expression (only present if specified).\
 `;
 
 const descriptionListShares = `\
@@ -794,7 +821,11 @@ const toColumnShareSummary = (erdBudget: DocumentBudget, columnShare: ColumnShar
         ...(columnType.withScale && { scale: columnShare.scale }),
         ...(columnType.withUnsigned && { unsigned: columnShare.unsigned }),
         ...(database.supportsArrayType && { isArray: columnShare.isArray }),
-        description: columnShare.description
+        description: columnShare.description,
+        ...(columnShare.checkExpression && { checkExpression: columnShare.checkExpression }),
+        ...(columnShare.characterSet(database) && { characterSet: columnShare.characterSet(database) }),
+        ...(columnShare.collate && { collate: columnShare.collate }),
+        ...(columnShare.optionExpression && { optionExpression: columnShare.optionExpression }),
     };
 };
 
@@ -938,6 +969,13 @@ const updateColumnShareInputSchema = {
         unsigned: z.boolean().optional().describe("The updated unsigned property."),
         isArray: z.boolean().optional().describe("The updated array type property."),
         description: z.string().optional().describe("The updated description of the column-share."),
+        checkExpression: z.string().optional().describe(
+            "The CHECK constraint expression for the column. Use `${this}` as a placeholder for the column's physical name."
+        ),
+        characterSet: z.string().optional().describe("The character set for the column-share " +
+            "(only applicable to text types and databases that support character set specification)."),
+        collate: z.string().optional().describe("The collation for the column-share (only applicable to text types)."),
+        optionExpression: z.string().optional().describe("Custom column option expression appended to the column definition."),
     }).describe("The updated column-share model data.")
 } as const;
 
@@ -990,6 +1028,19 @@ const initCallbackForUpdatingColumnShare = (
             throw initInvalidParams(`Array type is not supported by the database : ${database.name}`);
         }
 
+        if ((nextColumnType.category !== "text") && (updating.collate != null)) {
+            throw initInvalidParams(`Collate must not be specified for the selected column type : ${nextColumnType.name}`);
+        }
+
+        if (updating.characterSet != null) {
+            if (nextColumnType.category !== "text") {
+                throw initInvalidParams(`Character set must not be specified for the selected column type : ${nextColumnType.name}`);
+            }
+            if (!database.editableCharacterSet) {
+                throw initInvalidParams(`Character set is not supported by the database : ${database.name}`);
+            }
+        }
+
         const nextColumnShare = new ColumnShareModel({
             ...previous,
             physicalName: updating.columnName?.physical ?? previous.physicalName,
@@ -1000,6 +1051,10 @@ const initCallbackForUpdatingColumnShare = (
             ...(nextColumnType.withUnsigned && { unsigned: updating.unsigned ?? previous.unsigned }),
             ...(database.supportsArrayType && { isArray: updating.isArray ?? previous.isArray }),
             description: updating.description ?? previous.description,
+            checkExpression: updating.checkExpression ?? previous.checkExpression,
+            ...(nextColumnType.category === "text" && { collate: updating.collate ?? previous.collate }),
+            ...(nextColumnType.category === "text" && database.editableCharacterSet && { characterSet: updating.characterSet ?? previous.characterSet(database) }),
+            optionExpression: updating.optionExpression ?? previous.optionExpression,
         });
 
         const nextDocument = previousDocument.updateColumnModels([], [nextColumnShare]);

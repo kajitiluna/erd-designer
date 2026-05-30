@@ -543,6 +543,10 @@ REQUEST:
   - withForeignKey: Whether to include FOREIGN KEY constraints (default: true).
   - withComment: Whether to include COMMENT statements (default: true).
   - withSchema: Whether to include CREATE SCHEMA statements (default: true).
+  - commentStyle: The comment style for DDL export (default: 'logical_name').
+    - 'logical_name': Output only the logical name as a comment.
+    - 'with_description': Output the logical name and description separated by commentSeparator.
+  - commentSeparator: The separator string between the logical name and description when commentStyle is 'with_description' (default: ' : ').
 
 RESPONSE:
 A text content containing the generated DDL statements.
@@ -577,7 +581,13 @@ const exportDdlInputSchema = {
         withComment: z.boolean().optional()
             .describe("Whether to include COMMENT statements (default: true)."),
         withSchema: z.boolean().optional()
-            .describe("Whether to include CREATE SCHEMA statements (default: true).")
+            .describe("Whether to include CREATE SCHEMA statements (default: true)."),
+        commentStyle: z.enum(["logical_name", "with_description"]).optional()
+            .describe("The comment style for DDL export. 'logical_name' outputs only the logical name, " +
+                "'with_description' appends the description with a separator (default: 'logical_name')."),
+        commentSeparator: z.string().optional()
+            .describe("The separator string between the logical name and description " +
+                "when commentStyle is 'with_description' (default: ' : ').")
     }).optional().describe("The DDL export settings.")
 };
 
@@ -600,9 +610,8 @@ const initCallbackForExportDdl = (
             withForeignKey: exportDdlSetting?.withForeignKey ?? exportSetting.withForeignKey,
             withSchema: exportDdlSetting?.withSchema ?? exportSetting.withSchema,
             withComment: exportDdlSetting?.withComment ?? exportSetting.withComment,
-            // TODO
-            commentStyle: "logical_name",
-            commentSeparator: ""
+            commentStyle: exportDdlSetting?.commentStyle ?? exportSetting.commentStyle,
+            commentSeparator: exportDdlSetting?.commentSeparator ?? exportSetting.commentSeparator
         });
 
         return {
