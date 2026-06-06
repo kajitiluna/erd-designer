@@ -1,13 +1,5 @@
 import React from "react";
-
-export type SelectState = {
-    status: "none" | "on_selecting" | "selected",
-    tableIds: Set<string>,
-    memoIds: Set<string>,
-    relationId?: string,
-    edgeType?: "real" | "virtual",
-    edgeId?: number
-};
+import { SelectState } from "~/models/SelectState";
 
 export type SelectAction = { type: "none" }
     | SelectTableAction

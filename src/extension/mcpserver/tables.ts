@@ -2,8 +2,6 @@ import { ReadResourceTemplateCallback, ResourceTemplate, ToolCallback } from "@m
 import { v4 as uuidV4 } from 'uuid';
 import z from "zod";
 
-import { DragState } from "~/context/DragActionContext";
-import { SelectState } from "~/context/SelectEntityContext";
 import { DocumentResource } from "~/extension/DocumentResource";
 import { addColumnSchema, buildAddingColumnPairs } from "~/extension/mcpserver/columns";
 import DocumentBudget, { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
@@ -20,8 +18,10 @@ import { overrideColumnName } from "~/models/database/support";
 import TableIndexModel, { IndexColumnModel } from "~/models/database/TableIndexModel";
 import TableModel from "~/models/database/TableModel";
 import TableUniqueKeysModel, { UniqueKeysColumnModel } from "~/models/database/TableUniqueKeysModel";
+import { DragState } from "~/models/DragState";
 import ErdDocument from "~/models/ErdDocument";
 import RectangleViewModel from "~/models/RectangleViewModel";
+import { SelectState } from "~/models/SelectState";
 import TableViewModel from "~/models/TableViewModel";
 
 export const mcpRegisterTable = (documentResource: DocumentResource): McpRegisterConfig => {

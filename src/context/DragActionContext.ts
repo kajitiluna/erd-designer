@@ -1,25 +1,5 @@
 import React from "react";
-
-class OnDraggingState {
-
-    public readonly status = "on_dragging" as const;
-    public readonly start: Point;
-    public readonly current: Point;
-
-    constructor(start: Point, current: Point) {
-        this.start = start;
-        this.current = current;
-    }
-
-    public delta(): Point {
-        return {
-            x: this.current.x - this.start.x,
-            y: this.current.y - this.start.y
-        };
-    }
-}
-
-export type DragState = OnDraggingState | { status: "none" };
+import { DragState, OnDraggingState } from "~/models/DragState";
 
 export type DragAction = { type: "start_dragging", start: Point }
     | { type: "on_dragging", current: Point }

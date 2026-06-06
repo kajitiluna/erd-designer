@@ -1,8 +1,6 @@
 import { ReadResourceTemplateCallback, ResourceTemplate, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
 import z from "zod";
 
-import { DragState } from "~/context/DragActionContext";
-import { SelectState } from "~/context/SelectEntityContext";
 import { DocumentResource } from "~/extension/DocumentResource";
 import DocumentBudget, { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
 import {
@@ -14,6 +12,8 @@ import { createDdl } from "~/models/create-ddl";
 import { toNextOrthogonalLines } from "~/features/canvas/support";
 import DisplayStyle from "~/models/database/DisplayStyle";
 import RectangleViewModel from "~/models/RectangleViewModel";
+import { DragState } from "~/models/DragState";
+import { SelectState } from "~/models/SelectState";
 
 export const mcpRegisterErdDocument = (documentResource: DocumentResource): McpRegisterConfig => {
     return {

@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import * as cheerio from 'cheerio';
 import { DocumentResource } from '~/extension/DocumentResource';
 import { RectangleType } from '~/extension/mcpserver/DocumentBudget';
 
@@ -177,14 +176,12 @@ const initWebViewHtml = (context: vscode.ExtensionContext, webview: vscode.Webvi
     ].join('; ');
 
     // HTMLを書き換え：VSCode API とCSPを追加、パスを置換
-    // 安全なHTMLパースとタグ削除のためcheerioを使用
-    const $ = cheerio.load(htmlContent);
     // script[src]タグを削除
-    $('script[src]').remove();
+    htmlContent = htmlContent.replace(/<script\b[^>]+\bsrc\b[^>]*>[\s\S]*?<\/script>/gi, '');
     // link[rel="stylesheet"]タグを削除
-    $('link[rel="stylesheet"]').remove();
+    htmlContent = htmlContent.replace(/<link\b[^>]+rel=["']stylesheet["'][^>]*\/?>/gi, '');
     // headに必要な要素を追加
-    $('head').append(`
+    htmlContent = htmlContent.replace('</head>', `
         <meta http-equiv="Content-Security-Policy" content="${cspContent};">
         <link rel="stylesheet" href="${styleUri}">
         <style nonce="${nonce}">
@@ -208,8 +205,7 @@ const initWebViewHtml = (context: vscode.ExtensionContext, webview: vscode.Webvi
             });
         </script>
         <script type="module" nonce="${nonce}" src="${scriptUri}"></script>
-    `);
-    htmlContent = $.html();
+    </head>`);
 
     return htmlContent;
 };

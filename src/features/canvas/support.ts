@@ -1,10 +1,9 @@
-import { DragState } from "~/context/DragActionContext";
-import { SelectState } from "~/context/SelectEntityContext";
-
 import { CardinalityType } from "~/models/database";
+import { DragState } from "~/models/DragState";
 import { OrthogonalDirection } from "~/models/LineViewModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import RelationViewModel, { OrthogonalRelation } from "~/models/RelationViewModel";
+import { SelectState } from "~/models/SelectState";
 
 
 /**
