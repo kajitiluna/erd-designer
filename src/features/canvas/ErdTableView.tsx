@@ -19,7 +19,7 @@ import { DragAction, DragActionContext } from "~/context/DragActionContext";
 import EditModeContext from "~/context/EditModeContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { LocalSettingContext } from "~/context/LocalSettingContext";
-import { RELEASE_ACTION, SelectEntityContext, SelectState } from "~/context/SelectEntityContext";
+import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
 import PortalCanvasContext from "~/context/PortalCanvasContext";
 import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
 import EditAction from "~/features/canvas/EditAction";
@@ -41,6 +41,7 @@ import TableUniqueKeysModel from "~/models/database/TableUniqueKeysModel";
 import { overrideColumnName } from "~/models/database/support";
 
 import styleClasses from "./ErdCanvas.module.css";
+import { SelectState } from "~/models/SelectState";
 
 export const ERD_TABLE_VIEW_CLASS_NAME = "erd-table-view";
 

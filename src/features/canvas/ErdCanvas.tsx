@@ -4,10 +4,10 @@ import { Box } from "@mui/material";
 import useStateRef from "~/components/useStateRef";
 import CanvasPositionContext, { CanvasPositionResolver } from "~/context/CanvasPositionContext";
 import DisplayScaleContext from "~/context/DisplayScaleContext";
-import { DragAction, DragActionContext, DragState } from "~/context/DragActionContext";
+import { DragAction, DragActionContext } from "~/context/DragActionContext";
 import EditModeContext from "~/context/EditModeContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
-import { RELEASE_ACTION, SelectAction, SelectEntityContext, SelectState } from "~/context/SelectEntityContext";
+import { RELEASE_ACTION, SelectAction, SelectEntityContext } from "~/context/SelectEntityContext";
 import { LocalSetting, LocalSettingContext } from "~/context/LocalSettingContext";
 import PortalCanvasContext from "~/context/PortalCanvasContext";
 import TableModel from "~/models/database/TableModel";
@@ -29,6 +29,8 @@ import PerspectiveSettingView from "~/features/editor/PerspectiveSettingView";
 import RelationEditView from "~/features/editor/RelationEditView";
 import TableEditView from "~/features/editor/TableEditView";
 import StickyMemoView, { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
+import { DragState } from "~/models/DragState";
+import { SelectState } from "~/models/SelectState";
 
 export const ERD_CANVAS_ID = "erd-canvas";
 

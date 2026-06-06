@@ -78,7 +78,6 @@
     "@mui/icons-material": "^9.0.0",
     "@mui/material": "^9.0.0",
     "@react-oauth/google": "^0.12.1",
-    "cheerio": "^1.1.2",
     "exceljs": "^4.4.0",
     "express": "^5.1.0",
     "google-auth-library": "^9.15.1",

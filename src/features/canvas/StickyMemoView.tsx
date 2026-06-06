@@ -24,7 +24,7 @@ import { DragAction, DragActionContext } from "~/context/DragActionContext";
 import EditModeContext from "~/context/EditModeContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { LocalSettingContext } from "~/context/LocalSettingContext";
-import { RELEASE_ACTION, SelectEntityContext, SelectState } from "~/context/SelectEntityContext";
+import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
 import CanvasPositionContext from "~/context/CanvasPositionContext";
 import { handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
 import MemoViewModel, { AlignType } from "~/models/MemoViewModel";
@@ -33,6 +33,7 @@ import { EditModeType } from "~/models/EditMode";
 import ColorValue from "~/models/ColorValue";
 
 import styleClasses from "./ErdCanvas.module.css";
+import { SelectState } from "~/models/SelectState";
 
 export const ERD_MEMO_VIEW_CLASS_NAME = "erd-memo-view";
 
