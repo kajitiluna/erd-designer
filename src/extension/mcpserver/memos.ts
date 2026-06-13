@@ -4,7 +4,7 @@ import z from "zod";
 import { DocumentResource } from "~/extension/DocumentResource";
 import DocumentBudget, { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
 import {
-    colorValueSchema, DESCRIPTION_DOCUMENT_ID, initResourceNotFound, initResourceResponse,
+    colorValueSchema, DESCRIPTION_DOCUMENT_ID, initResourceNotFound, initResourceResponse, initToolJsonResponse,
     McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs
 } from "~/extension/mcpserver/support";
 import ColorValue from "~/models/ColorValue";
@@ -272,14 +272,7 @@ const initCallbackForAddMemo = (documentResource: DocumentResource): ToolCallbac
 
         const response = toMemoDetail(erdBudget, newMemo);
 
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(response)
-                }
-            ]
-        };
+        return initToolJsonResponse(response);
     };
 };
 
@@ -385,14 +378,7 @@ const initCallbackForUpdateMemo = (documentResource: DocumentResource): ToolCall
 
         const response = toMemoDetail(erdBudget, nextMemo);
 
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(response)
-                }
-            ]
-        };
+        return initToolJsonResponse(response);
     };
 };
 
@@ -436,14 +422,7 @@ const initCallbackForDeleteMemo = (documentResource: DocumentResource): ToolCall
         const nextDocument = previousDocument.deleteMemo(memoId);
         documentResource.notify(documentId, nextDocument);
 
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify({ success: true })
-                }
-            ]
-        };
+        return initToolJsonResponse({ success: true });
     };
 };
 
@@ -451,6 +430,11 @@ const descriptionMoveMemo = `\
 Moves one or more memos within an ERD document to either an absolute position or by a relative offset.
 When moving to an absolute position, all specified memos are moved to the same coordinates.
 When moving by a relative offset, each memo is moved from its current position by the specified amount.
+
+TOOL SELECTION GUIDE:
+- Use move-memo when you need to move memos only (absolute or relative).
+- Use move-table when you need to move tables only (absolute or relative).
+- Use move-rectangle when you need to move tables and memos together in a single relative-offset operation.
 
 COORDINATE SYSTEM:
 All position coordinates use a canvas coordinate system where:
@@ -516,14 +500,7 @@ const initCallbackForMoveMemo = (documentResource: DocumentResource): ToolCallba
             return [toMemoDetail(erdBudget, memoView)];
         });
 
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(responses)
-                }
-            ]
-        };
+        return initToolJsonResponse(responses);
     };
 };
 

@@ -31,7 +31,7 @@ An object containing database information:
 
 const mcpFetchDatabase = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
     return [
-        "fetch_database",
+        "fetch-database",
         new ResourceTemplate(uriTemplates.database, { list: undefined }),
         {
             title: "Fetch Database Information of a specified ERD document",

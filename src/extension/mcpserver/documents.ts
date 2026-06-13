@@ -40,7 +40,7 @@ RESPONSE:
 An array of document summary objects, each containing:
 - uri: The unique URI of the document (format: erd-designer://documents/{documentId}). 
   Use this identifier to access document-specific resources.
-- documentId: The unique identifier of the document (auto-generated UUID).
+- documentId: The unique identifier of the document (16-character hex string derived from the document URI).
 - filePath: The file path of the document in the file system.
 - documentName: The name of the document.
 - databaseName: The name of the database associated with the document.
@@ -98,7 +98,7 @@ REQUEST (path variables):
 RESPONSE:
 An object containing detailed document information:
 - uri: The unique URI of the document (format: erd-designer://documents/{documentId}).
-- documentId: The unique identifier of the document (auto-generated UUID).
+- documentId: The unique identifier of the document (16-character hex string derived from the document URI).
 - filePath: The file path of the document in the file system.
 - documentName: The name of the document.
 - database: Information about the database, including:
@@ -239,7 +239,7 @@ REQUEST:
 RESPONSE:
 An object containing detailed document information (same structure as find-document-by-id):
 - uri: The unique URI of the document (format: erd-designer://documents/{documentId}).
-- documentId: The unique identifier of the document (auto-generated UUID).
+- documentId: The unique identifier of the document (16-character hex string derived from the document URI).
 - filePath: The file path of the document in the file system.
 - documentName: The name of the document.
 - database: Information about the database, including:
@@ -404,6 +404,11 @@ Moves tables and memos within an ERD document by applying RELATIVE offsets to th
 This is a relative movement operation - the x and y values specify how far to move from each element's 
 current position, NOT absolute coordinates. This allows you to reposition multiple tables and memos 
 simultaneously while maintaining their relative positions to each other.
+
+TOOL SELECTION GUIDE:
+- Use move-rectangle when you need to move tables and memos TOGETHER at once (mixed relative movement).
+- Use move-table when you need to move tables only, especially with absolute positioning support.
+- Use move-memo when you need to move memos only, especially with absolute positioning support.
 
 IMPORTANT: This tool performs RELATIVE MOVEMENT, not absolute positioning.
 - To move elements 100 pixels to the right from their current positions: x = 100

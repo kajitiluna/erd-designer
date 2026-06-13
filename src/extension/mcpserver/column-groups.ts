@@ -4,7 +4,7 @@ import z from "zod";
 import { DocumentResource } from "~/extension/DocumentResource";
 import DocumentBudget, { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
 import {
-    DESCRIPTION_DOCUMENT_ID, initInvalidParams, initResourceNotFound, initResourceResponse,
+    DESCRIPTION_DOCUMENT_ID, initInvalidParams, initResourceNotFound, initResourceResponse, initToolJsonResponse,
     McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs, searchParameters
 } from "~/extension/mcpserver/support";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
@@ -299,14 +299,7 @@ const initCallbackForCreateColumnGroup = (
 
         const response = toColumnGroupDetail(erdBudget, newGroup, nextDocument);
 
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(response)
-                }
-            ]
-        };
+        return initToolJsonResponse(response);
     };
 };
 
@@ -381,14 +374,7 @@ const initCallbackForUpdateColumnGroup = (
 
         const response = toColumnGroupDetail(erdBudget, nextGroup, nextDocument);
 
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(response)
-                }
-            ]
-        };
+        return initToolJsonResponse(response);
     };
 };
 
@@ -435,14 +421,7 @@ const initCallbackForDeleteColumnGroup = (
         const nextDocument = previousDocument.deleteColumnGroup(columnGroupId);
         documentResource.notify(documentId, nextDocument);
 
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify({ success: true })
-                }
-            ]
-        };
+        return initToolJsonResponse({ success: true });
     };
 };
 

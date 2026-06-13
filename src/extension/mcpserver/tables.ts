@@ -8,7 +8,7 @@ import DocumentBudget, { uriTemplates } from "~/extension/mcpserver/DocumentBudg
 import { toRelationSummary } from "~/extension/mcpserver/relations";
 import {
     colorValueSchema, DESCRIPTION_DOCUMENT_ID, McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs,
-    findDocumentAndTable, initInvalidParams, initResourceNotFound, initResourceResponse,
+    findDocumentAndTable, initInvalidParams, initResourceNotFound, initResourceResponse, initToolJsonResponse,
     searchParameters, validatePhysicalName
 } from "~/extension/mcpserver/support";
 import { toNextOrthogonalLines } from "~/features/canvas/support";
@@ -74,6 +74,12 @@ Multiple conditions are combined with AND logic.
 - columnId: Filter tables that contain the specified column ID (exact match).
   Can be specified multiple times; tables must contain all specified column IDs (AND).
   Example: ?columnId=abc-123-def-456
+- limit: Maximum number of tables to return.
+  Must be a positive integer. If omitted, all matching tables are returned.
+  Example: ?limit=20
+- offset: Number of tables to skip before returning results (0-based).
+  Must be a non-negative integer. Defaults to 0 if omitted. Used together with limit for pagination.
+  Example: ?offset=40
 
 QUERY EXAMPLES:
 - All tables:
@@ -138,7 +144,9 @@ const mcpListTables = (documentResource: DocumentResource): McpServerRegisterRes
         "tableName.logical.contains",
         "columnName.physical.contains",
         "columnName.logical.contains",
-        "columnId"
+        "columnId",
+        "limit",
+        "offset"
     ].join(",");
 
     return [
@@ -165,7 +173,16 @@ const initCallbackForListTables = (documentResource: DocumentResource): ReadReso
 
         const erdDocument = erdBudget.erdDocument;
         const tableViews = doFilterTableViews(url, erdDocument);
-        const responses = tableViews.map(tableView => toTableSummaryWithColumns(erdBudget, tableView));
+
+        const limitParam = url.searchParams.get("limit");
+        const offsetParam = url.searchParams.get("offset");
+        const limit = (limitParam != null) ? Math.max(1, parseInt(limitParam, 10)) : null;
+        const offset = (offsetParam != null) ? Math.max(0, parseInt(offsetParam, 10)) : 0;
+        const pagedViews = (limit != null)
+            ? tableViews.slice(offset, offset + limit)
+            : tableViews.slice(offset);
+
+        const responses = pagedViews.map(tableView => toTableSummaryWithColumns(erdBudget, tableView));
 
         return initResourceResponse(url, responses);
     };
@@ -863,8 +880,8 @@ const initCallbackForUpdateTable = (documentResource: DocumentResource): ToolCal
 
         const nextCorner = table.view?.position
             ? {
-                left: table.view.position.x || previousTableView.corner.left,
-                top: table.view.position.y || previousTableView.corner.top
+                left: table.view.position.x ?? previousTableView.corner.left,
+                top: table.view.position.y ?? previousTableView.corner.top
             } : previousTableView.corner;
         const nextHeaderColor = table.view?.color ? {
             background: table.view.color.background
@@ -937,14 +954,7 @@ const initCallbackForDeleteTable = (
         const nextDocument = previousDocument.deleteTable(tableId);
         documentResource.notify(documentId, nextDocument);
 
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify({ success: true })
-                }
-            ]
-        };
+        return initToolJsonResponse({ success: true });
     };
 };
 
@@ -952,6 +962,11 @@ const descriptionMoveTable = `\
 Moves one or more tables within an ERD document to either an absolute position or by a relative offset.
 When moving to an absolute position, all specified tables are moved to the same coordinates.
 When moving by a relative offset, each table is moved from its current position by the specified amount.
+
+TOOL SELECTION GUIDE:
+- Use move-table when you need to move tables only (absolute or relative).
+- Use move-memo when you need to move memos only (absolute or relative).
+- Use move-rectangle when you need to move tables and memos together in a single relative-offset operation.
 
 COORDINATE SYSTEM:
 All position coordinates use a canvas coordinate system where:
@@ -1016,14 +1031,7 @@ const initCallbackForMoveTable = (documentResource: DocumentResource): ToolCallb
             return [toTableSummaryWithColumns(erdBudget, tableView)];
         });
 
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(responses)
-                }
-            ]
-        };
+        return initToolJsonResponse(responses);
     };
 };
 
@@ -1182,14 +1190,7 @@ const initCallbackForUpdateTableColor = (
             return [toTableSummaryWithColumns(erdBudget, tableView)];
         });
 
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(responses)
-                }
-            ]
-        };
+        return initToolJsonResponse(responses);
     };
 };
 
@@ -1303,14 +1304,7 @@ const initCallbackForAddUniqueConstraint = (
         documentResource.notify(documentId, nextDocument);
 
         const response = toTableSummaryWithColumns(erdBudget, nextTableView);
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(response)
-                }
-            ]
-        };
+        return initToolJsonResponse(response);
     };
 };
 
@@ -1412,14 +1406,7 @@ const initCallbackForUpdateUniqueConstraint = (
         documentResource.notify(documentId, nextDocument);
 
         const response = toTableSummaryWithColumns(erdBudget, nextTableView);
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(response)
-                }
-            ]
-        };
+        return initToolJsonResponse(response);
     };
 };
 
@@ -1481,14 +1468,7 @@ const initCallbackForDeleteUniqueConstraint = (
         documentResource.notify(documentId, nextDocument);
 
         const response = toTableSummaryWithColumns(erdBudget, nextTableView);
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(response)
-                }
-            ]
-        };
+        return initToolJsonResponse(response);
     };
 };
 
@@ -1614,14 +1594,7 @@ const initCallbackForAddTableIndex = (
         documentResource.notify(documentId, nextDocument);
 
         const response = toTableSummaryWithColumns(erdBudget, nextTableView);
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(response)
-                }
-            ]
-        };
+        return initToolJsonResponse(response);
     };
 };
 
@@ -1733,14 +1706,7 @@ const initCallbackForUpdateTableIndex = (
         documentResource.notify(documentId, nextDocument);
 
         const response = toTableSummaryWithColumns(erdBudget, nextTableView);
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(response)
-                }
-            ]
-        };
+        return initToolJsonResponse(response);
     };
 };
 
@@ -1802,13 +1768,6 @@ const initCallbackForDeleteTableIndex = (
         documentResource.notify(documentId, nextDocument);
 
         const response = toTableSummaryWithColumns(erdBudget, nextTableView);
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(response)
-                }
-            ]
-        };
+        return initToolJsonResponse(response);
     };
 };

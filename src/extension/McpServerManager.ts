@@ -58,7 +58,7 @@ export class McpServerManager {
                 return;
             }
 
-            this.httpServer = startExpress(this.expressApp, this.serverPort, this.onShowMessage);
+            this.httpServer = await startExpress(this.expressApp, this.serverPort, this.onShowMessage);
         });
     }
 
@@ -109,7 +109,7 @@ export class McpServerManager {
             this.serverPort = serverPort;
 
             if (this.serverEnabled) {
-                this.httpServer = startExpress(this.expressApp, this.serverPort, this.onShowMessage);
+                this.httpServer = await startExpress(this.expressApp, this.serverPort, this.onShowMessage);
             }
         });
     }
@@ -209,12 +209,16 @@ const createExpressServer = (mcpServer: McpServer) => {
     return app;
 };
 
-const startExpress = (expressApp: express.Express, serverPort: number, onShowMessage: ShowMessage) => {
-    return expressApp.listen(serverPort, () => {
-        console.info(`ERD Designer's MCP server is running on 'http://localhost:${serverPort}/mcp'`);
-        onShowMessage("INFO", `ERD Designer's MCP server started on 'http://localhost:${serverPort}/mcp'`);
-    }).on('error', error => {
-        console.error('Server error:', error);
-        onShowMessage("ERROR", `Failed to start ERD Designer's MCP server: ${error.message}`);
+const startExpress = (expressApp: express.Express, serverPort: number, onShowMessage: ShowMessage): Promise<Server> => {
+    return new Promise<Server>((resolve, reject) => {
+        const server = expressApp.listen(serverPort, () => {
+            console.info(`ERD Designer's MCP server is running on 'http://localhost:${serverPort}/mcp'`);
+            onShowMessage("INFO", `ERD Designer's MCP server started on 'http://localhost:${serverPort}/mcp'`);
+            resolve(server);
+        }).on('error', (error: Error) => {
+            console.error('Server error:', error);
+            onShowMessage("ERROR", `Failed to start ERD Designer's MCP server: ${error.message}`);
+            reject(error);
+        });
     });
 };

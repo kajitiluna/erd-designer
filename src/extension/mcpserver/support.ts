@@ -170,6 +170,20 @@ export const initResourceResponse = (url: URL, response: object) => {
     };
 };
 
+export const initToolJsonResponse = (response: object | unknown[]) => {
+    const structuredContent = Array.isArray(response) ? { items: response } : response as Record<string, unknown>;
+
+    return {
+        content: [
+            {
+                type: "text" as const,
+                text: JSON.stringify(response)
+            }
+        ],
+        structuredContent
+    };
+};
+
 export const initInvalidParams = (message: string) => new McpError(McpErrorCode.InvalidParams, message);
 
 export const searchParameters = (url: URL, param: string) =>

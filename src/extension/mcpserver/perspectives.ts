@@ -4,7 +4,7 @@ import z from "zod";
 import { DocumentResource } from "~/extension/DocumentResource";
 import DocumentBudget, { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
 import {
-    DESCRIPTION_DOCUMENT_ID, initResourceNotFound, initResourceResponse,
+    DESCRIPTION_DOCUMENT_ID, initInvalidParams, initResourceNotFound, initResourceResponse,
     McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs
 } from "~/extension/mcpserver/support";
 import PerspectiveModel from "~/models/PerspectiveModel";
@@ -198,6 +198,13 @@ const initCallbackForAddPerspective = (
         const previousDocument = erdBudget.erdDocument;
         const previousSetting = previousDocument.erdSettingModel;
 
+        const invalidIds = perspective.containIds.filter(targetId =>
+            (previousDocument.findTableViewModel(targetId) == null)
+            && (previousDocument.findMemoViewModel(targetId) == null));
+        if (invalidIds.length > 0) {
+            throw initInvalidParams(`containIds not found as table or memo: ${invalidIds.join(", ")}`);
+        }
+
         const newPerspective = PerspectiveModel
             .create(perspective.perspectiveName, perspective.description)
             .updateAllContainIds(perspective.containIds);
@@ -301,9 +308,16 @@ const initCallbackForUpdatingPerspective = (
         const updatingName = updating.perspectiveName ?? previousPerspective.perspectiveName;
         const updatingDescription = updating.description ?? previousPerspective.description;
 
+        const invalidIds = (updating.addingIds ?? []).filter(targetId =>
+            (previousDocument.findTableViewModel(targetId) == null)
+            && (previousDocument.findMemoViewModel(targetId) == null));
+        if (invalidIds.length > 0) {
+            throw initInvalidParams(`addingIds not found as table or memo: ${invalidIds.join(", ")}`);
+        }
+
         const containIds = new Set(previousPerspective.getContainIds());
-        updating.addingIds?.forEach(id => containIds.add(id));
         updating.removingIds?.forEach(id => containIds.delete(id));
+        updating.addingIds?.forEach(id => containIds.add(id));
 
         const nextPerspective = previousPerspective
             .update(updatingName, updatingDescription)

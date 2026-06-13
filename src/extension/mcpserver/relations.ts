@@ -4,7 +4,7 @@ import z from "zod";
 import { DocumentResource } from "~/extension/DocumentResource";
 import DocumentBudget, { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
 import {
-    DESCRIPTION_DOCUMENT_ID, initInvalidParams, initResourceNotFound, initResourceResponse,
+    DESCRIPTION_DOCUMENT_ID, initInvalidParams, initResourceNotFound, initResourceResponse, initToolJsonResponse,
     McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs,
     searchParameters
 } from "~/extension/mcpserver/support";
@@ -362,14 +362,7 @@ const initCallbackForCreateRelation = (
         const createdView = nextDocument.findRelationViewModel(relationModel.relationModelId);
         const response = toRelationDetail(erdBudget, createdView || relationView);
 
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(response)
-                }
-            ]
-        };
+        return initToolJsonResponse(response);
     };
 };
 
@@ -491,14 +484,7 @@ const initCallbackForUpdateRelation = (documentResource: DocumentResource): Tool
         const updatedView = nextDocument.findRelationViewModel(relationId);
         const response = toRelationDetail(erdBudget, updatedView || nextView);
 
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(response)
-                }
-            ]
-        };
+        return initToolJsonResponse(response);
     };
 };
 
@@ -553,14 +539,7 @@ const initCallbackForDeleteRelation = (
         const nextDocument = previousDocument.deleteRelation(relationId);
         documentResource.notify(documentId, nextDocument);
 
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify({ success: true })
-                }
-            ]
-        };
+        return initToolJsonResponse({ success: true });
     };
 };
 
