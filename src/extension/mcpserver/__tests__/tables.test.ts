@@ -58,7 +58,7 @@ type ToolCallback = (args: Record<string, unknown>) => Promise<unknown>;
 
 const getToolCallback = (documentResource: DocumentResource, toolName: string): ToolCallback => {
     const config = mcpRegisterTable(documentResource);
-    const toolEntry = config.tools.find(t => t[0] === toolName);
+    const toolEntry = config.tools.find(tool => tool[0] === toolName);
     if (!toolEntry) throw new Error(`Tool "${toolName}" not found`);
     return toolEntry[2] as ToolCallback;
 };

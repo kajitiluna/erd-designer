@@ -1,25 +1,37 @@
-import { ReadResourceTemplateCallback, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import {
+    ReadResourceTemplateCallback, ResourceTemplate, ToolCallback
+} from "@modelcontextprotocol/sdk/server/mcp.js";
+import z from "zod";
+
 import { DocumentResource } from "~/extension/DocumentResource";
 import { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
-import { initResourceNotFound, initResourceResponse, McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs } from "~/extension/mcpserver/support";
+import {
+    DESCRIPTION_DOCUMENT_ID, findDocument, initResourceResponse, initToolJsonResponse,
+    McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs
+} from "~/extension/mcpserver/support";
+import DocumentBudget from "~/extension/mcpserver/DocumentBudget";
 
 export const mcpRegisterDatabase = (documentResource: DocumentResource): McpRegisterConfig => {
     return {
         resources: [],
         resourceTemplates: [
-            mcpFetchDatabase(documentResource)
+            resourceFindDatabase(documentResource)
         ],
-        tools: [] as McpServerRegisterToolArgs[]
+        tools: [
+            mcpFetchDatabaseTool(documentResource)
+        ] as McpServerRegisterToolArgs[]
     };
 };
 
+// ==================== find-database ====================
+
 const descriptionFetchDatabase = `\
 Retrieves database configuration information for the specified ERD document.
-This resource provides details about the database settings including the database name and available column types.
+This tool provides details about the database settings including the database name and available column types.
 
-REQUEST (path variables):
+REQUEST:
 - documentId: The unique identifier of the ERD document whose database information is to be retrieved.
-  Can be obtained from 'erd-designer://documents' resource.
+  Can be obtained by calling the 'list-documents' tool.
 
 RESPONSE:
 An object containing database information:
@@ -29,34 +41,65 @@ An object containing database information:
   - Other type-specific properties as defined by the database.\
 `;
 
-const mcpFetchDatabase = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
+const resourceFindDatabase = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
     return [
-        "fetch-database",
+        "find-database",
         new ResourceTemplate(uriTemplates.database, { list: undefined }),
         {
-            title: "Fetch Database Information of a specified ERD document",
+            title: "Find Database Information of a specified ERD document",
             description: descriptionFetchDatabase
+        },
+        initResourceCallbackForFindDatabase(documentResource)
+    ] as const;
+};
+
+const initResourceCallbackForFindDatabase = (
+    documentResource: DocumentResource
+): ReadResourceTemplateCallback => {
+    return async (url, variables) => {
+        const documentId = variables.documentId as string;
+        const { erdBudget } = findDocument(documentResource, documentId);
+
+        const response = toDatabaseDetail(erdBudget);
+        return initResourceResponse(url, response);
+    };
+};
+
+const fetchDatabaseInputSchema = {
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID)
+};
+
+const mcpFetchDatabaseTool = (
+    documentResource: DocumentResource
+): McpServerRegisterToolArgs<typeof fetchDatabaseInputSchema> => {
+    return [
+        "fetch-database",
+        {
+            title: "Fetch Database Information of a specified ERD document",
+            description: descriptionFetchDatabase,
+            inputSchema: fetchDatabaseInputSchema,
+            annotations: { readOnlyHint: true }
         },
         initCallbackForFetchDatabase(documentResource)
     ] as const;
 };
 
-const initCallbackForFetchDatabase = (documentResource: DocumentResource): ReadResourceTemplateCallback => {
-    return async (url, variables) => {
-        const documentId = variables.documentId as string;
-        const erdBudget = documentResource.findById(documentId);
-        if (erdBudget == null) {
-            throw initResourceNotFound(url);
-        }
+const initCallbackForFetchDatabase = (
+    documentResource: DocumentResource
+): ToolCallback<typeof fetchDatabaseInputSchema> => {
+    return async ({ documentId }) => {
+        const { erdBudget } = findDocument(documentResource, documentId);
 
-        const erdDocument = erdBudget.erdDocument;
-        const databaseSetting = erdDocument.databaseSettingModel;
+        const response = toDatabaseDetail(erdBudget);
+        return initToolJsonResponse(response);
+    };
+};
 
-        const response = {
-            databaseName: databaseSetting.getDatabase().name,
-            columnTypes: databaseSetting.columnTypes.map(columnType => columnType.toJSON())
-        };
+const toDatabaseDetail = (erdBudget: DocumentBudget) => {
+    const databaseSetting = erdBudget.erdDocument.databaseSettingModel;
 
-        return initResourceResponse(url, response);
+    return {
+        databaseName: databaseSetting.getDatabase().name,
+        columnTypes: databaseSetting.columnTypes.map(columnType => columnType.toJSON())
     };
 };

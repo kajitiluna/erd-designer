@@ -75,7 +75,7 @@ type ToolCallback = (args: Record<string, unknown>) => Promise<unknown>;
 
 const getToolCallback = (documentResource: DocumentResource, toolName: string): ToolCallback => {
     const config = mcpRegisterPerspective(documentResource);
-    const toolEntry = config.tools.find(t => t[0] === toolName);
+    const toolEntry = config.tools.find(tool => tool[0] === toolName);
     if (!toolEntry) throw new Error(`Tool "${toolName}" not found`);
     return toolEntry[2] as ToolCallback;
 };
@@ -146,7 +146,7 @@ describe('perspectives MCP tools', () => {
                         containIds: ['non-existent-id'],
                     },
                 })
-            ).rejects.toThrow('containId not found as table or memo: non-existent-id');
+            ).rejects.toThrow('containIds not found as table or memo: non-existent-id');
         });
     });
 
@@ -230,7 +230,7 @@ describe('perspectives MCP tools', () => {
                         addingIds: ['non-existent-id'],
                     },
                 })
-            ).rejects.toThrow('addingId not found as table or memo: non-existent-id');
+            ).rejects.toThrow('addingIds not found as table or memo: non-existent-id');
         });
     });
 });

@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.20260614] - 2026-06-14
+
+### Changed
+
+- **MCP Server: Read operations now available as tools**:
+
+  Document, table, column, perspective, and other lookup operations that were previously
+  accessible only as MCP resources are now also exposed as tools.
+  This allows AI agents that work primarily with tools to access ERD data without using resource URIs.
+
+  In addition, some tool names were updated for consistency:
+  `fetch_database` → `fetch-database`, `find-perspective-by-id` → `find-perspective`,
+  `find-document-by-uri` → `find-document-by-filepath`.
+
+
 ## [0.20260530] - 2026-05-30
 
 ### Added

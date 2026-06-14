@@ -1,6 +1,5 @@
 import {
-    ReadResourceCallback, ReadResourceTemplateCallback, ResourceMetadata, ResourceTemplate,
-    ToolCallback
+    ReadResourceCallback, ReadResourceTemplateCallback, ResourceMetadata, ResourceTemplate, ToolCallback
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ErrorCode, McpError, ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import z, { ZodRawShape } from "zod";
@@ -45,17 +44,16 @@ export type McpServerRegisterToolArgs<InputArgs extends ZodRawShape = ZodRawShap
 export type McpRegisterConfig = {
     resources: McpServerRegisterResourceArgs[];
     resourceTemplates: McpServerRegisterResourceTemplateArgs[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    tools: McpServerRegisterToolArgs<any>[];
+    tools: McpServerRegisterToolArgs[];
 };
+
 
 export const DESCRIPTION_DOCUMENT_ID =
     "The unique identifier (16-character alphanumeric string) of the document - NOT a file path or file name. "
-    + "To obtain the documentId value, use MCP Server resources/read operation: "
-    + "First, read the resource 'erd-designer://documents' which returns a list of all currently open ERD documents. "
+    + "To obtain the documentId value, call the 'list-documents' tool which returns a list of all currently open ERD documents. "
     + "Each document object in the response contains a 'documentId' field "
     + "- extract this alphanumeric string value to use as the documentId parameter. "
-    + "Alternatively, read the resource template 'file://{filepath}' (replace {filepath} with the actual file path) "
+    + "Alternatively, call the 'find-document-by-filepath' tool with the actual file path "
     + "to find a specific document, then extract the 'documentId' field from the response.";
 
 export const colorValueSchema = z.string()
@@ -137,14 +135,19 @@ export const calculateIndexFromPosition = <KEY extends string>(
     return refIndex + (position.type === "before" ? 0 : 1);
 };
 
-export const findDocumentAndTable = (documentResource: DocumentResource, documentId: string, tableId: string) => {
+export const findDocument = (documentResource: DocumentResource, documentId: string) => {
     const erdBudget = documentResource.findById(documentId);
     if (erdBudget == null) {
         const url = new URL(uriTemplates.documentFor(documentId));
         throw initResourceNotFound(url);
     }
 
-    const erdDocument = erdBudget.erdDocument;
+    return { erdBudget, erdDocument: erdBudget.erdDocument };
+};
+
+export const findDocumentAndTable = (documentResource: DocumentResource, documentId: string, tableId: string) => {
+    const { erdBudget, erdDocument } = findDocument(documentResource, documentId);
+
     const tableView = erdDocument.findTableViewModel(tableId);
     if (tableView == null) {
         const url = new URL(erdBudget.tableUri(tableId));
@@ -170,6 +173,9 @@ export const initResourceResponse = (url: URL, response: object) => {
     };
 };
 
+export const searchParameters = (url: URL, param: string) =>
+    url.searchParams.getAll(param).filter(value => (value !== ""));
+
 export const initToolJsonResponse = (response: object | unknown[]) => {
     const structuredContent = Array.isArray(response) ? { items: response } : response as Record<string, unknown>;
 
@@ -177,7 +183,7 @@ export const initToolJsonResponse = (response: object | unknown[]) => {
         content: [
             {
                 type: "text" as const,
-                text: JSON.stringify(response)
+                text: JSON.stringify(structuredContent)
             }
         ],
         structuredContent
@@ -185,9 +191,6 @@ export const initToolJsonResponse = (response: object | unknown[]) => {
 };
 
 export const initInvalidParams = (message: string) => new McpError(McpErrorCode.InvalidParams, message);
-
-export const searchParameters = (url: URL, param: string) =>
-    url.searchParams.getAll(param).filter(value => (value !== ""));
 
 const PHYSICAL_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
