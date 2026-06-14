@@ -13,7 +13,7 @@ import { mcpRegisterMemo } from "~/extension/mcpserver/memos";
 import { mcpRegisterPerspective } from "~/extension/mcpserver/perspectives";
 import { mcpRegisterRelation } from "~/extension/mcpserver/relations";
 import { mcpRegisterSchema } from "~/extension/mcpserver/schemas";
-import { McpErrorCode } from "~/extension/mcpserver/support";
+import { McpErrorCode, McpRegisterConfig } from "~/extension/mcpserver/support";
 import { mcpRegisterTable } from "~/extension/mcpserver/tables";
 import { ShowMessage } from "~/extension/vscode-message";
 
@@ -38,14 +38,11 @@ export class McpServerManager {
     }
 
     private withLock(operation: () => Promise<void>): Promise<void> {
-        this.operationQueue = this.operationQueue
-            .then(operation)
-            .catch(error => {
-                console.error("Error in MCP server operation:", error);
-                return Promise.reject(error);
-            });
-
-        return this.operationQueue;
+        const result = this.operationQueue.then(operation);
+        this.operationQueue = result.catch(error => {
+            console.error("Error in MCP server operation:", error);
+        });
+        return result;
     }
 
     public start(serverEnabled: boolean, serverPort: number): Promise<void> {
@@ -58,7 +55,11 @@ export class McpServerManager {
                 return;
             }
 
-            this.httpServer = startExpress(this.expressApp, this.serverPort, this.onShowMessage);
+            try {
+                this.httpServer = await startExpress(this.expressApp, this.serverPort, this.onShowMessage);
+            } catch {
+                // Error already logged and shown to user via onShowMessage in startExpress
+            }
         });
     }
 
@@ -109,7 +110,11 @@ export class McpServerManager {
             this.serverPort = serverPort;
 
             if (this.serverEnabled) {
-                this.httpServer = startExpress(this.expressApp, this.serverPort, this.onShowMessage);
+                try {
+                    this.httpServer = await startExpress(this.expressApp, this.serverPort, this.onShowMessage);
+                } catch {
+                    // Error already logged and shown to user via onShowMessage in startExpress
+                }
             }
         });
     }
@@ -121,7 +126,7 @@ const createMcpServer = (documentResource: DocumentResource) => {
         version: "0.1.0"
     });
 
-    const mcpConfig = [
+    const registrations: McpRegisterConfig[] = [
         // `erd-designer://documents`
         mcpRegisterErdDocument(documentResource),
         // `erd-designer://documents/{documentId}/database`
@@ -143,15 +148,18 @@ const createMcpServer = (documentResource: DocumentResource) => {
         mcpRegisterMemo(documentResource),
         // `erd-designer://documents/{documentId}/perspectives`
         mcpRegisterPerspective(documentResource)
-    ].reduce((merged, config) => ({
+    ];
+
+    const initialConfig: McpRegisterConfig = { resources: [], resourceTemplates: [], tools: [] };
+    const mcpConfig = registrations.reduce<McpRegisterConfig>((merged, config) => ({
         resources: [...merged.resources, ...config.resources],
         resourceTemplates: [...merged.resourceTemplates, ...config.resourceTemplates],
         tools: [...merged.tools, ...config.tools]
-    }), { resources: [], resourceTemplates: [], tools: [] });
+    }), initialConfig);
 
-    mcpConfig.resources.forEach(args => mcpServer.registerResource(...args));
-    mcpConfig.resourceTemplates.forEach(args => mcpServer.registerResource(...args));
-    mcpConfig.tools.forEach(args => mcpServer.registerTool(...args));
+    mcpConfig.resources.forEach(resource => mcpServer.registerResource(...resource));
+    mcpConfig.resourceTemplates.forEach(resourceTemplate => mcpServer.registerResource(...resourceTemplate));
+    mcpConfig.tools.forEach(tool => mcpServer.registerTool(...tool));
 
     return mcpServer
 };
@@ -209,12 +217,16 @@ const createExpressServer = (mcpServer: McpServer) => {
     return app;
 };
 
-const startExpress = (expressApp: express.Express, serverPort: number, onShowMessage: ShowMessage) => {
-    return expressApp.listen(serverPort, () => {
-        console.info(`ERD Designer's MCP server is running on 'http://localhost:${serverPort}/mcp'`);
-        onShowMessage("INFO", `ERD Designer's MCP server started on 'http://localhost:${serverPort}/mcp'`);
-    }).on('error', error => {
-        console.error('Server error:', error);
-        onShowMessage("ERROR", `Failed to start ERD Designer's MCP server: ${error.message}`);
+const startExpress = (expressApp: express.Express, serverPort: number, onShowMessage: ShowMessage): Promise<Server> => {
+    return new Promise<Server>((resolve, reject) => {
+        const server = expressApp.listen(serverPort, () => {
+            console.info(`ERD Designer's MCP server is running on 'http://localhost:${serverPort}/mcp'`);
+            onShowMessage("INFO", `ERD Designer's MCP server started on 'http://localhost:${serverPort}/mcp'`);
+            resolve(server);
+        }).on('error', (error: Error) => {
+            console.error('Server error:', error);
+            onShowMessage("ERROR", `Failed to start ERD Designer's MCP server: ${error.message}`);
+            reject(error);
+        });
     });
 };

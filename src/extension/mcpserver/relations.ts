@@ -1,12 +1,13 @@
-import { ReadResourceTemplateCallback, ResourceTemplate, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
+import {
+    ReadResourceTemplateCallback, ResourceTemplate, ToolCallback
+} from "@modelcontextprotocol/sdk/server/mcp.js";
 import z from "zod";
 
 import { DocumentResource } from "~/extension/DocumentResource";
 import DocumentBudget, { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
 import {
-    DESCRIPTION_DOCUMENT_ID, initInvalidParams, initResourceNotFound, initResourceResponse,
-    McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs,
-    searchParameters
+    DESCRIPTION_DOCUMENT_ID, findDocument, initInvalidParams, initResourceNotFound, initResourceResponse,
+    initToolJsonResponse, McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs
 } from "~/extension/mcpserver/support";
 import RelationModel from "~/models/database/RelationModel";
 import RelationPair from "~/models/database/RelationPair";
@@ -18,10 +19,12 @@ export const mcpRegisterRelation = (documentResource: DocumentResource): McpRegi
     return {
         resources: [],
         resourceTemplates: [
-            mcpListRelations(documentResource),
-            mcpFindRelation(documentResource)
+            mcpListRelationsResource(documentResource),
+            mcpFindRelationResource(documentResource)
         ],
         tools: [
+            mcpListRelationsTool(documentResource),
+            mcpFindRelationTool(documentResource),
             mcpCreateRelation(documentResource),
             mcpUpdateRelation(documentResource),
             mcpDeleteRelation(documentResource)
@@ -29,87 +32,31 @@ export const mcpRegisterRelation = (documentResource: DocumentResource): McpRegi
     };
 };
 
-export const toRelationSummary = (erdBudget: DocumentBudget, relationModel: RelationModel) => {
-    return {
-        uri: erdBudget.relationUri(relationModel.relationModelId),
-        relationId: relationModel.relationModelId,
-        relationName: relationModel.relationName,
-        parentTableId: relationModel.parentTableModelId,
-        parentCardinality: relationModel.parentCardinality,
-        childTableId: relationModel.childTableModelId,
-        childCardinality: relationModel.childCardinality,
-        relationPairs: relationModel.relationPairs.map(pair => ({
-            parentColumnId: pair.parentColumnModelId,
-            childColumnId: pair.childColumnModelId
-        })),
-        onUpdateAction: relationModel.onUpdateAction,
-        onDeleteAction: relationModel.onDeleteAction
-    };
-};
+const cardinalitySchema = z.enum(["1", "0..1", "0..N", "1..N"]);
+const referentialActionSchema = z.enum(["RESTRICT", "SET NULL", "CASCADE", "NO ACTION", "SET DEFAULT"]);
 
-const toRelationDetail = (erdBudget: DocumentBudget, relationView: RelationViewModel) => {
-    const relationModel = relationView.relationModel;
-    const lineViewModel = relationView.lineViewModel;
-
-    const view = lineViewModel.lineType === "orthogonal"
-        ? {
-            lineType: "orthogonal" as const,
-            lines: lineViewModel.orthogonalLines.map(line => ({
-                direction: line.direction,
-                position: line.position
-            }))
-        }
-        : {
-            lineType: "points" as const,
-            edges: lineViewModel.edges.map(edge => ({
-                x: edge.x,
-                y: edge.y
-            }))
-        };
-
-    return {
-        ...toRelationSummary(erdBudget, relationModel),
-        view: view
-    };
-};
+// ==================== list-relations ====================
 
 const descriptionList = `\
 Retrieves a list of relations from the specified ERD document.
 Each relation defines a foreign key relationship between a parent table and a child table.
-This resource supports optional filtering via query parameters to narrow down the results.
+Supports optional filtering to narrow down the results.
 
-REQUEST (path variables):
+REQUEST:
 - documentId: The unique identifier of the ERD document whose relations are to be listed.
-  Can be obtained from 'erd-designer://documents' resource.
+  Can be obtained by calling the 'list-documents' tool.
 
-REQUEST (query parameters - all optional):
-Filtering conditions can be specified to narrow down the relation list.
-Multiple conditions are combined with AND logic.
-- parentTableId: Filter relations whose parent table ID matches exactly.
-  Can be specified multiple times; all conditions must be satisfied (AND).
-  Example: ?parentTableId=table-123
-- childTableId: Filter relations whose child table ID matches exactly.
-  Can be specified multiple times; all conditions must be satisfied (AND).
-  Example: ?childTableId=table-456
-- relationName.contains: Filter relations whose name contains the specified string (partial match).
-  Can be specified multiple times; all conditions must be satisfied (AND).
-  Example: ?relationName.contains=user
+REQUEST (filter parameters - all optional):
+- filter.parentTableIds: Filter relations whose parent table ID matches exactly (AND condition).
+  Example: { "filter": { "parentTableIds": ["table-123"] } }
+- filter.childTableIds: Filter relations whose child table ID matches exactly (AND condition).
+- filter.relationNameContains: Filter relations whose name contains the specified strings (AND condition).
 
-QUERY EXAMPLES:
+EXAMPLES:
 - All relations:
-  \`erd-designer://documents/doc123/relations\`
-- Relations with specific parent table:
-  \`erd-designer://documents/doc123/relations?parentTableId=table-123\`
-- Relations with specific child table:
-  \`erd-designer://documents/doc123/relations?childTableId=table-456\`
-- Relations with name containing "user":
-  \`erd-designer://documents/doc123/relations?relationName.contains=user\`
-- Multiple conditions (AND): parent table ID matches AND name contains "fk":
-  \`erd-designer://documents/doc123/relations?parentTableId=table-123&relationName.contains=fk\`
-- Parent and child table both specified:
-  \`erd-designer://documents/doc123/relations?parentTableId=table-123&childTableId=table-456\`
-- Name contains both "user" AND "order":
-  \`erd-designer://documents/doc123/relations?relationName.contains=user&relationName.contains=order\`
+  { "documentId": "doc123" }
+- Relations between two specific tables:
+  { "documentId": "doc123", "filter": { "parentTableIds": ["table-123"], "childTableIds": ["table-456"] } }
 
 RESPONSE:
 An array of relation objects, each containing:
@@ -129,47 +76,91 @@ An array of relation objects, each containing:
   - lines: Array of line segments (only when lineType is "orthogonal"), each with direction and position.
 `;
 
-const mcpListRelations = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
-    const queryParams = [
-        "parentTableId",
-        "childTableId",
-        "relationName.contains"
-    ].join(",");
-
+const mcpListRelationsResource = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
     return [
         "list-relations",
-        new ResourceTemplate(
-            uriTemplates.relations + `{?${queryParams}*}`,
-            { list: undefined }
-        ),
+        new ResourceTemplate(uriTemplates.relations, { list: undefined }),
         {
             title: "List relations of a specified ERD document",
             description: descriptionList
         },
-        initCallbackForListRelations(documentResource)
+        initResourceCallbackForListRelations(documentResource)
     ] as const;
 };
 
-const initCallbackForListRelations = (documentResource: DocumentResource): ReadResourceTemplateCallback => {
+const initResourceCallbackForListRelations = (
+    documentResource: DocumentResource
+): ReadResourceTemplateCallback => {
     return async (url, variables) => {
         const documentId = variables.documentId as string;
-        const erdBudget = documentResource.findById(documentId);
-        if (erdBudget == null) {
-            throw initResourceNotFound(url);
-        }
-
-        const erdDocument = erdBudget.erdDocument;
-        const relationViews = doFilterRelations(url, erdDocument);
-        const responses = relationViews.map(relationView => toRelationDetail(erdBudget, relationView));
+        const emptyFilter: RelationFilterParams = {
+            parentTableIds: [], childTableIds: [], relationNameContains: []
+        };
+        const responses = listRelationResponses(documentResource, documentId, emptyFilter);
 
         return initResourceResponse(url, responses);
     };
 };
 
-const doFilterRelations = (url: URL, erdDocument: ErdDocument) => {
-    const parentTableIds = searchParameters(url, "parentTableId");
-    const childTableIds = searchParameters(url, "childTableId");
-    const relationNameContains = searchParameters(url, "relationName.contains");
+const listRelationsInputSchema = {
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
+    filter: z.object({
+        parentTableIds: z.array(z.string()).optional()
+            .describe("Filter relations whose parent table ID matches exactly (AND condition)."),
+        childTableIds: z.array(z.string()).optional()
+            .describe("Filter relations whose child table ID matches exactly (AND condition)."),
+        relationNameContains: z.array(z.string()).optional()
+            .describe("Filter relations whose name contains the specified strings (AND condition)."),
+    }).optional(),
+};
+
+const mcpListRelationsTool = (
+    documentResource: DocumentResource
+): McpServerRegisterToolArgs<typeof listRelationsInputSchema> => {
+    return [
+        "list-relations",
+        {
+            title: "List relations of a specified ERD document",
+            description: descriptionList,
+            inputSchema: listRelationsInputSchema,
+            annotations: { readOnlyHint: true }
+        },
+        initCallbackForListRelations(documentResource)
+    ] as const;
+};
+
+const initCallbackForListRelations = (
+    documentResource: DocumentResource
+): ToolCallback<typeof listRelationsInputSchema> => {
+    return async ({ documentId, filter }) => {
+        const params: RelationFilterParams = {
+            parentTableIds: filter?.parentTableIds ?? [],
+            childTableIds: filter?.childTableIds ?? [],
+            relationNameContains: filter?.relationNameContains ?? [],
+        };
+        const responses = listRelationResponses(documentResource, documentId, params);
+
+        return initToolJsonResponse(responses);
+    };
+};
+
+type RelationFilterParams = {
+    parentTableIds: string[];
+    childTableIds: string[];
+    relationNameContains: string[];
+};
+
+const listRelationResponses = (
+    documentResource: DocumentResource, documentId: string, params: RelationFilterParams
+) => {
+    const { erdBudget, erdDocument } = findDocument(documentResource, documentId);
+    const relationViews = doFilterRelations(params, erdDocument);
+
+    return relationViews.map(relationView => toRelationDetail(erdBudget, relationView));
+};
+
+const doFilterRelations = (params: RelationFilterParams, erdDocument: ErdDocument) => {
+    const { parentTableIds, childTableIds, relationNameContains } = params;
 
     return erdDocument.getRelationViewModels().filter(relationView => {
         const relationModel = relationView.relationModel;
@@ -196,14 +187,16 @@ const doFilterRelations = (url: URL, erdDocument: ErdDocument) => {
     });
 };
 
+// ==================== find-relation ====================
+
 const descriptionFind = `\
 Retrieves detailed information about a specific relation from the specified ERD document using its relationId.
 
-REQUEST (path variables):
+REQUEST:
 - documentId: The unique identifier of the ERD document.
-  Can be obtained from 'erd-designer://documents' resource.
+  Can be obtained by calling the 'list-documents' tool.
 - relationId: The unique identifier of the relation to retrieve.
-  Can be obtained from the relations list resource or from the document's relations array.
+  Can be obtained by calling the 'list-relations' tool or from the document's relations array.
 
 RESPONSE:
 An object containing detailed information about the specified relation:
@@ -223,7 +216,7 @@ An object containing detailed information about the specified relation:
   - lines: Array of line segments (only when lineType is "orthogonal"), each with direction and position.
 `;
 
-const mcpFindRelation = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
+const mcpFindRelationResource = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
     return [
         "find-relation",
         new ResourceTemplate(uriTemplates.relationDetail, { list: undefined }),
@@ -231,30 +224,64 @@ const mcpFindRelation = (documentResource: DocumentResource): McpServerRegisterR
             title: "Find a relation of a specified ERD document",
             description: descriptionFind
         },
-        initCallbackForFindRelation(documentResource)
+        initResourceCallbackForFindRelation(documentResource)
     ] as const;
 };
 
-const initCallbackForFindRelation = (documentResource: DocumentResource): ReadResourceTemplateCallback => {
+const initResourceCallbackForFindRelation = (
+    documentResource: DocumentResource
+): ReadResourceTemplateCallback => {
     return async (url, variables) => {
         const documentId = variables.documentId as string;
         const relationId = variables.relationId as string;
-        const erdBudget = documentResource.findById(documentId);
-        if (erdBudget == null) {
-            throw initResourceNotFound(url);
-        }
-
-        const erdDocument = erdBudget.erdDocument;
-        const relationView = erdDocument.findRelationViewModel(relationId);
-        if (relationView == null) {
-            throw initResourceNotFound(url);
-        }
-
-        const response = toRelationDetail(erdBudget, relationView);
+        const response = findRelationResponse(documentResource, documentId, relationId);
 
         return initResourceResponse(url, response);
     };
 };
+
+const findRelationInputSchema = {
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
+    relationId: z.string().describe("The unique identifier of the relation to retrieve.")
+};
+
+const mcpFindRelationTool = (documentResource: DocumentResource): McpServerRegisterToolArgs<typeof findRelationInputSchema> => {
+    return [
+        "find-relation",
+        {
+            title: "Find a relation of a specified ERD document",
+            description: descriptionFind,
+            inputSchema: findRelationInputSchema,
+            annotations: { readOnlyHint: true }
+        },
+        initCallbackForFindRelation(documentResource)
+    ] as const;
+};
+
+const initCallbackForFindRelation = (
+    documentResource: DocumentResource
+): ToolCallback<typeof findRelationInputSchema> => {
+    return async ({ documentId, relationId }) => {
+        const response = findRelationResponse(documentResource, documentId, relationId);
+        return initToolJsonResponse(response);
+    };
+};
+
+const findRelationResponse = (
+    documentResource: DocumentResource, documentId: string, relationId: string
+) => {
+    const { erdBudget, erdDocument } = findDocument(documentResource, documentId);
+
+    const relationView = erdDocument.findRelationViewModel(relationId);
+    if (relationView == null) {
+        const url = new URL(erdBudget.relationUri(relationId));
+        throw initResourceNotFound(url);
+    }
+
+    return toRelationDetail(erdBudget, relationView);
+};
+
+// ==================== create-relation ====================
 
 const descriptionCreateRelation = `\
 Creates a new relation (foreign key relationship) between two tables in a specified ERD document.
@@ -276,9 +303,6 @@ REQUEST:
 RESPONSE:
 An object containing the created relation information (same format as relation detail resource).
 `;
-
-const cardinalitySchema = z.enum(["1", "0..1", "0..N", "1..N"]);
-const referentialActionSchema = z.enum(["RESTRICT", "SET NULL", "CASCADE", "NO ACTION", "SET DEFAULT"]);
 
 const mcpCreateRelation = (
     documentResource: DocumentResource
@@ -362,16 +386,11 @@ const initCallbackForCreateRelation = (
         const createdView = nextDocument.findRelationViewModel(relationModel.relationModelId);
         const response = toRelationDetail(erdBudget, createdView || relationView);
 
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(response)
-                }
-            ]
-        };
+        return initToolJsonResponse(response);
     };
 };
+
+// ==================== update-relation ====================
 
 const descriptionUpdateRelation = `\
 Updates an existing relation in a specified ERD document.
@@ -431,13 +450,7 @@ const updateRelationInputSchema = {
 
 const initCallbackForUpdateRelation = (documentResource: DocumentResource): ToolCallback<typeof updateRelationInputSchema> => {
     return async ({ documentId, relationId, relation: updating }) => {
-        const erdBudget = documentResource.findById(documentId);
-        if (erdBudget == null) {
-            const url = new URL(uriTemplates.documentFor(documentId));
-            throw initResourceNotFound(url);
-        }
-
-        const previousDocument = erdBudget.erdDocument;
+        const { erdBudget, erdDocument: previousDocument } = findDocument(documentResource, documentId);
         const previousRelationView = previousDocument.findRelationViewModel(relationId);
         if (previousRelationView == null) {
             const url = new URL(erdBudget.relationUri(relationId));
@@ -491,16 +504,11 @@ const initCallbackForUpdateRelation = (documentResource: DocumentResource): Tool
         const updatedView = nextDocument.findRelationViewModel(relationId);
         const response = toRelationDetail(erdBudget, updatedView || nextView);
 
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(response)
-                }
-            ]
-        };
+        return initToolJsonResponse(response);
     };
 };
+
+// ==================== delete-relation ====================
 
 const descriptionDeleteRelation = `\
 Deletes a relation from a specified ERD document.
@@ -537,13 +545,7 @@ const initCallbackForDeleteRelation = (
     documentResource: DocumentResource
 ): ToolCallback<typeof deleteRelationInputSchema> => {
     return async ({ documentId, relationId }) => {
-        const erdBudget = documentResource.findById(documentId);
-        if (erdBudget == null) {
-            const url = new URL(uriTemplates.documentFor(documentId));
-            throw initResourceNotFound(url);
-        }
-
-        const previousDocument = erdBudget.erdDocument;
+        const { erdBudget, erdDocument: previousDocument } = findDocument(documentResource, documentId);
         const relationView = previousDocument.findRelationViewModel(relationId);
         if (relationView == null) {
             const url = new URL(erdBudget.relationUri(relationId));
@@ -553,27 +555,16 @@ const initCallbackForDeleteRelation = (
         const nextDocument = previousDocument.deleteRelation(relationId);
         documentResource.notify(documentId, nextDocument);
 
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify({ success: true })
-                }
-            ]
-        };
+        return initToolJsonResponse({ success: true });
     };
 };
+
+// ==================== shared helpers ====================
 
 const doFindDocumentAndTables = (
     documentResource: DocumentResource, documentId: string, input: { parentTableId: string, childTableId: string }
 ) => {
-    const erdBudget = documentResource.findById(documentId);
-    if (erdBudget == null) {
-        const url = new URL(uriTemplates.documentFor(documentId));
-        throw initResourceNotFound(url);
-    }
-
-    const erdDocument = erdBudget.erdDocument;
+    const { erdBudget, erdDocument } = findDocument(documentResource, documentId);
 
     const parentTableView = erdDocument.findTableViewModel(input.parentTableId);
     if (parentTableView == null) {
@@ -594,4 +585,48 @@ const doFindDocumentAndTables = (
     const childColumnIds = new Set(erdDocument.toAllColumnModels(childTable).map(model => model.columnModelId));
 
     return { erdBudget, erdDocument, parentColumnIds, childColumnIds };
+};
+
+export const toRelationSummary = (erdBudget: DocumentBudget, relationModel: RelationModel) => {
+    return {
+        uri: erdBudget.relationUri(relationModel.relationModelId),
+        relationId: relationModel.relationModelId,
+        relationName: relationModel.relationName,
+        parentTableId: relationModel.parentTableModelId,
+        parentCardinality: relationModel.parentCardinality,
+        childTableId: relationModel.childTableModelId,
+        childCardinality: relationModel.childCardinality,
+        relationPairs: relationModel.relationPairs.map(pair => ({
+            parentColumnId: pair.parentColumnModelId,
+            childColumnId: pair.childColumnModelId
+        })),
+        onUpdateAction: relationModel.onUpdateAction,
+        onDeleteAction: relationModel.onDeleteAction
+    };
+};
+
+const toRelationDetail = (erdBudget: DocumentBudget, relationView: RelationViewModel) => {
+    const relationModel = relationView.relationModel;
+    const lineViewModel = relationView.lineViewModel;
+
+    const view = lineViewModel.lineType === "orthogonal"
+        ? {
+            lineType: "orthogonal" as const,
+            lines: lineViewModel.orthogonalLines.map(line => ({
+                direction: line.direction,
+                position: line.position
+            }))
+        }
+        : {
+            lineType: "points" as const,
+            edges: lineViewModel.edges.map(edge => ({
+                x: edge.x,
+                y: edge.y
+            }))
+        };
+
+    return {
+        ...toRelationSummary(erdBudget, relationModel),
+        view: view
+    };
 };

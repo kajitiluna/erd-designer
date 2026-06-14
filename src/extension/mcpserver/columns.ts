@@ -1,11 +1,13 @@
 import { v4 as uuidV4 } from 'uuid';
-import { ReadResourceTemplateCallback, ResourceTemplate, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
+import {
+    ReadResourceTemplateCallback, ResourceTemplate, ToolCallback
+} from "@modelcontextprotocol/sdk/server/mcp.js";
 import z from "zod";
 
 import { DocumentResource } from "~/extension/DocumentResource";
 import {
-    calculateIndexFromPosition, DESCRIPTION_DOCUMENT_ID, findDocumentAndTable, indent,
-    initInvalidParams, initPositionSchema, initResourceNotFound, initResourceResponse,
+    calculateIndexFromPosition, DESCRIPTION_DOCUMENT_ID, findDocument, findDocumentAndTable, indent,
+    initInvalidParams, initPositionSchema, initResourceNotFound, initResourceResponse, initToolJsonResponse,
     McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs,
     searchParameters, validatePhysicalName, validatePositiveNumber
 } from "~/extension/mcpserver/support";
@@ -22,11 +24,14 @@ export const mcpRegisterColumn = (documentResource: DocumentResource): McpRegist
     return {
         resources: [],
         resourceTemplates: [
-            mcpFindColumn(documentResource),
-            mcpListColumnShares(documentResource),
-            mcpFindColumnShare(documentResource)
+            resourceFindColumn(documentResource),
+            resourceListColumnShares(documentResource),
+            resourceFindColumnShare(documentResource)
         ],
         tools: [
+            mcpFindColumnTool(documentResource),
+            mcpListColumnSharesTool(documentResource),
+            mcpFindColumnShareTool(documentResource),
             mcpAddColumnsToTable(documentResource),
             mcpUpdateColumn(documentResource),
             mcpUpdateColumnShare(documentResource),
@@ -35,6 +40,8 @@ export const mcpRegisterColumn = (documentResource: DocumentResource): McpRegist
         ] as McpServerRegisterToolArgs[]
     };
 };
+
+// ==================== shared schemas ====================
 
 const responseColumnDetail = `\
 - uri: The unique URI of the column (format: erd-designer://documents/{documentId}/columns/{columnId}).
@@ -52,82 +59,33 @@ const responseColumnDetail = `\
 - defaultValue: The default value for the column.\
 `;
 
-const descriptionFind = `\
-Retrieves detailed information about a specific column from the specified ERD document using its columnId.
-This resource provides complete column definition including its associated column-share model and override settings.
-
-REQUEST (path variables):
-- documentId: The unique identifier of the ERD document.
-  Can be obtained from 'erd-designer://documents' resource.
-- columnId: The unique identifier of the column to retrieve.
-  Can be obtained from the table's columns array or column definitions.
-
-RESPONSE:
-An object containing detailed information about the specified column:
-${responseColumnDetail}
+const responseColumnShareSummary = `\
+- uri: The unique URI of the column-share (format: erd-designer://documents/{documentId}/column_shares/{columnShareId}).
+- columnShareId: The unique identifier of the column-share (auto-generated UUID).
+- columnName: Object containing physical and logical names of the column-share.
+- columnType: Information about the column type, including:
+  - uri: The URI to access the column type resource.
+  - columnTypeId: The unique identifier of the column type.
+  - columnTypeName: The name of the column type.
+  - baseExpression: The type expression for normal columns.
+  - inChildExpression: The type expression when used in child relations.
+- precision: The precision setting (only present if column type supports precision).
+- scale: The scale setting (only present if column type supports scale).
+- unsigned: Boolean indicating unsigned property (only present if column type supports unsigned).
+- isArray: Boolean indicating if array type is enabled (only present if database supports array types).
+- description: A brief description of the column-share.
+- checkExpression: The CHECK constraint expression for the column (only present if specified). Use ${"`${this}`"} as a placeholder for column physical names.
+- characterSet: The character set for the column-share (only present if specified and applicable to text types).
+- collate: The collation for the column-share (only present if specified and applicable to text types).
+- optionExpression: Custom column option expression (only present if specified).\
 `;
-
-const mcpFindColumn = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
-    return [
-        "find-column",
-        new ResourceTemplate(uriTemplates.columnDetail, { list: undefined }),
-        {
-            title: "Find a column of a specified ERD document",
-            description: descriptionFind
-        },
-        initCallbackForFindColumn(documentResource)
-    ] as const;
-};
-
-const initCallbackForFindColumn = (documentResource: DocumentResource): ReadResourceTemplateCallback => {
-    return async (url, variables) => {
-        const documentId = variables.documentId as string;
-        const columnId = variables.columnId as string;
-        const erdBudget = documentResource.findById(documentId);
-        if (erdBudget == null) {
-            throw initResourceNotFound(url);
-        }
-
-        const erdDocument = erdBudget.erdDocument;
-        const column = erdDocument.findColumnModel(columnId);
-        if (column == null) {
-            throw initResourceNotFound(url);
-        }
-
-        const response = toColumnDetail(erdBudget, column);
-
-        return initResourceResponse(url, response);
-    };
-};
-
-const toColumnDetail = (erdBudget: DocumentBudget, column: ColumnModel) => {
-    const overrideName = ((column.physicalName !== "") || (column.logicalName !== ""))
-        ? {
-            ...((column.physicalName !== "") && { physical: column.physicalName }),
-            ...((column.logicalName !== "") && { logical: column.logicalName })
-        } : null;
-
-    return {
-        uri: erdBudget.columnUri(column.columnModelId),
-        columnId: column.columnModelId,
-        columnShare: {
-            uri: erdBudget.columnShareUri(column.columnShareModelId),
-            columnShareId: column.columnShareModelId,
-        },
-        overrideName: overrideName,
-        primaryKey: column.primaryKey,
-        notNull: column.notNull,
-        unique: column.unique,
-        autoIncrement: column.autoIncrement,
-        defaultValue: column.defaultValue
-    };
-};
 
 const addingColumnModelSchema = {
     overrideName: z.object({
         physical: z.string()
             .refine(val => ((val === "") || validatePhysicalName(val)), {
-                message: "Override physical name must be empty or start with a letter or underscore, followed by letters, digits, or underscores."
+                message: "Override physical name must be empty or start with a letter or underscore, "
+                    + "followed by letters, digits, or underscores."
             }).optional().describe("The physical name to override the column-share's name."),
         logical: z.string().optional().describe("The logical name to override the column-share's name.")
     }).optional().describe("The override names for the new column. Empty string not to override."),
@@ -148,7 +106,7 @@ const addingColumnShareModelSchema = {
         logical: z.string().optional().describe("The logical name for the new column-share."),
     }).describe("The names for the new column-share."),
     columnTypeId: z.number().describe("The column type ID for the new column-share. Available column types can be " +
-        "obtained from 'erd-designer://documents/{documentId}/database' resource's columnTypes array."),
+        "obtained by calling the 'fetch-database' tool's columnTypes array."),
     precision: z.string()
         .refine(validatePositiveNumber, {
             message: "Precision must be empty string or a non-negative integer"
@@ -169,6 +127,336 @@ const addingColumnShareModelSchema = {
     optionExpression: z.string().optional().describe("Custom column option expression appended to the column definition."),
 } as const;
 
+export const addColumnSchema = z.union([
+    z.object({
+        columnShareId: z.string().nonempty().describe("The column share ID to base the new column on."),
+        ...addingColumnModelSchema
+    }).describe("The columns to add to the new table based on an existing column share."),
+    z.object({
+        columnShare: z.object(addingColumnShareModelSchema).strict()
+            .describe("The definition of the new column share to create the new column from scratch."),
+        ...addingColumnModelSchema
+    }).describe("The columns to add to the table based on a new column share.")
+]);
+
+const positionSchema = initPositionSchema("column", z.union([
+    z.object({ columnId: z.string().describe("The column ID to add the new column.") }),
+    z.object({ columnGroupId: z.string().describe("The column group ID to add the new column.") })
+]));
+
+type PositionType = Parameters<typeof calculateIndexFromPosition<"columnId" | "columnGroupId">>[0];
+
+// ==================== find-column ====================
+
+const descriptionFind = `\
+Retrieves detailed information about a specific column from the specified ERD document using its columnId.
+This tool provides complete column definition including its associated column-share model and override settings.
+
+REQUEST:
+- documentId: The unique identifier of the ERD document.
+  Can be obtained by calling the 'list-documents' tool.
+- columnId: The unique identifier of the column to retrieve.
+  Can be obtained from the table's columns array or column definitions.
+
+RESPONSE:
+An object containing detailed information about the specified column:
+${responseColumnDetail}
+`;
+
+const resourceFindColumn = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
+    return [
+        "find-column",
+        new ResourceTemplate(uriTemplates.columnDetail, { list: undefined }),
+        {
+            title: "Find a column of a specified ERD document",
+            description: descriptionFind
+        },
+        initResourceCallbackForFindColumn(documentResource)
+    ] as const;
+};
+
+const initResourceCallbackForFindColumn = (
+    documentResource: DocumentResource
+): ReadResourceTemplateCallback => {
+    return async (url, variables) => {
+        const documentId = variables.documentId as string;
+        const columnId = variables.columnId as string;
+        const response = findColumnResponse(documentResource, documentId, columnId);
+
+        return initResourceResponse(url, response);
+    };
+};
+
+const findColumnInputSchema = {
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
+    columnId: z.string().describe("The unique identifier of the column to retrieve.")
+};
+
+const mcpFindColumnTool = (
+    documentResource: DocumentResource
+): McpServerRegisterToolArgs<typeof findColumnInputSchema> => {
+    return [
+        "find-column",
+        {
+            title: "Find a column of a specified ERD document",
+            description: descriptionFind,
+            inputSchema: findColumnInputSchema,
+            annotations: { readOnlyHint: true }
+        },
+        initCallbackForFindColumn(documentResource)
+    ] as const;
+};
+
+const initCallbackForFindColumn = (
+    documentResource: DocumentResource
+): ToolCallback<typeof findColumnInputSchema> => {
+    return async ({ documentId, columnId }) => {
+        const response = findColumnResponse(documentResource, documentId, columnId);
+        return initToolJsonResponse(response);
+    };
+};
+
+const findColumnResponse = (
+    documentResource: DocumentResource, documentId: string, columnId: string
+) => {
+    const { erdBudget, erdDocument } = findDocument(documentResource, documentId);
+
+    const column = erdDocument.findColumnModel(columnId);
+    if (column == null) {
+        const url = new URL(erdBudget.columnUri(columnId));
+        throw initResourceNotFound(url);
+    }
+
+    return toColumnDetail(erdBudget, column);
+};
+
+// ==================== list-column-shares ====================
+
+const descriptionListShares = `\
+Retrieves a list of column-shares from the specified ERD document.
+Column-shares represent reusable column definitions that can be used across multiple tables.
+Supports optional filtering to narrow down the results.
+
+REQUEST:
+- documentId: The unique identifier of the ERD document whose column-shares are to be listed.
+  Can be obtained by calling the 'list-documents' tool.
+
+REQUEST (filter parameters - all optional):
+- filter.columnTypeIds: Filter column-shares with the specified column type IDs (AND condition).
+  Example: { "filter": { "columnTypeIds": [123] } }
+- filter.columnPhysicalNameContains: Filter column-shares whose physical name contains the specified strings (AND).
+- filter.columnLogicalNameContains: Filter column-shares whose logical name contains the specified strings (AND).
+
+RESPONSE:
+An array of column-share objects, each containing:
+${responseColumnShareSummary}
+`;
+
+const listColumnSharesResourceTemplate = uriTemplates.columnShares
+    + "{?columnTypeId,columnName.physical.contains,columnName.logical.contains*}";
+
+const resourceListColumnShares = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
+    return [
+        "list-column-shares",
+        new ResourceTemplate(listColumnSharesResourceTemplate, { list: undefined }),
+        {
+            title: "List column shares of a specified ERD document",
+            description: descriptionListShares
+        },
+        initResourceCallbackForListColumnShares(documentResource)
+    ] as const;
+};
+
+const initResourceCallbackForListColumnShares = (
+    documentResource: DocumentResource
+): ReadResourceTemplateCallback => {
+    return async (url, variables) => {
+        const documentId = variables.documentId as string;
+        const params: ColumnShareFilterParams = {
+            columnTypeIds: searchParameters(url, "columnTypeId"),
+            physicalNameContains: searchParameters(url, "columnName.physical.contains"),
+            logicalNameContains: searchParameters(url, "columnName.logical.contains")
+        };
+        const responses = listColumnShareResponses(documentResource, documentId, params);
+
+        return initResourceResponse(url, responses);
+    };
+};
+
+const listColumnSharesInputSchema = {
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
+    filter: z.object({
+        columnTypeIds: z.array(z.number().int()).optional()
+            .describe("Filter column-shares with the specified column type IDs (AND condition)."),
+        columnPhysicalNameContains: z.array(z.string()).optional()
+            .describe("Filter column-shares whose physical name contains the specified strings (AND condition)."),
+        columnLogicalNameContains: z.array(z.string()).optional()
+            .describe("Filter column-shares whose logical name contains the specified strings (AND condition)."),
+    }).optional(),
+};
+
+const mcpListColumnSharesTool = (
+    documentResource: DocumentResource
+): McpServerRegisterToolArgs<typeof listColumnSharesInputSchema> => {
+    return [
+        "list-column-shares",
+        {
+            title: "List column shares of a specified ERD document",
+            description: descriptionListShares,
+            inputSchema: listColumnSharesInputSchema,
+            annotations: { readOnlyHint: true }
+        },
+        initCallbackForListColumnShares(documentResource)
+    ] as const;
+};
+
+const initCallbackForListColumnShares = (
+    documentResource: DocumentResource
+): ToolCallback<typeof listColumnSharesInputSchema> => {
+    return async ({ documentId, filter }) => {
+        const params: ColumnShareFilterParams = {
+            columnTypeIds: (filter?.columnTypeIds ?? []).map(typeId => typeId.toString()),
+            physicalNameContains: filter?.columnPhysicalNameContains ?? [],
+            logicalNameContains: filter?.columnLogicalNameContains ?? [],
+        };
+        const responses = listColumnShareResponses(documentResource, documentId, params);
+
+        return initToolJsonResponse(responses);
+    };
+};
+
+type ColumnShareFilterParams = {
+    columnTypeIds: string[];
+    physicalNameContains: string[];
+    logicalNameContains: string[];
+};
+
+const listColumnShareResponses = (
+    documentResource: DocumentResource, documentId: string, params: ColumnShareFilterParams
+) => {
+    const { erdBudget, erdDocument } = findDocument(documentResource, documentId);
+    const database = erdDocument.getDatabase();
+    const columnShares = doFilterColumnShares(params, erdDocument);
+
+    return columnShares.map(columnShare => toColumnShareSummary(erdBudget, columnShare, database));
+};
+
+const doFilterColumnShares = (params: ColumnShareFilterParams, erdDocument: ErdDocument) => {
+    const { columnTypeIds, physicalNameContains, logicalNameContains } = params;
+
+    const storage = erdDocument.getColumnShareModelStorage();
+
+    return storage.getModels().filter(columnShare => {
+        const matchesColumnType = (columnTypeIds.length === 0)
+            || columnTypeIds.every(typeId => (columnShare.columnType.id.toString() === typeId));
+        if (!matchesColumnType) {
+            return false;
+        }
+
+        const matchesPhysical = (physicalNameContains.length === 0)
+            || physicalNameContains.every(filtering => columnShare.physicalName.includes(filtering));
+        if (!matchesPhysical) {
+            return false;
+        }
+
+        const matchesLogical = (logicalNameContains.length === 0)
+            || logicalNameContains.every(filtering => columnShare.logicalName.includes(filtering));
+        if (!matchesLogical) {
+            return false;
+        }
+
+        return true;
+    });
+};
+
+// ==================== find-column-share ====================
+
+const descriptionFindShare = `\
+Retrieves detailed information about a specific column-share from the specified ERD document using its columnShareId.
+This tool provides complete column-share definition including all columns that reference this column-share model.
+
+REQUEST:
+- documentId: The unique identifier of the ERD document.
+  Can be obtained by calling the 'list-documents' tool.
+- columnShareId: The unique identifier of the column-share to retrieve.
+  Can be obtained by calling the 'list-column-shares' tool or from a column's columnShare reference.
+
+RESPONSE:
+An object containing detailed information about the specified column-share:
+${responseColumnShareSummary}
+- referencedColumns: An array of column objects that reference this column-share model, each containing:
+${indent(responseColumnDetail, 1)}
+`;
+
+const resourceFindColumnShare = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
+    return [
+        "find-column-share",
+        new ResourceTemplate(uriTemplates.columnShareDetail, { list: undefined }),
+        {
+            title: "Find a column share of a specified ERD document",
+            description: descriptionFindShare
+        },
+        initResourceCallbackForFindColumnShare(documentResource)
+    ] as const;
+};
+
+const initResourceCallbackForFindColumnShare = (
+    documentResource: DocumentResource
+): ReadResourceTemplateCallback => {
+    return async (url, variables) => {
+        const documentId = variables.documentId as string;
+        const columnShareId = variables.columnShareId as string;
+        const response = findColumnShareResponse(documentResource, documentId, columnShareId);
+
+        return initResourceResponse(url, response);
+    };
+};
+
+const findColumnShareInputSchema = {
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
+    columnShareId: z.string().describe("The unique identifier of the column-share to retrieve.")
+};
+
+const mcpFindColumnShareTool = (
+    documentResource: DocumentResource
+): McpServerRegisterToolArgs<typeof findColumnShareInputSchema> => {
+    return [
+        "find-column-share",
+        {
+            title: "Find a column share of a specified ERD document",
+            description: descriptionFindShare,
+            inputSchema: findColumnShareInputSchema,
+            annotations: { readOnlyHint: true }
+        },
+        initCallbackForFindColumnShare(documentResource)
+    ] as const;
+};
+
+const initCallbackForFindColumnShare = (
+    documentResource: DocumentResource
+): ToolCallback<typeof findColumnShareInputSchema> => {
+    return async ({ documentId, columnShareId }) => {
+        const response = findColumnShareResponse(documentResource, documentId, columnShareId);
+        return initToolJsonResponse(response);
+    };
+};
+
+const findColumnShareResponse = (
+    documentResource: DocumentResource, documentId: string, columnShareId: string
+) => {
+    const { erdBudget, erdDocument } = findDocument(documentResource, documentId);
+
+    const columnShare = erdDocument.findColumnShareModel(columnShareId);
+    if (columnShare == null) {
+        const url = new URL(erdBudget.columnShareUri(columnShareId));
+        throw initResourceNotFound(url);
+    }
+
+    return toColumnShareDetail(erdBudget, columnShare);
+};
+
+// ==================== add-columns-to-table ====================
+
 const descriptionAddColumnsToTable = `\
 Adds new columns to an existing table in a specified ERD document.
 You can add columns by either referencing existing column-shares or creating new column-shares.
@@ -177,12 +465,12 @@ Each column can be positioned at a specific location within the table's column l
 REQUEST:
 - documentId: ${DESCRIPTION_DOCUMENT_ID}
 - tableId: The unique identifier of the table to add columns to.
-  Can be obtained from the tables list resource.
+  Can be obtained by calling the 'list-tables' tool.
 - columns: An array of column specifications. Each column can be defined using one of two approaches:
 
   APPROACH 1: Reference an existing column-share (recommended for reusing common column definitions):
   - columnShareId: The ID of an existing column-share to base the column on (required).
-    Can be obtained from the column-shares list resource.
+    Can be obtained by calling the 'list-column-shares' tool.
   - overrideName: (optional) Override the column-share's names:
     - physical: The overridden physical name (empty string to clear override).
     - logical: The overridden logical name.
@@ -209,7 +497,7 @@ REQUEST:
       - logical: (optional) The logical name.
     - columnTypeId: The column type ID (required).
       Must reference an existing column type from the database type definition.
-      Available column types can be obtained from 'erd-designer://documents/{documentId}/database' resource's columnTypes array.
+      Available column types can be obtained by calling the 'fetch-database' tool's columnTypes array.
     - precision: (optional) The precision setting (required for types with precision).
     - scale: (optional) The scale setting (required for types with scale).
     - unsigned: (optional) Boolean indicating unsigned property (only for applicable types).
@@ -245,29 +533,6 @@ const mcpAddColumnsToTable = (
     ] as const;
 };
 
-export const addColumnSchema = z.union([
-    z.object({
-        columnShareId: z.string().nonempty().describe("The column share ID to base the new column on."),
-        ...addingColumnModelSchema
-    }).describe("The columns to add to the new table based on an existing column share."),
-    z.object({
-        columnShare: z.object(addingColumnShareModelSchema).strict()
-            .describe("The definition of the new column share to create the new column from scratch."),
-        ...addingColumnModelSchema
-    }).describe("The columns to add to the table based on a new column share.")
-]);
-
-export const buildAddingColumnPairs = (erdBudget: DocumentBudget, columns: z.infer<typeof addColumnSchema>[]) => {
-    return zipPairs(() =>
-        columns.map(column => buildColumnPair(erdBudget, column))
-    );
-};
-
-const positionSchema = initPositionSchema("column", z.union([
-    z.object({ columnId: z.string().describe("The column ID to add the new column.") }),
-    z.object({ columnGroupId: z.string().describe("The column group ID to add the new column.") })
-]));
-
 const addColumnsToTableInputSchema = {
     documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
     tableId: z.string().describe("The unique identifier of the table to update."),
@@ -278,8 +543,6 @@ const addColumnsToTableInputSchema = {
         })
     ).describe("The columns to add to the table."),
 };
-
-type PositionType = Parameters<typeof calculateIndexFromPosition<"columnId" | "columnGroupId">>[0];
 
 const initCallbackForAddColumnsToTable = (
     documentResource: DocumentResource
@@ -358,59 +621,7 @@ const initCallbackForAddColumnsToTable = (
     };
 };
 
-const zipPairs = (initPairs: () => (readonly [ColumnModel, ColumnShareModel | null])[]) => {
-    const addingPairs = initPairs();
-
-    return addingPairs.reduce<[ColumnModel[], ColumnShareModel[]]>(
-        (previous, [column, columnShare]) => {
-            previous[0].push(column);
-            if (columnShare != null) {
-                previous[1].push(columnShare);
-            }
-
-            return previous;
-        }, [[], []]
-    );
-};
-
-const buildColumnPair = (
-    erdBudget: DocumentBudget, addingColumn: z.infer<typeof addColumnSchema>
-) => {
-    let columnShare: ColumnShareModel;
-    if ("columnShareId" in addingColumn) {
-        const erdDocument = erdBudget.erdDocument;
-        const existedColumnShare = erdDocument.findColumnShareModel(addingColumn.columnShareId);
-        if (existedColumnShare == null) {
-            const url = new URL(erdBudget.columnShareUri(addingColumn.columnShareId));
-            throw initResourceNotFound(url);
-        }
-
-        columnShare = existedColumnShare;
-    } else if ("columnShare" in addingColumn) {
-        columnShare = buildColumnShare(erdBudget, addingColumn.columnShare);
-    } else {
-        throw initInvalidParams("Either columnShareId or columnShare must be provided.");
-    }
-
-    if (!columnShare.columnType.withAutoIncrement && (addingColumn.autoIncrement === true)) {
-        throw initInvalidParams(
-            `Auto-increment must not be specified for the selected column type : ${columnShare.columnType.name}`
-        );
-    }
-
-    const column = new ColumnModel({
-        columnShareModelId: columnShare.columnShareModelId,
-        physicalName: addingColumn.overrideName?.physical || "",
-        logicalName: addingColumn.overrideName?.logical || "",
-        primaryKey: addingColumn.primaryKey || false,
-        notNull: addingColumn.notNull || false,
-        unique: addingColumn.unique || false,
-        autoIncrement: addingColumn.autoIncrement || false,
-        defaultValue: addingColumn.defaultValue || ""
-    });
-
-    return [column, ("columnShare" in addingColumn) ? columnShare : null] as const;
-};
+// ==================== update-column ====================
 
 const descriptionUpdateColumn = `\
 Updates an existing column of a specified ERD document.
@@ -425,7 +636,7 @@ REQUEST:
 
   APPROACH 1: Reference an existing column-share (recommended for reusing common column definitions):
   - columnShareId: The ID of an existing column-share to reference.
-    Can be obtained from the column-shares list resource.
+    Can be obtained by calling the 'list-column-shares' tool.
   - overrideName: (optional) Override the column-share's names:
     - physical: The overridden physical name (empty string to clear override).
     - logical: The overridden logical name.
@@ -442,7 +653,7 @@ REQUEST:
         Must start with a letter or underscore, followed by letters, digits, or underscores.
       - logical: (optional) The logical name.
     - columnTypeId: The column type ID (required). Must reference an existing column type.
-      Available column types can be obtained from 'erd-designer://documents/{documentId}/database' resource's columnTypes array.
+      Available column types can be obtained by calling the 'fetch-database' tool's columnTypes array.
     - precision: (optional) The precision setting (required for types with precision).
     - scale: (optional) The scale setting (required for types with scale).
     - unsigned: (optional) Boolean indicating unsigned property (only for applicable types).
@@ -519,13 +730,7 @@ const initCallbackForUpdatingColumn = (
     documentResource: DocumentResource
 ): ToolCallback<typeof updateColumnInputSchema> => {
     return async ({ documentId, columnId, column: updatingColumn }) => {
-        const erdBudget = documentResource.findById(documentId);
-        if (erdBudget == null) {
-            const url = new URL(uriTemplates.documentFor(documentId));
-            throw initResourceNotFound(url);
-        }
-
-        const previousDocument = erdBudget.erdDocument;
+        const { erdBudget, erdDocument: previousDocument } = findDocument(documentResource, documentId);
         const previousColumn = previousDocument.findColumnModel(columnId);
         if (previousColumn == null) {
             const url = new URL(erdBudget.columnUri(columnId));
@@ -597,302 +802,7 @@ const initCallbackForUpdatingColumn = (
     };
 };
 
-const buildColumnShare = (
-    erdBudget: DocumentBudget, input: z.infer<z.ZodObject<typeof addingColumnShareModelSchema>>
-) => {
-    const erdDocument = erdBudget.erdDocument;
-    const database = erdDocument.getDatabase();
-
-    const columnType = erdDocument.databaseSettingModel.findColumnType(input.columnTypeId);
-    if (columnType == null) {
-        const url = new URL(erdBudget.columnTypeUri(input.columnTypeId));
-        throw initResourceNotFound(url);
-    }
-
-    const physicalName = input.columnName.physical;
-    const logicalName = input.columnName.logical ?? physicalName;
-
-    if (columnType.withPrecision && (input.precision == null)) {
-        throw initInvalidParams(`Precision must be specified for the selected column type : ${columnType.name}`);
-    }
-    if (!columnType.withPrecision && (input.precision != null)) {
-        throw initInvalidParams(`Precision must not be specified for the selected column type : ${columnType.name}`);
-    }
-
-    if (columnType.withScale && (input.scale == null)) {
-        throw initInvalidParams(`Scale must be specified for the selected column type : ${columnType.name}`);
-    }
-    if (!columnType.withScale && (input.scale != null)) {
-        throw initInvalidParams(`Scale must not be specified for the selected column type : ${columnType.name}`);
-    }
-
-    if (!columnType.withUnsigned && (input.unsigned === true)) {
-        throw initInvalidParams(`Unsigned must not be specified for the selected column type : ${columnType.name}`);
-    }
-
-    if (!database.supportsArrayType && (input.isArray === true)) {
-        throw initInvalidParams(`Array type is not supported by the database : ${database.name}`);
-    }
-
-    if ((columnType.category !== "text") && (input.collate != null)) {
-        throw initInvalidParams(`Collate must not be specified for the selected column type : ${columnType.name}`);
-    }
-
-    if (input.characterSet != null) {
-        if (columnType.category !== "text") {
-            throw initInvalidParams(`Character set must not be specified for the selected column type : ${columnType.name}`);
-        }
-        if (!database.editableCharacterSet) {
-            throw initInvalidParams(`Character set is not supported by the database : ${database.name}`);
-        }
-    }
-
-    return new ColumnShareModel({
-        columnShareModelId: uuidV4(),
-        physicalName,
-        logicalName,
-        columnType,
-        precision: input.precision,
-        scale: input.scale,
-        unsigned: input.unsigned,
-        isArray: input.isArray,
-        description: input.description,
-        checkExpression: input.checkExpression,
-        ...(columnType.category === "text" && { collate: input.collate }),
-        ...(columnType.category === "text" && database.editableCharacterSet && { characterSet: input.characterSet }),
-        optionExpression: input.optionExpression,
-    });
-};
-
-const responseColumnShareSummary = `\
-- uri: The unique URI of the column-share (format: erd-designer://documents/{documentId}/column_shares/{columnShareId}).
-- columnShareId: The unique identifier of the column-share (auto-generated UUID).
-- columnName: Object containing physical and logical names of the column-share.
-- columnType: Information about the column type, including:
-  - uri: The URI to access the column type resource.
-  - columnTypeId: The unique identifier of the column type.
-  - columnTypeName: The name of the column type.
-  - baseExpression: The type expression for normal columns.
-  - inChildExpression: The type expression when used in child relations.
-- precision: The precision setting (only present if column type supports precision).
-- scale: The scale setting (only present if column type supports scale).
-- unsigned: Boolean indicating unsigned property (only present if column type supports unsigned).
-- isArray: Boolean indicating if array type is enabled (only present if database supports array types).
-- description: A brief description of the column-share.
-- checkExpression: The CHECK constraint expression for the column (only present if specified). Use ${"`${this}`"} as a placeholder for column physical names.
-- characterSet: The character set for the column-share (only present if specified and applicable to text types).
-- collate: The collation for the column-share (only present if specified and applicable to text types).
-- optionExpression: Custom column option expression (only present if specified).\
-`;
-
-const descriptionListShares = `\
-Retrieves a list of column-shares from the specified ERD document.
-Column-shares represent reusable column definitions that can be used across multiple tables.
-This resource supports optional filtering via query parameters to narrow down the results.
-
-REQUEST (path variables):
-- documentId: The unique identifier of the ERD document whose column-shares are to be listed.
-  Can be obtained from 'erd-designer://documents' resource.
-
-REQUEST (query parameters - all optional):
-Filtering conditions can be specified to narrow down the column-shares list.
-Multiple conditions are combined with AND logic.
-- columnName.physical.contains: Filter column-shares whose physical name contains the specified string (partial match).
-  Can be specified multiple times; all conditions must be satisfied (AND).
-  Example: ?columnName.physical.contains=user_id
-- columnName.logical.contains: Filter column-shares whose logical name contains the specified string (partial match).
-  Can be specified multiple times; all conditions must be satisfied (AND).
-  Example: ?columnName.logical.contains=ユーザーID
-- columnTypeId: Filter column-shares that have the specified column type ID (exact match).
-  Can be specified multiple times; column-shares must match all specified type IDs (AND).
-  Example: ?columnTypeId=123
-
-QUERY EXAMPLES:
-- All column-shares:
-  \`erd-designer://documents/doc123/column_shares\`
-- Column-shares with physical name containing "id":
-  \`erd-designer://documents/doc123/column_shares?columnName.physical.contains=id\`
-- Column-shares with logical name containing "ユーザー":
-  \`erd-designer://documents/doc123/column_shares?columnName.logical.contains=ユーザー\`
-- Column-shares with specific column type ID:
-  \`erd-designer://documents/doc123/column_shares?columnTypeId=123\`
-- Multiple conditions (AND): physical name contains "user" AND logical name contains "ユーザー":
-  \`erd-designer://documents/doc123/column_shares?columnName.physical.contains=user&columnName.logical.contains=ユーザー\`
-
-RESPONSE:
-An array of column-share objects, each containing:
-${responseColumnShareSummary}
-`;
-
-const mcpListColumnShares = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
-    const queryParams = [
-        "columnName.physical.contains",
-        "columnName.logical.contains",
-        "columnTypeId"
-    ].join(",");
-
-    return [
-        "list-column-shares",
-        new ResourceTemplate(uriTemplates.columnShares + `{?${queryParams}*}`, { list: undefined }),
-        {
-            title: "List column shares of a specified ERD document",
-            description: descriptionListShares
-        },
-        initCallbackForListColumnShares(documentResource)
-    ] as const;
-};
-
-const initCallbackForListColumnShares = (documentResource: DocumentResource): ReadResourceTemplateCallback => {
-    return async (url, variables) => {
-        const documentId = variables.documentId as string;
-        const erdBudget = documentResource.findById(documentId);
-        if (erdBudget == null) {
-            throw initResourceNotFound(url);
-        }
-
-        const erdDocument = erdBudget.erdDocument;
-        const database = erdDocument.getDatabase();
-
-        const columnShares = doFilterColumnShares(url, erdDocument);
-        const responses = columnShares.map(columnShare => toColumnShareSummary(erdBudget, columnShare, database));
-
-        return initResourceResponse(url, responses);
-    };
-};
-
-const doFilterColumnShares = (url: URL, erdDocument: ErdDocument) => {
-    const columnTypeIds = searchParameters(url, "columnTypeId");
-    const physicalNameContains = searchParameters(url, "columnName.physical.contains");
-    const logicalNameContains = searchParameters(url, "columnName.logical.contains");
-
-    const storage = erdDocument.getColumnShareModelStorage();
-
-    return storage.getModels().filter(columnShare => {
-        const matchesColumnType = (columnTypeIds.length === 0)
-            || columnTypeIds.every(typeId => (columnShare.columnType.id.toString() === typeId));
-        if (!matchesColumnType) {
-            return false;
-        }
-
-        const matchesPhysical = (physicalNameContains.length === 0)
-            || physicalNameContains.every(filtering => columnShare.physicalName.includes(filtering));
-        if (!matchesPhysical) {
-            return false;
-        }
-
-        const matchesLogical = (logicalNameContains.length === 0)
-            || logicalNameContains.every(filtering => columnShare.logicalName.includes(filtering));
-        if (!matchesLogical) {
-            return false;
-        }
-
-        return true;
-    });
-};
-
-const toColumnShareSummary = (erdBudget: DocumentBudget, columnShare: ColumnShareModel, database: Database) => {
-    const columnType = columnShare.columnType;
-
-    return {
-        uri: erdBudget.columnShareUri(columnShare.columnShareModelId),
-        columnShareId: columnShare.columnShareModelId,
-        columnName: {
-            physical: columnShare.physicalName,
-            logical: columnShare.logicalName
-        },
-        columnType: {
-            uri: erdBudget.columnTypeUri(columnType.id),
-            columnTypeId: columnType.id,
-            columnTypeName: columnType.name,
-            baseExpression: columnType.specifiedType({
-                precision: columnShare.precision,
-                scale: columnShare.scale,
-                isArray: columnShare.isArray,
-                inChildRelation: false
-            }),
-            inChildExpression: columnType.specifiedType({
-                precision: columnShare.precision,
-                scale: columnShare.scale,
-                isArray: columnShare.isArray,
-                inChildRelation: true
-            }),
-        },
-        ...(columnType.withPrecision && { precision: columnShare.precision }),
-        ...(columnType.withScale && { scale: columnShare.scale }),
-        ...(columnType.withUnsigned && { unsigned: columnShare.unsigned }),
-        ...(database.supportsArrayType && { isArray: columnShare.isArray }),
-        description: columnShare.description,
-        ...(columnShare.checkExpression && { checkExpression: columnShare.checkExpression }),
-        ...(columnShare.characterSet(database) && { characterSet: columnShare.characterSet(database) }),
-        ...(columnShare.collate && { collate: columnShare.collate }),
-        ...(columnShare.optionExpression && { optionExpression: columnShare.optionExpression }),
-    };
-};
-
-const descriptionFindShare = `\
-Retrieves detailed information about a specific column-share from the specified ERD document using its columnShareId.
-This resource provides complete column-share definition including all columns that reference this column-share model.
-
-REQUEST (path variables):
-- documentId: The unique identifier of the ERD document.
-  Can be obtained from 'erd-designer://documents' resource.
-- columnShareId: The unique identifier of the column-share to retrieve.
-  Can be obtained from the column-shares list resource or from a column's columnShare reference.
-
-RESPONSE:
-An object containing detailed information about the specified column-share:
-${responseColumnShareSummary}
-- referencedColumns: An array of column objects that reference this column-share model, each containing:
-${indent(responseColumnDetail, 1)}
-`;
-
-const mcpFindColumnShare = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
-    return [
-        "find-column-share",
-        new ResourceTemplate(uriTemplates.columnShareDetail, { list: undefined }),
-        {
-            title: "Find a column share of a specified ERD document",
-            description: descriptionFindShare
-        },
-        initCallbackForFindColumnShare(documentResource)
-    ] as const;
-};
-
-const initCallbackForFindColumnShare = (documentResource: DocumentResource): ReadResourceTemplateCallback => {
-    return async (url, variables) => {
-        const documentId = variables.documentId as string;
-        const erdBudget = documentResource.findById(documentId);
-        if (erdBudget == null) {
-            throw initResourceNotFound(url);
-        }
-
-        const erdDocument = erdBudget.erdDocument;
-        const columnShareId = variables.columnShareId as string;
-        const columnShare = erdDocument.findColumnShareModel(columnShareId);
-        if (columnShare == null) {
-            const url = new URL(erdBudget.columnShareUri(columnShareId));
-            throw initResourceNotFound(url);
-        }
-
-        const response = toColumnShareDetail(erdBudget, columnShare);
-
-        return initResourceResponse(url, response);
-    };
-};
-
-const toColumnShareDetail = (erdBudget: DocumentBudget, columnShare: ColumnShareModel) => {
-    const erdDocument = erdBudget.erdDocument;
-    const database = erdDocument.getDatabase();
-    const columns = erdDocument.fetchReferencedColumnModelsForShareModel(columnShare.columnShareModelId);
-
-    const summary = toColumnShareSummary(erdBudget, columnShare, database);
-    const referencedColumns = columns.map(column => toColumnDetail(erdBudget, column));
-
-    return {
-        ...summary,
-        referencedColumns
-    };
-};
+// ==================== update-column-share ====================
 
 const descriptionUpdateColumnShare = `\
 Updates an existing column-share of a specified ERD document.
@@ -919,7 +829,7 @@ REQUEST:
   - isArray: Boolean indicating if the new array type property.
     Only applicable if the database supports array types.
   - description: The new description for the column-share.
-  
+
   Note: If no fields are provided, the column-share remains unchanged.
   At least one field should be provided to make meaningful changes.
 
@@ -983,13 +893,7 @@ const initCallbackForUpdatingColumnShare = (
     documentResource: DocumentResource
 ): ToolCallback<typeof updateColumnShareInputSchema> => {
     return async ({ documentId, columnShareId, columnShare: updating }) => {
-        const erdBudget = documentResource.findById(documentId);
-        if (erdBudget == null) {
-            const url = new URL(uriTemplates.documentFor(documentId));
-            throw initResourceNotFound(url);
-        }
-
-        const previousDocument = erdBudget.erdDocument;
+        const { erdBudget, erdDocument: previousDocument } = findDocument(documentResource, documentId);
         const database = previousDocument.getDatabase();
         const previous = previousDocument.findColumnShareModel(columnShareId);
         if (previous == null) {
@@ -1074,6 +978,8 @@ const initCallbackForUpdatingColumnShare = (
     };
 };
 
+// ==================== reorder-columns-in-table ====================
+
 const descriptionReorderColumnsInTable = `\
 Reorders columns and column groups within an existing table in a specified ERD document.
 You can move one or more columns or column groups to new positions within the table's column list.
@@ -1083,7 +989,7 @@ that were affected by earlier operations in the same request.
 REQUEST:
 - documentId: ${DESCRIPTION_DOCUMENT_ID}
 - tableId: The unique identifier of the table to reorder columns in.
-  Can be obtained from the tables list resource.
+  Can be obtained by calling the 'list-tables' tool.
 - reorders: An array of reorder operations. Each operation moves a single column or column group.
   Each reorder entry can be one of the following:
 
@@ -1219,6 +1125,8 @@ const initReorderColumnsInTable = (
     };
 };
 
+// ==================== remove-columns-from-table ====================
+
 const descriptionRemoveColumnsFromTable = `\
 Removes specified columns from an existing table in a specified ERD document.
 You can remove one or more columns by providing their column IDs.
@@ -1227,7 +1135,7 @@ The column-share models associated with the removed columns will remain in the d
 REQUEST:
 - documentId: ${DESCRIPTION_DOCUMENT_ID}
 - tableId: The unique identifier of the table to remove columns from.
-  Can be obtained from the tables list resource.
+  Can be obtained by calling the 'list-tables' tool.
 - columnIds: An array of column IDs to be removed from the table.
   Each column ID can be obtained from the table's columns array or column definitions.
   Note: If a column ID does not exist in the table, it will be silently ignored.
@@ -1322,5 +1230,210 @@ const initCallbackForRemoveColumnsFromTable = (
                 }
             ]
         }
+    };
+};
+
+// ==================== shared helpers ====================
+
+export const buildAddingColumnPairs = (erdBudget: DocumentBudget, columns: z.infer<typeof addColumnSchema>[]) => {
+    return zipPairs(() =>
+        columns.map(column => buildColumnPair(erdBudget, column))
+    );
+};
+
+const zipPairs = (initPairs: () => (readonly [ColumnModel, ColumnShareModel | null])[]) => {
+    const addingPairs = initPairs();
+
+    return addingPairs.reduce<[ColumnModel[], ColumnShareModel[]]>(
+        (previous, [column, columnShare]) => {
+            previous[0].push(column);
+            if (columnShare != null) {
+                previous[1].push(columnShare);
+            }
+
+            return previous;
+        }, [[], []]
+    );
+};
+
+const buildColumnPair = (
+    erdBudget: DocumentBudget, addingColumn: z.infer<typeof addColumnSchema>
+) => {
+    let columnShare: ColumnShareModel;
+    if ("columnShareId" in addingColumn) {
+        const erdDocument = erdBudget.erdDocument;
+        const existedColumnShare = erdDocument.findColumnShareModel(addingColumn.columnShareId);
+        if (existedColumnShare == null) {
+            const url = new URL(erdBudget.columnShareUri(addingColumn.columnShareId));
+            throw initResourceNotFound(url);
+        }
+
+        columnShare = existedColumnShare;
+    } else if ("columnShare" in addingColumn) {
+        columnShare = buildColumnShare(erdBudget, addingColumn.columnShare);
+    } else {
+        throw initInvalidParams("Either columnShareId or columnShare must be provided.");
+    }
+
+    if (!columnShare.columnType.withAutoIncrement && (addingColumn.autoIncrement === true)) {
+        throw initInvalidParams(
+            `Auto-increment must not be specified for the selected column type : ${columnShare.columnType.name}`
+        );
+    }
+
+    const column = new ColumnModel({
+        columnShareModelId: columnShare.columnShareModelId,
+        physicalName: addingColumn.overrideName?.physical || "",
+        logicalName: addingColumn.overrideName?.logical || "",
+        primaryKey: addingColumn.primaryKey || false,
+        notNull: addingColumn.notNull || false,
+        unique: addingColumn.unique || false,
+        autoIncrement: addingColumn.autoIncrement || false,
+        defaultValue: addingColumn.defaultValue || ""
+    });
+
+    return [column, ("columnShare" in addingColumn) ? columnShare : null] as const;
+};
+
+const buildColumnShare = (
+    erdBudget: DocumentBudget, input: z.infer<z.ZodObject<typeof addingColumnShareModelSchema>>
+) => {
+    const erdDocument = erdBudget.erdDocument;
+    const database = erdDocument.getDatabase();
+
+    const columnType = erdDocument.databaseSettingModel.findColumnType(input.columnTypeId);
+    if (columnType == null) {
+        const url = new URL(erdBudget.columnTypeUri(input.columnTypeId));
+        throw initResourceNotFound(url);
+    }
+
+    const physicalName = input.columnName.physical;
+    const logicalName = input.columnName.logical ?? physicalName;
+
+    if (columnType.withPrecision && (input.precision == null)) {
+        throw initInvalidParams(`Precision must be specified for the selected column type : ${columnType.name}`);
+    }
+    if (!columnType.withPrecision && (input.precision != null)) {
+        throw initInvalidParams(`Precision must not be specified for the selected column type : ${columnType.name}`);
+    }
+
+    if (columnType.withScale && (input.scale == null)) {
+        throw initInvalidParams(`Scale must be specified for the selected column type : ${columnType.name}`);
+    }
+    if (!columnType.withScale && (input.scale != null)) {
+        throw initInvalidParams(`Scale must not be specified for the selected column type : ${columnType.name}`);
+    }
+
+    if (!columnType.withUnsigned && (input.unsigned === true)) {
+        throw initInvalidParams(`Unsigned must not be specified for the selected column type : ${columnType.name}`);
+    }
+
+    if (!database.supportsArrayType && (input.isArray === true)) {
+        throw initInvalidParams(`Array type is not supported by the database : ${database.name}`);
+    }
+
+    if ((columnType.category !== "text") && (input.collate != null)) {
+        throw initInvalidParams(`Collate must not be specified for the selected column type : ${columnType.name}`);
+    }
+
+    if (input.characterSet != null) {
+        if (columnType.category !== "text") {
+            throw initInvalidParams(`Character set must not be specified for the selected column type : ${columnType.name}`);
+        }
+        if (!database.editableCharacterSet) {
+            throw initInvalidParams(`Character set is not supported by the database : ${database.name}`);
+        }
+    }
+
+    return new ColumnShareModel({
+        columnShareModelId: uuidV4(),
+        physicalName,
+        logicalName,
+        columnType,
+        precision: input.precision,
+        scale: input.scale,
+        unsigned: input.unsigned,
+        isArray: input.isArray,
+        description: input.description,
+        checkExpression: input.checkExpression,
+        ...(columnType.category === "text" && { collate: input.collate }),
+        ...(columnType.category === "text" && database.editableCharacterSet && { characterSet: input.characterSet }),
+        optionExpression: input.optionExpression,
+    });
+};
+
+const toColumnDetail = (erdBudget: DocumentBudget, column: ColumnModel) => {
+    const overrideName = ((column.physicalName !== "") || (column.logicalName !== ""))
+        ? {
+            ...((column.physicalName !== "") && { physical: column.physicalName }),
+            ...((column.logicalName !== "") && { logical: column.logicalName })
+        } : null;
+
+    return {
+        uri: erdBudget.columnUri(column.columnModelId),
+        columnId: column.columnModelId,
+        columnShare: {
+            uri: erdBudget.columnShareUri(column.columnShareModelId),
+            columnShareId: column.columnShareModelId,
+        },
+        overrideName: overrideName,
+        primaryKey: column.primaryKey,
+        notNull: column.notNull,
+        unique: column.unique,
+        autoIncrement: column.autoIncrement,
+        defaultValue: column.defaultValue
+    };
+};
+
+const toColumnShareSummary = (erdBudget: DocumentBudget, columnShare: ColumnShareModel, database: Database) => {
+    const columnType = columnShare.columnType;
+
+    return {
+        uri: erdBudget.columnShareUri(columnShare.columnShareModelId),
+        columnShareId: columnShare.columnShareModelId,
+        columnName: {
+            physical: columnShare.physicalName,
+            logical: columnShare.logicalName
+        },
+        columnType: {
+            uri: erdBudget.columnTypeUri(columnType.id),
+            columnTypeId: columnType.id,
+            columnTypeName: columnType.name,
+            baseExpression: columnType.specifiedType({
+                precision: columnShare.precision,
+                scale: columnShare.scale,
+                isArray: columnShare.isArray,
+                inChildRelation: false
+            }),
+            inChildExpression: columnType.specifiedType({
+                precision: columnShare.precision,
+                scale: columnShare.scale,
+                isArray: columnShare.isArray,
+                inChildRelation: true
+            }),
+        },
+        ...(columnType.withPrecision && { precision: columnShare.precision }),
+        ...(columnType.withScale && { scale: columnShare.scale }),
+        ...(columnType.withUnsigned && { unsigned: columnShare.unsigned }),
+        ...(database.supportsArrayType && { isArray: columnShare.isArray }),
+        description: columnShare.description,
+        ...(columnShare.checkExpression && { checkExpression: columnShare.checkExpression }),
+        ...(columnShare.characterSet(database) && { characterSet: columnShare.characterSet(database) }),
+        ...(columnShare.collate && { collate: columnShare.collate }),
+        ...(columnShare.optionExpression && { optionExpression: columnShare.optionExpression }),
+    };
+};
+
+const toColumnShareDetail = (erdBudget: DocumentBudget, columnShare: ColumnShareModel) => {
+    const erdDocument = erdBudget.erdDocument;
+    const database = erdDocument.getDatabase();
+    const columns = erdDocument.fetchReferencedColumnModelsForShareModel(columnShare.columnShareModelId);
+
+    const summary = toColumnShareSummary(erdBudget, columnShare, database);
+    const referencedColumns = columns.map(column => toColumnDetail(erdBudget, column));
+
+    return {
+        ...summary,
+        referencedColumns
     };
 };

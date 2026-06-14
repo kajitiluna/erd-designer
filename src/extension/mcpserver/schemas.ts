@@ -1,11 +1,13 @@
-import { ReadResourceTemplateCallback, ResourceTemplate, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
+import {
+    ReadResourceTemplateCallback, ResourceTemplate, ToolCallback
+} from "@modelcontextprotocol/sdk/server/mcp.js";
 import z from "zod";
 
 import { DocumentResource } from "~/extension/DocumentResource";
 import DocumentBudget, { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
 import {
-    DESCRIPTION_DOCUMENT_ID, initInvalidParams, initResourceNotFound, initResourceResponse,
-    McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs
+    DESCRIPTION_DOCUMENT_ID, findDocument, initInvalidParams, initResourceNotFound, initResourceResponse,
+    initToolJsonResponse, McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs
 } from "~/extension/mcpserver/support";
 import DbSchemaConfig from "~/models/DbSchemaConfig";
 import TableModel from "~/models/database/TableModel";
@@ -17,10 +19,12 @@ export const mcpRegisterSchema = (documentResource: DocumentResource): McpRegist
     return {
         resources: [],
         resourceTemplates: [
-            mcpListSchemas(documentResource),
-            mcpFindSchema(documentResource)
+            mcpListSchemasResource(documentResource),
+            mcpFindSchemaResource(documentResource)
         ],
         tools: [
+            mcpListSchemasTool(documentResource),
+            mcpFindSchemaTool(documentResource),
             mcpCreateSchema(documentResource),
             mcpUpdateSchema(documentResource),
             mcpDeleteSchema(documentResource)
@@ -28,14 +32,16 @@ export const mcpRegisterSchema = (documentResource: DocumentResource): McpRegist
     };
 };
 
+// ==================== list-schemas ====================
+
 const descriptionList = `\
 Retrieves a list of all schemas from the specified ERD document.
 Schemas are only available for databases that support them (e.g., PostgreSQL, Oracle).
-For databases that do not support schemas (e.g., MySQL), this resource returns an empty array.
+For databases that do not support schemas (e.g., MySQL), this tool returns an empty array.
 
-REQUEST (path variables):
+REQUEST:
 - documentId: The unique identifier of the ERD document whose schemas are to be listed.
-  Can be obtained from 'erd-designer://documents' resource.
+  Can be obtained by calling the 'list-documents' tool.
 
 RESPONSE:
 An array of schema objects, each containing:
@@ -46,7 +52,7 @@ An array of schema objects, each containing:
 - default: Boolean indicating if this is the default schema (only present when true).
 `;
 
-const mcpListSchemas = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
+const mcpListSchemasResource = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
     return [
         "list-schemas",
         new ResourceTemplate(uriTemplates.schemas, { list: undefined }),
@@ -54,41 +60,73 @@ const mcpListSchemas = (documentResource: DocumentResource): McpServerRegisterRe
             title: "List schemas of a specified ERD document",
             description: descriptionList
         },
-        initCallbackForListSchemas(documentResource)
+        initResourceCallbackForListSchemas(documentResource)
     ] as const;
 };
 
-const initCallbackForListSchemas = (documentResource: DocumentResource): ReadResourceTemplateCallback => {
+const initResourceCallbackForListSchemas = (
+    documentResource: DocumentResource
+): ReadResourceTemplateCallback => {
     return async (url, variables) => {
         const documentId = variables.documentId as string;
-        const erdBudget = documentResource.findById(documentId);
-        if (erdBudget == null) {
-            throw initResourceNotFound(url);
-        }
-
-        const erdDocument = erdBudget.erdDocument;
-        const database = erdDocument.getDatabase();
-        if (!database.supportsSchema) {
-            return initResourceResponse(url, []);
-        }
-
-        const schemas = erdDocument.schemaConfig.getSchemas();
-        const defaultSchemaId = erdDocument.schemaConfig.defaultSchemaId;
-        const responses = schemas.map(schema => toSchemaSummary(erdBudget, schema, defaultSchemaId));
+        const responses = listSchemaResponses(documentResource, documentId);
 
         return initResourceResponse(url, responses);
     };
 };
 
+const listSchemasInputSchema = {
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID)
+};
+
+const mcpListSchemasTool = (
+    documentResource: DocumentResource
+): McpServerRegisterToolArgs<typeof listSchemasInputSchema> => {
+    return [
+        "list-schemas",
+        {
+            title: "List schemas of a specified ERD document",
+            description: descriptionList,
+            inputSchema: listSchemasInputSchema,
+            annotations: { readOnlyHint: true }
+        },
+        initCallbackForListSchemas(documentResource)
+    ] as const;
+};
+
+const initCallbackForListSchemas = (
+    documentResource: DocumentResource
+): ToolCallback<typeof listSchemasInputSchema> => {
+    return async ({ documentId }) => {
+        const responses = listSchemaResponses(documentResource, documentId);
+        return initToolJsonResponse(responses);
+    };
+};
+
+const listSchemaResponses = (documentResource: DocumentResource, documentId: string) => {
+    const { erdBudget, erdDocument } = findDocument(documentResource, documentId);
+    const database = erdDocument.getDatabase();
+    if (!database.supportsSchema) {
+        return [];
+    }
+
+    const schemas = erdDocument.schemaConfig.getSchemas();
+    const defaultSchemaId = erdDocument.schemaConfig.defaultSchemaId;
+
+    return schemas.map(schema => toSchemaSummary(erdBudget, schema, defaultSchemaId));
+};
+
+// ==================== find-schema ====================
+
 const descriptionFind = `\
 Retrieves detailed information about a specific schema from the specified ERD document using its schemaId.
 The response includes the list of tables that belong to this schema.
 
-REQUEST (path variables):
+REQUEST:
 - documentId: The unique identifier of the ERD document.
-  Can be obtained from 'erd-designer://documents' resource.
+  Can be obtained by calling the 'list-documents' tool.
 - schemaId: The unique identifier of the schema to retrieve.
-  Can be obtained from the schemas list resource or from the document's setting.
+  Can be obtained by calling the 'list-schemas' tool or from the document's setting.
 
 RESPONSE:
 An object containing detailed information about the specified schema:
@@ -103,7 +141,7 @@ An object containing detailed information about the specified schema:
 - default: Boolean indicating if this is the default schema (only present when true).
 `;
 
-const mcpFindSchema = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
+const mcpFindSchemaResource = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
     return [
         "find-schema",
         new ResourceTemplate(uriTemplates.schemaDetail, { list: undefined }),
@@ -111,64 +149,66 @@ const mcpFindSchema = (documentResource: DocumentResource): McpServerRegisterRes
             title: "Find a schema of a specified ERD document",
             description: descriptionFind
         },
-        initCallbackForFindSchema(documentResource)
+        initResourceCallbackForFindSchema(documentResource)
     ] as const;
 };
 
-const initCallbackForFindSchema = (documentResource: DocumentResource): ReadResourceTemplateCallback => {
+const initResourceCallbackForFindSchema = (
+    documentResource: DocumentResource
+): ReadResourceTemplateCallback => {
     return async (url, variables) => {
         const documentId = variables.documentId as string;
         const schemaId = variables.schemaId as string;
-        const erdBudget = documentResource.findById(documentId);
-        if (erdBudget == null) {
-            throw initResourceNotFound(url);
-        }
-
-        const erdDocument = erdBudget.erdDocument;
-        const schema = erdDocument.findSchema(schemaId);
-        if (schema == null) {
-            throw initResourceNotFound(url);
-        }
-
-        const response = toSchemaDetail(erdBudget, schema, erdDocument);
+        const response = findSchemaResponse(documentResource, documentId, schemaId);
 
         return initResourceResponse(url, response);
     };
 };
 
-const toSchemaSummary = (erdBudget: DocumentBudget, schema: DbSchemaModel, defaultSchemaId: string) => {
-    return {
-        uri: erdBudget.schemaUri(schema.schemaId),
-        schemaId: schema.schemaId,
-        schemaName: schema.schemaName,
-        description: schema.description,
-        ...(schema.schemaId === defaultSchemaId && { default: true })
+const findSchemaInputSchema = {
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
+    schemaId: z.string().describe("The unique identifier of the schema to retrieve.")
+};
+
+const mcpFindSchemaTool = (
+    documentResource: DocumentResource
+): McpServerRegisterToolArgs<typeof findSchemaInputSchema> => {
+    return [
+        "find-schema",
+        {
+            title: "Find a schema of a specified ERD document",
+            description: descriptionFind,
+            inputSchema: findSchemaInputSchema,
+            annotations: { readOnlyHint: true }
+        },
+        initCallbackForFindSchema(documentResource)
+    ] as const;
+};
+
+const initCallbackForFindSchema = (
+    documentResource: DocumentResource
+): ToolCallback<typeof findSchemaInputSchema> => {
+    return async ({ documentId, schemaId }) => {
+        const response = findSchemaResponse(documentResource, documentId, schemaId);
+        return initToolJsonResponse(response);
     };
 };
 
-const toSchemaDetail = (erdBudget: DocumentBudget, schema: DbSchemaModel, erdDocument: ErdDocument) => {
-    const defaultSchemaId = erdDocument.schemaConfig.defaultSchemaId;
+const findSchemaResponse = (
+    documentResource: DocumentResource, documentId: string, schemaId: string
+) => {
+    const { erdBudget, erdDocument } = findDocument(documentResource, documentId);
 
-    const tables = erdDocument.getTableViewModels()
-        .filter(tableView => tableView.tableModel.schemaId === schema.schemaId)
-        .map(tableView => ({
-            uri: erdBudget.tableUri(tableView.tableId),
-            tableId: tableView.tableId,
-            tableName: {
-                physical: tableView.tableModel.physicalName,
-                logical: tableView.tableModel.logicalName
-            }
-        }));
+    const schema = erdDocument.findSchema(schemaId);
+    if (schema == null) {
+        const url = new URL(erdBudget.schemaUri(schemaId));
+        throw initResourceNotFound(url);
+    }
 
-    return {
-        uri: erdBudget.schemaUri(schema.schemaId),
-        schemaId: schema.schemaId,
-        schemaName: schema.schemaName,
-        tables: tables,
-        description: schema.description,
-        ...(schema.schemaId === defaultSchemaId && { default: true })
-    };
+    return toSchemaDetail(erdBudget, schema, erdDocument);
 };
+
+// ==================== create-schema ====================
 
 const descriptionCreateSchema = `\
 Creates a new schema in a specified ERD document.
@@ -212,13 +252,7 @@ const initCallbackForCreateSchema = (
     documentResource: DocumentResource
 ): ToolCallback<typeof createSchemaInputSchema> => {
     return async ({ documentId, schema: schemaInput }) => {
-        const erdBudget = documentResource.findById(documentId);
-        if (erdBudget == null) {
-            const url = new URL(uriTemplates.documentFor(documentId));
-            throw initResourceNotFound(url);
-        }
-
-        const previousDocument = erdBudget.erdDocument;
+        const { erdBudget, erdDocument: previousDocument } = findDocument(documentResource, documentId);
         const database = previousDocument.getDatabase();
         if (!database.supportsSchema) {
             throw initInvalidParams("The database type of this document does not support schemas.");
@@ -242,16 +276,11 @@ const initCallbackForCreateSchema = (
 
         const response = toSchemaDetail(erdBudget, newSchema, nextDocument);
 
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(response)
-                }
-            ]
-        };
+        return initToolJsonResponse(response);
     };
 };
+
+// ==================== update-schema ====================
 
 const descriptionUpdateSchema = `\
 Updates an existing schema in a specified ERD document.
@@ -260,7 +289,7 @@ Only the specified fields will be updated; unspecified fields remain unchanged.
 REQUEST:
 - documentId: ${DESCRIPTION_DOCUMENT_ID}
 - schemaId: The unique identifier of the schema to update.
-  Can be obtained from the schemas list resource.
+  Can be obtained by calling the 'list-schemas' tool.
 - schema: An object containing the fields to update (all optional):
   - schemaName: The new name of the schema.
   - description: A brief description of the schema.
@@ -316,16 +345,11 @@ const initCallbackForUpdateSchema = (
 
         const response = toSchemaDetail(erdBudget, nextSchema, nextDocument);
 
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(response)
-                }
-            ]
-        };
+        return initToolJsonResponse(response);
     };
 };
+
+// ==================== delete-schema ====================
 
 const descriptionDeleteSchema = `\
 Deletes an existing schema from a specified ERD document.
@@ -334,7 +358,7 @@ Tables that were assigned to the deleted schema will be reassigned to the defaul
 REQUEST:
 - documentId: ${DESCRIPTION_DOCUMENT_ID}
 - schemaId: The unique identifier of the schema to delete.
-  Can be obtained from the schemas list resource.
+  Can be obtained by calling the 'list-schemas' tool.
 
 RESPONSE:
 A text content containing the result of the operation:
@@ -392,25 +416,15 @@ const initCallbackForDeleteSchema = (
 
         documentResource.notify(documentId, nextDocument);
 
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify({ success: true })
-                }
-            ]
-        };
+        return initToolJsonResponse({ success: true });
     };
 };
 
-const doFindDocumentAndSchema = (documentResource: DocumentResource, documentId: string, schemaId: string) => {
-    const erdBudget = documentResource.findById(documentId);
-    if (erdBudget == null) {
-        const url = new URL(uriTemplates.documentFor(documentId));
-        throw initResourceNotFound(url);
-    }
+// ==================== shared helpers ====================
 
-    const erdDocument = erdBudget.erdDocument;
+const doFindDocumentAndSchema = (documentResource: DocumentResource, documentId: string, schemaId: string) => {
+    const { erdBudget, erdDocument } = findDocument(documentResource, documentId);
+
     const database = erdDocument.getDatabase();
     if (!database.supportsSchema) {
         throw initInvalidParams("The database type of this document does not support schemas.");
@@ -423,4 +437,38 @@ const doFindDocumentAndSchema = (documentResource: DocumentResource, documentId:
     }
 
     return { erdBudget, erdDocument, schema };
+};
+
+const toSchemaSummary = (erdBudget: DocumentBudget, schema: DbSchemaModel, defaultSchemaId: string) => {
+    return {
+        uri: erdBudget.schemaUri(schema.schemaId),
+        schemaId: schema.schemaId,
+        schemaName: schema.schemaName,
+        description: schema.description,
+        ...(schema.schemaId === defaultSchemaId && { default: true })
+    };
+};
+
+const toSchemaDetail = (erdBudget: DocumentBudget, schema: DbSchemaModel, erdDocument: ErdDocument) => {
+    const defaultSchemaId = erdDocument.schemaConfig.defaultSchemaId;
+
+    const tables = erdDocument.getTableViewModels()
+        .filter(tableView => tableView.tableModel.schemaId === schema.schemaId)
+        .map(tableView => ({
+            uri: erdBudget.tableUri(tableView.tableId),
+            tableId: tableView.tableId,
+            tableName: {
+                physical: tableView.tableModel.physicalName,
+                logical: tableView.tableModel.logicalName
+            }
+        }));
+
+    return {
+        uri: erdBudget.schemaUri(schema.schemaId),
+        schemaId: schema.schemaId,
+        schemaName: schema.schemaName,
+        tables: tables,
+        description: schema.description,
+        ...(schema.schemaId === defaultSchemaId && { default: true })
+    };
 };

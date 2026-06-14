@@ -1,11 +1,13 @@
-import { ReadResourceTemplateCallback, ResourceTemplate, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
+import {
+    ReadResourceTemplateCallback, ResourceTemplate, ToolCallback
+} from "@modelcontextprotocol/sdk/server/mcp.js";
 import z from "zod";
 
 import { DocumentResource } from "~/extension/DocumentResource";
 import DocumentBudget, { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
 import {
-    colorValueSchema, DESCRIPTION_DOCUMENT_ID, initResourceNotFound, initResourceResponse,
-    McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs
+    colorValueSchema, DESCRIPTION_DOCUMENT_ID, findDocument, initResourceNotFound, initResourceResponse,
+    initToolJsonResponse, McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs
 } from "~/extension/mcpserver/support";
 import ColorValue from "~/models/ColorValue";
 import MemoViewModel from "~/models/MemoViewModel";
@@ -15,10 +17,12 @@ export const mcpRegisterMemo = (documentResource: DocumentResource): McpRegister
     return {
         resources: [],
         resourceTemplates: [
-            mcpListMemos(documentResource),
-            mcpFindMemo(documentResource)
+            mcpListMemosResource(documentResource),
+            mcpFindMemoResource(documentResource)
         ],
         tools: [
+            mcpListMemosTool(documentResource),
+            mcpFindMemoTool(documentResource),
             mcpAddMemo(documentResource),
             mcpUpdateMemo(documentResource),
             mcpDeleteMemo(documentResource),
@@ -27,13 +31,22 @@ export const mcpRegisterMemo = (documentResource: DocumentResource): McpRegister
     };
 };
 
+const alignTypeSchema = z.enum(["start", "center", "end"]);
+
+const DEFAULT_MEMO_WIDTH = 200;
+const DEFAULT_MEMO_HEIGHT = 150;
+const DEFAULT_BACKGROUND_COLOR = "#FFFFE0";
+const DEFAULT_FOREGROUND_COLOR = "#000000";
+
+// ==================== list-memos ====================
+
 const descriptionList = `\
 Retrieves a list of all memos from the specified ERD document.
 Memos are text annotations placed on the ERD canvas.
 
-REQUEST (path variables):
+REQUEST:
 - documentId: The unique identifier of the ERD document whose memos are to be listed.
-  Can be obtained from 'erd-designer://documents' resource.
+  Can be obtained by calling the 'list-documents' tool.
 
 RESPONSE:
 An array of memo objects, each containing:
@@ -50,7 +63,7 @@ An array of memo objects, each containing:
     - fontSize: The font size.
 `;
 
-const mcpListMemos = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
+const mcpListMemosResource = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
     return [
         "list-memos",
         new ResourceTemplate(uriTemplates.memos, { list: undefined }),
@@ -58,35 +71,67 @@ const mcpListMemos = (documentResource: DocumentResource): McpServerRegisterReso
             title: "List memos of a specified ERD document",
             description: descriptionList
         },
-        initCallbackForListMemos(documentResource)
+        initResourceCallbackForListMemos(documentResource)
     ] as const;
 };
 
-const initCallbackForListMemos = (documentResource: DocumentResource): ReadResourceTemplateCallback => {
+const initResourceCallbackForListMemos = (
+    documentResource: DocumentResource
+): ReadResourceTemplateCallback => {
     return async (url, variables) => {
         const documentId = variables.documentId as string;
-        const erdBudget = documentResource.findById(documentId);
-        if (erdBudget == null) {
-            throw initResourceNotFound(url);
-        }
-
-        const erdDocument = erdBudget.erdDocument;
-        const memoInfo = erdDocument.getMemoViewModels();
-        const allMemos = [...memoInfo.frontMemos, ...memoInfo.backMemos];
-        const responses = allMemos.map(memoView => toMemoDetail(erdBudget, memoView));
+        const responses = listMemoResponses(documentResource, documentId);
 
         return initResourceResponse(url, responses);
     };
 };
 
+const listMemosInputSchema = {
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID)
+};
+
+const mcpListMemosTool = (
+    documentResource: DocumentResource
+): McpServerRegisterToolArgs<typeof listMemosInputSchema> => {
+    return [
+        "list-memos",
+        {
+            title: "List memos of a specified ERD document",
+            description: descriptionList,
+            inputSchema: listMemosInputSchema,
+            annotations: { readOnlyHint: true }
+        },
+        initCallbackForListMemos(documentResource)
+    ] as const;
+};
+
+const initCallbackForListMemos = (
+    documentResource: DocumentResource
+): ToolCallback<typeof listMemosInputSchema> => {
+    return async ({ documentId }) => {
+        const responses = listMemoResponses(documentResource, documentId);
+        return initToolJsonResponse(responses);
+    };
+};
+
+const listMemoResponses = (documentResource: DocumentResource, documentId: string) => {
+    const { erdBudget, erdDocument } = findDocument(documentResource, documentId);
+    const memoInfo = erdDocument.getMemoViewModels();
+    const allMemos = [...memoInfo.frontMemos, ...memoInfo.backMemos];
+
+    return allMemos.map(memoView => toMemoDetail(erdBudget, memoView));
+};
+
+// ==================== find-memo ====================
+
 const descriptionFind = `\
 Retrieves detailed information about a specific memo from the specified ERD document using its memoId.
 
-REQUEST (path variables):
+REQUEST:
 - documentId: The unique identifier of the ERD document.
-  Can be obtained from 'erd-designer://documents' resource.
+  Can be obtained by calling the 'list-documents' tool.
 - memoId: The unique identifier of the memo to retrieve.
-  Can be obtained from the memos list resource or from the document's memos array.
+  Can be obtained by calling the 'list-memos' tool or from the document's memos array.
 
 RESPONSE:
 An object containing detailed information about the specified memo:
@@ -103,7 +148,7 @@ An object containing detailed information about the specified memo:
     - fontSize: The font size.
 `;
 
-const mcpFindMemo = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
+const mcpFindMemoResource = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
     return [
         "find-memo",
         new ResourceTemplate(uriTemplates.memoDetail, { list: undefined }),
@@ -111,64 +156,55 @@ const mcpFindMemo = (documentResource: DocumentResource): McpServerRegisterResou
             title: "Find a memo of a specified ERD document",
             description: descriptionFind
         },
-        initCallbackForFindMemo(documentResource)
+        initResourceCallbackForFindMemo(documentResource)
     ] as const;
 };
 
-const initCallbackForFindMemo = (documentResource: DocumentResource): ReadResourceTemplateCallback => {
+const initResourceCallbackForFindMemo = (
+    documentResource: DocumentResource
+): ReadResourceTemplateCallback => {
     return async (url, variables) => {
         const documentId = variables.documentId as string;
         const memoId = variables.memoId as string;
-        const erdBudget = documentResource.findById(documentId);
-        if (erdBudget == null) {
-            throw initResourceNotFound(url);
-        }
-
-        const erdDocument = erdBudget.erdDocument;
-        const memoView = erdDocument.findMemoViewModel(memoId);
-        if (memoView == null) {
-            throw initResourceNotFound(url);
-        }
-
-        const response = toMemoDetail(erdBudget, memoView);
+        const response = findMemoResponse(documentResource, documentId, memoId);
 
         return initResourceResponse(url, response);
     };
 };
 
-const toMemoDetail = (erdBudget: DocumentBudget, memoView: MemoViewModel) => {
-    return {
-        uri: erdBudget.memoUri(memoView.memoId),
-        memoId: memoView.memoId,
-        memo: memoView.memo,
-        view: {
-            position: {
-                x: memoView.rectangleViewModel.left,
-                y: memoView.rectangleViewModel.top
-            },
-            size: {
-                width: memoView.rectangleViewModel.width,
-                height: memoView.rectangleViewModel.height
-            },
-            color: {
-                background: memoView.backgroundColor.toHex(),
-                foreground: memoView.foregroundColor.toHex()
-            },
-            font: {
-                verticalAlign: memoView.verticalAlign,
-                horizontalAlign: memoView.horizontalAlign,
-                fontSize: memoView.fontSize
-            }
-        }
+const findMemoInputSchema = {
+    documentId: z.string().describe(DESCRIPTION_DOCUMENT_ID),
+    memoId: z.string().describe("The unique identifier of the memo to retrieve.")
+};
+
+const mcpFindMemoTool = (documentResource: DocumentResource): McpServerRegisterToolArgs<typeof findMemoInputSchema> => {
+    return [
+        "find-memo",
+        {
+            title: "Find a memo of a specified ERD document",
+            description: descriptionFind,
+            inputSchema: findMemoInputSchema,
+            annotations: { readOnlyHint: true }
+        },
+        initCallbackForFindMemo(documentResource)
+    ] as const;
+};
+
+const initCallbackForFindMemo = (
+    documentResource: DocumentResource
+): ToolCallback<typeof findMemoInputSchema> => {
+    return async ({ documentId, memoId }) => {
+        const response = findMemoResponse(documentResource, documentId, memoId);
+        return initToolJsonResponse(response);
     };
 };
 
-const alignTypeSchema = z.enum(["start", "center", "end"]);
+const findMemoResponse = (documentResource: DocumentResource, documentId: string, memoId: string) => {
+    const { erdBudget, memoView } = doFindDocumentAndMemo(documentResource, documentId, memoId);
+    return toMemoDetail(erdBudget, memoView);
+};
 
-const DEFAULT_MEMO_WIDTH = 200;
-const DEFAULT_MEMO_HEIGHT = 150;
-const DEFAULT_BACKGROUND_COLOR = "#FFFFE0";
-const DEFAULT_FOREGROUND_COLOR = "#000000";
+// ==================== add-memo ====================
 
 const descriptionAddMemo = `\
 Add a new memo in a specified ERD document.
@@ -236,13 +272,7 @@ const addMemoInputSchema = {
 
 const initCallbackForAddMemo = (documentResource: DocumentResource): ToolCallback<typeof addMemoInputSchema> => {
     return async ({ documentId, memo: memoInput }) => {
-        const erdBudget = documentResource.findById(documentId);
-        if (erdBudget == null) {
-            const url = new URL(uriTemplates.documentFor(documentId));
-            throw initResourceNotFound(url);
-        }
-
-        const previousDocument = erdBudget.erdDocument;
+        const { erdBudget, erdDocument: previousDocument } = findDocument(documentResource, documentId);
 
         const width = memoInput.size?.width ?? DEFAULT_MEMO_WIDTH;
         const height = memoInput.size?.height ?? DEFAULT_MEMO_HEIGHT;
@@ -272,16 +302,11 @@ const initCallbackForAddMemo = (documentResource: DocumentResource): ToolCallbac
 
         const response = toMemoDetail(erdBudget, newMemo);
 
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(response)
-                }
-            ]
-        };
+        return initToolJsonResponse(response);
     };
 };
+
+// ==================== update-memo ====================
 
 const descriptionUpdateMemo = `\
 Updates an existing memo in a specified ERD document.
@@ -290,7 +315,7 @@ Only the specified fields will be updated; unspecified fields remain unchanged.
 REQUEST:
 - documentId: ${DESCRIPTION_DOCUMENT_ID}
 - memoId: The unique identifier of the memo to update.
-  Can be obtained from the memos list resource.
+  Can be obtained by calling the 'list-memos' tool.
 - memo: An object containing the fields to update (all optional):
   - memo: The new text content of the memo.
   - size: Object with width and height.
@@ -385,16 +410,11 @@ const initCallbackForUpdateMemo = (documentResource: DocumentResource): ToolCall
 
         const response = toMemoDetail(erdBudget, nextMemo);
 
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(response)
-                }
-            ]
-        };
+        return initToolJsonResponse(response);
     };
 };
+
+// ==================== delete-memo ====================
 
 const descriptionDeleteMemo = `\
 Deletes an existing memo from a specified ERD document.
@@ -402,7 +422,7 @@ Deletes an existing memo from a specified ERD document.
 REQUEST:
 - documentId: ${DESCRIPTION_DOCUMENT_ID}
 - memoId: The unique identifier of the memo to delete.
-  Can be obtained from the memos list resource.
+  Can be obtained by calling the 'list-memos' tool.
 
 RESPONSE:
 A text content containing the result of the operation:
@@ -436,21 +456,21 @@ const initCallbackForDeleteMemo = (documentResource: DocumentResource): ToolCall
         const nextDocument = previousDocument.deleteMemo(memoId);
         documentResource.notify(documentId, nextDocument);
 
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify({ success: true })
-                }
-            ]
-        };
+        return initToolJsonResponse({ success: true });
     };
 };
+
+// ==================== move-memo ====================
 
 const descriptionMoveMemo = `\
 Moves one or more memos within an ERD document to either an absolute position or by a relative offset.
 When moving to an absolute position, all specified memos are moved to the same coordinates.
 When moving by a relative offset, each memo is moved from its current position by the specified amount.
+
+TOOL SELECTION GUIDE:
+- Use move-memo when you need to move memos only (absolute or relative).
+- Use move-table when you need to move tables only (absolute or relative).
+- Use move-rectangle when you need to move tables and memos together in a single relative-offset operation.
 
 COORDINATE SYSTEM:
 All position coordinates use a canvas coordinate system where:
@@ -461,7 +481,7 @@ All position coordinates use a canvas coordinate system where:
 REQUEST:
 - documentId: ${DESCRIPTION_DOCUMENT_ID}
 - memoIds: An array of memo IDs to be moved.
-  Can be obtained from the memos list resource.
+  Can be obtained by calling the 'list-memos' tool.
 - moveTo: An object specifying the movement:
   - type: Either "absolute" (move to exact coordinates) or "relative" (move by offset from current position).
   - x: The x-coordinate (absolute) or x-offset (relative).
@@ -495,11 +515,7 @@ const moveMemoInputSchema = {
 
 const initCallbackForMoveMemo = (documentResource: DocumentResource): ToolCallback<typeof moveMemoInputSchema> => {
     return async ({ documentId, memoIds, moveTo }) => {
-        const erdBudget = documentResource.findById(documentId);
-        if (erdBudget == null) {
-            const url = new URL(uriTemplates.documentFor(documentId));
-            throw initResourceNotFound(url);
-        }
+        const { erdBudget } = findDocument(documentResource, documentId);
 
         const nextDocument = (moveTo.type === "absolute")
             ? doMoveMemoAbsolute(erdBudget, memoIds, { x: moveTo.x, y: moveTo.y })
@@ -516,14 +532,7 @@ const initCallbackForMoveMemo = (documentResource: DocumentResource): ToolCallba
             return [toMemoDetail(erdBudget, memoView)];
         });
 
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(responses)
-                }
-            ]
-        };
+        return initToolJsonResponse(responses);
     };
 };
 
@@ -550,14 +559,11 @@ const doMoveMemoAbsolute = (erdBudget: DocumentBudget, memoIds: string[], moveTo
     return nextDocument;
 };
 
-const doFindDocumentAndMemo = (documentResource: DocumentResource, documentId: string, memoId: string) => {
-    const erdBudget = documentResource.findById(documentId);
-    if (erdBudget == null) {
-        const url = new URL(uriTemplates.documentFor(documentId));
-        throw initResourceNotFound(url);
-    }
+// ==================== shared helpers ====================
 
-    const erdDocument = erdBudget.erdDocument;
+const doFindDocumentAndMemo = (documentResource: DocumentResource, documentId: string, memoId: string) => {
+    const { erdBudget, erdDocument } = findDocument(documentResource, documentId);
+
     const memoView = erdDocument.findMemoViewModel(memoId);
     if (memoView == null) {
         const url = new URL(erdBudget.memoUri(memoId));
@@ -565,4 +571,31 @@ const doFindDocumentAndMemo = (documentResource: DocumentResource, documentId: s
     }
 
     return { erdBudget, erdDocument, memoView };
+};
+
+const toMemoDetail = (erdBudget: DocumentBudget, memoView: MemoViewModel) => {
+    return {
+        uri: erdBudget.memoUri(memoView.memoId),
+        memoId: memoView.memoId,
+        memo: memoView.memo,
+        view: {
+            position: {
+                x: memoView.rectangleViewModel.left,
+                y: memoView.rectangleViewModel.top
+            },
+            size: {
+                width: memoView.rectangleViewModel.width,
+                height: memoView.rectangleViewModel.height
+            },
+            color: {
+                background: memoView.backgroundColor.toHex(),
+                foreground: memoView.foregroundColor.toHex()
+            },
+            font: {
+                verticalAlign: memoView.verticalAlign,
+                horizontalAlign: memoView.horizontalAlign,
+                fontSize: memoView.fontSize
+            }
+        }
+    };
 };
