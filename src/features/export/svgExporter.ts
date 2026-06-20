@@ -1,7 +1,7 @@
 import ErdDocument from "~/models/ErdDocument";
 import download from "~/components/file-downloader";
 import { overrideColumnName } from "~/models/database/support";
-import { escapeCdata, serializeMemo, serializePerspective } from "~/features/export/support";
+import { escapeCdata, serializePerspective } from "~/features/export/support";
 
 export const downloadSvg = (erdDocument: ErdDocument, erdCanvas: HTMLElement) => {
   const svgContent = initPortableSvg(erdDocument, erdCanvas);
@@ -69,7 +69,7 @@ const initPortableSvg = (erdDocument: ErdDocument, erdCanvas: HTMLElement) => {
         </span>
       </div>
     </foreignObject>
-    <script type="text/ecmascript"><![CDATA[(${initPortableFunction(erdDocument, erdCanvas, viewBox)})();]]></script>
+    <script type="text/ecmascript"><![CDATA[(${initPortableFunction(erdDocument, viewBox)})();]]></script>
   </svg>`;
 };
 
@@ -346,12 +346,10 @@ const initRelationLabelSvg = (erdCanvas: HTMLElement) => {
 };
 
 const initPortableFunction = (
-  erdDocument: ErdDocument, erdCanvas: HTMLElement, viewBox: { x: number, y: number, width: number, height: number }
+  erdDocument: ErdDocument, viewBox: { x: number, y: number, width: number, height: number }
 ) => {
 
   const serializedPerspectives = serializePerspective(erdDocument);
-  // FIXME: テーブルを囲っているメモも描画するための設定のようだが、perspective の設定と異なる表示になっている。
-  const memoTableMap = serializeMemo(erdDocument, erdCanvas);
 
   return `
   function() {
@@ -361,7 +359,6 @@ const initPortableFunction = (
     var perspSelect = document.getElementById('persp-select');
     var zoomDisp = document.getElementById('zoom-display');
     var PERSPECTIVES = ${escapeCdata(JSON.stringify(serializedPerspectives))};
-    var MEMO_TABLES = ${escapeCdata(JSON.stringify(memoTableMap))};
 
     var vbX = ${viewBox.x}, vbY = ${viewBox.y}, vbW = ${viewBox.width}, vbH = ${viewBox.height};
     var curVbX = vbX, curVbY = vbY, curVbW = vbW, curVbH = vbH;
@@ -508,12 +505,7 @@ const initPortableFunction = (
       var rels = content.querySelectorAll('[data-erd-relation-parent-table-id]');
       for (var i = 0; i < models.length; i++) {
         var mid = models[i].getAttribute('data-model-id');
-        var show;
-        if (!ids) { show = true; }
-        else if (ids[mid]) { show = true; }
-        else if (MEMO_TABLES[mid]) {
-          show = MEMO_TABLES[mid].some(function(tid) { return ids[tid]; });
-        } else { show = false; }
+        var show = !ids || ids[mid] === true;
         models[i].setAttribute('visibility', show ? 'visible' : 'hidden');
       }
       for (var j = 0; j < rels.length; j++) {
