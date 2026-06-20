@@ -1,24 +1,32 @@
-import { Paper } from "@mui/material";
-import RegalTextPanel from "~/features/regal/RegalTextPanel";
+import { Box, Grid } from "@mui/material";
+import TableChartIcon from "@mui/icons-material/TableChart";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 
-const explanation = `
-Entity Relationship Diagram Designer (ERD Designer) is a web-based tool for designing entity relationship diagrams.
-
-#### Features
-
-- ERD Designer allows you to design database tables and relationships via a graphical interface.
-- ERD Designer supports exporting PNG images and generating DDL files.
-- ERD Designer supports reusing and sharing column models for table design.
-
-[Go to GitHub ->](https://github.com/kajitiluna/erd-designer)
-`;
+import FeatureCard from "~/components/FeatureCard";
 
 const ExplanationPanel = () => {
     return (
-        <Paper sx={{ padding: 2, marginBottom: 4 }}>
-            <RegalTextPanel markdown={explanation} />
-        </Paper>
+        <Box sx={{ padding: "48px 64px", maxWidth: 960, margin: "0 auto", width: "100%" }}>
+            <Grid container spacing={2.5}>
+                <Grid size={4}>
+                    <FeatureCard title="Visual table design"
+                        icon={<TableChartIcon sx={{ fontSize: 22, color: "primary.main" }} />}
+                        description="Design database tables and relationships via a drag-and-drop graphical interface." />
+                </Grid>
+                <Grid size={4}>
+                    <FeatureCard title="Export & generate"
+                        icon={<FileDownloadIcon sx={{ fontSize: 22, color: "primary.main" }} />}
+                        description="Export PNG images of your diagrams and generate ready-to-run DDL files." />
+                </Grid>
+                <Grid size={4}>
+                    <FeatureCard title="Reusable models"
+                        icon={<ContentCopyIcon sx={{ fontSize: 22, color: "primary.main" }} />}
+                        description="Reuse and share column models across tables for consistent schema design." />
+                </Grid>
+            </Grid>
+        </Box>
     );
-}
+};
 
 export default ExplanationPanel;

@@ -1,27 +1,42 @@
 import { v4 as uuidV4 } from 'uuid';
 import React from "react";
 import {
-    Alert, AlertTitle, Box, Button, Container, CssBaseline,
-    Dialog, DialogActions, DialogContent, DialogTitle, Divider, Grid, Stack, Typography
+    Alert, AlertTitle, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
+    Grid, Stack, Typography
 } from "@mui/material";
+import { ThemeProvider } from "@mui/material/styles";
 
 import ErdDocument from "~/models/ErdDocument";
-import ErdDocumentListPanel from "~/features/start_up/ErdDocumentListPanel";
+import ErdDocumentSummary from "~/features/storage/ErdDocumentSummary";
 import ErdDocumentStorage from "~/features/storage/ErdDocumentStorage";
 import InitializeDatabaseDialog from "~/features/start_up/InitializeDatabaseDialog";
-import Logo from "~/logo.svg";
-import RegalFooter from "~/features/regal/RegalFooter";
-import ExplanationPanel from "~/features/regal/ExplanationPanel";
+import HeroLayout from "~/features/start_up/HeroLayout";
+import DashboardLayout from "~/features/start_up/DashboardLayout";
+import startUpTheme from "~/features/start_up/StartUpTheme";
 
 type StartUpProp = {
     documentStorage: ErdDocumentStorage,
     onOpenDocument: (openDocument: ErdDocument, onSave: (document: ErdDocument, message: string) => void) => void
 };
 
-type DiagramName = "new_file" | "load_file" | ""
+type DialogName = "new_file" | "load_file" | "";
 
 const StartUp = ({ documentStorage, onOpenDocument }: StartUpProp) => {
-    const [openDialogName, setOpenDialogName] = React.useState<DiagramName>("");
+    const [initialized, setInitialized] = React.useState(false);
+    const [openDialogName, setOpenDialogName] = React.useState<DialogName>("");
+    const [erdSummaries, setErdSummaries] = React.useState<ErdDocumentSummary[]>([]);
+
+    if (initialized === false) {
+        documentStorage.findAll()
+            .then(summaries => setErdSummaries(summaries))
+            .finally(() => setInitialized(true));
+
+        return (
+            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
 
     const handleCloseDialog = () => setOpenDialogName("");
 
@@ -45,70 +60,81 @@ const StartUp = ({ documentStorage, onOpenDocument }: StartUpProp) => {
         onOpenDocument(erdDocument, handleOnSave);
     };
 
-    const boxStyle = {
-        marginTop: 8,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center'
-    };
+    const mainPanel = initStartView({
+        documentStorage, erdSummaries, onOpenDocument,
+        onSummariesUpdated: (summaries: ErdDocumentSummary[]) => setErdSummaries(summaries),
+        onOpenDialog: (dialogName) => setOpenDialogName(dialogName)
+    });
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-            <Container component="main" maxWidth="lg" style={{ flex: 1 }}>
-                <CssBaseline />
-                <Box sx={boxStyle}>
-                    <img src={Logo} alt="" width="200px" height="200px" />
-                    <Typography variant="h2" align="center" style={{ marginTop: "30px", marginBottom: "30px" }}>
-                        Entity Relationship Diagram Designer
-                    </Typography>
-                    <ExplanationPanel />
-                    <Stack direction={{ sm: 'column', md: 'row' }} spacing={2}>
-                        <Button variant="contained" size="large" onClick={() => setOpenDialogName("new_file")}>
-                            Create New ER Diagram
-                        </Button>
-                        <Button variant="contained" size="large" color="secondary"
-                            onClick={() => setOpenDialogName("load_file")}>
-                            Import from erd file
-                        </Button>
-                    </Stack>
-                </Box>
-                <ErdDocumentListPanel documentStorage={documentStorage} onOpenDocument={onOpenDocument} />
+        <ThemeProvider theme={startUpTheme}>
+            {mainPanel}
 
-                {(openDialogName === "new_file") && (
-                    <InitializeDatabaseDialog
-                        isOpen={openDialogName === "new_file"}
-                        onCreate={handleCreateDocument}
-                        onClose={handleCloseDialog} />
-                )}
-                {(openDialogName === "load_file") && (
-                    <LoadFileDialog
-                        isOpen={openDialogName === "load_file"}
-                        onLoadDocument={handleLoadDocument}
-                        onClose={handleCloseDialog} />
-                )}
-            </Container>
+            {(openDialogName === "new_file") && (
+                <InitializeDatabaseDialog
+                    isOpen={openDialogName === "new_file"}
+                    onCreate={handleCreateDocument}
+                    onClose={handleCloseDialog}
+                />
+            )}
+            {(openDialogName === "load_file") && (
+                <LoadFileDialog
+                    isOpen={openDialogName === "load_file"}
+                    onLoadDocument={handleLoadDocument}
+                    onClose={handleCloseDialog}
+                />
+            )}
+        </ThemeProvider>
+    );
+};
 
-            <RegalFooter />
-        </div>
+type InitViewArgs = {
+    documentStorage: ErdDocumentStorage,
+    erdSummaries: ErdDocumentSummary[],
+    onOpenDocument: (openDocument: ErdDocument, onSave: (document: ErdDocument, message: string) => void) => void,
+    onSummariesUpdated: (summaries: ErdDocumentSummary[]) => void,
+    onOpenDialog: (dialogName: "new_file" | "load_file") => void
+
+};
+
+const initStartView = ({
+    documentStorage, erdSummaries, onOpenDocument, onSummariesUpdated, onOpenDialog
+}: InitViewArgs) => {
+
+    const onOpenCreateDialog = () => onOpenDialog("new_file");
+    const onOpenImportDialog = () => onOpenDialog("load_file");
+
+    if (erdSummaries.length === 0) {
+        return (
+            <HeroLayout onOpenCreateDialog={onOpenCreateDialog} onOpenImportDialog={onOpenImportDialog} />
+        );
+    }
+
+    return (
+        <DashboardLayout
+            documentStorage={documentStorage}
+            erdSummaries={erdSummaries}
+            onOpenDocument={onOpenDocument}
+            onSummariesUpdated={onSummariesUpdated}
+            onOpenCreateDialog={onOpenCreateDialog}
+            onOpenImportDialog={onOpenImportDialog}
+        />
     );
 };
 
 type LoadFileDialogProp = {
-    isOpen: boolean,
-    onLoadDocument: (openDocument: ErdDocument) => void,
-    onClose: () => void
+    isOpen: boolean;
+    onLoadDocument: (openDocument: ErdDocument) => void;
+    onClose: () => void;
 };
 
-// ファイル選択画面を表示するための input タグの id
 const ELEMENT_FILE_ID = "input_erd_file";
 
 const LoadFileDialog = ({ isOpen, onLoadDocument, onClose }: LoadFileDialogProp) => {
-
     const [fileName, setFileName] = React.useState("");
     const [erdDocument, setErdDocument] = React.useState<ErdDocument | null>(null);
     const [failureMessage, setFailureMessage] = React.useState("");
 
-    // ファイル選択画面を表示する
     const handleSelectFileDialog = () => {
         const element = document.getElementById(ELEMENT_FILE_ID);
         if (element == null) {
