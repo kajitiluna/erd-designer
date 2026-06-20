@@ -2,11 +2,13 @@ import ErdDocumentStorage from "~/features/storage/ErdDocumentStorage";
 import ErdDocumentSummary from "~/features/storage/ErdDocumentSummary";
 import { INDEXED_DB_NAME, INDEXED_DB_VERSION, INDEXED_OBJECT_ERD_DOCUMENT } from "~/features/storage/IndexedDBConst";
 import ErdDocument from "~/models/ErdDocument";
+import { DatabaseType } from "~/models/database";
 
 type InternalDocument = {
     key: string;
     documentName: string;
     lastUpdatedAt: Date;
+    databaseType?: string;
     document: object;
 };
 
@@ -75,7 +77,8 @@ class IndexedDBStorage implements ErdDocumentStorage {
                 documents.push({
                     key: name.toString(),
                     documentName: baseDocument.documentName,
-                    lastUpdatedAt: baseDocument.lastUpdatedAt
+                    lastUpdatedAt: baseDocument.lastUpdatedAt,
+                    databaseType: baseDocument.databaseType as DatabaseType | undefined
                 });
 
                 cursor.continue();
@@ -118,6 +121,7 @@ class IndexedDBStorage implements ErdDocumentStorage {
                 key: key,
                 documentName: erdDocument.documentName,
                 lastUpdatedAt: erdDocument.lastUpdatedAt,
+                databaseType: erdDocument.databaseSettingModel.databaseType,
                 document: erdDocument.toJSON(),
             };
 

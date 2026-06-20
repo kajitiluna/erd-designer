@@ -6,6 +6,10 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import TableChartIcon from '@mui/icons-material/TableChart';
 
+import MySQLIcon from "~/components/icons/MySQLIcon";
+import PostgreSQLIcon from "~/components/icons/PostgreSQLIcon";
+import MsSQLServerIcon from "~/components/icons/MsSQLServerIcon";
+import { DatabaseType } from "~/models/database";
 import ErdDocumentStorage from "~/features/storage/ErdDocumentStorage";
 import ErdDocument from "~/models/ErdDocument";
 import ErdDocumentSummary from "~/features/storage/ErdDocumentSummary";
@@ -69,7 +73,7 @@ const ErdDocumentListPanel = ({ documentStorage, erdSummaries, onOpenDocument, o
                 <ListItemButton onClick={handleClickItem}>
                     <ListItemIcon sx={{ minWidth: "54px" }}>
                         <Box sx={iconBadgeStyle}>
-                            <TableChartIcon sx={{ fontSize: 19, color: "primary.main" }} />
+                            {buildDatabaseIcon(summary.databaseType)}
                         </Box>
                     </ListItemIcon>
                     <ListItemText slotProps={listItemStyle}
@@ -82,12 +86,7 @@ const ErdDocumentListPanel = ({ documentStorage, erdSummaries, onOpenDocument, o
 
     return (
         <Box sx={{ padding: "36px 36px 44px" }}>
-            <Box sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "baseline",
-                marginBottom: "20px",
-            }}>
+            <Box sx={mainStyle}>
                 <Typography sx={{ fontSize: 20, fontWeight: 600, color: "text.primary" }}>
                     Your documents
                 </Typography>
@@ -117,6 +116,27 @@ const ErdDocumentListPanel = ({ documentStorage, erdSummaries, onOpenDocument, o
             )}
         </Box>
     );
+};
+
+const databaseTypeIcons: { [key in DatabaseType]: React.JSX.Element } = {
+    "postgres": <PostgreSQLIcon />,
+    "mysql": <MySQLIcon />,
+    "ms_sqlserver": <MsSQLServerIcon />,
+};
+
+const buildDatabaseIcon = (databaseType: DatabaseType | undefined): React.JSX.Element => {
+    if (databaseType == null) {
+        return <TableChartIcon sx={{ fontSize: 19, color: "primary.main" }} />;
+    }
+
+    return databaseTypeIcons[databaseType];
+};
+
+const mainStyle = {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    marginBottom: "20px",
 };
 
 const iconBadgeStyle = {
