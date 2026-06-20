@@ -55,7 +55,7 @@ const initPortableSvg = (erdDocument: ErdDocument, erdCanvas: HTMLElement) => {
         </style>
         <span style="font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex-shrink:1">${escapeSvg(erdDocument.documentName)}</span>
         <span style="font-weight:600;white-space:nowrap;flex-shrink:0">Perspective:</span>
-        <select id="persp-select" style="padding:4px 8px;border-radius:4px;border:1px solid #ccc;font-size:13px;max-width:340px;background:#fff;color:#333;flex-shrink:0">
+        <select id="perspective-select" style="padding:4px 8px;border-radius:4px;border:1px solid #ccc;font-size:13px;max-width:340px;background:#fff;color:#333;flex-shrink:0">
           <option value="all" selected="selected">All</option>
           ${perspectiveOptions}
         </select>
@@ -356,7 +356,7 @@ const initPortableFunction = (
     var svg = document.documentElement;
     var content = document.getElementById('erd-content');
     var overlay = document.getElementById('ui-overlay');
-    var perspSelect = document.getElementById('persp-select');
+    var perspectiveSelect = document.getElementById('perspective-select');
     var zoomDisp = document.getElementById('zoom-display');
     var PERSPECTIVES = ${escapeCdata(JSON.stringify(serializedPerspectives))};
 
@@ -502,27 +502,27 @@ const initPortableFunction = (
     function applyPerspective(pid) {
       var ids = pid === 'all' ? null : idSets[pid];
       var models = content.querySelectorAll('[data-model-id]');
-      var rels = content.querySelectorAll('[data-erd-relation-parent-table-id]');
+      var relations = content.querySelectorAll('[data-erd-relation-parent-table-id]');
       for (var i = 0; i < models.length; i++) {
         var mid = models[i].getAttribute('data-model-id');
         var show = !ids || ids[mid] === true;
         models[i].setAttribute('visibility', show ? 'visible' : 'hidden');
       }
-      for (var j = 0; j < rels.length; j++) {
-        var p = rels[j].getAttribute('data-erd-relation-parent-table-id');
-        var c = rels[j].getAttribute('data-erd-relation-child-table-id');
+      for (var j = 0; j < relations.length; j++) {
+        var p = relations[j].getAttribute('data-erd-relation-parent-table-id');
+        var c = relations[j].getAttribute('data-erd-relation-child-table-id');
         var showR = !ids || (ids[p] && ids[c]);
-        rels[j].setAttribute('visibility', showR ? 'visible' : 'hidden');
+        relations[j].setAttribute('visibility', showR ? 'visible' : 'hidden');
       }
     }
 
-    perspSelect.addEventListener('change', function() { applyPerspective(perspSelect.value); });
+    perspectiveSelect.addEventListener('change', function() { applyPerspective(perspectiveSelect.value); });
 
-    function perspStep(delta) {
-      var idx = perspSelect.selectedIndex + delta;
-      if (idx < 0 || idx >= perspSelect.options.length) return;
-      perspSelect.selectedIndex = idx;
-      applyPerspective(perspSelect.value);
+    function perspectiveStep(delta) {
+      var idx = perspectiveSelect.selectedIndex + delta;
+      if (idx < 0 || idx >= perspectiveSelect.options.length) return;
+      perspectiveSelect.selectedIndex = idx;
+      applyPerspective(perspectiveSelect.value);
     }
 
     var searchBox = document.getElementById('search-box');
@@ -550,12 +550,12 @@ const initPortableFunction = (
       if (e.key === '/' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); searchBox.focus(); }
       if (e.key === 'Escape') { searchBox.blur(); searchBox.value = ''; searchBox.dispatchEvent(new Event('input')); }
       if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
-        if (document.activeElement === perspSelect || document.activeElement === searchBox) return;
-        e.preventDefault(); perspStep(1);
+        if (document.activeElement === perspectiveSelect || document.activeElement === searchBox) return;
+        e.preventDefault(); perspectiveStep(1);
       }
       if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
-        if (document.activeElement === perspSelect || document.activeElement === searchBox) return;
-        e.preventDefault(); perspStep(-1);
+        if (document.activeElement === perspectiveSelect || document.activeElement === searchBox) return;
+        e.preventDefault(); perspectiveStep(-1);
       }
     });
   }`;

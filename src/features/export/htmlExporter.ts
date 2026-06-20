@@ -158,7 +158,7 @@ const initPortableFunction = (erdDocument: ErdDocument, erdCanvas: HTMLElement) 
   (function() {
     const viewport = document.getElementById('viewport');
     const wrapper = document.getElementById('canvas-wrapper');
-    const perspSelect = document.getElementById('perspective-select');
+    const perspectiveSelect = document.getElementById('perspective-select');
     const searchBox = document.getElementById('search-box');
     const zoomDisplay = document.getElementById('zoom-display');
     const cropX = ${leftEdge - padding}, cropY = ${topEdge - padding};
@@ -169,7 +169,7 @@ const initPortableFunction = (erdDocument: ErdDocument, erdCanvas: HTMLElement) 
       const opt = document.createElement('option');
       opt.value = p.id;
       opt.textContent = p.name;
-      perspSelect.appendChild(opt);
+      perspectiveSelect.appendChild(opt);
     });
 
     const idSet = new Map();
@@ -268,7 +268,7 @@ const initPortableFunction = (erdDocument: ErdDocument, erdCanvas: HTMLElement) 
       });
     }
 
-    perspSelect.addEventListener('change', () => applyPerspective(perspSelect.value));
+    perspectiveSelect.addEventListener('change', () => applyPerspective(perspectiveSelect.value));
 
     searchBox.addEventListener('input', () => {
       const q = searchBox.value.toLowerCase().trim();
@@ -288,10 +288,10 @@ const initPortableFunction = (erdDocument: ErdDocument, erdCanvas: HTMLElement) 
       if (e.key === 'Escape') { searchBox.blur(); searchBox.value = ''; searchBox.dispatchEvent(new Event('input')); }
       if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && document.activeElement !== searchBox) {
         e.preventDefault();
-        const opts = perspSelect.options;
+        const opts = perspectiveSelect.options;
         const dir = e.key === 'ArrowDown' ? 1 : -1;
-        const next = perspSelect.selectedIndex + dir;
-        if (next >= 0 && next < opts.length) { perspSelect.selectedIndex = next; perspSelect.dispatchEvent(new Event('change')); }
+        const next = perspectiveSelect.selectedIndex + dir;
+        if (next >= 0 && next < opts.length) { perspectiveSelect.selectedIndex = next; perspectiveSelect.dispatchEvent(new Event('change')); }
       }
     });
   })`;
