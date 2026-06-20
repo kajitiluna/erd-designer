@@ -516,13 +516,14 @@ const initPortableFunction = (
       }
     }
 
-    perspectiveSelect.addEventListener('change', function() { applyPerspective(perspectiveSelect.value); });
+    perspectiveSelect.addEventListener('change', function() { applyPerspective(perspectiveSelect.value); fitAll(); });
 
     function perspectiveStep(delta) {
       var idx = perspectiveSelect.selectedIndex + delta;
       if (idx < 0 || idx >= perspectiveSelect.options.length) return;
       perspectiveSelect.selectedIndex = idx;
       applyPerspective(perspectiveSelect.value);
+      fitAll();
     }
 
     var searchBox = document.getElementById('search-box');

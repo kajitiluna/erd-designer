@@ -268,7 +268,7 @@ const initPortableFunction = (erdDocument: ErdDocument, erdCanvas: HTMLElement) 
       });
     }
 
-    perspectiveSelect.addEventListener('change', () => applyPerspective(perspectiveSelect.value));
+    perspectiveSelect.addEventListener('change', () => { applyPerspective(perspectiveSelect.value); fitAll(); });
 
     searchBox.addEventListener('input', () => {
       const q = searchBox.value.toLowerCase().trim();
@@ -286,7 +286,7 @@ const initPortableFunction = (erdDocument: ErdDocument, erdCanvas: HTMLElement) 
       if (e.key === '-' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); document.getElementById('zoom-out').click(); }
       if (e.key === '/' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); searchBox.focus(); }
       if (e.key === 'Escape') { searchBox.blur(); searchBox.value = ''; searchBox.dispatchEvent(new Event('input')); }
-      if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && document.activeElement !== searchBox) {
+      if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && document.activeElement !== perspectiveSelect && document.activeElement !== searchBox) {
         e.preventDefault();
         const opts = perspectiveSelect.options;
         const dir = e.key === 'ArrowDown' ? 1 : -1;
