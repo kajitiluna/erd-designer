@@ -1,40 +1,32 @@
 import React from "react";
 import {
-    Box, Button, CircularProgress, Container,
-    Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
-    IconButton, List, ListItem, ListItemButton, ListItemText, Paper, Stack, Typography
+    Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
+    IconButton, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Typography
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+import TableChartIcon from '@mui/icons-material/TableChart';
 
+import MySQLIcon from "~/components/icons/MySQLIcon";
+import PostgreSQLIcon from "~/components/icons/PostgreSQLIcon";
+import MsSQLServerIcon from "~/components/icons/MsSQLServerIcon";
+import { DatabaseType } from "~/models/database";
 import ErdDocumentStorage from "~/features/storage/ErdDocumentStorage";
 import ErdDocument from "~/models/ErdDocument";
 import ErdDocumentSummary from "~/features/storage/ErdDocumentSummary";
 
-
 type ErdDocumentListPanelProp = {
-    documentStorage: ErdDocumentStorage,
-    onOpenDocument: (openDocument: ErdDocument, onSave: (document: ErdDocument, message: string) => void) => void
+    documentStorage: ErdDocumentStorage;
+    erdSummaries: ErdDocumentSummary[];
+    onOpenDocument: (openDocument: ErdDocument, onSave: (document: ErdDocument, message: string) => void) => void;
+    onSummariesUpdated: (summaries: ErdDocumentSummary[]) => void;
 };
 
-const ErdDocumentListPanel = ({ documentStorage, onOpenDocument }: ErdDocumentListPanelProp) => {
-
-    const [erdSummaries, setErdSummaries] = React.useState<ErdDocumentSummary[] | null>(null);
-    // 削除対象として選択された ErdDocument のキー
+const ErdDocumentListPanel = ({ documentStorage, erdSummaries, onOpenDocument, onSummariesUpdated }: ErdDocumentListPanelProp) => {
     const [deletingDocument, setDeletingDocument] = React.useState<ErdDocumentSummary | null>(null);
-
-    if (erdSummaries == null) {
-        documentStorage.findAll().then(documents => setErdSummaries(documents));
-    }
-
-    if (erdSummaries == null) {
-        return (
-            <Container><CircularProgress /></Container >
-        );
-    }
 
     const handleOpenDocument = (key: string) => {
         documentStorage.find(key).then(document => {
-            if (document == null) {
+            if (document === null) {
                 console.warn(`Not found document. key : ${key}`);
                 return;
             }
@@ -46,62 +38,129 @@ const ErdDocumentListPanel = ({ documentStorage, onOpenDocument }: ErdDocumentLi
         });
     };
 
-    const initListItem = (summary: ErdDocumentSummary) => (
-        <ListItemButton key={summary.key}>
-            <ListItem secondaryAction={
-                <IconButton edge="end" aria-label="delete" onClick={() => setDeletingDocument(summary)}>
-                    <DeleteIcon />
-                </IconButton>
-            }>
-                <ListItemText
-                    primary={summary.documentName}
-                    secondary={"Last updated at : " + summary.lastUpdatedAt.toLocaleString()}
-                    onClick={() => handleOpenDocument(summary.key)}
-                />
-            </ListItem>
-        </ListItemButton>
-    );
+    const handleCloseDeleteDialog = () => setDeletingDocument(null);
 
-    const handleCloseDialog = () => setDeletingDocument(null);
-    // ErdDocument を削除した後は、ErdDocument の一覧を再取得して、一覧表示を更新する
     const handleDeleteDocument = (summary: ErdDocumentSummary) => {
+        handleCloseDeleteDialog();
+
         documentStorage.delete(summary.key)
             .then(() => documentStorage.findAll())
-            .then(summaries => setErdSummaries(summaries));
+            .then(onSummariesUpdated)
+            .catch(error => console.warn(`Failed to delete document. key: ${summary.key}, detail: ${error}`));
+    };
 
-        handleCloseDialog();
+    const handleConfirmDelete = () => {
+        if (deletingDocument === null) {
+            return;
+        }
+
+        handleDeleteDocument(deletingDocument);
+    };
+
+    const buildDocumentItem = (summary: ErdDocumentSummary) => {
+        const handleClickItem = () => handleOpenDocument(summary.key);
+        const handleClickDelete = (event: React.MouseEvent) => {
+            event.stopPropagation();
+            setDeletingDocument(summary);
+        };
+
+        const deleteButton = (
+            <IconButton size="small" edge="end" sx={deleteIconStyle} onClick={handleClickDelete} >
+                <DeleteIcon sx={{ fontSize: 21 }} />
+            </IconButton>
+        );
+
+        return (
+            <ListItem key={summary.key} disablePadding secondaryAction={deleteButton}>
+                <ListItemButton onClick={handleClickItem}>
+                    <ListItemIcon sx={{ minWidth: "54px" }}>
+                        <Box sx={iconBadgeStyle}>
+                            {buildDatabaseIcon(summary.databaseType)}
+                        </Box>
+                    </ListItemIcon>
+                    <ListItemText slotProps={listItemStyle}
+                        primary={summary.documentName}
+                        secondary={"Updated at : " + summary.lastUpdatedAt.toLocaleString()} />
+                </ListItemButton>
+            </ListItem>
+        );
     };
 
     return (
-        <Container>
-            <Paper sx={{ margin: 5 }}>
-                <Box sx={{ p: 5 }}>
-                    <Stack spacing={2}>
-                        <Typography variant="h5" gutterBottom>Recently updated documents.</Typography>
-                        <nav>
-                            <List>{erdSummaries.map(summary => initListItem(summary))}</List>
-                            {(erdSummaries.length === 0) && <Typography variant="body1">No documents.</Typography>}
-                        </nav>
-                    </Stack>
-                </Box>
-            </Paper>
+        <Box sx={{ padding: "36px 36px 44px" }}>
+            <Box sx={mainStyle}>
+                <Typography sx={{ fontSize: 20, fontWeight: 600, color: "text.primary" }}>
+                    Your documents
+                </Typography>
+                <Typography sx={{ fontSize: 13, color: "brand.textMuted" }}>
+                    {erdSummaries.length} total
+                </Typography>
+            </Box>
+            <List>
+                {erdSummaries.map(buildDocumentItem)}
+            </List>
+
             {(deletingDocument !== null) && (
-                <Dialog open={deletingDocument !== null} onClose={handleCloseDialog}>
+                <Dialog open={deletingDocument !== null} onClose={handleCloseDeleteDialog}>
                     <DialogTitle>Delete ER diagram?</DialogTitle>
                     <DialogContent>
-                        <DialogContentText>Are you sure to delete the diagram {"'"}{deletingDocument.documentName}{"'"} ?</DialogContentText>
+                        <DialogContentText>
+                            {"Are you sure to delete the diagram '"}{deletingDocument.documentName}{"'?"}
+                        </DialogContentText>
                     </DialogContent>
                     <DialogActions>
-                        <Button onClick={handleCloseDialog}>Cancel</Button>
-                        <Button variant="contained" color="error"
-                            onClick={() => handleDeleteDocument(deletingDocument)} >
+                        <Button onClick={handleCloseDeleteDialog}>Cancel</Button>
+                        <Button variant="contained" color="error" onClick={handleConfirmDelete}>
                             Delete
                         </Button>
                     </DialogActions>
                 </Dialog>
             )}
-        </Container>
+        </Box>
     );
+};
+
+const databaseTypeIcons: { [key in DatabaseType]: React.JSX.Element } = {
+    "postgres": <PostgreSQLIcon />,
+    "mysql": <MySQLIcon />,
+    "ms_sqlserver": <MsSQLServerIcon />,
+};
+
+const buildDatabaseIcon = (databaseType: DatabaseType | undefined): React.JSX.Element => {
+    if (databaseType == null) {
+        return <TableChartIcon sx={{ fontSize: 19, color: "primary.main" }} />;
+    }
+
+    return databaseTypeIcons[databaseType];
+};
+
+const mainStyle = {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    marginBottom: "20px",
+};
+
+const iconBadgeStyle = {
+    width: 38,
+    height: 38,
+    borderRadius: "9px",
+    backgroundColor: "brand.surfaceIconBg",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+};
+
+const listItemStyle = {
+    primary: { sx: { fontSize: 15, fontWeight: 500, color: "text.primary" } },
+    secondary: { sx: { fontSize: "12.5px", color: "brand.textMuted", marginTop: "2px" } },
+};
+
+const deleteIconStyle = {
+    color: "brand.textFaint",
+    padding: "7px",
+    borderRadius: "6px",
+    "&:hover": { backgroundColor: "brand.heroGradientStart", color: "primary.main" },
 };
 
 export default ErdDocumentListPanel;

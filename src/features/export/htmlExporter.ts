@@ -1,7 +1,7 @@
 import download from "~/components/file-downloader";
 import ErdDocument from "~/models/ErdDocument";
 import { calculateImageArea } from "~/features/canvas/canvasArea";
-import { escapeCdata, serializeMemo, serializePerspective } from "~/features/export/support";
+import { escapeCdata, serializePerspective } from "~/features/export/support";
 import { ERD_TABLE_VIEW_CLASS_NAME } from "~/features/canvas/ErdTableView";
 import { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
 
@@ -153,26 +153,23 @@ const initPortableFunction = (erdDocument: ErdDocument, erdCanvas: HTMLElement) 
   const padding = 100;
 
   const serializedPerspectives = serializePerspective(erdDocument);
-  // FIXME: テーブルを囲っているメモも描画するための設定のようだが、perspective の設定と異なる表示になっている。
-  const memoTableMap = serializeMemo(erdDocument, erdCanvas);
 
   return `
   (function() {
     const viewport = document.getElementById('viewport');
     const wrapper = document.getElementById('canvas-wrapper');
-    const perspSelect = document.getElementById('perspective-select');
+    const perspectiveSelect = document.getElementById('perspective-select');
     const searchBox = document.getElementById('search-box');
     const zoomDisplay = document.getElementById('zoom-display');
     const cropX = ${leftEdge - padding}, cropY = ${topEdge - padding};
     const contentW = ${rightEdge - leftEdge + padding * 2}, contentH = ${bottomEdge - topEdge + padding * 2};
     const PERSPECTIVES = ${escapeCdata(JSON.stringify(serializedPerspectives))};
-    const MEMO_TABLES = ${escapeCdata(JSON.stringify(memoTableMap))};
 
     PERSPECTIVES.forEach(p => {
       const opt = document.createElement('option');
       opt.value = p.id;
       opt.textContent = p.name;
-      perspSelect.appendChild(opt);
+      perspectiveSelect.appendChild(opt);
     });
 
     const idSet = new Map();
@@ -258,12 +255,7 @@ const initPortableFunction = (erdDocument: ErdDocument, erdCanvas: HTMLElement) 
       const ids = pid === 'all' ? null : idSet.get(pid);
       modelWrappers.forEach(el => {
         const mid = el.getAttribute('data-model-id');
-        let show;
-        if (!ids) { show = true; }
-        else if (ids.has(mid)) { show = true; }
-        else if (MEMO_TABLES[mid]) {
-          show = MEMO_TABLES[mid].some(tid => ids.has(tid));
-        } else { show = false; }
+        const show = !ids || ids.has(mid);
         el.style.opacity = show ? '' : '0';
         el.style.pointerEvents = show ? '' : 'none';
       });
@@ -276,7 +268,7 @@ const initPortableFunction = (erdDocument: ErdDocument, erdCanvas: HTMLElement) 
       });
     }
 
-    perspSelect.addEventListener('change', () => applyPerspective(perspSelect.value));
+    perspectiveSelect.addEventListener('change', () => { applyPerspective(perspectiveSelect.value); fitAll(); });
 
     searchBox.addEventListener('input', () => {
       const q = searchBox.value.toLowerCase().trim();
@@ -294,12 +286,12 @@ const initPortableFunction = (erdDocument: ErdDocument, erdCanvas: HTMLElement) 
       if (e.key === '-' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); document.getElementById('zoom-out').click(); }
       if (e.key === '/' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); searchBox.focus(); }
       if (e.key === 'Escape') { searchBox.blur(); searchBox.value = ''; searchBox.dispatchEvent(new Event('input')); }
-      if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && document.activeElement !== searchBox) {
+      if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && document.activeElement !== perspectiveSelect && document.activeElement !== searchBox) {
         e.preventDefault();
-        const opts = perspSelect.options;
+        const opts = perspectiveSelect.options;
         const dir = e.key === 'ArrowDown' ? 1 : -1;
-        const next = perspSelect.selectedIndex + dir;
-        if (next >= 0 && next < opts.length) { perspSelect.selectedIndex = next; perspSelect.dispatchEvent(new Event('change')); }
+        const next = perspectiveSelect.selectedIndex + dir;
+        if (next >= 0 && next < opts.length) { perspectiveSelect.selectedIndex = next; perspectiveSelect.dispatchEvent(new Event('change')); }
       }
     });
   })`;
