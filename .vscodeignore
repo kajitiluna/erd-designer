@@ -1,11 +1,13 @@
 .git
 .github
+.claude/**
 .vscode/**
 .vscode-test/**
 .env
 
 images/**
 !images/icon.png
+docs/**
 public/favicon.ico
 samples/**
 src/**

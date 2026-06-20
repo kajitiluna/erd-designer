@@ -26,11 +26,14 @@ const StartUp = ({ documentStorage, onOpenDocument }: StartUpProp) => {
     const [openDialogName, setOpenDialogName] = React.useState<DialogName>("");
     const [erdSummaries, setErdSummaries] = React.useState<ErdDocumentSummary[]>([]);
 
-    if (initialized === false) {
+    // 初回表示時に保存済みの ERD ドキュメント一覧を取得する
+    React.useEffect(() => {
         documentStorage.findAll()
             .then(summaries => setErdSummaries(summaries))
             .finally(() => setInitialized(true));
+    }, [documentStorage]);
 
+    if (initialized === false) {
         return (
             <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" }}>
                 <CircularProgress />
@@ -94,7 +97,6 @@ type InitViewArgs = {
     onOpenDocument: (openDocument: ErdDocument, onSave: (document: ErdDocument, message: string) => void) => void,
     onSummariesUpdated: (summaries: ErdDocumentSummary[]) => void,
     onOpenDialog: (dialogName: "new_file" | "load_file") => void
-
 };
 
 const initStartView = ({

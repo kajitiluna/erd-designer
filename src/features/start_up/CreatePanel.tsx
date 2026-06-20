@@ -40,14 +40,14 @@ const explainPanel = () => {
             <Stack direction="row" spacing={1.5} sx={{ alignItems: "flex-start" }}>
                 <TableChartIcon sx={itemIconStyle} />
                 <Typography sx={itemTextStyle}>
-                    "Graphical table & relationship design"
+                    Graphical table & relationship design
                 </Typography>
             </Stack>
 
             <Stack direction="row" spacing={1.5} sx={{ alignItems: "flex-start" }}>
                 <FileDownloadIcon sx={itemIconStyle} />
                 <Typography sx={itemTextStyle}>
-                    "Export PNG & generate DDL files"
+                    Export PNG & generate DDL files
                 </Typography>
             </Stack>
 

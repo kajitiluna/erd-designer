@@ -41,10 +41,12 @@ const ErdDocumentListPanel = ({ documentStorage, erdSummaries, onOpenDocument, o
     const handleCloseDeleteDialog = () => setDeletingDocument(null);
 
     const handleDeleteDocument = (summary: ErdDocumentSummary) => {
+        handleCloseDeleteDialog();
+
         documentStorage.delete(summary.key)
             .then(() => documentStorage.findAll())
             .then(onSummariesUpdated)
-            .finally(() => handleCloseDeleteDialog());
+            .catch(error => console.warn(`Failed to delete document. key: ${summary.key}, detail: ${error}`));
     };
 
     const handleConfirmDelete = () => {

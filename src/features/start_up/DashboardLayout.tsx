@@ -26,16 +26,10 @@ const DashboardLayout = ({
         <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
             {appHeader()}
             <Box sx={{ display: "grid", gridTemplateColumns: "1fr 360px", flex: 1 }}>
-                <ErdDocumentListPanel
-                    documentStorage={documentStorage}
-                    erdSummaries={erdSummaries}
-                    onOpenDocument={onOpenDocument}
-                    onSummariesUpdated={onSummariesUpdated}
-                />
-                <CreatePanel
-                    onOpenCreateDialog={onOpenCreateDialog}
-                    onOpenImportDialog={onOpenImportDialog}
-                />
+                <ErdDocumentListPanel documentStorage={documentStorage} erdSummaries={erdSummaries}
+                    onOpenDocument={onOpenDocument} onSummariesUpdated={onSummariesUpdated} />
+
+                <CreatePanel onOpenCreateDialog={onOpenCreateDialog} onOpenImportDialog={onOpenImportDialog} />
             </Box>
             <RegalFooter />
         </Box>
