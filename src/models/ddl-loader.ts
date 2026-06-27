@@ -503,9 +503,11 @@ const loadCreateTableDdl = (query: Create, engine: ParserEngine): ([TableBaseDef
                     return definition;
                 }
 
+                const columnNames = definition.indexColumns.map(column => column.columnName);
+
                 return {
                     ...definition,
-                    indexName: `index_${tableName}__${definition.indexColumns.join("_")}`,
+                    indexName: `index_${tableName}__${columnNames.join("_")}`,
                 }
             }),
             skippedReasons, comment, checkExpression, characterSet, collate,

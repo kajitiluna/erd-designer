@@ -166,13 +166,13 @@ const doFilterRelations = (params: RelationFilterParams, erdDocument: ErdDocumen
         const relationModel = relationView.relationModel;
 
         const matchedParentTableId = (parentTableIds.length === 0)
-            || parentTableIds.every(filtering => relationModel.parentTableModelId === filtering);
+            || parentTableIds.some(filtering => relationModel.parentTableModelId === filtering);
         if (!matchedParentTableId) {
             return false;
         }
 
         const matchedChildTableId = (childTableIds.length === 0)
-            || childTableIds.every(filtering => relationModel.childTableModelId === filtering);
+            || childTableIds.some(filtering => relationModel.childTableModelId === filtering);
         if (!matchedChildTableId) {
             return false;
         }
