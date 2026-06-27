@@ -2,8 +2,7 @@ import React from "react";
 import { Box } from "@mui/material";
 
 import useStateRef from "~/components/useStateRef";
-import CanvasPositionContext, { CanvasPositionResolver } from "~/context/CanvasPositionContext";
-import DisplayScaleContext from "~/context/DisplayScaleContext";
+import ViewportContext, { CanvasViewport, useViewport } from "~/context/ViewportContext";
 import { DragAction, DragActionContext } from "~/context/DragActionContext";
 import EditModeContext from "~/context/EditModeContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
@@ -20,7 +19,7 @@ import ErdDocument from "~/models/ErdDocument";
 import { OrthogonalDirection } from "~/models/LineViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
 import {
-    CARDINALITY_MARKER, getScroll, inOpenControlPanel, toNextOrthogonalLines, withMultiSelectKey
+    CARDINALITY_MARKER, handlePreventMouseEvent, toNextOrthogonalLines, withMultiSelectKey
 } from "~/features/canvas/support";
 import EditAction from "~/features/canvas/EditAction";
 import ErdRelationPathView, { ErdRelationTooltipRef } from "~/features/canvas/ErdRelationPathView";
@@ -31,20 +30,29 @@ import TableEditView from "~/features/editor/TableEditView";
 import StickyMemoView, { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
 import { DragState } from "~/models/DragState";
 import { SelectState } from "~/models/SelectState";
+import { inOpenControlPanel } from "~/components/support";
 
 export const ERD_CANVAS_ID = "erd-canvas";
 
-type ErdCanvasProps = { canvasArea: CanvasArea, onDragAction: React.Dispatch<DragAction> };
-type CanvasArea = { width: number; height: number };
+type ErdCanvasProps = {
+    onDragAction: React.Dispatch<DragAction>;
+    children?: React.ReactNode;
+};
 
-const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasProps) => {
+const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProps) => {
+    const documentsHolder = React.useContext(ErdDocumentsHolderContext);
     const dragState = React.useContext(DragActionContext);
     const { editMode, dispatchEditMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const { localSetting, dispatchLocalSetting } = React.useContext(LocalSettingContext);
-    const { scale: displayScale, phase } = React.useContext(DisplayScaleContext);
 
+    const viewportRef = React.useRef<HTMLDivElement>(null);
     const erdCanvasRef = React.useRef<HTMLDivElement>(null);
+    const isDraggingRef = React.useRef(false);
+    React.useEffect(() => {
+        isDraggingRef.current = (dragState.status === "on_dragging");
+    }, [dragState.status]);
+
     const [toolbarCanvasElement, toolbarCanvasRef] = useStateRef<HTMLDivElement>()
     const [svgCanvasElement, svgCanvasRef] = useStateRef<SVGSVGElement>();
 
@@ -64,16 +72,8 @@ const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasPr
     // FireFox の場合、ドラッグ完了後に click イベントが発生するため、ドラッグ距離を保持して、ドラッグ後のイベントを制御する
     const [dragDistance, setDragDistance] = React.useState<number>(0);
 
-    const drawableArea = React.useMemo(
-        () => ({ width: canvasArea.width * 2, height: canvasArea.height * 2 }),
-        [canvasArea]
-    );
-
-    const documentsHolder = React.useContext(ErdDocumentsHolderContext);
-
-    const positionResolver = new CanvasPositionResolver(erdCanvasRef.current, canvasArea);
-    // Grab 操作に関する制御
-    const { grabbingPanel, startGrabbing } = useGrabbing(drawableArea, positionResolver, editMode, displayScale);
+    const { viewport, scaleState } = useViewport({ viewportRef, canvasRef: erdCanvasRef, isDraggingRef });
+    const { grabbingPanel, startGrabbing } = useGrabbing(viewport, editMode);
 
     const erdDocument = documentsHolder.current();
 
@@ -122,7 +122,7 @@ const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasPr
             return;
         }
 
-        const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
+        const mousePosition = viewport.getLogicalPosition(event);
 
         if (editMode === EditModeType.CREATE_TABLE) {
             const tableViewModel = createNewTable(mousePosition, localSetting);
@@ -157,7 +157,7 @@ const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasPr
     // ドラッグが開始されたときの制御
     const handleDragStart = (event: React.MouseEvent) => {
         setDragDistance(0);
-        const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
+        const mousePosition = viewport.getLogicalPosition(event);
 
         // 右クリックもしくは中クリックの場合は、grab 操作を開始する
         if ((event.button === 1) || (event.button === 2)) {
@@ -188,7 +188,7 @@ const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasPr
     };
 
     const handleMoveMouseOnCanvas = (event: React.MouseEvent) => {
-        const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
+        const mousePosition = viewport.getLogicalPosition(event);
 
         if (editMode === EditModeType.CREATE_RELATION) {
             setRelationEdge((selectState.tableIds.size === 1) ? mousePosition : null);
@@ -214,7 +214,7 @@ const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasPr
             return;
         }
 
-        const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
+        const mousePosition = viewport.getLogicalPosition(event);
         dispatchDragAction({ type: "clear" });
 
         // テーブルもしくはメモを選択状態でドラッグが完了した場合の制御
@@ -285,12 +285,11 @@ const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasPr
     // Canvas に描画されている短形の情報を取得
     React.useLayoutEffect(() => {
         const erdCanvas = erdCanvasRef.current;
-        if (!erdCanvas) {
+        if (!erdCanvas || !viewport.isMounted()) {
             return;
         }
 
-        // Canvas 描画領域の初期化
-        const rectangleArea = initRectangleArea(erdCanvas, displayScale);
+        const rectangleArea = initRectangleArea(erdCanvas, viewport);
         setRectangleArea(rectangleArea);
 
         if (rectangleArea.tableRectangles.size === 0) {
@@ -304,7 +303,7 @@ const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasPr
             }
         });
         window.dispatchEvent(customEvent);
-    }, [erdDocument.lastUpdatedAt, displayScale, dragState.status, currentPerspective]);
+    }, [erdDocument.lastUpdatedAt, scaleState.scale, dragState.status, currentPerspective, viewport]);
 
     // // リレーションの線情報を更新
     React.useLayoutEffect(() => {
@@ -332,19 +331,6 @@ const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasPr
 
         return initEffectOfMouseCursorOnCanvas(editMode, erdCanvas);
     }, [editMode]);
-
-    // 初回表示時に Canvas の中央にスクロール
-    React.useLayoutEffect(() => {
-        window.scrollTo(
-            (drawableArea.width - window.innerWidth) / 2,
-            (drawableArea.height - window.innerHeight) / 2);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // スクロール可能領域の制御を window に登録
-    React.useLayoutEffect(() => {
-        return initEffectOfScrollOnCanvas(canvasArea, displayScale);
-    }, [canvasArea, displayScale]);
 
     // keyUp 時のイベントを window.document に登録
     React.useEffect(() => {
@@ -389,100 +375,89 @@ const ErdCanvas = ({ canvasArea, onDragAction: dispatchDragAction }: ErdCanvasPr
         };
     }, [documentsHolder]);
 
-    const { canvasStyle, canvasSvgStyle, toolbarCanvasStyle, svgViewBox } = useCanvasStyle(drawableArea, displayScale);
-
-    const mainCanvas = (<>
-        <div id={ERD_CANVAS_ID} ref={erdCanvasRef} style={canvasStyle}
+    const mainCanvas = (
+        <div ref={viewportRef} style={VIEWPORT_CONTAINER_STYLE}
             onClick={handleClickOnCanvas} onMouseMove={handleMoveMouseOnCanvas}
-            onMouseDown={handleDragStart} onMouseUp={handleDragEnd}>
+            onMouseDown={handleDragStart} onMouseUp={handleDragEnd}
+            onContextMenu={handlePreventMouseEvent}>
 
-            {backMemoViews}
+            <div id={ERD_CANVAS_ID} ref={erdCanvasRef} style={CANVAS_STYLE}>
 
-            <svg ref={svgCanvasRef} style={canvasSvgStyle} viewBox={svgViewBox}>
-                <rect x={-canvasArea.width / 2} y={-canvasArea.height / 2}
-                    width={canvasArea.width} height={canvasArea.height}
-                    fill="transparent" stroke="#878787" strokeWidth="50" />
+                {backMemoViews}
 
-                {/* リレーションの線の定義 */}
-                {initRelationCardinalityDefinitions()}
-                {svgPaths}
-                {activeLine}
-            </svg>
+                <svg ref={svgCanvasRef} style={CANVAS_SVG_STYLE} viewBox={SVG_VIEW_BOX}>
+                    {initRelationCardinalityDefinitions()}
+                    {svgPaths}
+                    {activeLine}
+                </svg>
 
-            {tableViews}
-            {frontMemoViews}
-            {erdSetting.showRelationNames && relationLabels}
+                {tableViews}
+                {frontMemoViews}
+                {erdSetting.showRelationNames && relationLabels}
 
-            {(phase === "idle") && (<div ref={toolbarCanvasRef} style={toolbarCanvasStyle} />)}
+                {(scaleState.phase === "idle") && (
+                    <div ref={toolbarCanvasRef} data-erd-toolbar-canvas style={TOOLBAR_CANVAS_STYLE} />
+                )}
 
-            <ActiveDraggingArea editMode={editMode} dragState={dragState} selectState={selectState} />
+                <ActiveDraggingArea editMode={editMode} dragState={dragState} selectState={selectState} />
+            </div>
+
+            {grabbingPanel}
+
+            <div style={{ visibility: (scaleState.phase === "scaling") ? "hidden" : "visible" }}>
+                <ErdRelationPathView ref={relationRef}
+                    relationViews={erdDocument.getRelationViewModels()}
+                    rectangleMap={rectangleArea.tableRectangles}
+                    onEditAction={setEditAction} onDragAction={dispatchDragAction} />
+            </div>
         </div>
-
-        {grabbingPanel}
-
-        <div style={{ visibility: (phase === "scaling") ? "hidden" : "visible" }}>
-            <ErdRelationPathView ref={relationRef}
-                relationViews={erdDocument.getRelationViewModels()}
-                rectangleMap={rectangleArea.tableRectangles}
-                onEditAction={setEditAction} onDragAction={dispatchDragAction} />
-        </div>
-
-        {initEditView(editAction, rectangleArea, handleCloseEditDialog)}
-    </>);
+    );
 
     return (
-        <CanvasPositionContext.Provider value={positionResolver}>
-            <PortalCanvasContext.Provider value={{ toolbarCanvasElement, svgCanvasElement }} >
+        <ViewportContext.Provider value={{ viewport, scaleState }}>
+            <PortalCanvasContext.Provider value={{ toolbarCanvasElement, svgCanvasElement }}>
                 {mainCanvas}
             </PortalCanvasContext.Provider>
-        </CanvasPositionContext.Provider>
+
+            {initEditView(editAction, rectangleArea, handleCloseEditDialog)}
+            {children}
+        </ViewportContext.Provider>
     );
 };
 
-const useCanvasStyle = (drawableArea: CanvasArea, displayScale: number) => {
-    const canvasStyle = React.useMemo(() => {
-        const baseCanvasStyle: React.CSSProperties = {
-            position: "absolute", top: 0, left: 0,
-            width: drawableArea.width, height: drawableArea.height,
-            overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center",
-            // overscrollBehavior: "none", scrollbarWidth: "none", msOverflowStyle: "none",
-            backgroundColor: "white", backgroundAttachment: "local", userSelect: "none",
-            transform: `scale(${displayScale})`, transformOrigin: "center center"
-        };
+const CANVAS_SIZE = 200000;
+const SVG_VIEW_BOX = `${-CANVAS_SIZE / 2} ${-CANVAS_SIZE / 2} ${CANVAS_SIZE} ${CANVAS_SIZE}`;
 
-        const gridStyle: React.CSSProperties = (displayScale >= 0.5) ? {
-            backgroundImage: linerGradient([0, 90]),
-            backgroundSize: "25px 25px",
-            backgroundPosition: "0 0, 25px 25px"
-        } : {};
+const VIEWPORT_CONTAINER_STYLE: React.CSSProperties = {
+    position: "relative", width: "100%", height: "100vh",
+    overflow: "hidden", backgroundColor: "white"
+} as const;
 
-        return { ...baseCanvasStyle, ...gridStyle, };
-    }, [displayScale, drawableArea]);
+const CANVAS_STYLE: React.CSSProperties = {
+    position: "absolute",
+    transformOrigin: "0 0",
+    userSelect: "none"
+} as const;
 
-    const { canvasSvgStyle, toolbarCanvasStyle, svgViewBox } = React.useMemo(() => {
-        return {
-            canvasSvgStyle: {
-                position: "absolute", top: 0, left: 0,
-                width: `${drawableArea.width}px`,
-                height: `${drawableArea.height}px`,
-                pointerEvents: "none"
-            } as React.CSSProperties,
-            toolbarCanvasStyle: {
-                position: "absolute",
-                top: `${drawableArea.height / 2}px`,
-                left: `${drawableArea.width / 2}px`,
-                width: `${drawableArea.width}px`,
-                height: `${drawableArea.height}px`,
-                overflow: "visible",
-                pointerEvents: "none"
-            } as React.CSSProperties,
-            svgViewBox: `${-drawableArea.width / 2} ${-drawableArea.height / 2}` +
-                ` ${drawableArea.width} ${drawableArea.height}`
-        };
-    }, [drawableArea]);
+const CANVAS_SVG_STYLE: React.CSSProperties = {
+    position: "absolute",
+    left: `${-CANVAS_SIZE / 2}px`,
+    top: `${-CANVAS_SIZE / 2}px`,
+    width: `${CANVAS_SIZE}px`,
+    height: `${CANVAS_SIZE}px`,
+    overflow: "visible",
+    pointerEvents: "none"
+} as const;
 
-    return { canvasStyle, canvasSvgStyle, toolbarCanvasStyle, svgViewBox };
-};
+const TOOLBAR_CANVAS_STYLE: React.CSSProperties = {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: `${CANVAS_SIZE}px`,
+    height: `${CANVAS_SIZE}px`,
+    overflow: "visible",
+    pointerEvents: "none"
+} as const;
 
 type RectangleArea = {
     tableRectangles: Map<string, RectangleViewModel>,
@@ -548,9 +523,7 @@ const doCreateSelfRelation = (editAction: EditAction & { editType: "relation" },
     return new RelationViewModel({ ...editAction.relationViewModel, lineViewModel: nextLineViewModel });
 };
 
-const useGrabbing = (
-    drawableArea: CanvasArea, positionResolver: CanvasPositionResolver, editMode: EditMode, displayScale: number
-) => {
+const useGrabbing = (viewport: CanvasViewport, editMode: EditMode) => {
     const grabbingPanelRef = React.useRef<HTMLDivElement>(null);
     const [availableGrabbing, setAvailableGrabbing] = React.useState<boolean>(false);
 
@@ -558,7 +531,7 @@ const useGrabbing = (
     const [isGrabbing, setGrabbing] = React.useState<boolean>(false);
     const grabbingAnimationRef = React.useRef<number | null>(null);
 
-    const handleDragStart = React.useCallback((event: React.MouseEvent) => {
+    const handleGrabMouseDown = React.useCallback((event: React.MouseEvent) => {
         if (grabbingPanelRef.current == null) {
             return;
         }
@@ -566,26 +539,25 @@ const useGrabbing = (
         event.preventDefault();
         event.stopPropagation();
 
-        const startPosition = positionResolver.getLogicalPosition(event, displayScale);
+        const startPosition = viewport.getLogicalPosition(event);
         setGrabbing(true);
 
+        const onGrabEndFromPanel = () => setGrabbing(false);
         performGrabbing({
-            positionResolver, grabbingPanelRef, grabbingAnimationRef, startPosition, displayScale,
-            onGrabEnd: () => {
-                setGrabbing(false);
-            }
+            viewport,
+            grabbingPanelRef, grabbingAnimationRef, startPosition,
+            onGrabEnd: onGrabEndFromPanel
         });
-    }, [displayScale, positionResolver]);
-
+    }, [viewport]);
 
     const grabPanelStyle = React.useMemo<React.CSSProperties>(() => ({
         position: "absolute", top: 0, left: 0,
-        width: ((editMode === EditModeType.GRAB) || availableGrabbing) ? `${drawableArea.width}px` : "0px",
-        height: ((editMode === EditModeType.GRAB) || availableGrabbing) ? `${drawableArea.height}px` : "0px",
+        width: ((editMode === EditModeType.GRAB) || availableGrabbing) ? "100%" : "0px",
+        height: ((editMode === EditModeType.GRAB) || availableGrabbing) ? "100%" : "0px",
         cursor: isGrabbing ? "grabbing" : "grab"
-    }), [editMode, availableGrabbing, isGrabbing, drawableArea]);
+    }), [editMode, availableGrabbing, isGrabbing]);
 
-    const grabbingPanel = (<div ref={grabbingPanelRef} style={grabPanelStyle} onMouseDown={handleDragStart} />);
+    const grabbingPanel = (<div ref={grabbingPanelRef} style={grabPanelStyle} onMouseDown={handleGrabMouseDown} />);
 
     const startGrabbing = (position: Point) => {
         if (editMode === EditModeType.GRAB) {
@@ -595,12 +567,14 @@ const useGrabbing = (
         setGrabbing(true);
         setAvailableGrabbing(true);
 
+        const onGrabEndFromCanvas = () => {
+            setGrabbing(false);
+            setAvailableGrabbing(false);
+        };
+
         performGrabbing({
-            grabbingPanelRef, grabbingAnimationRef, startPosition: position, displayScale, positionResolver,
-            onGrabEnd: () => {
-                setGrabbing(false);
-                setAvailableGrabbing(false);
-            }
+            viewport, grabbingPanelRef, grabbingAnimationRef, startPosition: position,
+            onGrabEnd: onGrabEndFromCanvas
         });
     };
 
@@ -608,15 +582,15 @@ const useGrabbing = (
 };
 
 type PerformGrabbingArgs = {
-    positionResolver: CanvasPositionResolver,
-    grabbingPanelRef: React.RefObject<HTMLDivElement | null>,
-    grabbingAnimationRef: React.RefObject<number | null>,
-    startPosition: Point, displayScale: number,
-    onGrabEnd: () => void
+    viewport: CanvasViewport;
+    grabbingPanelRef: React.RefObject<HTMLDivElement | null>;
+    grabbingAnimationRef: React.RefObject<number | null>;
+    startPosition: Point;
+    onGrabEnd: () => void;
 };
 
 const performGrabbing = ({
-    positionResolver, grabbingPanelRef, grabbingAnimationRef, startPosition, displayScale, onGrabEnd
+    viewport, grabbingPanelRef, grabbingAnimationRef, startPosition, onGrabEnd
 }: PerformGrabbingArgs) => {
 
     if (grabbingPanelRef.current == null) {
@@ -627,25 +601,32 @@ const performGrabbing = ({
         event.preventDefault();
         event.stopPropagation();
 
-        // 前回のアニメーションをキャンセル
         if (grabbingAnimationRef.current) {
             cancelAnimationFrame(grabbingAnimationRef.current);
         }
 
-        const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
+        const clientX = event.clientX;
+        const clientY = event.clientY;
 
         grabbingAnimationRef.current = requestAnimationFrame(() => {
-            // Canvas の表示サイズに合わせて、スクロール位置を調整する
-            const deltaX = (startPosition.x - mousePosition.x) * displayScale;
-            const deltaY = (startPosition.y - mousePosition.y) * displayScale;
-
-            // 閾値以下の移動は無視
-            if (Math.abs(deltaX) + Math.abs(deltaY) < 3) {
+            if (!viewport.isMounted()) {
                 grabbingAnimationRef.current = null;
                 return;
             }
 
-            window.scrollBy({ left: deltaX, top: deltaY, behavior: "instant" });
+            const { viewportPosition, screenCenter, scale: currentScale } = viewport.getViewInfo();
+
+            const newCenterX = startPosition.x - (clientX - screenCenter.x) / currentScale;
+            const newCenterY = startPosition.y - (clientY - screenCenter.y) / currentScale;
+
+            const deltaX = Math.abs(newCenterX - viewportPosition.centerX);
+            const deltaY = Math.abs(newCenterY - viewportPosition.centerY);
+            if (deltaX + deltaY < 0.5) {
+                grabbingAnimationRef.current = null;
+                return;
+            }
+
+            viewport.updateViewportPosition(newCenterX, newCenterY);
             grabbingAnimationRef.current = null;
         });
     };
@@ -730,7 +711,7 @@ type ActiveDraggingAreaProps = {
 };
 
 const ActiveDraggingArea = ({ editMode, dragState, selectState }: ActiveDraggingAreaProps) => {
-    const positionResolver = React.useContext(CanvasPositionContext);
+    const { viewport } = React.useContext(ViewportContext);
 
     if ((editMode !== EditModeType.SELECT) || (dragState.status !== "on_dragging")
         || (selectState.tableIds.size + selectState.memoIds.size !== 0)
@@ -740,7 +721,7 @@ const ActiveDraggingArea = ({ editMode, dragState, selectState }: ActiveDragging
     }
 
     const rectangle = RectangleViewModel.createFromPoints(dragState.start, dragState.current);
-    const physicalPosition = positionResolver.toPhysicalPosition({ x: rectangle.left, y: rectangle.top });
+    const physicalPosition = viewport.toPhysicalPosition({ x: rectangle.left, y: rectangle.top });
 
     return (
         <Box sx={{
@@ -767,16 +748,13 @@ const doFindRectangleSelected = (
 
 const NO_EDIT_ACTION: EditAction = { editType: "none" } as const
 
-const linerGradient = (degrees: number[]) =>
-    degrees.map(degree =>
-        `linear-gradient(${degree}deg, #EFEFEF 0%, #EFEFEF 5%, rgba(255,255,255,0) 5%, rgba(255,255,255,0) 100%)`
-    ).join(", ");
 
 const SELECTED_COLOR = "rgba(73, 76, 218, 0.2)";
 const SELECTED_LINE_COLOR = "rgba(73, 76, 218, 1)";
 
 type Point = { x: number, y: number };
 
+// リレーションの線の定義
 const initRelationCardinalityDefinitions = () => {
     const markerNone = (<circle cx="10" cy="15" r="10" fill="black" />);
     const markerOne = (<line x1="25" y1="0" x2="25" y2="30" stroke="black" />);
@@ -827,7 +805,7 @@ const createNewMemo = (position: Point, localSetting: LocalSetting) => {
     return MemoViewModel.create(rectangle, localSetting.defaultColor, localSetting.stickyFontSize);
 };
 
-const initRectangleArea = (erdCanvas: HTMLDivElement, displayScale: number) => {
+const initRectangleArea = (erdCanvas: HTMLDivElement, viewport: CanvasViewport) => {
     const tableRectangles = new Map<string, RectangleViewModel>();
     const memoRectangles = new Map<string, RectangleViewModel>();
 
@@ -838,13 +816,13 @@ const initRectangleArea = (erdCanvas: HTMLDivElement, displayScale: number) => {
 
         const tableElements = element.getElementsByClassName(ERD_TABLE_VIEW_CLASS_NAME);
         if ((tableElements != null) && (tableElements.length > 0)) {
-            const rectangle = initRectangleWithoutScale(tableElements[0], erdCanvas, displayScale);
+            const rectangle = initRectangleWithoutScale(tableElements[0], viewport);
             tableRectangles.set(tableElements[0].id, rectangle);
         }
 
         const memoElements = element.getElementsByClassName(ERD_MEMO_VIEW_CLASS_NAME);
         if ((memoElements != null) && (memoElements.length > 0)) {
-            const rectangle = initRectangleWithoutScale(memoElements[0], erdCanvas, displayScale)
+            const rectangle = initRectangleWithoutScale(memoElements[0], viewport);
             memoRectangles.set(memoElements[0].id, rectangle);
         }
     });
@@ -852,30 +830,15 @@ const initRectangleArea = (erdCanvas: HTMLDivElement, displayScale: number) => {
     return { tableRectangles, memoRectangles };
 };
 
-const initRectangleWithoutScale = (element: Element, erdCanvas: HTMLDivElement, displayScale: number) => {
+const initRectangleWithoutScale = (element: Element, viewport: CanvasViewport) => {
     const elementRect = element.getBoundingClientRect();
-    const canvasRect = erdCanvas.getBoundingClientRect();
-    const { scrollX, scrollY } = getScroll();
-
-    // viewport上の絶対位置
-    const elementAbsoluteLeft = elementRect.left + scrollX;
-    const elementAbsoluteTop = elementRect.top + scrollY;
-    const canvasAbsoluteLeft = canvasRect.left + scrollX;
-    const canvasAbsoluteTop = canvasRect.top + scrollY;
-
-    // Canvas の中心位置（transform適用後の表示サイズでの中心）
-    const canvasCenterX = canvasAbsoluteLeft + canvasRect.width / 2;
-    const canvasCenterY = canvasAbsoluteTop + canvasRect.height / 2;
-
-    // Canvas の中心からの相対位置（transform適用後のピクセル値）
-    const relativeToCenterX = elementAbsoluteLeft - canvasCenterX;
-    const relativeToCenterY = elementAbsoluteTop - canvasCenterY;
+    const { viewportPosition, screenCenter, scale: currentScale } = viewport.getViewInfo();
 
     return new RectangleViewModel({
-        positionX: relativeToCenterX / displayScale,
-        positionY: relativeToCenterY / displayScale,
-        width: elementRect.width / displayScale,
-        height: elementRect.height / displayScale
+        positionX: (elementRect.left - screenCenter.x) / currentScale + viewportPosition.centerX,
+        positionY: (elementRect.top - screenCenter.y) / currentScale + viewportPosition.centerY,
+        width: elementRect.width / currentScale,
+        height: elementRect.height / currentScale
     });
 };
 
@@ -908,44 +871,6 @@ const findMouseCursorIcon = (editMode: EditMode) => {
     return "default";
 };
 
-const initEffectOfScrollOnCanvas = (canvasArea: CanvasArea, displayScale: number) => {
-    const moveEdge = () => {
-        const { scrollX, scrollY } = getScroll();
-
-        const leftEdge = canvasArea.width * (1 - displayScale / 2);
-        const rightEdge = canvasArea.width * (1 + displayScale / 2) - window.innerWidth;
-        const topEdge = canvasArea.height * (1 - displayScale / 2);
-        const bottomEdge = canvasArea.height * (1 + displayScale / 2) - window.innerHeight;
-
-        let modifyScroll = false;
-        let nextScrollX = scrollX;
-        let nextScrollY = scrollY;
-
-        if (scrollX < leftEdge) {
-            modifyScroll = true;
-            nextScrollX = leftEdge;
-        } else if (scrollX > rightEdge) {
-            modifyScroll = true;
-            nextScrollX = rightEdge;
-        }
-        if (scrollY < topEdge) {
-            modifyScroll = true;
-            nextScrollY = topEdge;
-        } else if (scrollY > bottomEdge) {
-            modifyScroll = true;
-            nextScrollY = bottomEdge;
-        }
-
-        if (modifyScroll) {
-            window.scrollTo(nextScrollX, nextScrollY);
-        }
-    };
-
-    moveEdge();
-    window.addEventListener("scroll", moveEdge);
-
-    return () => window.removeEventListener("scroll", moveEdge);
-};
 
 type KeyEventHandler = {
 
