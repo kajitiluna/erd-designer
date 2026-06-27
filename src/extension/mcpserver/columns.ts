@@ -348,7 +348,7 @@ const doFilterColumnShares = (params: ColumnShareFilterParams, erdDocument: ErdD
 
     return storage.getModels().filter(columnShare => {
         const matchesColumnType = (columnTypeIds.length === 0)
-            || columnTypeIds.every(typeId => (columnShare.columnType.id.toString() === typeId));
+            || columnTypeIds.some(typeId => (columnShare.columnType.id.toString() === typeId));
         if (!matchesColumnType) {
             return false;
         }
@@ -552,10 +552,10 @@ const initCallbackForAddColumnsToTable = (
             findDocumentAndTable(documentResource, documentId, tableId);
 
         const nextColumns = [...previousTableView.tableModel.columns];
-        const columnIdToIndexMap = new Map(nextColumns.flatMap((col, idx) =>
-            (col.modelType === "single") ? [[col.columnModelId, idx]] : []));
-        const columnGroupIdToIndexMap = new Map(nextColumns.flatMap((col, idx) =>
-            (col.modelType === "group") ? [[col.columnGroupId, idx]] : []));
+        const columnIdToIndexMap = new Map(nextColumns.flatMap((column, index) =>
+            (column.modelType === "single") ? [[column.columnModelId, index]] : []));
+        const columnGroupIdToIndexMap = new Map(nextColumns.flatMap((column, index) =>
+            (column.modelType === "group") ? [[column.columnGroupId, index]] : []));
 
         const columnIdToIndex = (columnId: string) => columnIdToIndexMap.get(columnId) ?? null;
         const columnGroupIdToIndex = (columnGroupId: string) => columnGroupIdToIndexMap.get(columnGroupId) ?? null;
@@ -1097,8 +1097,8 @@ const initReorderColumnsInTable = (
 
             const movingColumn = nextColumns[currentIndex];
             nextColumns.splice(currentIndex, 1);
-            // 移動先に挿入
-            nextColumns.splice(moveToIndex, 0, movingColumn);
+            const adjustedIndex = (moveToIndex > currentIndex) ? moveToIndex - 1 : moveToIndex;
+            nextColumns.splice(adjustedIndex, 0, movingColumn);
         });
 
         const updatingTable = new TableViewModel({
