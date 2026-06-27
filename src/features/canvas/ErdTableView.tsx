@@ -14,7 +14,7 @@ import TopLeftTooltip from "~/components/TopLeftTooltip";
 import KeyColor from "~/components/icons/KeyColor";
 import PrimaryKeyIcon from "~/components/icons/PrimaryKeyIcon";
 import ForeignKeyIcon from "~/components/icons/ForeignKeyIcon";
-import DisplayScaleContext from "~/context/DisplayScaleContext";
+import ViewportContext from "~/context/ViewportContext";
 import { DragAction, DragActionContext } from "~/context/DragActionContext";
 import EditModeContext from "~/context/EditModeContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
@@ -23,7 +23,6 @@ import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityConte
 import PortalCanvasContext from "~/context/PortalCanvasContext";
 import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
 import EditAction from "~/features/canvas/EditAction";
-import CanvasPositionContext from "~/context/CanvasPositionContext";
 import { handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
 import TableViewModel from "~/models/TableViewModel";
 import ColorValue from "~/models/ColorValue";
@@ -354,12 +353,11 @@ const InnerErdTableView = ({
 }: InnerErdTableViewProps) => {
 
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const { viewport, scaleState } = React.useContext(ViewportContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
-    const { scale: displayScale } = React.useContext(DisplayScaleContext);
-    const positionResolver = React.useContext(CanvasPositionContext);
     const { toolbarCanvasElement } = React.useContext(PortalCanvasContext);
 
     const containerRef = React.useRef<HTMLDivElement>(null);
@@ -377,7 +375,7 @@ const InnerErdTableView = ({
             return;
         }
 
-        const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
+        const mousePosition = viewport.getLogicalPosition(event);
         if (editMode === EditModeType.SELECT) {
             event.stopPropagation();
 
@@ -541,7 +539,7 @@ const InnerErdTableView = ({
     const moving = (selected && (dragState.status === "on_dragging"))
         ? dragState.delta() : { x: 0, y: 0 }
 
-    const physicalPosition = positionResolver.toPhysicalPosition(
+    const physicalPosition = viewport.toPhysicalPosition(
         { x: tableViewModel.corner.left + moving.x, y: tableViewModel.corner.top + moving.y }
     );
     const tableStyle = {
@@ -580,10 +578,10 @@ const InnerErdTableView = ({
         const controlPanelStyle: React.CSSProperties = {
             justifyContent: "flex-end",
             position: "absolute",
-            left: (containerRect.right - portalRect.left) / displayScale,
-            top: (containerRect.bottom - portalRect.top + 10) / displayScale,
+            left: (containerRect.right - portalRect.left) / scaleState.scale,
+            top: (containerRect.bottom - portalRect.top + 10) / scaleState.scale,
             transformOrigin: "top right",
-            transform: `translateX(-100%) scale(${1 / displayScale})`,
+            transform: `translateX(-100%) scale(${1 / scaleState.scale})`,
             pointerEvents: "auto",
         };
 

@@ -19,13 +19,12 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import ColorSelector from "~/components/ColorSelector";
 import useStateRef from "~/components/useStateRef";
 import PortalCanvasContext from "~/context/PortalCanvasContext";
-import DisplayScaleContext from "~/context/DisplayScaleContext";
+import ViewportContext from "~/context/ViewportContext";
 import { DragAction, DragActionContext } from "~/context/DragActionContext";
 import EditModeContext from "~/context/EditModeContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { LocalSettingContext } from "~/context/LocalSettingContext";
 import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
-import CanvasPositionContext from "~/context/CanvasPositionContext";
 import { handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
 import MemoViewModel, { AlignType } from "~/models/MemoViewModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
@@ -49,12 +48,11 @@ const StickyMemoView = ({
     memoViewModel, visible = true, onSettingAction, onDragAction, foreground = true
 }: StickyNoteViewProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const { viewport } = React.useContext(ViewportContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
-    const { scale: displayScale } = React.useContext(DisplayScaleContext);
-    const positionResolver = React.useContext(CanvasPositionContext);
 
     const [stickyMemoEl, stickyMemoRef] = useStateRef<HTMLDivElement>();
     const textAreaRef = React.useRef<HTMLTextAreaElement>(null);
@@ -95,7 +93,7 @@ const StickyMemoView = ({
 
         event.stopPropagation();
 
-        const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
+        const mousePosition = viewport.getLogicalPosition(event);
         onDragAction({ type: "start_dragging", start: mousePosition });
 
         if (!selected) {
@@ -120,7 +118,7 @@ const StickyMemoView = ({
             return;
         }
 
-        const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
+        const mousePosition = viewport.getLogicalPosition(event);
         const direction = getResizingDirection(currentRectangle, mousePosition, selectState);
         const nextStyle = initMouseCursorStyle(direction);
         setMouseCursorStyle(nextStyle);
@@ -281,7 +279,7 @@ const StickyMemoView = ({
         return selected ? -10 : -100;
     };
 
-    const physicalPosition = positionResolver.toPhysicalPosition(
+    const physicalPosition = viewport.toPhysicalPosition(
         { x: currentRectangle.left + moving.x, y: currentRectangle.top + moving.y }
     );
     const wrapperStyle: React.CSSProperties = {
@@ -438,7 +436,7 @@ const StickyControlPane = ({ memoViewModel, stickyDom, onSettingAction }: Sticky
     const { dispatchSelectAction } = React.useContext(SelectEntityContext);
     const { toolbarCanvasElement } = React.useContext(PortalCanvasContext);
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
-    const { scale: displayScale } = React.useContext(DisplayScaleContext);
+    const { scaleState } = React.useContext(ViewportContext);
 
     const [showAlignPanel, setShowAlignPanel] = React.useState<boolean>(false);
     const [isOpenDeleteDialog, setOpenDeleteDialog] = React.useState<boolean>(false);
@@ -612,10 +610,10 @@ const StickyControlPane = ({ memoViewModel, stickyDom, onSettingAction }: Sticky
     const memoRect = stickyDom.getBoundingClientRect();
     const menuStyle: React.CSSProperties = {
         position: "absolute",
-        left: (memoRect.right - portalRect.left) / displayScale,
-        top: (memoRect.bottom - portalRect.top + 10) / displayScale,
+        left: (memoRect.right - portalRect.left) / scaleState.scale,
+        top: (memoRect.bottom - portalRect.top + 10) / scaleState.scale,
         transformOrigin: "top right",
-        transform: `translateX(-100%) scale(${1 / displayScale})`,
+        transform: `translateX(-100%) scale(${1 / scaleState.scale})`,
         pointerEvents: "auto",
     };
 

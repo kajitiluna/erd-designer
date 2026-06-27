@@ -13,8 +13,8 @@ export const downloadSvg = (erdDocument: ErdDocument, erdCanvas: HTMLElement) =>
 };
 
 const initPortableSvg = (erdDocument: ErdDocument, erdCanvas: HTMLElement) => {
-  const { svgTables, location: tableLocation } = initTableSvg(erdDocument, erdCanvas);
-  const { svgMemos, location: memoLocation } = initMemoSvg(erdDocument, erdCanvas);
+  const { svgTables, location: tableLocation } = initTableSvg(erdDocument);
+  const { svgMemos, location: memoLocation } = initMemoSvg(erdDocument);
   const { svgRelationLines, edgeDefinition } = initRelationLineSvg(erdCanvas);
   const svgRelationLabels = initRelationLabelSvg(erdCanvas);
 
@@ -80,7 +80,7 @@ const BORDER_RADIUS = 10;
 const FALLBACK_HEADER_H = 28;
 const FALLBACK_ROW_H = 24;
 
-const initTableSvg = (erdDocument: ErdDocument, erdCanvas: HTMLElement) => {
+const initTableSvg = (erdDocument: ErdDocument) => {
   const tableViewModels = erdDocument.getTableViewModels();
   const displayStyle = erdDocument.getDisplayStyle();
 
@@ -94,8 +94,8 @@ const initTableSvg = (erdDocument: ErdDocument, erdCanvas: HTMLElement) => {
       return null;
     }
 
-    const tableX = tableView.corner.left + erdCanvas.offsetWidth / 2;
-    const tableY = tableView.corner.top + erdCanvas.offsetHeight / 2;
+    const tableX = tableView.corner.left;
+    const tableY = tableView.corner.top;
     const tableWidth = tableDom.offsetWidth;
     const tableHeight = tableDom.offsetHeight;
     const tableLocation = { minX: tableX, minY: tableY, maxX: tableX + tableWidth, maxY: tableY + tableHeight };
@@ -201,13 +201,13 @@ const initTableSvg = (erdDocument: ErdDocument, erdCanvas: HTMLElement) => {
   }, { svgTables: [] as string[], location: INIT_LOCATION });
 };
 
-const initMemoSvg = (erdDocument: ErdDocument, erdCanvas: HTMLElement) => {
+const initMemoSvg = (erdDocument: ErdDocument) => {
   const { frontMemos, backMemos } = erdDocument.getMemoViewModels();
 
   const memoElements = [...backMemos, ...frontMemos].map(memoView => {
     const rect = memoView.rectangleViewModel;
-    const memoX = rect.positionX + erdCanvas.offsetWidth / 2;
-    const memoY = rect.positionY + erdCanvas.offsetHeight / 2;
+    const memoX = rect.positionX;
+    const memoY = rect.positionY;
 
     const horizontalAlign = memoView.horizontalAlign;
     const { textAnchor, textX } = (horizontalAlign === "center") ? { textAnchor: "middle", textX: rect.width / 2 } : (
@@ -295,13 +295,9 @@ const initRelationLineSvg = (erdCanvas: HTMLElement) => {
   const defs = renderedSvg.querySelector("defs");
   const edgeDefinition = defs ? defs.innerHTML : "";
 
-  const connOffset = { x: erdCanvas.offsetWidth / 2, y: erdCanvas.offsetHeight / 2 };
   const relationElements = Array.from(renderedSvg.querySelectorAll("g[data-erd-relation-parent-table-id]"));
   const relations = relationElements.map(element => {
-    const clonedElement = element.cloneNode(true) as SVGGElement;
-    clonedElement.setAttribute("transform", `translate(${connOffset.x}, ${connOffset.y})`);
-
-    return clonedElement.outerHTML + "\n";
+    return element.outerHTML + "\n";
   })
 
   return { svgRelationLines: relations, edgeDefinition };
@@ -320,8 +316,8 @@ const initRelationLabelSvg = (erdCanvas: HTMLElement) => {
     }
 
     const style = htmlElement.style;
-    const labelX = (parseFloat(style.left) || 0) + erdCanvas.offsetWidth / 2;
-    const labelY = (parseFloat(style.top) || 0) + erdCanvas.offsetHeight / 2;
+    const labelX = parseFloat(style.left) || 0;
+    const labelY = parseFloat(style.top) || 0;
     const fontSize = parseFloat(window.getComputedStyle(htmlElement).fontSize) || 13;
     const color = style.color || "rgba(60,60,60,0.95)";
     const fontWeight = style.fontWeight || "400";

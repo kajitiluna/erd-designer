@@ -12,8 +12,7 @@ import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocu
 import EditModeContext from "~/context/EditModeContext";
 import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
 import { DragAction, DragActionContext } from "~/context/DragActionContext";
-import DisplayScaleContext from "~/context/DisplayScaleContext";
-import CanvasPositionContext from "~/context/CanvasPositionContext";
+import ViewportContext from "~/context/ViewportContext";
 import PortalCanvasContext from "~/context/PortalCanvasContext";
 import RelationModel from "~/models/database/RelationModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
@@ -150,7 +149,8 @@ const useRelationTooltip = (
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
-    const { scale: displayScale } = React.useContext(DisplayScaleContext);
+    const { scaleState } = React.useContext(ViewportContext);
+    const displayScale = scaleState.scale;
     const { toolbarCanvasElement } = React.useContext(PortalCanvasContext);
 
     const [lineEditElement, setLineEditElement] = React.useState<HTMLElement | null>(null);
@@ -348,7 +348,7 @@ const useRelationTooltip = (
 
     return ReactDOM.createPortal((
         <ButtonGroup key={`relation-line_${relationView.relationId}_tooltip`}
-            variant="contained" size="small" sx={tooltipStyle}
+            variant="contained" size="small" sx={tooltipStyle} onClick={handlePreventMouseEvent}
             onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
             <ColorSelector key={`relation-color-selector_${relationView.relationId}`}
                 color={relationView.lineViewModel.color}
@@ -396,11 +396,10 @@ const useStraightLineView = (
 ) => {
 
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const { viewport } = React.useContext(ViewportContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
-    const { scale: displayScale } = React.useContext(DisplayScaleContext);
-    const positionResolver = React.useContext(CanvasPositionContext);
 
     const [lineDragging, setLineDragging] = React.useState<LineDragging>({ on_dragging: false });
 
@@ -519,7 +518,7 @@ const useStraightLineView = (
     };
 
     const doHandleDragEnd = (event: React.MouseEvent | MouseEvent) => {
-        const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
+        const mousePosition = viewport.getLogicalPosition(event);
         setClickedPosition(mousePosition);
 
         setLineDragging({ on_dragging: false });
@@ -540,7 +539,7 @@ const useStraightLineView = (
 
             event.stopPropagation();
 
-            const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
+            const mousePosition = viewport.getLogicalPosition(event);
 
             dispatchSelectAction({
                 type: "edge",
@@ -654,7 +653,7 @@ const useStraightLineView = (
                 return;
             }
 
-            const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
+            const mousePosition = viewport.getLogicalPosition(event);
 
             dispatchSelectAction({
                 type: "edge",
@@ -886,11 +885,12 @@ const useOrthogonalLine = (
     handleOpenEditDialog: (event: React.MouseEvent, relationView: RelationViewModel) => void,
     onDragAction: (dragAction: DragAction) => void
 ) => {
+
+    const { viewport } = React.useContext(ViewportContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
-    const { scale: displayScale } = React.useContext(DisplayScaleContext);
-    const positionResolver = React.useContext(CanvasPositionContext);
+
     const initPathCss = (selected: boolean, isReducedLine: boolean) => {
         if (!selected) {
             return ERD_RELATION_PATH_CLASS_NAME;
@@ -904,7 +904,7 @@ const useOrthogonalLine = (
     };
 
     const doHandleDragEnd = (event: React.MouseEvent | MouseEvent) => {
-        const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
+        const mousePosition = viewport.getLogicalPosition(event);
         setClickedPosition(mousePosition);
 
         onDragAction({ type: "clear" });
@@ -945,7 +945,7 @@ const useOrthogonalLine = (
 
                 event.stopPropagation();
 
-                const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
+                const mousePosition = viewport.getLogicalPosition(event);
 
                 dispatchSelectAction({
                     type: "edge",

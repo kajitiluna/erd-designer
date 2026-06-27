@@ -2,10 +2,16 @@ import { ERD_RELATION_PATH_CLASS_NAME } from "~/features/canvas/ErdRelationPathV
 import { ERD_TABLE_VIEW_CLASS_NAME } from "~/features/canvas/ErdTableView";
 import { ERD_RELATION_LABEL_CLASS_NAME } from "~/features/canvas/RelationLabelOverlay";
 import { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
-import { getScroll } from "~/features/canvas/support";
 
-export const calculateImageArea = (erdCanvas: HTMLElement) => {
-    let bounding = {
+type BoundingEdges = {
+    leftEdge: number;
+    topEdge: number;
+    rightEdge: number;
+    bottomEdge: number;
+};
+
+export const calculateImageArea = (erdCanvas: HTMLElement): BoundingEdges => {
+    let bounding: BoundingEdges = {
         leftEdge: Number.MAX_SAFE_INTEGER,
         topEdge: Number.MAX_SAFE_INTEGER,
         rightEdge: Number.MIN_SAFE_INTEGER,
@@ -38,24 +44,15 @@ export const calculateImageArea = (erdCanvas: HTMLElement) => {
         }
     });
 
-    const { scrollX, scrollY } = getScroll();
-
     if ((bounding.leftEdge > bounding.rightEdge) || (bounding.topEdge > bounding.bottomEdge)) {
-        return { leftEdge: 0, topEdge: 0, rightEdge: 100, bottomEdge: 100 };
+        return { leftEdge: 0, topEdge: 0, rightEdge: 100, bottomEdge: 100 } as const;
     }
 
-    return {
-        leftEdge: bounding.leftEdge + scrollX,
-        topEdge: bounding.topEdge + scrollY,
-        rightEdge: bounding.rightEdge + scrollX,
-        bottomEdge: bounding.bottomEdge + scrollY
-    };
+    return { ...bounding } as const;
 };
 
-const calculateBoundingRect = (
-    element: Element, previous: { leftEdge: number, topEdge: number, rightEdge: number, bottomEdge: number }
-) => {
-    const rectangle = element.getBoundingClientRect()
+const calculateBoundingRect = (element: Element, previous: BoundingEdges): BoundingEdges => {
+    const rectangle = element.getBoundingClientRect();
 
     return {
         leftEdge: Math.min(previous.leftEdge, rectangle.left),

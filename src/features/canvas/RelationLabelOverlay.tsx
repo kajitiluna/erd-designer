@@ -9,8 +9,7 @@ import RemoveIcon from "@mui/icons-material/Remove";
 
 import useStateRef from "~/components/useStateRef";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
-import DisplayScaleContext from "~/context/DisplayScaleContext";
-import CanvasPositionContext from "~/context/CanvasPositionContext";
+import ViewportContext from "~/context/ViewportContext";
 import PortalCanvasContext from "~/context/PortalCanvasContext";
 import { SelectEntityContext } from "~/context/SelectEntityContext";
 import { DragActionContext } from "~/context/DragActionContext";
@@ -39,8 +38,7 @@ const DEFAULT_OFFSET_Y = -14;
 
 const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlayProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
-    const { scale: displayScale } = React.useContext(DisplayScaleContext);
-    const positionResolver = React.useContext(CanvasPositionContext);
+    const { viewport } = React.useContext(ViewportContext);
     const { toolbarCanvasElement, svgCanvasElement } = React.useContext(PortalCanvasContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
@@ -135,13 +133,13 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
 
         event.stopPropagation();
 
-        const startPos = positionResolver.getLogicalPosition(event, displayScale);
+        const startPos = viewport.getLogicalPosition(event);
         const startLabel = { x: labelX, y: labelY };
 
         setDraggingPosition(startLabel);
 
         const handleMouseMove = (moveEvent: MouseEvent) => {
-            const movingPosition = positionResolver.getLogicalPosition(moveEvent, displayScale);
+            const movingPosition = viewport.getLogicalPosition(moveEvent);
             setDraggingPosition({
                 x: startLabel.x + movingPosition.x - startPos.x,
                 y: startLabel.y + movingPosition.y - startPos.y
@@ -154,7 +152,7 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
             mouseMoveHandlerRef.current = null;
             mouseUpHandlerRef.current = null;
 
-            const mousePosition = positionResolver.getLogicalPosition(upEvent, displayScale);
+            const mousePosition = viewport.getLogicalPosition(upEvent);
             const finalPosition = {
                 x: startLabel.x + mousePosition.x - startPos.x,
                 y: startLabel.y + mousePosition.y - startPos.y
@@ -250,7 +248,7 @@ const useRelationLabelToolbar = ({
 
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
-    const { scale: displayScale } = React.useContext(DisplayScaleContext);
+    const { scaleState } = React.useContext(ViewportContext);
     const { selectState } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
 
@@ -310,7 +308,7 @@ const useRelationLabelToolbar = ({
         boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
         padding: "2px 4px",
         transformOrigin: "top left",
-        transform: `scale(${1 / displayScale})`,
+        transform: `scale(${1 / scaleState.scale})`,
     };
 
     const toolbar = (
