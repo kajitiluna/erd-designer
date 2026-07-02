@@ -445,7 +445,7 @@ const toSchemaSummary = (erdBudget: DocumentBudget, schema: DbSchemaModel, defau
         schemaId: schema.schemaId,
         schemaName: schema.schemaName,
         description: schema.description,
-        ...(schema.schemaId === defaultSchemaId && { default: true })
+        ...((schema.schemaId === defaultSchemaId) && { default: true })
     };
 };
 
@@ -469,6 +469,6 @@ const toSchemaDetail = (erdBudget: DocumentBudget, schema: DbSchemaModel, erdDoc
         schemaName: schema.schemaName,
         tables: tables,
         description: schema.description,
-        ...(schema.schemaId === defaultSchemaId && { default: true })
+        ...((schema.schemaId === defaultSchemaId) && { default: true })
     };
 };

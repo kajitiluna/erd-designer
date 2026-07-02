@@ -40,6 +40,12 @@ export default tseslint.config(
       ],
       "react/jsx-uses-react": "error",
       "react/jsx-uses-vars": "error",
+      "no-mixed-operators": ["error", {
+        groups: [
+          ["==", "!=", "===", "!==", ">", ">=", "<", "<=", "&&", "||"],
+        ],
+        allowSamePrecedence: true,
+      }],
     },
   },
   react.configs.flat.recommended,

@@ -70,16 +70,16 @@ const rasterizeSvgOnClonedCanvas = (
     const svgUrl = URL.createObjectURL(svgBlob);
 
     return new Promise<void>(resolve => {
-        const img = new Image();
+        const svgImage = new Image();
 
-        img.onload = () => {
+        svgImage.onload = () => {
             const rasterCanvas = document.createElement("canvas");
             rasterCanvas.width = svgWidth;
             rasterCanvas.height = svgHeight;
 
-            const ctx = rasterCanvas.getContext("2d");
-            if (ctx != null) {
-                ctx.drawImage(img, 0, 0, svgWidth, svgHeight);
+            const renderingContext = rasterCanvas.getContext("2d");
+            if (renderingContext != null) {
+                renderingContext.drawImage(svgImage, 0, 0, svgWidth, svgHeight);
             }
 
             URL.revokeObjectURL(svgUrl);
@@ -96,11 +96,11 @@ const rasterizeSvgOnClonedCanvas = (
             resolve();
         };
 
-        img.onerror = () => {
+        svgImage.onerror = () => {
             URL.revokeObjectURL(svgUrl);
             resolve();
         };
 
-        img.src = svgUrl;
+        svgImage.src = svgUrl;
     });
 };

@@ -938,7 +938,9 @@ const initCallbackForUpdatingColumnShare = (
 
         if (updating.characterSet != null) {
             if (nextColumnType.category !== "text") {
-                throw initInvalidParams(`Character set must not be specified for the selected column type : ${nextColumnType.name}`);
+                throw initInvalidParams(
+                    `Character set must not be specified for the selected column type : ${nextColumnType.name}`
+                );
             }
             if (!database.editableCharacterSet) {
                 throw initInvalidParams(`Character set is not supported by the database : ${database.name}`);
@@ -956,8 +958,10 @@ const initCallbackForUpdatingColumnShare = (
             ...(database.supportsArrayType && { isArray: updating.isArray ?? previous.isArray }),
             description: updating.description ?? previous.description,
             checkExpression: updating.checkExpression ?? previous.checkExpression,
-            ...(nextColumnType.category === "text" && { collate: updating.collate ?? previous.collate }),
-            ...(nextColumnType.category === "text" && database.editableCharacterSet && { characterSet: updating.characterSet ?? previous.characterSet(database) }),
+            ...((nextColumnType.category === "text") && { collate: updating.collate ?? previous.collate }),
+            ...((nextColumnType.category === "text") && database.editableCharacterSet && {
+                characterSet: updating.characterSet ?? previous.characterSet(database)
+            }),
             optionExpression: updating.optionExpression ?? previous.optionExpression,
         });
 
@@ -1356,8 +1360,8 @@ const buildColumnShare = (
         isArray: input.isArray,
         description: input.description,
         checkExpression: input.checkExpression,
-        ...(columnType.category === "text" && { collate: input.collate }),
-        ...(columnType.category === "text" && database.editableCharacterSet && { characterSet: input.characterSet }),
+        ...((columnType.category === "text") && { collate: input.collate }),
+        ...((columnType.category === "text") && database.editableCharacterSet && { characterSet: input.characterSet }),
         optionExpression: input.optionExpression,
     });
 };

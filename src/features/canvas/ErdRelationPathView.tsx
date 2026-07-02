@@ -503,7 +503,7 @@ const useStraightLineView = (
         ) {
             if (selectState.edgeType === "real") {
                 const edgeIndex = selectState.edgeId + 1;
-                if (edgeIndex >= 0 && edgeIndex < labelEdges.length) {
+                if ((edgeIndex >= 0) && (edgeIndex < labelEdges.length)) {
                     labelEdges[edgeIndex] = dragState.current;
                 }
             } else if ((selectState.edgeType === "virtual")

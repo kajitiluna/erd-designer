@@ -219,7 +219,7 @@ const isSelectedRelationColumn = (columnId: string, erdDocument: ErdDocument, se
     }
 
     for (const pair of viewModel.relationModel.relationPairs) {
-        if (pair.parentColumnModelId === columnId || pair.childColumnModelId === columnId) {
+        if ((pair.parentColumnModelId === columnId) || (pair.childColumnModelId === columnId)) {
             return true;
         }
     }
@@ -419,7 +419,7 @@ const InnerErdTableView = ({
 
         if (editMode === EditModeType.SELECT) {
             const didDrag = (dragState.status === "on_dragging")
-                && (dragState.delta().x !== 0 || dragState.delta().y !== 0);
+                && ((dragState.delta().x !== 0) || (dragState.delta().y !== 0));
             if (didDrag) {
                 return;
             }
