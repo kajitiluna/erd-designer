@@ -99,7 +99,7 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
         if (prevPointCount !== pathPoints.length) {
             setPrevPointCount(pathPoints.length);
         }
-        if (stableAnchor === null || stableAnchor.x !== anchorPoint.x || stableAnchor.y !== anchorPoint.y) {
+        if ((stableAnchor === null) || (stableAnchor.x !== anchorPoint.x) || (stableAnchor.y !== anchorPoint.y)) {
             setStableAnchor(anchorPoint);
         }
     }

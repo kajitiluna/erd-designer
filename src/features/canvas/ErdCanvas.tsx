@@ -947,7 +947,7 @@ const initSelectModeHandler = (
 const initRedoHandler = (documentsHolder: ErdDocumentsHolder): KeyEventHandler => {
     return {
         isMatching: (event: KeyboardEvent) => (event.metaKey || event.ctrlKey)
-            && ((event.key === "y") || (event.key === "z") && event.shiftKey),
+            && ((event.key === "y") || ((event.key === "z") && event.shiftKey)),
         handle: () => {
             documentsHolder.redo();
             return true; // イベントの伝播を止める

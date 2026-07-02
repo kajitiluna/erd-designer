@@ -580,7 +580,7 @@ const loadCreateColumnDefinition = (
     const precision = dataType.length || null;
     const scale = dataType.scale || null;
 
-    const notNull = createDefinition.nullable && (createDefinition.nullable.value === "not null") || false;
+    const notNull = (createDefinition.nullable != null) && (createDefinition.nullable.value === "not null");
     const unique = (createDefinition.unique != null) || false;
     const autoIncrement = (createDefinition.auto_increment != null) || false;
 

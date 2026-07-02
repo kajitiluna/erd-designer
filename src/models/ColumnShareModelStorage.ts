@@ -81,7 +81,7 @@ export default class ColumnShareModelStorage {
 
         for (const [key, value] of this.columnShareModelMap) {
             const otherValue = other.columnShareModelMap.get(key);
-            if (otherValue == null || !value.equals(otherValue)) {
+            if ((otherValue == null) || (value.equals(otherValue) === false)) {
                 return false;
             }
         }

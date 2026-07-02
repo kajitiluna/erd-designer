@@ -114,10 +114,10 @@ const initTableSvg = (erdDocument: ErdDocument) => {
       : Array(allColumns.length).fill(FALLBACK_ROW_H);
 
     const cellDoms = (tableTrDom.length > 0) ? tableTrDom[0].querySelectorAll("td") : null;
-    const pkColumnWidth = (cellDoms && cellDoms.length >= 1) ? cellDoms[0].offsetWidth : 20;
-    const fkColumnWidth = (cellDoms && cellDoms.length >= 2) ? cellDoms[1].offsetWidth : 20;
-    const nameColumnWidth = (cellDoms && cellDoms.length >= 3) ? cellDoms[2].offsetWidth : 100;
-    const typeColumnWidth = (cellDoms && cellDoms.length >= 4) ? cellDoms[3].offsetWidth : 80;
+    const pkColumnWidth = (cellDoms && (cellDoms.length >= 1)) ? cellDoms[0].offsetWidth : 20;
+    const fkColumnWidth = (cellDoms && (cellDoms.length >= 2)) ? cellDoms[1].offsetWidth : 20;
+    const nameColumnWidth = (cellDoms && (cellDoms.length >= 3)) ? cellDoms[2].offsetWidth : 100;
+    const typeColumnWidth = (cellDoms && (cellDoms.length >= 4)) ? cellDoms[3].offsetWidth : 80;
 
     const { svgText: svgColumns } = allColumns.reduce((acc, columnModel, indexColumn) => {
       const shareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
