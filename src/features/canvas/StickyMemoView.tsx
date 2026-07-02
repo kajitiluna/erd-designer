@@ -305,7 +305,7 @@ const StickyMemoView = ({
     return (
         <Box style={wrapperStyle}>
             <Box id={memoViewModel.memoId} ref={stickyMemoRef} sx={stickyStyle}
-                className={stickyClassName} onBlur={handleFocusOut}>
+                className={stickyClassName} data-entity-id={memoViewModel.memoId} onBlur={handleFocusOut}>
                 {initTextAreaElement()}
             </Box>
             {stickyMemoEl && selected && (!isTextEdit) && (dragState.status !== "on_dragging")

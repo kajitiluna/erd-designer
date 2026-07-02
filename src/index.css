@@ -29,6 +29,16 @@ body {
   margin: 0;
 }
 
+::highlight(search-match) {
+  background-color: rgba(255, 235, 59, 0.6);
+  color: inherit;
+}
+
+::highlight(search-match-current) {
+  background-color: rgba(255, 152, 0, 0.8);
+  color: inherit;
+}
+
 h1 {
   font-size: 3.2em;
   line-height: 1.1;

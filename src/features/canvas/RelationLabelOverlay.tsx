@@ -224,6 +224,7 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
         {initAnchorDrawing(showingAnchor)}
         {ReactDom.createPortal(
             <div ref={labelRef} style={labelStyle} className={cssClassName}
+                data-entity-id={relationView.relationId}
                 data-erd-relation-parent-table-id={relationView.relationModel.parentTableModelId}
                 data-erd-relation-child-table-id={relationView.relationModel.childTableModelId}
                 onMouseDown={handleMouseDown} onClick={handleClick}>
