@@ -4,9 +4,9 @@ import { calculateImageArea } from "~/features/canvas/canvasArea";
 
 export const downloadPng = (erdCanvas: HTMLElement, exportImage: (contents: ImageContent) => void) => {
     const orgTransform = erdCanvas.style.transform;
-    const scaleResetTransform = buildScaleResetTransform(orgTransform);
+    const transformWithScaleReset = buildScaleResetTransform(orgTransform);
 
-    const imageArea = calculateImageAreaWithScaleReset(erdCanvas, orgTransform, scaleResetTransform);
+    const imageArea = calculateImageAreaWithScaleReset(erdCanvas, orgTransform, transformWithScaleReset);
     const { canvasRect, leftEdge, topEdge, rightEdge, bottomEdge } = imageArea;
 
     const contentLeft = leftEdge - canvasRect.left;
@@ -27,7 +27,7 @@ export const downloadPng = (erdCanvas: HTMLElement, exportImage: (contents: Imag
         height: captureHeight,
         // cSpell:ignore onclone
         onclone: (_doc: Document, element: HTMLElement) => {
-            element.style.transform = scaleResetTransform;
+            element.style.transform = transformWithScaleReset;
             return rasterizeSvgOnClonedCanvas(element, contentLeft, contentTop, captureWidth, captureHeight);
         },
     };
@@ -54,9 +54,9 @@ const buildScaleResetTransform = (transform: string): string => {
 };
 
 const calculateImageAreaWithScaleReset = (
-    erdCanvas: HTMLElement, orgTransform: string, scaleResetTransform: string
+    erdCanvas: HTMLElement, orgTransform: string, transformWithScaleReset: string
 ) => {
-    erdCanvas.style.transform = scaleResetTransform;
+    erdCanvas.style.transform = transformWithScaleReset;
     try {
         const canvasRect = erdCanvas.getBoundingClientRect();
         const imageArea = calculateImageArea(erdCanvas);
