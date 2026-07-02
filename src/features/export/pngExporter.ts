@@ -4,10 +4,20 @@ import { calculateImageArea } from "~/features/canvas/canvasArea";
 
 export const downloadPng = (erdCanvas: HTMLElement, exportImage: (contents: ImageContent) => void) => {
     const orgTransform = erdCanvas.style.transform;
-    const transformWithScaleReset = buildScaleResetTransform(orgTransform);
+    const transformWithScaleReset = orgTransform.includes("scale(")
+        ? orgTransform.replace(/scale\([^)]*\)/, "scale(1)")
+        : (orgTransform === "" ? "scale(1)" : `${orgTransform} scale(1)`);
 
-    const imageArea = calculateImageAreaWithScaleReset(erdCanvas, orgTransform, transformWithScaleReset);
-    const { canvasRect, leftEdge, topEdge, rightEdge, bottomEdge } = imageArea;
+    erdCanvas.style.transform = transformWithScaleReset;
+    let canvasRect: DOMRect;
+    let imageArea: ReturnType<typeof calculateImageArea>;
+    try {
+        canvasRect = erdCanvas.getBoundingClientRect();
+        imageArea = calculateImageArea(erdCanvas);
+    } finally {
+        erdCanvas.style.transform = orgTransform;
+    }
+    const { leftEdge, topEdge, rightEdge, bottomEdge } = imageArea;
 
     const contentLeft = leftEdge - canvasRect.left;
     const contentTop = topEdge - canvasRect.top;
@@ -38,39 +48,6 @@ export const downloadPng = (erdCanvas: HTMLElement, exportImage: (contents: Imag
         const contents = drawCanvas.toDataURL("image/png");
         exportImage({ base64Value: contents, width, height });
     });
-};
-
-const buildScaleResetTransform = (transform: string): string => {
-    if (transform === "") {
-        return "scale(1)";
-    }
-
-    const scalePattern = /scale\([^)]*\)/;
-    if (scalePattern.test(transform) === false) {
-        return `${transform} scale(1)`;
-    }
-
-    return transform.replace(/scale\([^)]*\)/g, "scale(1)");
-};
-
-const calculateImageAreaWithScaleReset = (
-    erdCanvas: HTMLElement, orgTransform: string, transformWithScaleReset: string
-) => {
-    erdCanvas.style.transform = transformWithScaleReset;
-    try {
-        const canvasRect = erdCanvas.getBoundingClientRect();
-        const imageArea = calculateImageArea(erdCanvas);
-
-        return {
-            canvasRect,
-            leftEdge: imageArea.leftEdge,
-            topEdge: imageArea.topEdge,
-            rightEdge: imageArea.rightEdge,
-            bottomEdge: imageArea.bottomEdge,
-        };
-    } finally {
-        erdCanvas.style.transform = orgTransform;
-    }
 };
 
 const SVG_RASTERIZE_MARGIN = 100;
