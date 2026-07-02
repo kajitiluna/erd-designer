@@ -16,6 +16,7 @@ import ErdDocument from "~/models/ErdDocument";
 import PerspectiveModel from "~/models/PerspectiveModel";
 import { overrideColumnName } from "~/models/database/support";
 import TableViewModel from "~/models/TableViewModel";
+import { resolveHighlightApi } from "~/features/canvas/highlightApi";
 
 const CanvasSearchPanel = () => {
     const documentsHolder = React.useContext(ErdDocumentsHolderContext);
@@ -273,6 +274,11 @@ const applyHighlights = (
     searchTerm: string, matchResults: SearchMatch[], currentMatch: SearchMatch | null,
     canvasElement: HTMLDivElement | null, toolbarCanvasElement: HTMLDivElement | null
 ) => {
+    const highlightApi = resolveHighlightApi();
+    if (highlightApi == null) {
+        return;
+    }
+
     if (matchResults.length === 0) {
         clearHighlights();
         return;
@@ -308,20 +314,25 @@ const applyHighlights = (
         return;
     }
 
-    const searchMatchHighlight = new Highlight(...allRanges);
-    CSS.highlights.set("search-match", searchMatchHighlight);
+    const searchMatchHighlight = new highlightApi.Highlight(...allRanges);
+    highlightApi.highlights.set("search-match", searchMatchHighlight);
 
     if (currentRanges.length > 0) {
-        const currentMatchHighlight = new Highlight(...currentRanges);
-        CSS.highlights.set("search-match-current", currentMatchHighlight);
+        const currentMatchHighlight = new highlightApi.Highlight(...currentRanges);
+        highlightApi.highlights.set("search-match-current", currentMatchHighlight);
     } else {
-        CSS.highlights.delete("search-match-current");
+        highlightApi.highlights.delete("search-match-current");
     }
 };
 
 const clearHighlights = () => {
-    CSS.highlights.delete("search-match");
-    CSS.highlights.delete("search-match-current");
+    const highlightApi = resolveHighlightApi();
+    if (highlightApi == null) {
+        return;
+    }
+
+    highlightApi.highlights.delete("search-match");
+    highlightApi.highlights.delete("search-match-current");
 };
 
 const buildSearchKeyDownHandler = (isSearchOpen: boolean, searchActions: SearchAction) => {
