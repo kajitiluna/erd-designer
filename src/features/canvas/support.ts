@@ -5,20 +5,11 @@ import RectangleViewModel from "~/models/RectangleViewModel";
 import RelationViewModel, { OrthogonalRelation } from "~/models/RelationViewModel";
 import { SelectState } from "~/models/SelectState";
 
-
-/**
- * ブラウザおよび WebView いずれで実行されている場合も適切なスクロール位置を取得する。
- * 
- * @returns  スクロール量
- */
-export const getScroll = () => {
-    const scrollX = document.documentElement.scrollLeft || document.body.scrollLeft || window.scrollX || 0;
-    const scrollY = document.documentElement.scrollTop || document.body.scrollTop || window.scrollY || 0;
-
-    return { scrollX, scrollY };
+export const handlePreventMouseEvent = (event: React.MouseEvent) => {
+    event.stopPropagation();
 };
 
-export const handlePreventMouseEvent = (event: React.MouseEvent) => {
+export const handlePreventContextMenu = (event: React.MouseEvent) => {
     event.stopPropagation();
     event.preventDefault();
 };

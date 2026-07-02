@@ -7,6 +7,7 @@ import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocu
 import {
     SelectAction, reduceSelectAction, SelectEntityContext, EMPTY_SELECT_STATE, RELEASE_ACTION
 } from "~/context/SelectEntityContext";
+import CanvasSearchPanel from "~/features/canvas/CanvasSearchPanel";
 import ControlPanel from "~/features/canvas/ControlPanel";
 import DisplayScalePanel from "~/features/canvas/DisplayScalePanel";
 import ErdCanvas from "~/features/canvas/ErdCanvas";
@@ -62,6 +63,9 @@ const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) 
                                 </Box>
                                 <Box sx={{ position: "fixed", bottom: "30px", right: "30px" }}>
                                     <DisplayScalePanel />
+                                </Box>
+                                <Box sx={{ position: "fixed", top: "34px", right: "34px", zIndex: 10 }}>
+                                    <CanvasSearchPanel />
                                 </Box>
                             </ErdCanvas>
                         </DragActionContext.Provider>

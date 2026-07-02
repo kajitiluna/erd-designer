@@ -150,6 +150,10 @@ class CanvasViewportImpl implements CanvasViewport {
     }
 
     public zoomTo(newScale: number): void {
+        if (newScale <= 0) {
+            return;
+        }
+
         this.scaleRef.current = newScale;
         this.applyTransform();
         this.setScaleState({ scale: newScale, phase: "idle" });

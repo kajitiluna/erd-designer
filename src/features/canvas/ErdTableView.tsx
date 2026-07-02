@@ -175,7 +175,8 @@ const initTableColumn = (columnModel: ColumnModel, tableModel: TableModel, erdDo
     };
 
     return (
-        <TableRow key={`erd-table-column_${columnModel.columnModelId}`} sx={styleRow}>
+        <TableRow key={`erd-table-column_${columnModel.columnModelId}`}
+            data-column-id={columnModel.columnModelId} sx={styleRow}>
             <TableCell align="center" sx={STYLE_PRIMARY_CELL} >
                 {columnModel.primaryKey && <PrimaryKeyIcon />}
             </TableCell>
@@ -623,6 +624,7 @@ const InnerErdTableView = ({
         <Box sx={tableStyle} ref={containerRef}>
             <Box id={tableViewModel.tableId} tabIndex={0} sx={boundStyle}
                 style={{ cursor: 'pointer' }} className={tableClassName}
+                data-entity-id={tableViewModel.tableId}
                 onMouseDown={handleMouseDown} onMouseUp={handleMouseUp}
                 onClick={handleClick} onDoubleClick={handleDoubleClick}>
                 {tableContentCache}

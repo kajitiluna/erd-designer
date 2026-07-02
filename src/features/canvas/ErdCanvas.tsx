@@ -19,7 +19,7 @@ import ErdDocument from "~/models/ErdDocument";
 import { OrthogonalDirection } from "~/models/LineViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
 import {
-    CARDINALITY_MARKER, handlePreventMouseEvent, toNextOrthogonalLines, withMultiSelectKey
+    CARDINALITY_MARKER, handlePreventContextMenu, toNextOrthogonalLines, withMultiSelectKey
 } from "~/features/canvas/support";
 import EditAction from "~/features/canvas/EditAction";
 import ErdRelationPathView, { ErdRelationTooltipRef } from "~/features/canvas/ErdRelationPathView";
@@ -53,8 +53,14 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
         isDraggingRef.current = (dragState.status === "on_dragging");
     }, [dragState.status]);
 
+    const [canvasElement, canvasElementRef] = useStateRef<HTMLDivElement>();
     const [toolbarCanvasElement, toolbarCanvasRef] = useStateRef<HTMLDivElement>()
     const [svgCanvasElement, svgCanvasRef] = useStateRef<SVGSVGElement>();
+
+    const canvasRefCallback = React.useCallback((element: HTMLDivElement | null) => {
+        Object.assign(erdCanvasRef, { current: element });
+        canvasElementRef(element);
+    }, [canvasElementRef]);
 
     // Canvas に描画されている短形の情報を保持する
     const [rectangleArea, setRectangleArea] = React.useState<RectangleArea>(
@@ -79,6 +85,7 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
 
     const erdSetting = erdDocument.erdSettingModel;
     const currentPerspective = erdSetting.findPerspectiveModel(localSetting.perspectiveId);
+
     if ((localSetting.perspectiveId !== "") && (currentPerspective == null)) {
         // 指定されている Perspective が存在しない場合は、デフォルトに戻す
         dispatchLocalSetting({ type: "perspective", perspectiveId: "" });
@@ -379,9 +386,9 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
         <div ref={viewportRef} style={VIEWPORT_CONTAINER_STYLE}
             onClick={handleClickOnCanvas} onMouseMove={handleMoveMouseOnCanvas}
             onMouseDown={handleDragStart} onMouseUp={handleDragEnd}
-            onContextMenu={handlePreventMouseEvent}>
+            onContextMenu={handlePreventContextMenu}>
 
-            <div id={ERD_CANVAS_ID} ref={erdCanvasRef} style={CANVAS_STYLE}>
+            <div id={ERD_CANVAS_ID} ref={canvasRefCallback} style={CANVAS_STYLE}>
 
                 {backMemoViews}
 
@@ -410,17 +417,18 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
                     rectangleMap={rectangleArea.tableRectangles}
                     onEditAction={setEditAction} onDragAction={dispatchDragAction} />
             </div>
+
         </div>
     );
 
     return (
         <ViewportContext.Provider value={{ viewport, scaleState }}>
-            <PortalCanvasContext.Provider value={{ toolbarCanvasElement, svgCanvasElement }}>
+            <PortalCanvasContext.Provider value={{ canvasElement, toolbarCanvasElement, svgCanvasElement }}>
                 {mainCanvas}
+                {children}
             </PortalCanvasContext.Provider>
 
             {initEditView(editAction, rectangleArea, handleCloseEditDialog)}
-            {children}
         </ViewportContext.Provider>
     );
 };
