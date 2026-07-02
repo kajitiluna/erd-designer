@@ -2,14 +2,39 @@
 
 # Entity Relationship Diagram Designer
 
-Entity Relationship Diagram Designer (ERD Designer) is a web-based tool for designing entity relationship diagrams.
-This tool is inspired by [ERMaster](https://ermaster.sourceforge.net/index.html).
+**ERD Designer** is a free, open-source tool for visually designing database schemas. Design your tables and relationships in the browser, VSCode, or Google Drive — with AI integration via MCP (Model Context Protocol).
+
+Inspired by [ERMaster](https://ermaster.sourceforge.net/index.html), built for the modern development workflow.
 
 ## Features
 
-- ERD Designer allows you to design database tables and relationships via a graphical interface.
-- ERD Designer supports exporting PNG images and generating DDL files.
-- ERD Designer supports reusing and sharing column models for table design.
+### Visual Database Design
+- **Drag-and-drop table design** — Create and arrange tables, define columns, and set constraints on an interactive canvas
+- **Relationship management** — Define 1:1 and 1:N relationships visually with automatic foreign key synchronization
+- **Perspectives** — Organize large schemas into multiple views (e.g., by module or feature) for better manageability
+- **Memo notes** — Add foreground/background memo notes to annotate your design
+
+### Column Reuse & Sharing
+- **Column Share Model** — Define a column once, reuse it across multiple tables. Type changes propagate automatically
+- **Column Groups** — Bundle commonly used columns (e.g., `created_at`, `updated_at`) and apply them to tables in bulk
+
+### Import & Export
+- **DDL export** — Generate CREATE TABLE scripts for PostgreSQL, MySQL, and MS SQL Server
+- **DDL import** — Import existing DDL scripts to auto-generate ER diagrams
+- **Specification documents** — Export table definitions as Excel files or Google Spreadsheets
+- **Image export** — Export as PNG, SVG, or interactive HTML with pan/zoom and perspective switching
+
+### AI Integration (Experimental)
+- **MCP Server** — The VSCode extension includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) server, enabling AI assistants like Claude to read and modify your ER diagrams programmatically
+
+### Multi-Platform
+| | Browser | Google Drive | VSCode |
+|---|:---:|:---:|:---:|
+| **Access** | [Open online tool](https://kajitiluna.github.io/erd-designer) | [Google Workspace Marketplace](https://workspace.google.com/marketplace/app/erd_designer/952307856491) | [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=kajitiluna.erd-designer) |
+| **Storage** | Local (IndexedDB) | Google Drive | Local file system (.erd) |
+| **Spec export** | Excel | Google Spreadsheet | Excel |
+| **Team sharing** | — | View sharing via Drive | Git version control |
+| **MCP / AI** | — | — | Supported |
 
 ## Screenshots
 
@@ -26,30 +51,27 @@ This tool is inspired by [ERMaster](https://ermaster.sourceforge.net/index.html)
 | Customizing table and memo colors | Organizing tables by perspectives |
 
 
-## Online tool
+## Supported Databases
 
-ERD Designer is available as an online tool at: [kajitiluna.github.io/erd-designer](https://kajitiluna.github.io/erd-designer)
+- **PostgreSQL** — Schema support, array types, GIN/GiST/BRIN indexes
+- **MySQL** — CHARACTER SET / COLLATE, FULLTEXT / SPATIAL indexes, Auto Increment
+- **MS SQL Server** — Schema support, clustered indexes, Identity columns
 
-This online tool stores your data locally on your machine instead of online.
+## Getting Started
 
-## Google Drive App
+### Online Tool
 
-ERD Designer is also available as a Google Drive App.  
-By installing the ERD Designer app from the [Google Workspace Marketplace](https://workspace.google.com/marketplace/app/erd_designer/952307856491) into your Google Workspace, you can save and edit your work on Google Drive using ERD Designer.
+Try ERD Designer instantly at **[kajitiluna.github.io/erd-designer](https://kajitiluna.github.io/erd-designer)** — no installation or account required. Your data is stored locally in your browser (IndexedDB).
 
-### Important Notes for the Google Drive App
+### Google Drive App
 
-- If a file on Google Drive is shared, it can be viewed simultaneously in ERD Designer; however, simultaneous editing is not supported. Due to optimistic concurrency control, the content saved first will be preserved.
-- While the online tool allowed the Specification Document to be downloaded as an Excel file, the Google Drive App now exports it as a spreadsheet.
+Install from the [Google Workspace Marketplace](https://workspace.google.com/marketplace/app/erd_designer/952307856491) to save and edit ERD files on Google Drive. Shared files can be viewed simultaneously, though simultaneous editing is not supported (optimistic concurrency control).
 
-## VSCode Extension
+### VSCode Extension
 
-ERD Designer is also available as a VSCode extension.  
-By installing the ERD Designer extension from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=kajitiluna.erd-designer) into your VSCode, you can save and edit `.erd` files in your local file system using ERD Designer.
+Install from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=kajitiluna.erd-designer) to design ER diagrams within VSCode. Save as `.erd` files and manage them with Git.
 
-### Important Notes for the VSCode Extension
-
-- The MCP (Model Context Protocol) Server feature is currently experimental and under active development. Please be aware that functionality and behavior may change in future releases.
+> **Note:** The MCP Server feature is currently experimental and under active development. Functionality and behavior may change in future releases.
 
 ## Manual
 
@@ -104,8 +126,12 @@ After starting the development server, open your browser and navigate to http://
 
 ## Contributing
 
-The contributing guidelines are currently under preparation.
-Please check back later for detailed instructions.
+Contributions are welcome! Please feel free to open an [Issue](https://github.com/kajitiluna/erd-designer/issues) for bug reports or feature requests.
+
+Contribution guidelines are currently under preparation. In the meantime:
+- For bugs: please include steps to reproduce, expected behavior, screenshots, and your environment
+- For features: please describe the use case and the problem you're trying to solve
+- Pull requests are welcome — please open an issue first to discuss significant changes
 
 ## License
 

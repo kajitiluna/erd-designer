@@ -1,7 +1,8 @@
 # ERD Designer
 
-ERD Designer is a VSCode extension for visually designing database Entity Relationship Diagrams.
-This tool is inspired by [ERMaster](https://ermaster.sourceforge.net/index.html).
+ERD Designer is a free, open-source tool for visually designing database schemas within VSCode. Design your tables and relationships, generate DDL scripts, and export specification documents — all without leaving your editor.
+
+Inspired by [ERMaster](https://ermaster.sourceforge.net/index.html), built for the modern development workflow.
 
 ## Screenshots
 
@@ -19,11 +20,30 @@ This tool is inspired by [ERMaster](https://ermaster.sourceforge.net/index.html)
 
 ## Features
 
-- **Visual ERD Design**: Design database tables and relationships through an intuitive graphical interface
-- **Export Capabilities**: Export diagrams as PNG images or generate DDL files
-- **Reusable Column Models**: Share and reuse column definitions across multiple tables
-- **Organized Views**: Use perspectives to group tables and memos by function or purpose
-- **Customizable Appearance**: Customize colors for tables and memos to improve diagram readability
+### Visual Database Design
+- **Drag-and-drop table design** — Create and arrange tables, define columns, and set constraints on an interactive canvas
+- **Relationship management** — Define 1:1 and 1:N relationships visually with automatic foreign key synchronization
+- **Perspectives** — Organize large schemas into multiple views (e.g., by module or feature) for better manageability
+- **Memo notes** — Add foreground/background memo notes to annotate your design
+
+### Column Reuse & Sharing
+- **Column Share Model** — Define a column once, reuse it across multiple tables. Type changes propagate automatically
+- **Column Groups** — Bundle commonly used columns (e.g., `created_at`, `updated_at`) and apply them to tables in bulk
+
+### Import & Export
+- **DDL export** — Generate CREATE TABLE scripts for PostgreSQL, MySQL, and MS SQL Server
+- **DDL import** — Import existing DDL scripts to auto-generate ER diagrams
+- **Specification documents** — Export table definitions as Excel files
+- **Image export** — Export as PNG, SVG, or interactive HTML with pan/zoom and perspective switching
+
+### AI Integration (Experimental)
+- **MCP Server** — Built-in [Model Context Protocol](https://modelcontextprotocol.io/) server that enables AI assistants like Claude to read and modify your ER diagrams programmatically
+
+## Supported Databases
+
+- **PostgreSQL** — Schema support, array types, GIN/GiST/BRIN indexes
+- **MySQL** — CHARACTER SET / COLLATE, FULLTEXT / SPATIAL indexes, Auto Increment
+- **MS SQL Server** — Schema support, clustered indexes, Identity columns
 
 ## Getting Started
 
@@ -43,7 +63,7 @@ This tool is inspired by [ERMaster](https://ermaster.sourceforge.net/index.html)
 ### Defining Relationships
 1. Select **Create Relation** mode from the toolbar
 2. Click on a source table, then click on a target table to create a relationship
-3. Configure relationship types (1:1, 1:N, N:M)
+3. Configure relationship types (1:1, 1:N)
 4. Set foreign key constraints and naming conventions
 
 ### Organizing Your Diagram
@@ -87,9 +107,16 @@ ERD Designer includes an experimental MCP (Model Context Protocol) Server that a
 - Only ERD files currently open in VS Code can be accessed and modified
 - Ensure the port 53753 is not blocked by firewall settings
 
+## Sample File
+
+Try ERD Designer with a ready-made sample:
+- [sample-ec_mysql.erd](https://github.com/kajitiluna/erd-designer/raw/main/samples/sample-ec_mysql.erd) (Right-click and select "Save link as...", then open in VS Code)
+
 ## Documentation
 
 For detailed documentation and advanced features, please visit the [Wiki](https://github.com/kajitiluna/erd-designer/wiki).
+
+Browser and Google Drive versions are also available — see the [GitHub repository](https://github.com/kajitiluna/erd-designer).
 
 ## Requirements
 
