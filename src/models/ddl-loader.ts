@@ -503,9 +503,11 @@ const loadCreateTableDdl = (query: Create, engine: ParserEngine): ([TableBaseDef
                     return definition;
                 }
 
+                const columnNames = definition.indexColumns.map(column => column.columnName);
+
                 return {
                     ...definition,
-                    indexName: `index_${tableName}__${definition.indexColumns.join("_")}`,
+                    indexName: `index_${tableName}__${columnNames.join("_")}`,
                 }
             }),
             skippedReasons, comment, checkExpression, characterSet, collate,
@@ -536,7 +538,7 @@ const doFindTableObj = (query: Create): ([{ db: string | null; table: string }, 
         return [null, fail("Table name is not specified in create table query.")];
     }
 
-    if (!Array.isArray(query.table)) {
+    if (Array.isArray(query.table) === false) {
         return [query.table, null];
     }
 
@@ -578,7 +580,7 @@ const loadCreateColumnDefinition = (
     const precision = dataType.length || null;
     const scale = dataType.scale || null;
 
-    const notNull = createDefinition.nullable && (createDefinition.nullable.value === "not null") || false;
+    const notNull = (createDefinition.nullable != null) && (createDefinition.nullable.value === "not null");
     const unique = (createDefinition.unique != null) || false;
     const autoIncrement = (createDefinition.auto_increment != null) || false;
 
@@ -786,11 +788,13 @@ const doLoadCreateUniqueKeyDefinition = (
         null,
         {
             indexName: constraintName,
-            indexColumns: indexedColumns.map(columnName => ({
-                columnName,
-                sortOrderType: "",
-                nullsOrderType: "",
-            } as IndexColumn)),
+            indexColumns: indexedColumns.map(columnName => {
+                return {
+                    columnName,
+                    sortOrderType: "",
+                    nullsOrderType: "",
+                } as IndexColumn;
+            }),
             indexOption: "UNIQUE",
             indexType: indexType as TableIndexType,
             clustered: clustered,
@@ -842,11 +846,13 @@ const loadCreateIndexDefinition = (
     return [
         {
             indexName: constraintName,
-            indexColumns: indexedColumns.map(columnName => ({
-                columnName,
-                sortOrderType: "",
-                nullsOrderType: "",
-            } as IndexColumn)),
+            indexColumns: indexedColumns.map(columnName => {
+                return {
+                    columnName,
+                    sortOrderType: "",
+                    nullsOrderType: "",
+                } as IndexColumn;
+            }),
             indexOption: indexOption as TableIndexOption,
             indexType: indexType as TableIndexType,
             clustered: false,
@@ -870,7 +876,7 @@ const loadCreateIndexDdl = (query: Create): (
         return [null, fail("Table name is not specified in create table query.")];
     }
 
-    if (!("index_columns" in query) || (query.index_columns == null) || (query.index_columns.length === 0)) {
+    if ((("index_columns" in query) === false) || (query.index_columns == null) || (query.index_columns.length === 0)) {
         return [null, fail("Index columns are not specified in create index query.")];
     }
 
@@ -946,7 +952,7 @@ const loadAlterTableDdl = (query: Alter, tableDefinitions: Map<string, TableBase
     }
 
     const tableObj = query.table[0];
-    if (!("table" in tableObj)) {
+    if (("table" in tableObj) === false) {
         return [null, fail("Table name is not specified in alter table query.")];
     }
 
@@ -968,7 +974,7 @@ const loadAlterTableDdl = (query: Alter, tableDefinitions: Map<string, TableBase
     const skippedReasons: LoadFailure[] = [];
 
     for (const [index, expr] of query.expr.entries()) {
-        if (!("action" in expr)) {
+        if (("action" in expr) === false) {
             return [null, fail("Unexpected analysis for alter table. "
                 + `expr[${index}] : ${JSON.stringify(expr)}`
             )];
@@ -981,7 +987,7 @@ const loadAlterTableDdl = (query: Alter, tableDefinitions: Map<string, TableBase
             continue;
         }
 
-        if (!("create_definitions" in expr) || !("constraint_type" in expr.create_definitions)) {
+        if ((("create_definitions" in expr) === false) || (("constraint_type" in expr.create_definitions) === false)) {
             return [null, skip("Unexpected analysis for alter table. "
                 + `expr[${index}] : ${JSON.stringify(expr)}`
             )];
@@ -1030,8 +1036,8 @@ const doLoadAlterForeignKeyDdl = (
     childTableName: string, index: number, createDefinition: object, tableDefinitions: Map<string, TableBaseDefinition>
 ): ([DdlRelationDefinition, null] | [null, LoadFailure]) => {
 
-    if (!("definition" in createDefinition) || (Array.isArray(createDefinition.definition) === false)
-        || !("reference_definition" in createDefinition)) {
+    if ((("definition" in createDefinition) === false) || (Array.isArray(createDefinition.definition) === false)
+        || (("reference_definition" in createDefinition) === false)) {
 
         return [null, fail("Unexpected analysis for alter table. "
             + `expr[${index}].create_definitions : ${JSON.stringify(createDefinition)}`)];
@@ -1041,9 +1047,9 @@ const doLoadAlterForeignKeyDdl = (
         ? createDefinition.constraint : "";
 
     const referenceDefinition = createDefinition.reference_definition as object;
-    if (!("definition" in referenceDefinition) || (Array.isArray(referenceDefinition.definition) === false)
+    if ((("definition" in referenceDefinition) === false) || (Array.isArray(referenceDefinition.definition) === false)
         || (referenceDefinition.definition.length === 0)
-        || !("table" in referenceDefinition) || (Array.isArray(referenceDefinition.table) === false)
+        || (("table" in referenceDefinition) === false) || (Array.isArray(referenceDefinition.table) === false)
         || (referenceDefinition.table.length === 0)) {
 
         return [null, fail("Unexpected analysis for alter table. "
@@ -1058,7 +1064,7 @@ const doLoadAlterForeignKeyDdl = (
 
     const childColumnNames: string[] = [];
     for (const definition of createDefinition.definition) {
-        if (!("type" in definition) || (definition.type !== "column_ref")) {
+        if ((("type" in definition) === false) || (definition.type !== "column_ref")) {
             return [null, fail(`Unsupported column definition format at position ${index + 1}. `
                 + `expr[${index}].create_definitions : ${JSON.stringify(createDefinition)}`
             )];
@@ -1080,7 +1086,7 @@ const doLoadAlterForeignKeyDdl = (
 
     const parentColumnNames: string[] = [];
     for (const definition of referenceDefinition.definition) {
-        if (!("type" in definition) || (definition.type !== "column_ref")) {
+        if ((("type" in definition) === false) || (definition.type !== "column_ref")) {
             return [null, fail(`Unsupported column definition format at position ${index + 1}. `
                 + `expr[${index}].create_definitions.reference_definition : ${JSON.stringify(referenceDefinition)}`
             )];
@@ -1105,7 +1111,8 @@ const doLoadAlterForeignKeyDdl = (
     let onDeleteAction: TableReferenceActionType = "NO ACTION";
     if (("on_action" in referenceDefinition) && (Array.isArray(referenceDefinition.on_action))) {
         for (const onAction of referenceDefinition.on_action) {
-            if (!("type" in onAction) || !("value" in onAction) || !("value" in onAction.value)
+            if ((("type" in onAction) === false) || (("value" in onAction) === false)
+                || (("value" in onAction.value) === false)
                 || (typeof onAction.value.value !== "string")) {
 
                 return [null, fail(`Unexpected analysis for on update action at position ${index + 1}. `
@@ -1132,7 +1139,7 @@ const doLoadAlterForeignKeyDdl = (
 
 const doLoadAlterUniqueDdl = (index: number, createDefinition: object): ([TableIndexDefinition, null] | [null, LoadFailure]) => {
 
-    if (!("definition" in createDefinition) || (Array.isArray(createDefinition.definition) === false)) {
+    if ((("definition" in createDefinition) === false) || (Array.isArray(createDefinition.definition) === false)) {
         return [null, fail("Unexpected analysis for alter table. "
             + `expr[${index}].create_definitions : ${JSON.stringify(createDefinition)}`)];
     }
@@ -1142,7 +1149,7 @@ const doLoadAlterUniqueDdl = (index: number, createDefinition: object): ([TableI
 
     const indexColumns: IndexColumn[] = [];
     for (const definition of createDefinition.definition) {
-        if (!("type" in definition) || (definition.type !== "column_ref")) {
+        if ((("type" in definition) === false) || (definition.type !== "column_ref")) {
             return [null, fail(`Unsupported column definition format at position ${index + 1}. `
                 + `expr[${index}].create_definitions : ${JSON.stringify(createDefinition)}`
             )];
@@ -1176,7 +1183,7 @@ const doLoadAlterUniqueDdl = (index: number, createDefinition: object): ([TableI
 
 // MS SQL Server の場合、 ALTER TABLE 構文にてクラスタユニーク制約が定義されているかを判定する
 const isClusteredIndexInAlterDdl = (createDefinition: object) => {
-    if (!("index" in createDefinition)) {
+    if (("index" in createDefinition) === false) {
         return false;
     }
 

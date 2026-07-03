@@ -1,9 +1,8 @@
 import DisplayStyle from "~/models/database/DisplayStyle";
-import { PropertyNotExistsError } from "~/models/exceptions";
 import ExportDdlSettingModel from "~/models/ExportDdlSettingModel";
 import PerspectiveModel from "~/models/PerspectiveModel";
 import PerspectiveModelStorage from "~/models/PerspectiveModelStorage";
-import { toObjects } from "~/models/util";
+import { requireProperty, toObjects } from "~/models/util";
 
 type ErdSettingModelOptions = {
     displayStyle?: DisplayStyle,
@@ -93,9 +92,7 @@ export default class ErdSettingModel {
     }
 
     public static toObject(obj: object): ErdSettingModel {
-        if (!("exportDdlSetting" in obj)) {
-            throw new PropertyNotExistsError("exportDdlSetting", obj);
-        }
+        requireProperty(obj, "exportDdlSetting");
 
         const displayStyle = ("displayStyle" in obj)
             ? DisplayStyle.toObject(obj.displayStyle as object) : DisplayStyle.BOTH;
@@ -114,13 +111,13 @@ export default class ErdSettingModel {
     }
 
     public equals(other: ErdSettingModel): boolean {
-        if (!this.displayStyle.equals(other.displayStyle)) {
+        if (this.displayStyle.equals(other.displayStyle) === false) {
             return false;
         }
-        if (!this.exportDdlSetting.equals(other.exportDdlSetting)) {
+        if (this.exportDdlSetting.equals(other.exportDdlSetting) === false) {
             return false;
         }
-        if (!this.perspectiveModelStorage.equals(other.perspectiveModelStorage)) {
+        if (this.perspectiveModelStorage.equals(other.perspectiveModelStorage) === false) {
             return false;
         }
         if (this.showRelationNames !== other.showRelationNames) {

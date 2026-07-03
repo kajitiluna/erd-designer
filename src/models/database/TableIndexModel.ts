@@ -1,7 +1,6 @@
 import { TableIndexOption, TableIndexType } from "~/models/database/TableIndexSupport";
 import { NullsOrderType, SortOrderType } from "~/models/database/ValueType";
-import { PropertyNotExistsError } from "~/models/exceptions";
-import { toObjects } from "~/models/util";
+import { requireProperty, toObjects } from "~/models/util";
 
 type TableIndexModelOptions = {
     tableIndexModelId: string,
@@ -82,15 +81,9 @@ export default class TableIndexModel {
     }
 
     public static toObject(obj: object): TableIndexModel {
-        if (!("tableIndexModelId" in obj)) {
-            throw new PropertyNotExistsError("tableIndexModelId", obj);
-        }
-        if (!("physicalName" in obj)) {
-            throw new PropertyNotExistsError("physicalName", obj);
-        }
-        if (!("indexColumnModels" in obj)) {
-            throw new PropertyNotExistsError("indexColumnModels", obj);
-        }
+        requireProperty(obj, "tableIndexModelId");
+        requireProperty(obj, "physicalName");
+        requireProperty(obj, "indexColumnModels");
 
         const indexColumnModels = toObjects(obj.indexColumnModels, "indexColumnModels",
             value => IndexColumnModel.toObject(value));
@@ -198,9 +191,7 @@ export class IndexColumnModel {
     }
 
     public static toObject(obj: object): IndexColumnModel {
-        if (!("columnModelId" in obj)) {
-            throw new PropertyNotExistsError("columnModelId", obj);
-        }
+        requireProperty(obj, "columnModelId");
 
         return new IndexColumnModel({
             columnModelId: obj.columnModelId as string,

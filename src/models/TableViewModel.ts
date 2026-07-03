@@ -1,7 +1,6 @@
 import ColorValue from "~/models/ColorValue";
 import TableModel from "~/models/database/TableModel";
-import { PropertyNotExistsError } from "~/models/exceptions";
-import { toDateTime } from "~/models/util";
+import { requireProperty, toDateTime } from "~/models/util";
 
 type TableViewModelOptions = {
     tableModel: TableModel,
@@ -40,21 +39,11 @@ export default class TableViewModel {
     }
 
     public static toObject(obj: object): TableViewModel {
-        if (!("tableModel" in obj)) {
-            throw new PropertyNotExistsError("tableModel", obj);
-        }
-        if (!("top" in obj)) {
-            throw new PropertyNotExistsError("top", obj);
-        }
-        if (!("left" in obj)) {
-            throw new PropertyNotExistsError("left", obj);
-        }
-        if (!("headerBackgroundColor" in obj)) {
-            throw new PropertyNotExistsError("headerBackgroundColor", obj);
-        }
-        if (!("headerForegroundColor" in obj)) {
-            throw new PropertyNotExistsError("headerForegroundColor", obj);
-        }
+        requireProperty(obj, "tableModel");
+        requireProperty(obj, "top");
+        requireProperty(obj, "left");
+        requireProperty(obj, "headerBackgroundColor");
+        requireProperty(obj, "headerForegroundColor");
 
         return new TableViewModel({
             tableModel: TableModel.toObject(obj.tableModel as object),

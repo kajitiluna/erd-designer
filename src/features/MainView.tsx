@@ -1,13 +1,13 @@
 import React from "react";
 import { Box } from "@mui/material";
 
-import DisplayScaleContext, { ScaleState } from "~/context/DisplayScaleContext";
 import { DragActionContext, reduceDragAction, NO_DRAGGING } from "~/context/DragActionContext";
 import EditModeContext from "~/context/EditModeContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import {
     SelectAction, reduceSelectAction, SelectEntityContext, EMPTY_SELECT_STATE, RELEASE_ACTION
 } from "~/context/SelectEntityContext";
+import CanvasSearchPanel from "~/features/canvas/CanvasSearchPanel";
 import ControlPanel from "~/features/canvas/ControlPanel";
 import DisplayScalePanel from "~/features/canvas/DisplayScalePanel";
 import ErdCanvas from "~/features/canvas/ErdCanvas";
@@ -27,9 +27,6 @@ type ErdDocumentsHolderOptions = {
     cursor: number
 };
 
-const CANVAS_AREA = { width: 25000, height: 25000 } as const;
-const DRAWABLE_AREA = { width: CANVAS_AREA.width * 2, height: CANVAS_AREA.height * 2 } as const;
-
 const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) => {
 
     const [holderProps, setHolderProps] =
@@ -37,9 +34,56 @@ const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) 
     const [selectState, dispatchSelectAction] = React.useReducer(reduceSelectAction, EMPTY_SELECT_STATE);
     const [editMode, dispatchEditMode] = React.useReducer(initReduceEditMode(dispatchSelectAction), EditModeType.SELECT);
     const [localSetting, dispatchLocalSetting] = React.useReducer(reduceLocalSetting, DEFAULT_LOCAL_SETTING);
-    const [scale, setScale] = React.useState<ScaleState>({ scale: 1, phase: "idle" });
     const [dragState, dispatchDragAction] = React.useReducer(reduceDragAction, NO_DRAGGING);
 
+    // コンテキスト値は参照が変わると全コンシューマが再レンダーされるため、useMemo で安定化する
+    const documentsHolder = React.useMemo(
+        () => initDocumentsHolder(holderProps, onSave, setHolderProps),
+        [holderProps, onSave]
+    );
+    const editModeContextValue = React.useMemo(() => {
+        return { editMode, dispatchEditMode };
+    }, [editMode]);
+    const selectEntityContextValue = React.useMemo(() => {
+        return { selectState, dispatchSelectAction };
+    }, [selectState]);
+    const localSettingContextValue = React.useMemo(() => {
+        return { localSetting, dispatchLocalSetting };
+    }, [localSetting]);
+
+    return (
+        <ErdDocumentsHolderContext.Provider value={documentsHolder}>
+            <EditModeContext.Provider value={editModeContextValue}>
+                <SelectEntityContext.Provider value={selectEntityContextValue}>
+                    <LocalSettingContext.Provider value={localSettingContextValue}>
+                        <DragActionContext.Provider value={dragState}>
+                            <ErdCanvas onDragAction={dispatchDragAction}>
+                                <Box sx={{ position: "fixed", top: "30px", left: "30px" }}>
+                                    <TitlePanel />
+                                </Box>
+                                <Box sx={{ position: "fixed", top: "50%", left: "50px", transform: "translateY(-50%)" }}>
+                                    <ControlPanel erdExportable={erdExportable} />
+                                </Box>
+                                <Box sx={{ position: "fixed", bottom: "30px", right: "30px" }}>
+                                    <DisplayScalePanel />
+                                </Box>
+                                <Box sx={{ position: "fixed", top: "34px", right: "34px", zIndex: 10 }}>
+                                    <CanvasSearchPanel />
+                                </Box>
+                            </ErdCanvas>
+                        </DragActionContext.Provider>
+                    </LocalSettingContext.Provider>
+                </SelectEntityContext.Provider>
+            </EditModeContext.Provider>
+        </ErdDocumentsHolderContext.Provider>
+    );
+};
+
+const initDocumentsHolder = (
+    holderProps: ErdDocumentsHolderOptions,
+    onSave: (updating: ErdDocument, loggingMessage: string) => void,
+    setHolderProps: (holderProps: ErdDocumentsHolderOptions) => void
+): ErdDocumentsHolder => {
     const handleOnSave = (documents: ErdDocument[], cursor: number, loggingMessage: string) => {
         if ((cursor < 0) || (cursor >= documents.length)) {
             console.warn(`Invalid cursor value. documents.length: ${documents.length}, cursor: ${cursor}`);
@@ -50,35 +94,7 @@ const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) 
         setHolderProps({ erdDocuments: documents, cursor });
     };
 
-    const documentsHolder = new ErdDocumentsHolder(holderProps.erdDocuments, holderProps.cursor, handleOnSave);
-
-    return (
-        <ErdDocumentsHolderContext.Provider value={documentsHolder}>
-            <EditModeContext.Provider value={{ editMode, dispatchEditMode }}>
-                <SelectEntityContext.Provider value={{ selectState, dispatchSelectAction }}>
-                    <LocalSettingContext.Provider value={{ localSetting, dispatchLocalSetting }}>
-                        <DragActionContext.Provider value={dragState}>
-                            <DisplayScaleContext.Provider value={scale} >
-                                <Box sx={{ position: "relative", width: "100%", height: "100vh" }}>
-                                    <ErdCanvas canvasArea={CANVAS_AREA} onDragAction={dispatchDragAction} />
-                                </Box>
-                                <Box sx={{ position: "fixed", top: "30px", left: "30px" }}>
-                                    <TitlePanel />
-                                </Box>
-                                <Box sx={{ position: "fixed", top: "50%", left: "50px", transform: "translateY(-50%)" }}>
-                                    <ControlPanel erdExportable={erdExportable} />
-                                </Box>
-                                <Box sx={{ position: "fixed", bottom: "30px", right: "30px" }}>
-                                    <DisplayScalePanel drawableArea={DRAWABLE_AREA} scaleStatus={scale}
-                                        onChangeScale={setScale} />
-                                </Box>
-                            </DisplayScaleContext.Provider>
-                        </DragActionContext.Provider>
-                    </LocalSettingContext.Provider>
-                </SelectEntityContext.Provider>
-            </EditModeContext.Provider>
-        </ErdDocumentsHolderContext.Provider>
-    );
+    return new ErdDocumentsHolder(holderProps.erdDocuments, holderProps.cursor, handleOnSave);
 };
 
 const initReduceEditMode = (dispatchSelectAction: (action: SelectAction) => void) => {

@@ -99,7 +99,7 @@ class DatabaseDdlCreator {
         }
 
         const database = erdDocument.getDatabase();
-        if (!database.supportsSchema) {
+        if (database.supportsSchema === false) {
             return [];
         }
 

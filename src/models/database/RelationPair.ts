@@ -1,4 +1,4 @@
-import { PropertyNotExistsError } from "~/models/exceptions";
+import { requireProperty } from "~/models/util";
 
 type RelationPairOptions = { parentColumnModelId: string, childColumnModelId: string };
 
@@ -20,12 +20,8 @@ export default class RelationPair {
     }
 
     public static toObject(obj: object): RelationPair {
-        if (!("parentColumnModelId" in obj)) {
-            throw new PropertyNotExistsError("parentColumnModelId", obj);
-        }
-        if (!("childColumnModelId" in obj)) {
-            throw new PropertyNotExistsError("childColumnModelId", obj);
-        }
+        requireProperty(obj, "parentColumnModelId");
+        requireProperty(obj, "childColumnModelId");
 
         return new RelationPair({
             parentColumnModelId: obj.parentColumnModelId as string,

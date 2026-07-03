@@ -9,8 +9,7 @@ import RemoveIcon from "@mui/icons-material/Remove";
 
 import useStateRef from "~/components/useStateRef";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
-import DisplayScaleContext from "~/context/DisplayScaleContext";
-import CanvasPositionContext from "~/context/CanvasPositionContext";
+import ViewportContext from "~/context/ViewportContext";
 import PortalCanvasContext from "~/context/PortalCanvasContext";
 import { SelectEntityContext } from "~/context/SelectEntityContext";
 import { DragActionContext } from "~/context/DragActionContext";
@@ -39,8 +38,7 @@ const DEFAULT_OFFSET_Y = -14;
 
 const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlayProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
-    const { scale: displayScale } = React.useContext(DisplayScaleContext);
-    const positionResolver = React.useContext(CanvasPositionContext);
+    const { viewport } = React.useContext(ViewportContext);
     const { toolbarCanvasElement, svgCanvasElement } = React.useContext(PortalCanvasContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
@@ -101,7 +99,7 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
         if (prevPointCount !== pathPoints.length) {
             setPrevPointCount(pathPoints.length);
         }
-        if (stableAnchor === null || stableAnchor.x !== anchorPoint.x || stableAnchor.y !== anchorPoint.y) {
+        if ((stableAnchor === null) || (stableAnchor.x !== anchorPoint.x) || (stableAnchor.y !== anchorPoint.y)) {
             setStableAnchor(anchorPoint);
         }
     }
@@ -112,11 +110,11 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
         isLabelDragging: (draggingPosition != null)
     });
 
-    if (!toolbarCanvasElement) {
+    if (toolbarCanvasElement == null) {
         return null;
     }
 
-    if (!labelView.label || (pathPoints.length < 2)) {
+    if ((labelView.label === "") || (pathPoints.length < 2)) {
         return null;
     }
     // ドラッグ操作により、対象リレーション描画が変わる際に label の描画場所が不安定になるため、非表示にする
@@ -135,13 +133,22 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
 
         event.stopPropagation();
 
-        const startPos = positionResolver.getLogicalPosition(event, displayScale);
+        // mouseup を取りこぼした状態で再度 mousedown が発火した場合、
+        // 前回のリスナーが window に残ったまま ref が上書きされて除去不能になるため、先に除去する
+        if (mouseMoveHandlerRef.current != null) {
+            window.removeEventListener("mousemove", mouseMoveHandlerRef.current);
+        }
+        if (mouseUpHandlerRef.current != null) {
+            window.removeEventListener("mouseup", mouseUpHandlerRef.current);
+        }
+
+        const startPos = viewport.getLogicalPosition(event);
         const startLabel = { x: labelX, y: labelY };
 
         setDraggingPosition(startLabel);
 
         const handleMouseMove = (moveEvent: MouseEvent) => {
-            const movingPosition = positionResolver.getLogicalPosition(moveEvent, displayScale);
+            const movingPosition = viewport.getLogicalPosition(moveEvent);
             setDraggingPosition({
                 x: startLabel.x + movingPosition.x - startPos.x,
                 y: startLabel.y + movingPosition.y - startPos.y
@@ -154,7 +161,7 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
             mouseMoveHandlerRef.current = null;
             mouseUpHandlerRef.current = null;
 
-            const mousePosition = positionResolver.getLogicalPosition(upEvent, displayScale);
+            const mousePosition = viewport.getLogicalPosition(upEvent);
             const finalPosition = {
                 x: startLabel.x + mousePosition.x - startPos.x,
                 y: startLabel.y + mousePosition.y - startPos.y
@@ -226,6 +233,7 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
         {initAnchorDrawing(showingAnchor)}
         {ReactDom.createPortal(
             <div ref={labelRef} style={labelStyle} className={cssClassName}
+                data-entity-id={relationView.relationId}
                 data-erd-relation-parent-table-id={relationView.relationModel.parentTableModelId}
                 data-erd-relation-child-table-id={relationView.relationModel.childTableModelId}
                 onMouseDown={handleMouseDown} onClick={handleClick}>
@@ -250,11 +258,11 @@ const useRelationLabelToolbar = ({
 
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
-    const { scale: displayScale } = React.useContext(DisplayScaleContext);
+    const { scaleState } = React.useContext(ViewportContext);
     const { selectState } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
 
-    if (!toolbarCanvasElement) {
+    if (toolbarCanvasElement == null) {
         return null;
     }
 
@@ -262,7 +270,7 @@ const useRelationLabelToolbar = ({
     // リレーションが選択されている場合は、ラベルの tooltip は表示しない
     const showToolbar = relationSelected && (selectState.edgeType == null)
         && (editMode === EditModeType.SELECT)
-        && !isLabelDragging && (dragState.status !== "on_dragging");
+        && (isLabelDragging === false) && (dragState.status !== "on_dragging");
 
     if (showToolbar === false) {
         return null;
@@ -283,17 +291,17 @@ const useRelationLabelToolbar = ({
     };
 
     const handleToggleBold = () => {
-        const next = { ...labelFont, bold: !labelFont.bold };
+        const next = { ...labelFont, bold: (labelFont.bold === false) };
         documentsHolder.updateRelationLabelStyle(relationView.relationId, next);
     };
 
     const handleToggleItalic = () => {
-        const next = { ...labelFont, italic: !labelFont.italic };
+        const next = { ...labelFont, italic: (labelFont.italic === false) };
         documentsHolder.updateRelationLabelStyle(relationView.relationId, next);
     };
 
     const handleToggleStrikethrough = () => {
-        const next = { ...labelFont, strikethrough: !labelFont.strikethrough };
+        const next = { ...labelFont, strikethrough: (labelFont.strikethrough === false) };
         documentsHolder.updateRelationLabelStyle(relationView.relationId, next);
     };
 
@@ -310,7 +318,7 @@ const useRelationLabelToolbar = ({
         boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
         padding: "2px 4px",
         transformOrigin: "top left",
-        transform: `scale(${1 / displayScale})`,
+        transform: `scale(${1 / scaleState.scale})`,
     };
 
     const toolbar = (

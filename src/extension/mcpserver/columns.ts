@@ -348,20 +348,20 @@ const doFilterColumnShares = (params: ColumnShareFilterParams, erdDocument: ErdD
 
     return storage.getModels().filter(columnShare => {
         const matchesColumnType = (columnTypeIds.length === 0)
-            || columnTypeIds.every(typeId => (columnShare.columnType.id.toString() === typeId));
-        if (!matchesColumnType) {
+            || columnTypeIds.some(typeId => (columnShare.columnType.id.toString() === typeId));
+        if (matchesColumnType === false) {
             return false;
         }
 
         const matchesPhysical = (physicalNameContains.length === 0)
             || physicalNameContains.every(filtering => columnShare.physicalName.includes(filtering));
-        if (!matchesPhysical) {
+        if (matchesPhysical === false) {
             return false;
         }
 
         const matchesLogical = (logicalNameContains.length === 0)
             || logicalNameContains.every(filtering => columnShare.logicalName.includes(filtering));
-        if (!matchesLogical) {
+        if (matchesLogical === false) {
             return false;
         }
 
@@ -552,10 +552,10 @@ const initCallbackForAddColumnsToTable = (
             findDocumentAndTable(documentResource, documentId, tableId);
 
         const nextColumns = [...previousTableView.tableModel.columns];
-        const columnIdToIndexMap = new Map(nextColumns.flatMap((col, idx) =>
-            (col.modelType === "single") ? [[col.columnModelId, idx]] : []));
-        const columnGroupIdToIndexMap = new Map(nextColumns.flatMap((col, idx) =>
-            (col.modelType === "group") ? [[col.columnGroupId, idx]] : []));
+        const columnIdToIndexMap = new Map(nextColumns.flatMap((column, index) =>
+            (column.modelType === "single") ? [[column.columnModelId, index]] : []));
+        const columnGroupIdToIndexMap = new Map(nextColumns.flatMap((column, index) =>
+            (column.modelType === "group") ? [[column.columnGroupId, index]] : []));
 
         const columnIdToIndex = (columnId: string) => columnIdToIndexMap.get(columnId) ?? null;
         const columnGroupIdToIndex = (columnGroupId: string) => columnGroupIdToIndexMap.get(columnGroupId) ?? null;
@@ -760,7 +760,7 @@ const initCallbackForUpdatingColumn = (
             addingColumnShares.push(nextColumnShare);
         }
 
-        if (!nextColumnType.withAutoIncrement && (updatingColumn.autoIncrement === true)) {
+        if ((nextColumnType.withAutoIncrement === false) && (updatingColumn.autoIncrement === true)) {
             throw initInvalidParams(
                 `Auto-increment must not be specified for the selected column type : ${nextColumnType.name}`
             );
@@ -913,22 +913,22 @@ const initCallbackForUpdatingColumnShare = (
         if (nextColumnType.withPrecision && (updating.precision == null) && (previous.precision === "")) {
             throw initInvalidParams(`Precision must be specified for the selected column type : ${nextColumnType.name}`);
         }
-        if (!nextColumnType.withPrecision && (updating.precision != null)) {
+        if ((nextColumnType.withPrecision === false) && (updating.precision != null)) {
             throw initInvalidParams(`Precision must not be specified for the selected column type : ${nextColumnType.name}`);
         }
 
         if (nextColumnType.withScale && (updating.scale == null) && (previous.scale === "")) {
             throw initInvalidParams(`Scale must be specified for the selected column type : ${nextColumnType.name}`);
         }
-        if (!nextColumnType.withScale && (updating.scale != null)) {
+        if ((nextColumnType.withScale === false) && (updating.scale != null)) {
             throw initInvalidParams(`Scale must not be specified for the selected column type : ${nextColumnType.name}`);
         }
 
-        if (!nextColumnType.withUnsigned && (updating.unsigned === true)) {
+        if ((nextColumnType.withUnsigned === false) && (updating.unsigned === true)) {
             throw initInvalidParams(`Unsigned must not be specified for the selected column type : ${nextColumnType.name}`);
         }
 
-        if (!database.supportsArrayType && (updating.isArray === true)) {
+        if ((database.supportsArrayType === false) && (updating.isArray === true)) {
             throw initInvalidParams(`Array type is not supported by the database : ${database.name}`);
         }
 
@@ -938,9 +938,11 @@ const initCallbackForUpdatingColumnShare = (
 
         if (updating.characterSet != null) {
             if (nextColumnType.category !== "text") {
-                throw initInvalidParams(`Character set must not be specified for the selected column type : ${nextColumnType.name}`);
+                throw initInvalidParams(
+                    `Character set must not be specified for the selected column type : ${nextColumnType.name}`
+                );
             }
-            if (!database.editableCharacterSet) {
+            if (database.editableCharacterSet === false) {
                 throw initInvalidParams(`Character set is not supported by the database : ${database.name}`);
             }
         }
@@ -956,8 +958,10 @@ const initCallbackForUpdatingColumnShare = (
             ...(database.supportsArrayType && { isArray: updating.isArray ?? previous.isArray }),
             description: updating.description ?? previous.description,
             checkExpression: updating.checkExpression ?? previous.checkExpression,
-            ...(nextColumnType.category === "text" && { collate: updating.collate ?? previous.collate }),
-            ...(nextColumnType.category === "text" && database.editableCharacterSet && { characterSet: updating.characterSet ?? previous.characterSet(database) }),
+            ...((nextColumnType.category === "text") && { collate: updating.collate ?? previous.collate }),
+            ...((nextColumnType.category === "text") && database.editableCharacterSet && {
+                characterSet: updating.characterSet ?? previous.characterSet(database)
+            }),
             optionExpression: updating.optionExpression ?? previous.optionExpression,
         });
 
@@ -1097,8 +1101,8 @@ const initReorderColumnsInTable = (
 
             const movingColumn = nextColumns[currentIndex];
             nextColumns.splice(currentIndex, 1);
-            // 移動先に挿入
-            nextColumns.splice(moveToIndex, 0, movingColumn);
+            const adjustedIndex = (moveToIndex > currentIndex) ? moveToIndex - 1 : moveToIndex;
+            nextColumns.splice(adjustedIndex, 0, movingColumn);
         });
 
         const updatingTable = new TableViewModel({
@@ -1193,7 +1197,7 @@ const initCallbackForRemoveColumnsFromTable = (
                     return true;
                 }
 
-                return !deletingColumnIds.has(column.columnModelId);
+                return deletingColumnIds.has(column.columnModelId) === false;
             });
 
         const updatingColumnModels = nextColumns.flatMap(column => {
@@ -1275,7 +1279,7 @@ const buildColumnPair = (
         throw initInvalidParams("Either columnShareId or columnShare must be provided.");
     }
 
-    if (!columnShare.columnType.withAutoIncrement && (addingColumn.autoIncrement === true)) {
+    if ((columnShare.columnType.withAutoIncrement === false) && (addingColumn.autoIncrement === true)) {
         throw initInvalidParams(
             `Auto-increment must not be specified for the selected column type : ${columnShare.columnType.name}`
         );
@@ -1313,22 +1317,22 @@ const buildColumnShare = (
     if (columnType.withPrecision && (input.precision == null)) {
         throw initInvalidParams(`Precision must be specified for the selected column type : ${columnType.name}`);
     }
-    if (!columnType.withPrecision && (input.precision != null)) {
+    if ((columnType.withPrecision === false) && (input.precision != null)) {
         throw initInvalidParams(`Precision must not be specified for the selected column type : ${columnType.name}`);
     }
 
     if (columnType.withScale && (input.scale == null)) {
         throw initInvalidParams(`Scale must be specified for the selected column type : ${columnType.name}`);
     }
-    if (!columnType.withScale && (input.scale != null)) {
+    if ((columnType.withScale === false) && (input.scale != null)) {
         throw initInvalidParams(`Scale must not be specified for the selected column type : ${columnType.name}`);
     }
 
-    if (!columnType.withUnsigned && (input.unsigned === true)) {
+    if ((columnType.withUnsigned === false) && (input.unsigned === true)) {
         throw initInvalidParams(`Unsigned must not be specified for the selected column type : ${columnType.name}`);
     }
 
-    if (!database.supportsArrayType && (input.isArray === true)) {
+    if ((database.supportsArrayType === false) && (input.isArray === true)) {
         throw initInvalidParams(`Array type is not supported by the database : ${database.name}`);
     }
 
@@ -1340,7 +1344,7 @@ const buildColumnShare = (
         if (columnType.category !== "text") {
             throw initInvalidParams(`Character set must not be specified for the selected column type : ${columnType.name}`);
         }
-        if (!database.editableCharacterSet) {
+        if (database.editableCharacterSet === false) {
             throw initInvalidParams(`Character set is not supported by the database : ${database.name}`);
         }
     }
@@ -1356,8 +1360,8 @@ const buildColumnShare = (
         isArray: input.isArray,
         description: input.description,
         checkExpression: input.checkExpression,
-        ...(columnType.category === "text" && { collate: input.collate }),
-        ...(columnType.category === "text" && database.editableCharacterSet && { characterSet: input.characterSet }),
+        ...((columnType.category === "text") && { collate: input.collate }),
+        ...((columnType.category === "text") && database.editableCharacterSet && { characterSet: input.characterSet }),
         optionExpression: input.optionExpression,
     });
 };

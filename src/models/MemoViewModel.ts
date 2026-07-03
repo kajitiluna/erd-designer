@@ -1,8 +1,7 @@
 import { v4 as uuidV4 } from 'uuid';
 import ColorValue from '~/models/ColorValue';
-import { PropertyNotExistsError } from '~/models/exceptions';
 import RectangleViewModel from '~/models/RectangleViewModel';
-import { toDateTime } from '~/models/util';
+import { requireProperty, toDateTime } from '~/models/util';
 
 type MemoViewModelOptions = {
     memoId: string;
@@ -140,15 +139,9 @@ export default class MemoViewModel {
     }
 
     public static toObject(obj: object): MemoViewModel {
-        if (!("memoId" in obj)) {
-            throw new PropertyNotExistsError("memoId", obj);
-        }
-        if (!("memo" in obj)) {
-            throw new PropertyNotExistsError("memo", obj);
-        }
-        if (!("rectangleViewModel" in obj)) {
-            throw new PropertyNotExistsError("rectangleViewModel", obj);
-        }
+        requireProperty(obj, "memoId");
+        requireProperty(obj, "memo");
+        requireProperty(obj, "rectangleViewModel");
 
         const backgroundColor = ("backgroundColor" in obj)
             ? ColorValue.toObject(obj.backgroundColor as object) : ColorValue.WHITE;

@@ -1,4 +1,4 @@
-import { PropertyNotExistsError } from "~/models/exceptions";
+import { requireProperty } from "~/models/util";
 
 type RectangleViewModelOptions = {
     positionX: number;
@@ -121,18 +121,10 @@ export default class RectangleViewModel {
     }
 
     public static toObject(obj: object): RectangleViewModel {
-        if (!("positionX" in obj)) {
-            throw new PropertyNotExistsError("positionX", obj);
-        }
-        if (!("positionY" in obj)) {
-            throw new PropertyNotExistsError("positionY", obj);
-        }
-        if (!("width" in obj)) {
-            throw new PropertyNotExistsError("width", obj);
-        }
-        if (!("height" in obj)) {
-            throw new PropertyNotExistsError("height", obj);
-        }
+        requireProperty(obj, "positionX");
+        requireProperty(obj, "positionY");
+        requireProperty(obj, "width");
+        requireProperty(obj, "height");
 
         return new RectangleViewModel({
             positionX: obj.positionX as number,

@@ -23,7 +23,7 @@ const EdgedIconButton = ({
         </IconButton>
     );
 
-    if (!tooltip) {
+    if (tooltip === "") {
         return (
             <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "center" }}>
                 {iconButton}

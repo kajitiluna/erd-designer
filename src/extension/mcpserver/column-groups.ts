@@ -135,7 +135,7 @@ const doFilterColumnGroups = (params: ColumnGroupFilterParams, erdDocument: ErdD
         const matchedColumnIds = (columnIds.length === 0)
             || columnIds.every(filtering =>
                 group.columnModelIds.includes(filtering));
-        if (!matchedColumnIds) {
+        if (matchedColumnIds === false) {
             return false;
         }
 
@@ -457,10 +457,12 @@ const toColumnGroupSummary = (erdBudget: DocumentBudget, group: ColumnGroupModel
         uri: erdBudget.columnGroupUri(group.columnGroupId),
         columnGroupId: group.columnGroupId,
         groupName: group.groupName,
-        columns: group.columnModelIds.map(columnModelId => ({
-            uri: erdBudget.columnUri(columnModelId),
-            columnId: columnModelId
-        })),
+        columns: group.columnModelIds.map(columnModelId => {
+            return {
+                uri: erdBudget.columnUri(columnModelId),
+                columnId: columnModelId
+            };
+        }),
         description: group.description
     };
 };

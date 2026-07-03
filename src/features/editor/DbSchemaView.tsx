@@ -291,7 +291,7 @@ const DbSchemaEditDialog = ({
     const editValueValidated = (schemaName.length > 0);
 
     const handleCompleted = () => {
-        if (!editValueValidated) {
+        if (editValueValidated === false) {
             return;
         }
 

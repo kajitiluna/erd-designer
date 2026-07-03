@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.20260704] - 2026-07-04
+
+### Added
+
+- **Search panel on canvas**:
+
+  Users can now search for tables, columns, relations, and memos on the canvas.
+  Press Ctrl+F (or Cmd+F on macOS) to open the search panel, or click the search icon.
+  Matching items are highlighted on the canvas, and arrow buttons (or Enter/Shift+Enter) navigate between results.
+  Search targets can be filtered by category using checkboxes.
+
+### Changed
+
+- **Boundless canvas**:
+
+  The canvas is no longer constrained to a fixed area. Users can pan freely in any direction using
+  right-click or middle-click drag, and zoom with the mouse wheel.
+
+
 ## [0.20260614] - 2026-06-14
 
 ### Changed

@@ -50,7 +50,7 @@ export class McpServerManager {
             this.serverEnabled = serverEnabled;
             this.serverPort = serverPort;
 
-            if (!this.serverEnabled) {
+            if (this.serverEnabled === false) {
                 console.info("MCP server is disabled by configuration.");
                 return;
             }
@@ -151,11 +151,13 @@ const createMcpServer = (documentResource: DocumentResource) => {
     ];
 
     const initialConfig: McpRegisterConfig = { resources: [], resourceTemplates: [], tools: [] };
-    const mcpConfig = registrations.reduce<McpRegisterConfig>((merged, config) => ({
-        resources: [...merged.resources, ...config.resources],
-        resourceTemplates: [...merged.resourceTemplates, ...config.resourceTemplates],
-        tools: [...merged.tools, ...config.tools]
-    }), initialConfig);
+    const mcpConfig = registrations.reduce<McpRegisterConfig>((merged, config) => {
+        return {
+            resources: [...merged.resources, ...config.resources],
+            resourceTemplates: [...merged.resourceTemplates, ...config.resourceTemplates],
+            tools: [...merged.tools, ...config.tools]
+        };
+    }, initialConfig);
 
     mcpConfig.resources.forEach(resource => mcpServer.registerResource(...resource));
     mcpConfig.resourceTemplates.forEach(resourceTemplate => mcpServer.registerResource(...resourceTemplate));
@@ -185,7 +187,7 @@ const createExpressServer = (mcpServer: McpServer) => {
             await transport.handleRequest(request, response, request.body);
         } catch (error) {
             console.error('Error handling MCP request:', error);
-            if (!response.headersSent) {
+            if (response.headersSent === false) {
                 response.status(500).json({
                     jsonrpc: '2.0',
                     error: {

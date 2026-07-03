@@ -12,8 +12,7 @@ import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocu
 import EditModeContext from "~/context/EditModeContext";
 import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
 import { DragAction, DragActionContext } from "~/context/DragActionContext";
-import DisplayScaleContext from "~/context/DisplayScaleContext";
-import CanvasPositionContext from "~/context/CanvasPositionContext";
+import ViewportContext from "~/context/ViewportContext";
 import PortalCanvasContext from "~/context/PortalCanvasContext";
 import RelationModel from "~/models/database/RelationModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
@@ -150,7 +149,8 @@ const useRelationTooltip = (
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
-    const { scale: displayScale } = React.useContext(DisplayScaleContext);
+    const { scaleState } = React.useContext(ViewportContext);
+    const displayScale = scaleState.scale;
     const { toolbarCanvasElement } = React.useContext(PortalCanvasContext);
 
     const [lineEditElement, setLineEditElement] = React.useState<HTMLElement | null>(null);
@@ -339,7 +339,7 @@ const useRelationTooltip = (
         transform: `scale(${1 / displayScale})`,
     };
 
-    if (!toolbarCanvasElement) {
+    if (toolbarCanvasElement == null) {
         return (<></>);
     }
 
@@ -348,7 +348,7 @@ const useRelationTooltip = (
 
     return ReactDOM.createPortal((
         <ButtonGroup key={`relation-line_${relationView.relationId}_tooltip`}
-            variant="contained" size="small" sx={tooltipStyle}
+            variant="contained" size="small" sx={tooltipStyle} onClick={handlePreventMouseEvent}
             onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
             <ColorSelector key={`relation-color-selector_${relationView.relationId}`}
                 color={relationView.lineViewModel.color}
@@ -396,13 +396,22 @@ const useStraightLineView = (
 ) => {
 
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const { viewport } = React.useContext(ViewportContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
-    const { scale: displayScale } = React.useContext(DisplayScaleContext);
-    const positionResolver = React.useContext(CanvasPositionContext);
 
     const [lineDragging, setLineDragging] = React.useState<LineDragging>({ on_dragging: false });
+    const pendingDragEndHandlerRef = React.useRef<((event: MouseEvent) => void) | null>(null);
+
+    // ドラッグ中にアンマウントされた場合、window に登録した mouseup リスナーが残留するため除去する
+    React.useEffect(() => {
+        return () => {
+            if (pendingDragEndHandlerRef.current != null) {
+                window.removeEventListener("mouseup", pendingDragEndHandlerRef.current);
+            }
+        };
+    }, []);
 
     const findTableRectangle = (tableId: string) => {
         const rectangle = rectangleMap.get(tableId);
@@ -410,7 +419,7 @@ const useStraightLineView = (
             return null;
         }
 
-        if ((dragState.status !== "on_dragging") || !selectState.tableIds.has(tableId)) {
+        if ((dragState.status !== "on_dragging") || (selectState.tableIds.has(tableId) === false)) {
             return rectangle;
         }
 
@@ -504,7 +513,7 @@ const useStraightLineView = (
         ) {
             if (selectState.edgeType === "real") {
                 const edgeIndex = selectState.edgeId + 1;
-                if (edgeIndex >= 0 && edgeIndex < labelEdges.length) {
+                if ((edgeIndex >= 0) && (edgeIndex < labelEdges.length)) {
                     labelEdges[edgeIndex] = dragState.current;
                 }
             } else if ((selectState.edgeType === "virtual")
@@ -519,7 +528,7 @@ const useStraightLineView = (
     };
 
     const doHandleDragEnd = (event: React.MouseEvent | MouseEvent) => {
-        const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
+        const mousePosition = viewport.getLogicalPosition(event);
         setClickedPosition(mousePosition);
 
         setLineDragging({ on_dragging: false });
@@ -540,7 +549,7 @@ const useStraightLineView = (
 
             event.stopPropagation();
 
-            const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
+            const mousePosition = viewport.getLogicalPosition(event);
 
             dispatchSelectAction({
                 type: "edge",
@@ -552,8 +561,11 @@ const useStraightLineView = (
 
             const handleDragEndOverLine = (event: MouseEvent) => {
                 window.removeEventListener("mouseup", handleDragEndOverLine);
+                pendingDragEndHandlerRef.current = null;
                 doHandleDragEnd(event);
             };
+
+            pendingDragEndHandlerRef.current = handleDragEndOverLine;
             window.addEventListener("mouseup", handleDragEndOverLine);
         };
 
@@ -634,7 +646,7 @@ const useStraightLineView = (
         }
 
         // Edge 変更が有効な場所に移っていない場合は、元の線分を描画する
-        if (!lineDragging.on_dragging || !lineDragging.majorChanging) {
+        if ((lineDragging.on_dragging === false) || (lineDragging.majorChanging === false)) {
             return [pair[1]];
         }
 
@@ -654,7 +666,7 @@ const useStraightLineView = (
                 return;
             }
 
-            const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
+            const mousePosition = viewport.getLogicalPosition(event);
 
             dispatchSelectAction({
                 type: "edge",
@@ -754,14 +766,14 @@ const useStraightLineView = (
     };
 
     const initPathCss = (relationView: RelationViewModel, selected: boolean) => {
-        if (!selected) {
+        if (selected === false) {
             return "";
         }
 
         if (
             lineDragging.on_dragging
             && (selectState.relationId === relationView.relationId)
-            && !lineDragging.majorChanging
+            && (lineDragging.majorChanging === false)
         ) {
             return styleClasses.inactiveDraggedSvg;
         }
@@ -886,13 +898,27 @@ const useOrthogonalLine = (
     handleOpenEditDialog: (event: React.MouseEvent, relationView: RelationViewModel) => void,
     onDragAction: (dragAction: DragAction) => void
 ) => {
+
+    const { viewport } = React.useContext(ViewportContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
-    const { scale: displayScale } = React.useContext(DisplayScaleContext);
-    const positionResolver = React.useContext(CanvasPositionContext);
+
+    const pendingDragEndHandlerRef = React.useRef<((event: MouseEvent) => void) | null>(null);
+
+    // ドラッグ中にアンマウントされた場合、window に登録した mouseup リスナーが残留するため除去する
+    React.useEffect(() => {
+        return () => {
+            if (pendingDragEndHandlerRef.current == null) {
+                return;
+            }
+
+            window.removeEventListener("mouseup", pendingDragEndHandlerRef.current);
+        };
+    }, []);
+
     const initPathCss = (selected: boolean, isReducedLine: boolean) => {
-        if (!selected) {
+        if (selected === false) {
             return ERD_RELATION_PATH_CLASS_NAME;
         }
 
@@ -904,7 +930,7 @@ const useOrthogonalLine = (
     };
 
     const doHandleDragEnd = (event: React.MouseEvent | MouseEvent) => {
-        const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
+        const mousePosition = viewport.getLogicalPosition(event);
         setClickedPosition(mousePosition);
 
         onDragAction({ type: "clear" });
@@ -945,7 +971,7 @@ const useOrthogonalLine = (
 
                 event.stopPropagation();
 
-                const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
+                const mousePosition = viewport.getLogicalPosition(event);
 
                 dispatchSelectAction({
                     type: "edge",
@@ -957,8 +983,10 @@ const useOrthogonalLine = (
 
                 const handleDragEndOverLine = (event: MouseEvent) => {
                     window.removeEventListener("mouseup", handleDragEndOverLine);
+                    pendingDragEndHandlerRef.current = null;
                     doHandleDragEnd(event);
                 };
+                pendingDragEndHandlerRef.current = handleDragEndOverLine;
                 window.addEventListener("mouseup", handleDragEndOverLine);
             };
 

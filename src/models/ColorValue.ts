@@ -1,4 +1,4 @@
-import { PropertyNotExistsError } from "~/models/exceptions";
+import { requireProperty } from "~/models/util";
 
 type ColorModelOptions = {
     red: number, green: number, blue: number
@@ -22,7 +22,7 @@ export default class ColorValue {
     }
 
     public static fromHex(color: string): ColorValue {
-        if (!hexColorRegex.test(color)) {
+        if (hexColorRegex.test(color) === false) {
             throw new Error(`Invalid color hex string: ${color}`);
         }
 
@@ -54,15 +54,9 @@ export default class ColorValue {
     }
 
     public static toObject(obj: object): ColorValue {
-        if (!("red" in obj)) {
-            throw new PropertyNotExistsError("red", obj);
-        }
-        if (!("green" in obj)) {
-            throw new PropertyNotExistsError("green", obj);
-        }
-        if (!("blue" in obj)) {
-            throw new PropertyNotExistsError("blue", obj);
-        }
+        requireProperty(obj, "red");
+        requireProperty(obj, "green");
+        requireProperty(obj, "blue");
 
         return new ColorValue({
             red: obj.red as number,

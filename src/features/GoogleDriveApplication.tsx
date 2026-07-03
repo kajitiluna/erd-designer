@@ -1,5 +1,5 @@
 import React from "react";
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, useNavigate } from "react-router-dom";
 import { GoogleOAuthProvider, hasGrantedAllScopesGoogle, useGoogleLogin } from "@react-oauth/google";
 
 import GoogleDriveInitializer from "~/features/gdrive/GoogleDriveInitializer";
@@ -18,7 +18,8 @@ const GoogleDriveApplication = () => {
 };
 
 const GoogleDriveInnerApplication = () => {
-    const [implicitToken, setImplicitToken] = React.useState<ImplicitToken>(initImplicitToken);
+    const [implicitToken, setImplicitToken] = React.useState<ImplicitToken>(EMPTY_IMPLICIT_TOKEN);
+    const navigate = useNavigate();
 
     const authorize = useGoogleLogin({
         flow: "implicit",
@@ -27,7 +28,7 @@ const GoogleDriveInnerApplication = () => {
             console.debug(`Succeed to authorize.`);
             const hasAccess = hasGrantedAllScopesGoogle(
                 response, "https://www.googleapis.com/auth/drive.file");
-            if (!hasAccess) {
+            if (hasAccess === false) {
                 console.warn("Not granted the drive.file scope.");
                 return;
             }
@@ -52,16 +53,9 @@ const GoogleDriveInnerApplication = () => {
             version: gdriveFile.version
         };
         sessionStorage.setItem("temporaryDocument", JSON.stringify(temporaryDocument));
-        sessionStorage.setItem("temporaryToken", JSON.stringify(implicitToken));
 
-        window.history.replaceState(null, "", "/erd-designer/gdrive");
-        window.location.href = "/erd-designer/gdrive";
+        navigate("/erd-designer/gdrive", { replace: true });
     };
-
-    // 初回描画後に、セッションに保存したトークン情報を破棄する
-    React.useEffect(() => {
-        sessionStorage.removeItem("temporaryToken");
-    }, []);
 
     return (
         <Routes>
@@ -90,20 +84,7 @@ type ImplicitToken = {
     expiresAt: number
 };
 
-const initImplicitToken = (): ImplicitToken => {
-    const temporaryToken = sessionStorage.getItem("temporaryToken");
-
-    if (temporaryToken == null) {
-        return { accessToken: "", expiresAt: 0 };
-    }
-
-    const implicitToken = JSON.parse(temporaryToken);
-    if ((!("accessToken" in implicitToken) || !("expiresAt" in implicitToken))) {
-        return { accessToken: "", expiresAt: 0 };
-    }
-
-    return implicitToken;
-};
+const EMPTY_IMPLICIT_TOKEN: ImplicitToken = { accessToken: "", expiresAt: 0 };
 
 type GdriveFile = {
     fileId: string,

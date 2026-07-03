@@ -45,7 +45,7 @@ export class DocumentResource {
         let erdDocument: ErdDocument | null = null;
         if (content.length > 0) {
             erdDocument = parseErdDocument(content);
-            if (!erdDocument) {
+            if (erdDocument == null) {
                 return;
             }
         }
@@ -67,13 +67,13 @@ export class DocumentResource {
 
     private doFindBudget(textDocument: vscode.TextDocument) {
         const documentId = this.uriToIdMap.get(textDocument.uri.toString());
-        if (!documentId) {
+        if (documentId == null) {
             console.warn(`documentId not found for uri: ${textDocument.uri.toString()}`);
             return null;
         }
 
         const budget = this.idToBudgetMap.get(documentId);
-        if (!budget) {
+        if (budget == null) {
             console.warn(`budget not found for documentId: ${documentId}, uri: ${textDocument.uri.toString()}`);
             return null;
         }
@@ -89,12 +89,12 @@ export class DocumentResource {
      */
     public update(textDocument: vscode.TextDocument, content: string) {
         const previous = this.doFindBudget(textDocument);
-        if (!previous) {
+        if (previous == null) {
             return;
         }
 
         const erdDocument = parseErdDocument(content);
-        if (!erdDocument) {
+        if (erdDocument == null) {
             console.warn(`failed to parse ErdDocument for uri: ${textDocument.uri.toString()}, content : ${content}`);
             return;
         }
@@ -109,7 +109,7 @@ export class DocumentResource {
         textDocument: vscode.TextDocument, rectangles: { tableId: string; rectangle: RectangleType }[]
     ) {
         const previous = this.doFindBudget(textDocument);
-        if (!previous) {
+        if (previous == null) {
             return;
         }
 
@@ -127,7 +127,7 @@ export class DocumentResource {
      */
     public remove(textDocument: vscode.TextDocument) {
         const documentId = this.uriToIdMap.get(textDocument.uri.toString());
-        if (!documentId) {
+        if (documentId == null) {
             return;
         }
 
@@ -145,7 +145,7 @@ export class DocumentResource {
      */
     public notify(documentId: string, erdDocument: ErdDocument) {
         const erdBudget = this.idToBudgetMap.get(documentId);
-        if (!erdBudget) {
+        if (erdBudget == null) {
             return;
         }
 
@@ -165,7 +165,7 @@ export class DocumentResource {
 
     public findById(documentId: string): DocumentBudget | null {
         const budget = this.idToBudgetMap.get(documentId);
-        if (!budget) {
+        if (budget == null) {
             return null;
         }
 
@@ -174,11 +174,11 @@ export class DocumentResource {
 
     public findByUri(uri: string): DocumentBudget | null {
         const documentId = this.uriToIdMap.get(uri);
-        if (!documentId) {
+        if (documentId == null) {
             return null;
         }
         const budget = this.idToBudgetMap.get(documentId);
-        if (!budget) {
+        if (budget == null) {
             return null;
         }
 

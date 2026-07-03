@@ -11,7 +11,7 @@ export const openGdriveFile = async ({ accessToken, fileId }: OpenGdriveFileArgs
 
     const fetchContent = async () => {
         const response = await fetch(`${fileUri}?alt=media`, headerInfo);
-        if (!response.ok) {
+        if (response.ok === false) {
             throw new Error(`Failed to open file. ${JSON.stringify(response)}`);
         }
 
@@ -21,7 +21,7 @@ export const openGdriveFile = async ({ accessToken, fileId }: OpenGdriveFileArgs
 
     const fetchMetadata = async () => {
         const response = await fetch(`${fileUri}?fields=modifiedTime`, headerInfo);
-        if (!response.ok) {
+        if (response.ok === false) {
             throw new Error(`Failed to get metadata. ${JSON.stringify(response)}`);
         }
 
@@ -41,15 +41,15 @@ export const findGdriveMetadata = async ({ accessToken, fileId }: OpenGdriveFile
     const headerInfo = { headers: { Authorization: `Bearer ${accessToken}` } };
 
     const response = await fetch(fileUri, headerInfo);
-    if (!response.ok) {
+    if (response.ok === false) {
         throw new Error(`Failed to find metadata. ${JSON.stringify(response)}`);
     }
 
     const metadata = await response.json();
-    if (!("name" in metadata)) {
+    if (("name" in metadata) === false) {
         throw new Error(`Failed to find name in metadata. ${JSON.stringify(metadata)}`);
     }
-    if (!("modifiedTime" in metadata)) {
+    if (("modifiedTime" in metadata) === false) {
         throw new Error(`Failed to find modifiedTime in metadata. ${JSON.stringify(metadata)}`);
     }
 
@@ -104,12 +104,12 @@ export const updateGdriveFile = async ({ accessToken, fileId, erdDocument, withN
         body: JSON.stringify(erdDocument.toJSON())
     });
 
-    if (!response.ok) {
+    if (response.ok === false) {
         throw new Error(`Failed to update file. ${JSON.stringify(response)}`);
     }
 
     const responseMetadata = await response.json();
-    if (!("modifiedTime" in responseMetadata)) {
+    if (("modifiedTime" in responseMetadata) === false) {
         throw new Error(`Failed to find modifiedTime in the response. ${JSON.stringify(responseMetadata)}`);
     }
 
@@ -151,15 +151,15 @@ const doMultipartGdriveFile = async ({ accessToken, fileId = null, metadata, erd
     const response = await fetch(
         uploadUri, { method: method, headers: headerInfo, body: multipartBody }
     );
-    if (!response.ok) {
+    if (response.ok === false) {
         throw new Error(`Failed to ${method.toLocaleLowerCase()} file. ${JSON.stringify(response)}`);
     }
 
     const responseJson = await response.json();
-    if (!("id" in responseJson)) {
+    if (("id" in responseJson) === false) {
         throw new Error(`Failed to find id in the response. ${JSON.stringify(responseJson)}`);
     }
-    if (!("modifiedTime" in responseJson)) {
+    if (("modifiedTime" in responseJson) === false) {
         throw new Error(`Failed to find modifiedTime in the response. ${JSON.stringify(responseJson)}`);
     }
 
@@ -203,16 +203,16 @@ const doCreateSpreadSheet = async (accessToken: string, spreadSheet: { propertie
         body: JSON.stringify(spreadSheet)
     });
 
-    if (!response.ok) {
+    if (response.ok === false) {
         const message = await response.text();
         throw new Error(`Failed to create spreadSheet. ${message}`);
     }
 
     const responseJson = await response.json();
-    if (!("spreadsheetId" in responseJson)) {
+    if (("spreadsheetId" in responseJson) === false) {
         throw new Error(`Failed to find spreadsheetId in the response. ${JSON.stringify(responseJson)}`);
     }
-    if (!("sheets" in responseJson)) {
+    if (("sheets" in responseJson) === false) {
         throw new Error(`Failed to find sheets in the response. ${JSON.stringify(responseJson)}`);
     }
 
@@ -273,7 +273,7 @@ const doMergeCells = async (
         body: JSON.stringify(batchUpdateRequest)
     });
 
-    if (!response.ok) {
+    if (response.ok === false) {
         const message = await response.text();
         console.warn(`Failed to merge cells. ${message}`);
         return;

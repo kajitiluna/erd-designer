@@ -1,6 +1,6 @@
 import { v4 as uuidV4 } from 'uuid';
 
-import { PropertyNotExistsError } from "~/models/exceptions";
+import { requireProperty } from "~/models/util";
 
 type PerspectiveModelOptions = {
     perspectiveId: string,
@@ -121,13 +121,8 @@ class PerspectiveModel {
     }
 
     public static toObject(obj: object): PerspectiveModel {
-        if (!("perspectiveId" in obj)) {
-            throw new PropertyNotExistsError("perspectiveId", obj);
-        }
-
-        if (!("perspectiveName" in obj)) {
-            throw new PropertyNotExistsError("perspectiveName", obj);
-        }
+        requireProperty(obj, "perspectiveId");
+        requireProperty(obj, "perspectiveName");
 
         return new PerspectiveModel({
             perspectiveId: obj.perspectiveId as string,

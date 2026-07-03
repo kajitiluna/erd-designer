@@ -523,7 +523,9 @@ const initCallbackForMoveRectangle = (
             status: "on_dragging",
             start: { x: 0, y: 0 },
             current: { x: moving.x, y: moving.y },
-            delta: () => ({ x: moving.x, y: moving.y })
+            delta: () => {
+                return { x: moving.x, y: moving.y };
+            }
         };
 
         const nextOrthogonal = toNextOrthogonalLines({

@@ -57,7 +57,7 @@ export const reduceSelectAction = (currentStatus: SelectState, action: SelectAct
 };
 
 const handleSelectTable = (currentStatus: SelectState, action: SelectTableAction): SelectState => {
-    if (!action.withMultiSelection) {
+    if (action.withMultiSelection === false) {
         return currentStatus.tableIds.has(action.tableId)
             ? EMPTY_SELECT_STATE
             : { status: "on_selecting", tableIds: new Set([action.tableId]), memoIds: EMPTY_IDS };
@@ -65,7 +65,7 @@ const handleSelectTable = (currentStatus: SelectState, action: SelectTableAction
 
     const nextTableIds = new Set(currentStatus.tableIds);
     const removed = nextTableIds.delete(action.tableId);
-    if (!removed) {
+    if (removed === false) {
         nextTableIds.add(action.tableId);
     }
 
@@ -73,7 +73,7 @@ const handleSelectTable = (currentStatus: SelectState, action: SelectTableAction
 }
 
 const handleSelectMemo = (currentStatus: SelectState, action: SelectMemoAction): SelectState => {
-    if (!action.withMultiSelection) {
+    if (action.withMultiSelection === false) {
         return currentStatus.memoIds.has(action.memoId)
             ? EMPTY_SELECT_STATE
             : { status: "on_selecting", tableIds: EMPTY_IDS, memoIds: new Set([action.memoId]) };
@@ -81,7 +81,7 @@ const handleSelectMemo = (currentStatus: SelectState, action: SelectMemoAction):
 
     const nextMemoIds = new Set(currentStatus.memoIds);
     const removed = nextMemoIds.delete(action.memoId);
-    if (!removed) {
+    if (removed === false) {
         nextMemoIds.add(action.memoId);
     }
 
@@ -89,7 +89,7 @@ const handleSelectMemo = (currentStatus: SelectState, action: SelectMemoAction):
 };
 
 const handleSelectBulk = (currentStatus: SelectState, action: SelectBulkAction): SelectState => {
-    if (!action.withMultiSelection) {
+    if (action.withMultiSelection === false) {
         if (action.tableIds.length + action.memoIds.length === 0) {
             return EMPTY_SELECT_STATE;
         }

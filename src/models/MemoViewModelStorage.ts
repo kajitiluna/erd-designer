@@ -1,4 +1,5 @@
 import MemoViewModel from "~/models/MemoViewModel";
+import { equalsIdSequence, equalsModelMap } from "~/models/storage-support";
 
 type MemoDirection = "front" | "back";
 
@@ -116,36 +117,14 @@ export default class MemoViewModelStorage {
     }
 
     public equals(other: MemoViewModelStorage): boolean {
-        if (this.memoIdMap.size !== other.memoIdMap.size) {
+        if (equalsModelMap(this.memoIdMap, other.memoIdMap) === false) {
+            return false;
+        }
+        if (equalsIdSequence(this.foregroundIds, other.foregroundIds) === false) {
             return false;
         }
 
-        for (const [memoId, memo] of this.memoIdMap) {
-            const otherMemo = other.memoIdMap.get(memoId);
-            if ((otherMemo == null) || !memo.equals(otherMemo)) {
-                return false;
-            }
-        }
-
-        if (this.foregroundIds.length !== other.foregroundIds.length) {
-            return false;
-        }
-        for (let index = 0; index < this.foregroundIds.length; index++) {
-            if (this.foregroundIds[index] !== other.foregroundIds[index]) {
-                return false;
-            }
-        }
-
-        if (this.backgroundIds.length !== other.backgroundIds.length) {
-            return false;
-        }
-        for (let index = 0; index < this.backgroundIds.length; index++) {
-            if (this.backgroundIds[index] !== other.backgroundIds[index]) {
-                return false;
-            }
-        }
-
-        return true;
+        return equalsIdSequence(this.backgroundIds, other.backgroundIds);
     }
 }
 

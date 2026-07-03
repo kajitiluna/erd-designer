@@ -26,7 +26,7 @@ export default class DisplayStyle {
     }
 
     public static toObject(obj: object): DisplayStyle {
-        if (!("styleName" in obj)) {
+        if (("styleName" in obj) === false) {
             return DisplayStyle.BOTH;
         }
 

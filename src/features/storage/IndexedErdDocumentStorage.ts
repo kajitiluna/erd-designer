@@ -57,7 +57,7 @@ class IndexedDBStorage implements ErdDocumentStorage {
 
             request.onsuccess = () => {
                 const cursor = request.result;
-                if (!cursor) {
+                if (cursor == null) {
                     // 最終更新日の降順で並べる
                     documents.sort((first, second) => {
                         const timeCompared = second.lastUpdatedAt.getTime() - first.lastUpdatedAt.getTime();

@@ -1,7 +1,6 @@
 import ColumnType from "~/models/database/ColumnType";
 import { Database } from "~/models/database/DatabaseType";
-import { PropertyNotExistsError } from "~/models/exceptions";
-import { toDateTime } from "~/models/util";
+import { requireProperty, toDateTime } from "~/models/util";
 
 type ColumnShareModelOptions = {
     columnShareModelId: string,
@@ -109,18 +108,10 @@ export default class ColumnShareModel {
     }
 
     public static toObject(obj: object, toColumnType: (columnTypeId: number) => ColumnType) {
-        if (!("columnShareModelId" in obj)) {
-            throw new PropertyNotExistsError("columnShareModelId", obj);
-        }
-        if (!("physicalName" in obj)) {
-            throw new PropertyNotExistsError("physicalName", obj);
-        }
-        if (!("logicalName" in obj)) {
-            throw new PropertyNotExistsError("logicalName", obj);
-        }
-        if (!("columnTypeId" in obj)) {
-            throw new PropertyNotExistsError("columnTypeId", obj);
-        }
+        requireProperty(obj, "columnShareModelId");
+        requireProperty(obj, "physicalName");
+        requireProperty(obj, "logicalName");
+        requireProperty(obj, "columnTypeId");
 
         return new ColumnShareModel({
             columnShareModelId: obj.columnShareModelId as string,

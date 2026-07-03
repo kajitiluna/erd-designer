@@ -130,7 +130,7 @@ const useGdriveStateParam = (): GdriveState => {
     const stateValue = urlParams.get("state") || "{}";
 
     const gdriveState = JSON.parse(stateValue);
-    if (!("action" in gdriveState)) {
+    if (("action" in gdriveState) === false) {
         console.error(`Not found action value in state query. ${stateValue}`);
         return { action: "none" };
     }

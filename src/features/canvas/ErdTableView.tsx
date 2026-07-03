@@ -14,7 +14,7 @@ import TopLeftTooltip from "~/components/TopLeftTooltip";
 import KeyColor from "~/components/icons/KeyColor";
 import PrimaryKeyIcon from "~/components/icons/PrimaryKeyIcon";
 import ForeignKeyIcon from "~/components/icons/ForeignKeyIcon";
-import DisplayScaleContext from "~/context/DisplayScaleContext";
+import ViewportContext from "~/context/ViewportContext";
 import { DragAction, DragActionContext } from "~/context/DragActionContext";
 import EditModeContext from "~/context/EditModeContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
@@ -23,7 +23,6 @@ import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityConte
 import PortalCanvasContext from "~/context/PortalCanvasContext";
 import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
 import EditAction from "~/features/canvas/EditAction";
-import CanvasPositionContext from "~/context/CanvasPositionContext";
 import { handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
 import TableViewModel from "~/models/TableViewModel";
 import ColorValue from "~/models/ColorValue";
@@ -176,7 +175,8 @@ const initTableColumn = (columnModel: ColumnModel, tableModel: TableModel, erdDo
     };
 
     return (
-        <TableRow key={`erd-table-column_${columnModel.columnModelId}`} sx={styleRow}>
+        <TableRow key={`erd-table-column_${columnModel.columnModelId}`}
+            data-column-id={columnModel.columnModelId} sx={styleRow}>
             <TableCell align="center" sx={STYLE_PRIMARY_CELL} >
                 {columnModel.primaryKey && <PrimaryKeyIcon />}
             </TableCell>
@@ -219,7 +219,7 @@ const isSelectedRelationColumn = (columnId: string, erdDocument: ErdDocument, se
     }
 
     for (const pair of viewModel.relationModel.relationPairs) {
-        if (pair.parentColumnModelId === columnId || pair.childColumnModelId === columnId) {
+        if ((pair.parentColumnModelId === columnId) || (pair.childColumnModelId === columnId)) {
             return true;
         }
     }
@@ -354,12 +354,11 @@ const InnerErdTableView = ({
 }: InnerErdTableViewProps) => {
 
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const { viewport, scaleState } = React.useContext(ViewportContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
-    const { scale: displayScale } = React.useContext(DisplayScaleContext);
-    const positionResolver = React.useContext(CanvasPositionContext);
     const { toolbarCanvasElement } = React.useContext(PortalCanvasContext);
 
     const containerRef = React.useRef<HTMLDivElement>(null);
@@ -377,7 +376,7 @@ const InnerErdTableView = ({
             return;
         }
 
-        const mousePosition = positionResolver.getLogicalPosition(event, displayScale);
+        const mousePosition = viewport.getLogicalPosition(event);
         if (editMode === EditModeType.SELECT) {
             event.stopPropagation();
 
@@ -420,7 +419,7 @@ const InnerErdTableView = ({
 
         if (editMode === EditModeType.SELECT) {
             const didDrag = (dragState.status === "on_dragging")
-                && (dragState.delta().x !== 0 || dragState.delta().y !== 0);
+                && ((dragState.delta().x !== 0) || (dragState.delta().y !== 0));
             if (didDrag) {
                 return;
             }
@@ -541,7 +540,7 @@ const InnerErdTableView = ({
     const moving = (selected && (dragState.status === "on_dragging"))
         ? dragState.delta() : { x: 0, y: 0 }
 
-    const physicalPosition = positionResolver.toPhysicalPosition(
+    const physicalPosition = viewport.toPhysicalPosition(
         { x: tableViewModel.corner.left + moving.x, y: tableViewModel.corner.top + moving.y }
     );
     const tableStyle = {
@@ -549,7 +548,7 @@ const InnerErdTableView = ({
         left: physicalPosition.x, top: physicalPosition.y,
         display: "flex", flexDirection: "column", justifyContent: "flex-start",
         userSelect: "none",
-        ...(!visible && { opacity: 0, pointerEvents: 'none' })
+        ...((visible === false) && { opacity: 0, pointerEvents: 'none' })
     };
 
     const boundStyle = {
@@ -565,11 +564,11 @@ const InnerErdTableView = ({
         : ERD_TABLE_VIEW_CLASS_NAME;
 
     const initControlPanel = () => {
-        if (!containerRef.current || !toolbarCanvasElement) {
+        if ((containerRef.current == null) || (toolbarCanvasElement == null)) {
             return (<></>);
         }
 
-        if (!selected || (editMode !== EditModeType.SELECT)
+        if ((selected === false) || (editMode !== EditModeType.SELECT)
             || (dragState.status === "on_dragging")
             || (selectState.tableIds.size + selectState.memoIds.size !== 1)) {
             return (<></>);
@@ -580,10 +579,10 @@ const InnerErdTableView = ({
         const controlPanelStyle: React.CSSProperties = {
             justifyContent: "flex-end",
             position: "absolute",
-            left: (containerRect.right - portalRect.left) / displayScale,
-            top: (containerRect.bottom - portalRect.top + 10) / displayScale,
+            left: (containerRect.right - portalRect.left) / scaleState.scale,
+            top: (containerRect.bottom - portalRect.top + 10) / scaleState.scale,
             transformOrigin: "top right",
-            transform: `translateX(-100%) scale(${1 / displayScale})`,
+            transform: `translateX(-100%) scale(${1 / scaleState.scale})`,
             pointerEvents: "auto",
         };
 
@@ -625,6 +624,7 @@ const InnerErdTableView = ({
         <Box sx={tableStyle} ref={containerRef}>
             <Box id={tableViewModel.tableId} tabIndex={0} sx={boundStyle}
                 style={{ cursor: 'pointer' }} className={tableClassName}
+                data-entity-id={tableViewModel.tableId}
                 onMouseDown={handleMouseDown} onMouseUp={handleMouseUp}
                 onClick={handleClick} onDoubleClick={handleDoubleClick}>
                 {tableContentCache}

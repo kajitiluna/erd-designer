@@ -1,6 +1,5 @@
 import DbSchemaModel from "~/models/database/DbSchemaModel";
-import { PropertyNotExistsError } from "~/models/exceptions";
-import { toObjects } from "~/models/util";
+import { requireProperty, toObjects } from "~/models/util";
 
 class DbSchemaConfig {
 
@@ -75,7 +74,7 @@ class DbSchemaConfig {
 
             const thisSchema = this.schemaMap.get(schemaId);
             const otherSchema = other.schemaMap.get(schemaId);
-            if (!thisSchema || !otherSchema || !thisSchema.equals(otherSchema)) {
+            if ((thisSchema == null) || (otherSchema == null) || (thisSchema.equals(otherSchema) === false)) {
                 return false;
             }
         }
@@ -91,12 +90,8 @@ class DbSchemaConfig {
     }
 
     public static toObject(obj: object) {
-        if (!("defaultSchemaId" in obj)) {
-            throw new PropertyNotExistsError("defaultSchemaId", obj);
-        }
-        if (!("schemas" in obj)) {
-            throw new PropertyNotExistsError("schemas", obj);
-        }
+        requireProperty(obj, "defaultSchemaId");
+        requireProperty(obj, "schemas");
 
         const defaultSchemaId = obj.defaultSchemaId as string;
         const schemas = toObjects(obj.schemas, "schemas", schema => DbSchemaModel.toObject(schema))

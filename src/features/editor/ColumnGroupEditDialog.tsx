@@ -94,7 +94,9 @@ const initColumnWrapModels = (erdDocument: ErdDocument, columnGroup: ColumnGroup
     return columnGroup.columnModelIds
         .map(columnModelId => erdDocument.findColumnModel(columnModelId))
         .filter(columnModel => (columnModel != null))
-        .map(columnModel => ({ modelType: "single", columnModel: columnModel }));
+        .map(columnModel => {
+            return { modelType: "single", columnModel: columnModel };
+        });
 };
 
 export default ColumnGroupEditDialog;

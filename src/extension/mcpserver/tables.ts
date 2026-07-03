@@ -257,14 +257,14 @@ const doFilterTableViews = (params: TableListFilterParams, erdDocument: ErdDocum
         const matchedTablePhysical = (tablePhysicalNameContains.length === 0)
             || tablePhysicalNameContains.every(filtering =>
                 tableView.tableModel.physicalName.includes(filtering));
-        if (!matchedTablePhysical) {
+        if (matchedTablePhysical === false) {
             return false;
         };
 
         const matchedTableLogical = (tableLogicalNameContains.length === 0)
             || tableLogicalNameContains.every(filtering =>
                 tableView.tableModel.logicalName.includes(filtering));
-        if (!matchedTableLogical) {
+        if (matchedTableLogical === false) {
             return false;
         };
 
@@ -272,7 +272,7 @@ const doFilterTableViews = (params: TableListFilterParams, erdDocument: ErdDocum
 
         const matchedColumnIds = (columnIds.length === 0)
             || columnIds.every(filtering => allColumns.some(column => column.columnModelId === filtering));
-        if (!matchedColumnIds) {
+        if (matchedColumnIds === false) {
             return false;
         };
 
@@ -287,7 +287,7 @@ const doFilterTableViews = (params: TableListFilterParams, erdDocument: ErdDocum
                 return columnPhysicalNameContains.every(filtering =>
                     overrideNames.physicalName.includes(filtering));
             });
-        if (!matchedColumnPhysical) {
+        if (matchedColumnPhysical === false) {
             return false;
         };
 
@@ -302,7 +302,7 @@ const doFilterTableViews = (params: TableListFilterParams, erdDocument: ErdDocum
                 return columnLogicalNameContains.every(filtering =>
                     overrideNames.logicalName.includes(filtering));
             });
-        if (!matchedColumnLogical) {
+        if (matchedColumnLogical === false) {
             return false;
         };
 
@@ -580,10 +580,12 @@ const initCallbackForAddTable = (documentResource: DocumentResource): ToolCallba
             collate: table.collate || "",
             definitionExpression: table.definitionExpression || "",
             optionExpression: table.optionExpression || "",
-            columns: columns.map(column => ({
-                modelType: "single" as const,
-                columnModelId: column.columnModelId
-            })),
+            columns: columns.map(column => {
+                return {
+                    modelType: "single" as const,
+                    columnModelId: column.columnModelId
+                };
+            }),
         });
 
         const addTableView = new TableViewModel({
@@ -1113,7 +1115,7 @@ const initCallbackForAddUniqueConstraint = (
         for (const entry of uniqueConstraints) {
             const uniqueConstraint = entry.uniqueConstraint;
             const uniqueKeysColumnModels = uniqueConstraint.uniqueKeys.map(uniqueKey => {
-                if (!columnIdSet.has(uniqueKey.columnId)) {
+                if (columnIdSet.has(uniqueKey.columnId) === false) {
                     throw initInvalidParams(`ColumnId not found in the table: ${uniqueKey.columnId}`);
                 }
 
@@ -1218,7 +1220,7 @@ const initCallbackForUpdateUniqueConstraint = (
         const columnIdSet = new Set(previousDocument.toAllColumnModels(previousTable).map(model => model.columnModelId));
 
         const nextUniqueKeysColumnModels = updating.uniqueKeys?.map(uniqueKey => {
-            if (!columnIdSet.has(uniqueKey.columnId)) {
+            if (columnIdSet.has(uniqueKey.columnId) === false) {
                 throw initInvalidParams(`ColumnId not found in the table: ${uniqueKey.columnId}`);
             }
 
@@ -1302,7 +1304,7 @@ const initCallbackForDeleteUniqueConstraint = (
         const previousTable = previousTableView.tableModel;
         const deletingIds = new Set(uniqueConstraintIds);
         const nextUniqueKeysModels = previousTable.uniqueKeysModels
-            .filter(uniqueModel => !deletingIds.has(uniqueModel.tableUniqueKeysModelId));
+            .filter(uniqueModel => (deletingIds.has(uniqueModel.tableUniqueKeysModelId) === false));
 
         const nextTableView = new TableViewModel({
             ...previousTableView,
@@ -1399,15 +1401,15 @@ const initCallbackForAddTableIndex = (
 
         for (const entry of tableIndexes) {
             const tableIndex = entry.tableIndex;
-            const indexColumnModels = tableIndex.indexColumns.map(col => {
-                if (!columnIdSet.has(col.columnId)) {
-                    throw initInvalidParams(`ColumnId not found in the table: ${col.columnId}`);
+            const indexColumnModels = tableIndex.indexColumns.map(indexColumn => {
+                if (columnIdSet.has(indexColumn.columnId) === false) {
+                    throw initInvalidParams(`ColumnId not found in the table: ${indexColumn.columnId}`);
                 }
 
                 return new IndexColumnModel({
-                    columnModelId: col.columnId,
-                    sortOrderType: col.order || "",
-                    nullsOrderType: col.nullsOrder || ""
+                    columnModelId: indexColumn.columnId,
+                    sortOrderType: indexColumn.order || "",
+                    nullsOrderType: indexColumn.nullsOrder || ""
                 });
             });
 
@@ -1513,15 +1515,15 @@ const initCallbackForUpdateTableIndex = (
             throw initInvalidParams(`Table index not found: ${tableIndexId}`);
         }
         const columnIdSet = new Set(previousDocument.toAllColumnModels(previousTable).map(model => model.columnModelId));
-        const nextIndexColumnModels = updating.indexColumns?.map(col => {
-            if (!columnIdSet.has(col.columnId)) {
-                throw initInvalidParams(`ColumnId not found in the table: ${col.columnId}`);
+        const nextIndexColumnModels = updating.indexColumns?.map(indexColumn => {
+            if (columnIdSet.has(indexColumn.columnId) === false) {
+                throw initInvalidParams(`ColumnId not found in the table: ${indexColumn.columnId}`);
             }
 
             return new IndexColumnModel({
-                columnModelId: col.columnId,
-                sortOrderType: col.order || "",
-                nullsOrderType: col.nullsOrder || ""
+                columnModelId: indexColumn.columnId,
+                sortOrderType: indexColumn.order || "",
+                nullsOrderType: indexColumn.nullsOrder || ""
             });
         });
 
@@ -1602,7 +1604,7 @@ const initCallbackForDeleteTableIndex = (
         const previousTable = previousTableView.tableModel;
         const deletingIds = new Set(tableIndexIds);
         const nextTableIndexModels = previousTable.tableIndexModels
-            .filter(indexModel => !deletingIds.has(indexModel.tableIndexModelId));
+            .filter(indexModel => (deletingIds.has(indexModel.tableIndexModelId) === false));
 
         const nextTableView = new TableViewModel({
             ...previousTableView,
@@ -1623,13 +1625,13 @@ const initCallbackForDeleteTableIndex = (
 // ==================== shared helpers ====================
 
 const validateSchemaId = (erdBudget: DocumentBudget, schemaId: string | undefined, defaultValue: string = "") => {
-    if (!schemaId) {
+    if ((schemaId == null) || (schemaId === "")) {
         return defaultValue;
     }
 
     const erdDocument = erdBudget.erdDocument;
     const database = erdDocument.getDatabase();
-    if (!database.supportsSchema) {
+    if (database.supportsSchema === false) {
         throw initInvalidParams(`The database type '${database.databaseType}' does not support schemas.`);
     }
 

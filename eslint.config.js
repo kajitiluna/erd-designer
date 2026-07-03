@@ -40,9 +40,28 @@ export default tseslint.config(
       ],
       "react/jsx-uses-react": "error",
       "react/jsx-uses-vars": "error",
+      "no-mixed-operators": ["error", {
+        groups: [
+          ["==", "!=", "===", "!==", ">", ">=", "<", "<=", "&&", "||"],
+        ],
+        allowSamePrecedence: true,
+      }],
     },
   },
   react.configs.flat.recommended,
   react.configs.flat["jsx-runtime"],
-  { settings: { react: { version: "detect" } } }
+  { settings: { react: { version: "detect" } } },
+  {
+    // ErdCanvas 内部モジュール (private 相当) は ErdCanvas ディレクトリ内からのみ参照可能とする
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["src/features/canvas/ErdCanvas/**"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [{
+          group: ["**/ErdCanvas/*"],
+          message: "ErdCanvas internal modules are private. Import \"~/features/canvas/ErdCanvas\" instead.",
+        }],
+      }],
+    },
+  }
 );

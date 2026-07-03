@@ -1,4 +1,5 @@
 import ColumnShareModel from "~/models/database/ColumnShareModel";
+import { equalsModelMap } from "~/models/storage-support";
 
 export default class ColumnShareModelStorage {
 
@@ -75,17 +76,6 @@ export default class ColumnShareModelStorage {
     }
 
     public equals(other: ColumnShareModelStorage): boolean {
-        if (this.columnShareModelMap.size !== other.columnShareModelMap.size) {
-            return false;
-        }
-
-        for (const [key, value] of this.columnShareModelMap) {
-            const otherValue = other.columnShareModelMap.get(key);
-            if (otherValue == null || !value.equals(otherValue)) {
-                return false;
-            }
-        }
-
-        return true;
+        return equalsModelMap(this.columnShareModelMap, other.columnShareModelMap);
     }
 }

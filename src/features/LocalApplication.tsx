@@ -5,19 +5,18 @@ import ErdDocument from "~/models/ErdDocument";
 import initializeErdDocumentDB from "~/features/storage/IndexedErdDocumentStorage";
 import StartUp from "~/features/start_up/StartUp";
 import ErdDocumentStorage from "~/features/storage/ErdDocumentStorage";
-import MainView from "~/features/MainView";
-import ExportSpecificationContext, { ImageContent } from "~/context/ExportSpecificationContext";
-import exportExcelFormatSpecification from "~/features/spec/ExcelFormatSpecification";
-import download from "~/components/file-downloader";
+import ErdApplicationShell from "~/features/ErdApplicationShell";
 
 const LocalApplication = () => {
     const [documentStorage, setDocumentStorage] = React.useState<ErdDocumentStorage | null>(null);
     const [erdDocument, setErdDocument] = React.useState<ErdDocument | null>(null);
     const [storageHandler, setStorageHandler] = React.useState<StorageHandler>({ handle: () => { } });
 
-    if (documentStorage == null) {
+    React.useEffect(() => {
         initializeErdDocumentDB().then(storage => setDocumentStorage(storage));
+    }, []);
 
+    if (documentStorage == null) {
         return (
             <Container>
                 <Paper elevation={3}>
@@ -35,8 +34,7 @@ const LocalApplication = () => {
     }
 
     const handleOpenDocument = (
-        openDocument: ErdDocument, 
-        onSave: (document: ErdDocument, loggingMessage: string) => void
+        openDocument: ErdDocument, onSave: (document: ErdDocument, loggingMessage: string) => void
     ) => {
         setStorageHandler({ handle: onSave });
         setErdDocument(openDocument);
@@ -48,17 +46,8 @@ const LocalApplication = () => {
         );
     }
 
-    const exportSpecification = (erdDocument: ErdDocument, contents: ImageContent) => {
-        exportExcelFormatSpecification(erdDocument, contents).then((specs: Blob) => {
-            const fileName = `${erdDocument.documentName}.xlsx`;
-            download(fileName, specs);
-        });
-    };
-
     return (
-        <ExportSpecificationContext.Provider value={{ exportSpecification }}>
-            <MainView erdDocument={erdDocument} onSave={storageHandler.handle} />
-        </ExportSpecificationContext.Provider>
+        <ErdApplicationShell erdDocument={erdDocument} onSave={storageHandler.handle} />
     );
 };
 

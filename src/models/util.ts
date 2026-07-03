@@ -1,4 +1,14 @@
-import { PropertyNotArrayError, PropertyNotObjectError } from "~/models/exceptions";
+import { PropertyNotArrayError, PropertyNotExistsError, PropertyNotObjectError } from "~/models/exceptions";
+
+/**
+ * デコード対象のオブジェクトに指定プロパティが存在することを検証するアサーション関数。
+ * 存在しない場合は PropertyNotExistsError を送出する。
+ */
+export function requireProperty<KEY extends string>(obj: object, propertyName: KEY): asserts obj is Record<KEY, unknown> {
+    if ((propertyName in obj) === false) {
+        throw new PropertyNotExistsError(propertyName, obj);
+    }
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function toObjects<OUTPUT_TYPE>(obj: any, propertyName: string, convert: (item: object) => OUTPUT_TYPE): OUTPUT_TYPE[] {

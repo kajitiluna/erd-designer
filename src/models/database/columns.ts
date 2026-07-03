@@ -253,7 +253,7 @@ export const migrateColumns = (databaseType: DatabaseType, orgColumnTypes: Colum
                 return columnType;
             }
 
-            if (!latestColumnType.withAutoIncrement) {
+            if (latestColumnType.withAutoIncrement === false) {
                 return columnType;
             }
 

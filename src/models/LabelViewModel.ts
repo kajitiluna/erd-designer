@@ -1,5 +1,5 @@
 import ColorValue from "~/models/ColorValue";
-import { PropertyNotExistsError } from "~/models/exceptions";
+import { requireProperty } from "~/models/util";
 
 export type LabelPosition = {
     segment: number,
@@ -97,18 +97,10 @@ export default class LabelViewModel {
     }
 
     public static toObject(obj: object): LabelViewModel {
-        if (!("label" in obj)) {
-            throw new PropertyNotExistsError("label", obj);
-        }
-        if (!("position" in obj)) {
-            throw new PropertyNotExistsError("position", obj);
-        }
-        if (!("color" in obj)) {
-            throw new PropertyNotExistsError("color", obj);
-        }
-        if (!("style" in obj)) {
-            throw new PropertyNotExistsError("style", obj);
-        }
+        requireProperty(obj, "label");
+        requireProperty(obj, "position");
+        requireProperty(obj, "color");
+        requireProperty(obj, "style");
 
         return new LabelViewModel({
             label: obj.label as string,

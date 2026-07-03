@@ -1,6 +1,5 @@
 import { SortOrderType } from "~/models/database/ValueType";
-import { PropertyNotExistsError } from "~/models/exceptions";
-import { toObjects } from "~/models/util";
+import { requireProperty, toObjects } from "~/models/util";
 
 type TableUniqueKeysModelOptions = {
     tableUniqueKeysModelId: string,
@@ -24,7 +23,7 @@ export default class TableUniqueKeysModel {
     }: TableUniqueKeysModelOptions) {
         this.tableUniqueKeysModelId = tableUniqueKeysModelId;
         this.physicalName = physicalName.trim();
-        this.uniqueKeysColumnModels = uniqueKeysColumnModels;
+        this.uniqueKeysColumnModels = [...uniqueKeysColumnModels];
         this.description = description;
     }
 
@@ -66,12 +65,8 @@ export default class TableUniqueKeysModel {
     }
 
     public static toObject(obj: object): TableUniqueKeysModel {
-        if (!("tableUniqueKeysModelId" in obj)) {
-            throw new PropertyNotExistsError("tableUniqueKeysModelId", obj);
-        }
-        if (!("uniqueKeysColumnModels" in obj)) {
-            throw new PropertyNotExistsError("uniqueKeysColumnModels", obj);
-        }
+        requireProperty(obj, "tableUniqueKeysModelId");
+        requireProperty(obj, "uniqueKeysColumnModels");
 
         const physicalName = ("physicalName" in obj) ? obj.physicalName as string : "";
         const uniqueKeysColumnModels = toObjects(obj.uniqueKeysColumnModels, "uniqueKeysColumnModels",
@@ -139,9 +134,7 @@ export class UniqueKeysColumnModel {
     }
 
     public static toObject(obj: object): UniqueKeysColumnModel {
-        if (!("columnModelId" in obj)) {
-            throw new PropertyNotExistsError("columnModelId", obj);
-        }
+        requireProperty(obj, "columnModelId");
 
         return new UniqueKeysColumnModel({
             columnModelId: obj.columnModelId as string,
