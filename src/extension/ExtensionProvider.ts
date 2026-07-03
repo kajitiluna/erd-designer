@@ -2,6 +2,9 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { DocumentResource } from '~/extension/DocumentResource';
 import { RectangleType } from '~/extension/mcpserver/DocumentBudget';
+import {
+    ChangeDocumentMessage, ERD_MESSAGE_EVENT_SOURCE, InitDocumentMessage
+} from '~/extension/webview-messages';
 
 export class ExtensionProvider implements vscode.CustomTextEditorProvider {
 
@@ -38,39 +41,41 @@ const handleResolvingTextEditor = (
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleReceivedMessage = async (message: any) => {
-        if (!("eventSource" in message) || !("messageType" in message)) {
+        if ((("eventSource" in message) === false) || (("messageType" in message) === false)) {
             return;
         }
-        if (message.eventSource !== "erd-designer") {
+        if (message.eventSource !== ERD_MESSAGE_EVENT_SOURCE) {
             return;
         }
 
         if (message.messageType === "ready") {
             const handleChangeView = (updating: string) => {
                 // 自身の操作以外で更新された場合は WebView に変更を通知する
-                webviewPanel.webview.postMessage({
-                    eventSource: "erd-designer",
+                const changeDocumentMessage: ChangeDocumentMessage = {
+                    eventSource: ERD_MESSAGE_EVENT_SOURCE,
                     messageType: "changeDocument",
                     documentUri: documentUri,
                     jsonContext: updating
-                });
+                };
+                webviewPanel.webview.postMessage(changeDocumentMessage);
             };
             documentResource.register(textDocument, jsonContent, handleChangeView);
 
             // React アプリケーションの準備が完了してから、ファイルの内容を React アプリケーションに渡す
-            webviewPanel.webview.postMessage({
-                eventSource: "erd-designer",
+            const initDocumentMessage: InitDocumentMessage = {
+                eventSource: ERD_MESSAGE_EVENT_SOURCE,
                 messageType: "init",
                 documentUri: documentUri,
                 jsonContext: jsonContent
-            });
+            };
+            webviewPanel.webview.postMessage(initDocumentMessage);
 
             console.info(`Received ready event from webview and sent init event: ${documentUri}`);
 
             return;
         }
 
-        if (!("documentUri" in message)) {
+        if (("documentUri" in message) === false) {
             return;
         }
         if (documentUri !== message.documentUri) {
@@ -79,7 +84,7 @@ const handleResolvingTextEditor = (
 
         // 描画処理更新の反映
         if (message.messageType === "drawnRectangles") {
-            if (!("rectangles" in message)) {
+            if (("rectangles" in message) === false) {
                 return;
             }
 
@@ -90,7 +95,7 @@ const handleResolvingTextEditor = (
 
         // 保存処理の実行
         if (message.messageType === "save") {
-            if (!("erdDocument" in message)) {
+            if (("erdDocument" in message) === false) {
                 return;
             }
 
@@ -123,14 +128,14 @@ const saveDocument = async (
     workspaceEdit.replace(textDocument.uri, editRange, jsonContent);
 
     const success = await vscode.workspace.applyEdit(workspaceEdit);
-    if (!success) {
+    if (success === false) {
         // ファイル保存が失敗した場合にエラーメッセージを表示
         vscode.window.showErrorMessage(`Failed to save erd file : ${textDocument.fileName}`);
         return;
     }
 
     const result = await textDocument.save();
-    if (!result) {
+    if (result === false) {
         // ファイル保存が失敗した場合にエラーメッセージを表示
         vscode.window.showErrorMessage(`Failed to save erd file : ${textDocument.fileName}`);
         return;
@@ -148,7 +153,7 @@ const initWebViewHtml = (context: vscode.ExtensionContext, webview: vscode.Webvi
     const scriptMatch = htmlContent.match(/src="([^"]+\.js)"/);
     const styleMatch = htmlContent.match(/href="([^"]+\.css)"/);
 
-    if (!scriptMatch || !styleMatch) {
+    if ((scriptMatch == null) || (styleMatch == null)) {
         throw new Error('Failed to extract script or style paths from dist/index.html');
     }
 

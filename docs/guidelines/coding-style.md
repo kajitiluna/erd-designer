@@ -123,4 +123,20 @@ if (!isOpen || !resizingDirection.isResizing()) {
 if ((isOpen === false) || (resizingDirection.isResizing() === false)) {
 ```
 
-Exception: when `!` is the only practical option. Not enforced by ESLint — manual review rule.
+Exceptions:
+- When `!` is the only practical option.
+- JSX attributes such as `disabled={!isValid}` — expanded comparisons widen the JSX and hurt readability.
+
+Not enforced by ESLint — manual review rule.
+
+## 10. Component-private modules stay inside the component directory
+
+Functions tightly coupled to a component (`initXxx`, `doXxx`) are private. When splitting them into files, place them under the component's directory (`ComponentName/index.tsx` + internal modules) and forbid deep imports from outside.
+
+```
+src/features/canvas/ErdCanvas/
+├── index.tsx        // public API: default export + ERD_CANVAS_ID only
+└── *.ts(x)          // internal modules — import only within this directory
+```
+
+ESLint: `no-restricted-imports` with `patterns: ["**/ErdCanvas/*"]`, ignoring the component directory itself.

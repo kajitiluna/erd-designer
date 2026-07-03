@@ -61,7 +61,9 @@ const addContentSheet = (
     workbook: ExcelJS.Workbook, exportTableSpecs: () => TableDetailSpecGenerator,
     findSheetName: (tableName: string) => string
 ) => {
-    const initCellValueWithLink = (value: string) => ({ text: value, hyperlink: `#'${value}'!A1` });
+    const initCellValueWithLink = (value: string) => {
+        return { text: value, hyperlink: `#'${value}'!A1` };
+    };
 
     const contentSheet = workbook.addWorksheet(SHEET_NAME.CONTENT);
 

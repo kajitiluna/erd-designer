@@ -1,4 +1,5 @@
 import PerspectiveModel from "~/models/PerspectiveModel";
+import { equalsIdSequence, equalsModelMap } from "~/models/storage-support";
 
 class PerspectiveModelStorage {
 
@@ -42,27 +43,11 @@ class PerspectiveModelStorage {
     }
 
     public equals(other: PerspectiveModelStorage): boolean {
-        const thisIds = this.perspectiveIds;
-        const otherIds = other.perspectiveIds;
-
-        if (thisIds.length !== otherIds.length) {
+        if (equalsIdSequence(this.perspectiveIds, other.perspectiveIds) === false) {
             return false;
         }
 
-        for (let index = 0; index < thisIds.length; index++) {
-            if (thisIds[index] !== otherIds[index]) {
-                return false;
-            }
-
-            const thisModel = this.perspectiveMap.get(thisIds[index])!;
-            const otherModel = other.perspectiveMap.get(otherIds[index])!;
-
-            if (!thisModel.equals(otherModel)) {
-                return false;
-            }
-        }
-
-        return true;
+        return equalsModelMap(this.perspectiveMap, other.perspectiveMap);
     }
 }
 

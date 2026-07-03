@@ -3,11 +3,12 @@ import { CircularProgress } from "@mui/material";
 
 import ErdDocument from "~/models/ErdDocument";
 import InitializeDatabaseDialog from "~/features/start_up/InitializeDatabaseDialog";
-import ExportSpecificationContext, { ImageContent } from "~/context/ExportSpecificationContext";
-import exportExcelFormatSpecification from "~/features/spec/ExcelFormatSpecification";
-import download from "~/components/file-downloader";
-import MainView from "~/features/MainView";
+import ErdApplicationShell from "~/features/ErdApplicationShell";
 import RectangleViewModel from "~/models/RectangleViewModel";
+import {
+    CANVAS_RECTANGLES_DRAWN_EVENT, ERD_MESSAGE_EVENT_SOURCE, EXTERNAL_DOCUMENT_CHANGED_EVENT,
+    DrawnRectanglesMessage, SaveDocumentMessage, WebviewReadyMessage
+} from "~/extension/webview-messages";
 
 const VsCodeExtensionApplication = (prop: { vscodeApi: VsCodeApi }) => {
     const [documentUri, setDocumentUri] = React.useState<string>("");
@@ -21,13 +22,13 @@ const VsCodeExtensionApplication = (prop: { vscodeApi: VsCodeApi }) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const handleMessageFromVsCode = (event: MessageEvent<any>) => {
             const message = event.data;
-            if (!("eventSource" in message) || !("messageType" in message)
-                || !("documentUri" in message) || !("jsonContext" in message)) {
+            if ((("eventSource" in message) === false) || (("messageType" in message) === false)
+                || (("documentUri" in message) === false) || (("jsonContext" in message) === false)) {
                 console.error("Invalid message format received.");
                 return;
             }
 
-            if (message.eventSource !== "erd-designer") {
+            if (message.eventSource !== ERD_MESSAGE_EVENT_SOURCE) {
                 return;
             }
             const uri = message.documentUri as string;
@@ -67,7 +68,7 @@ const VsCodeExtensionApplication = (prop: { vscodeApi: VsCodeApi }) => {
                 const erdDocument = ErdDocument.toObject(JSON.parse(jsonContext));
 
                 // ドキュメントの履歴管理は MainView 配下で行うため、MainView 配下の ErdCanvas に変更を通知する
-                const customEvent = new CustomEvent("externalDocumentChanged", {
+                const customEvent = new CustomEvent(EXTERNAL_DOCUMENT_CHANGED_EVENT, {
                     detail: {
                         erdDocument: erdDocument
                     }
@@ -93,39 +94,43 @@ const VsCodeExtensionApplication = (prop: { vscodeApi: VsCodeApi }) => {
         const handleCanvasRectanglesDrawn = (event: Event) => {
             const customEvent = event as CustomEvent;
             const eventDetail = customEvent.detail;
-            if (!("tableRectangles" in eventDetail)) {
+            if (("tableRectangles" in eventDetail) === false) {
                 return;
             }
 
             const tableRectangles = eventDetail.tableRectangles as Map<string, RectangleViewModel>;
             const rectangles = Array.from(tableRectangles.entries())
-                .map(([tableId, rectangle]) => ({
-                    tableId,
-                    rectangle: { ...rectangle }
-                }));
+                .map(([tableId, rectangle]) => {
+                    return {
+                        tableId,
+                        rectangle: { ...rectangle }
+                    };
+                });
 
-            vscodeApi.postMessage({
-                eventSource: "erd-designer",
+            const drawnRectanglesMessage: DrawnRectanglesMessage = {
+                eventSource: ERD_MESSAGE_EVENT_SOURCE,
                 messageType: "drawnRectangles",
                 documentUri: documentUri,
                 rectangles: rectangles
-            });
+            };
+            vscodeApi.postMessage(drawnRectanglesMessage);
         };
 
-        window.addEventListener("canvasRectanglesDrawn", handleCanvasRectanglesDrawn);
+        window.addEventListener(CANVAS_RECTANGLES_DRAWN_EVENT, handleCanvasRectanglesDrawn);
 
         return () => {
-            window.removeEventListener("canvasRectanglesDrawn", handleCanvasRectanglesDrawn);
+            window.removeEventListener(CANVAS_RECTANGLES_DRAWN_EVENT, handleCanvasRectanglesDrawn);
         };
     }, [documentUri, vscodeApi]);
 
     // 初期化処理が終わっていない場合は、読み込み中であることを示す
     if (documentUri === "") {
         // VSCode 側に準備完了を通知する。その後、上記の message イベントが発火されるのを待つ。
-        vscodeApi.postMessage({
-            eventSource: "erd-designer",
+        const readyMessage: WebviewReadyMessage = {
+            eventSource: ERD_MESSAGE_EVENT_SOURCE,
             messageType: "ready"
-        });
+        };
+        vscodeApi.postMessage(readyMessage);
 
         console.debug("Sent ready event to vscode extension.");
 
@@ -140,13 +145,14 @@ const VsCodeExtensionApplication = (prop: { vscodeApi: VsCodeApi }) => {
     // VSCode 上のファイル保存処理
     const handleSaveDocument = (updating: ErdDocument, loggingMessage: string) => {
         // ファイル保存は VSCode 側に処理を委譲する
-        vscodeApi.postMessage({
-            eventSource: "erd-designer",
+        const saveMessage: SaveDocumentMessage = {
+            eventSource: ERD_MESSAGE_EVENT_SOURCE,
             messageType: "save",
             documentUri: documentUri,
             erdDocument: updating.toJSON(),
             loggingMessage: loggingMessage
-        });
+        };
+        vscodeApi.postMessage(saveMessage);
     };
 
     if (initDocument === null) {
@@ -165,17 +171,8 @@ const VsCodeExtensionApplication = (prop: { vscodeApi: VsCodeApi }) => {
         );
     }
 
-    const exportSpecification = (erdDocument: ErdDocument, contents: ImageContent) => {
-        exportExcelFormatSpecification(erdDocument, contents).then((specs: Blob) => {
-            const fileName = `${erdDocument.documentName}.xlsx`;
-            download(fileName, specs);
-        });
-    };
-
     return (
-        <ExportSpecificationContext.Provider value={{ exportSpecification }}>
-            <MainView erdDocument={initDocument} onSave={handleSaveDocument} erdExportable={false} />
-        </ExportSpecificationContext.Provider>
+        <ErdApplicationShell erdDocument={initDocument} onSave={handleSaveDocument} erdExportable={false} />
     );
 };
 

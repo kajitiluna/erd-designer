@@ -1,6 +1,6 @@
 import { v4 as uuidV4 } from 'uuid';
 
-import { PropertyNotExistsError } from "~/models/exceptions";
+import { requireProperty } from "~/models/util";
 
 type ColumnGroupModelOptions = {
     columnGroupId?: string,
@@ -21,7 +21,7 @@ export default class ColumnGroupModel {
     }: ColumnGroupModelOptions) {
         this.columnGroupId = columnGroupId ? columnGroupId : uuidV4();
         this.groupName = groupName.trim();
-        this.columnModelIds = columnModelIds;
+        this.columnModelIds = [...columnModelIds];
         this.description = description;
     }
 
@@ -35,15 +35,9 @@ export default class ColumnGroupModel {
     }
 
     public static toObject(obj: object): ColumnGroupModel {
-        if (!("columnGroupId" in obj)) {
-            throw new PropertyNotExistsError("columnGroupId", obj);
-        }
-        if (!("groupName" in obj)) {
-            throw new PropertyNotExistsError("groupName", obj);
-        }
-        if (!("columnModelIds" in obj)) {
-            throw new PropertyNotExistsError("columnModelIds", obj);
-        }
+        requireProperty(obj, "columnGroupId");
+        requireProperty(obj, "groupName");
+        requireProperty(obj, "columnModelIds");
 
         return new ColumnGroupModel({
             columnGroupId: obj.columnGroupId as string,

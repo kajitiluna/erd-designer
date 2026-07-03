@@ -349,19 +349,19 @@ const doFilterColumnShares = (params: ColumnShareFilterParams, erdDocument: ErdD
     return storage.getModels().filter(columnShare => {
         const matchesColumnType = (columnTypeIds.length === 0)
             || columnTypeIds.some(typeId => (columnShare.columnType.id.toString() === typeId));
-        if (!matchesColumnType) {
+        if (matchesColumnType === false) {
             return false;
         }
 
         const matchesPhysical = (physicalNameContains.length === 0)
             || physicalNameContains.every(filtering => columnShare.physicalName.includes(filtering));
-        if (!matchesPhysical) {
+        if (matchesPhysical === false) {
             return false;
         }
 
         const matchesLogical = (logicalNameContains.length === 0)
             || logicalNameContains.every(filtering => columnShare.logicalName.includes(filtering));
-        if (!matchesLogical) {
+        if (matchesLogical === false) {
             return false;
         }
 
@@ -760,7 +760,7 @@ const initCallbackForUpdatingColumn = (
             addingColumnShares.push(nextColumnShare);
         }
 
-        if (!nextColumnType.withAutoIncrement && (updatingColumn.autoIncrement === true)) {
+        if ((nextColumnType.withAutoIncrement === false) && (updatingColumn.autoIncrement === true)) {
             throw initInvalidParams(
                 `Auto-increment must not be specified for the selected column type : ${nextColumnType.name}`
             );
@@ -913,22 +913,22 @@ const initCallbackForUpdatingColumnShare = (
         if (nextColumnType.withPrecision && (updating.precision == null) && (previous.precision === "")) {
             throw initInvalidParams(`Precision must be specified for the selected column type : ${nextColumnType.name}`);
         }
-        if (!nextColumnType.withPrecision && (updating.precision != null)) {
+        if ((nextColumnType.withPrecision === false) && (updating.precision != null)) {
             throw initInvalidParams(`Precision must not be specified for the selected column type : ${nextColumnType.name}`);
         }
 
         if (nextColumnType.withScale && (updating.scale == null) && (previous.scale === "")) {
             throw initInvalidParams(`Scale must be specified for the selected column type : ${nextColumnType.name}`);
         }
-        if (!nextColumnType.withScale && (updating.scale != null)) {
+        if ((nextColumnType.withScale === false) && (updating.scale != null)) {
             throw initInvalidParams(`Scale must not be specified for the selected column type : ${nextColumnType.name}`);
         }
 
-        if (!nextColumnType.withUnsigned && (updating.unsigned === true)) {
+        if ((nextColumnType.withUnsigned === false) && (updating.unsigned === true)) {
             throw initInvalidParams(`Unsigned must not be specified for the selected column type : ${nextColumnType.name}`);
         }
 
-        if (!database.supportsArrayType && (updating.isArray === true)) {
+        if ((database.supportsArrayType === false) && (updating.isArray === true)) {
             throw initInvalidParams(`Array type is not supported by the database : ${database.name}`);
         }
 
@@ -942,7 +942,7 @@ const initCallbackForUpdatingColumnShare = (
                     `Character set must not be specified for the selected column type : ${nextColumnType.name}`
                 );
             }
-            if (!database.editableCharacterSet) {
+            if (database.editableCharacterSet === false) {
                 throw initInvalidParams(`Character set is not supported by the database : ${database.name}`);
             }
         }
@@ -1197,7 +1197,7 @@ const initCallbackForRemoveColumnsFromTable = (
                     return true;
                 }
 
-                return !deletingColumnIds.has(column.columnModelId);
+                return deletingColumnIds.has(column.columnModelId) === false;
             });
 
         const updatingColumnModels = nextColumns.flatMap(column => {
@@ -1279,7 +1279,7 @@ const buildColumnPair = (
         throw initInvalidParams("Either columnShareId or columnShare must be provided.");
     }
 
-    if (!columnShare.columnType.withAutoIncrement && (addingColumn.autoIncrement === true)) {
+    if ((columnShare.columnType.withAutoIncrement === false) && (addingColumn.autoIncrement === true)) {
         throw initInvalidParams(
             `Auto-increment must not be specified for the selected column type : ${columnShare.columnType.name}`
         );
@@ -1317,22 +1317,22 @@ const buildColumnShare = (
     if (columnType.withPrecision && (input.precision == null)) {
         throw initInvalidParams(`Precision must be specified for the selected column type : ${columnType.name}`);
     }
-    if (!columnType.withPrecision && (input.precision != null)) {
+    if ((columnType.withPrecision === false) && (input.precision != null)) {
         throw initInvalidParams(`Precision must not be specified for the selected column type : ${columnType.name}`);
     }
 
     if (columnType.withScale && (input.scale == null)) {
         throw initInvalidParams(`Scale must be specified for the selected column type : ${columnType.name}`);
     }
-    if (!columnType.withScale && (input.scale != null)) {
+    if ((columnType.withScale === false) && (input.scale != null)) {
         throw initInvalidParams(`Scale must not be specified for the selected column type : ${columnType.name}`);
     }
 
-    if (!columnType.withUnsigned && (input.unsigned === true)) {
+    if ((columnType.withUnsigned === false) && (input.unsigned === true)) {
         throw initInvalidParams(`Unsigned must not be specified for the selected column type : ${columnType.name}`);
     }
 
-    if (!database.supportsArrayType && (input.isArray === true)) {
+    if ((database.supportsArrayType === false) && (input.isArray === true)) {
         throw initInvalidParams(`Array type is not supported by the database : ${database.name}`);
     }
 
@@ -1344,7 +1344,7 @@ const buildColumnShare = (
         if (columnType.category !== "text") {
             throw initInvalidParams(`Character set must not be specified for the selected column type : ${columnType.name}`);
         }
-        if (!database.editableCharacterSet) {
+        if (database.editableCharacterSet === false) {
             throw initInvalidParams(`Character set is not supported by the database : ${database.name}`);
         }
     }

@@ -1,8 +1,7 @@
 import RelationModel from "~/models/database/RelationModel";
-import { PropertyNotExistsError } from "~/models/exceptions";
 import LabelViewModel from "~/models/LabelViewModel";
 import LineViewModel, { OrthogonalDirection } from "~/models/LineViewModel";
-import { toDateTime } from "~/models/util";
+import { requireProperty, toDateTime } from "~/models/util";
 
 export type OrthogonalRelation = { relationId: string, orthogonalLines: OrthogonalDirection[], changedIndex: number };
 
@@ -61,12 +60,8 @@ export default class RelationViewModel {
     }
 
     public static toObject(obj: object): RelationViewModel {
-        if (!("relationModel" in obj)) {
-            throw new PropertyNotExistsError("relationModel", obj);
-        }
-        if (!("lineViewModel" in obj)) {
-            throw new PropertyNotExistsError("lineViewModel", obj);
-        }
+        requireProperty(obj, "relationModel");
+        requireProperty(obj, "lineViewModel");
 
         const labelView = ("labelViewModel" in obj) ? LabelViewModel.toObject(obj.labelViewModel as object) : null;
         const createdAt = ("createdAt" in obj) ? toDateTime(obj.createdAt) : new Date();

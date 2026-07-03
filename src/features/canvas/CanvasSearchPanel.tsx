@@ -269,10 +269,19 @@ const useCanvasSearch = (): { searchState: SearchState; searchAction: SearchActi
     return { searchState, searchAction };
 };
 
+// CSS Custom Highlight API は古いブラウザ・古い VS Code の webview では未実装のため、
+// 非対応環境ではハイライト表示のみ無効化する(検索・件数表示・ジャンプは動作させる)
+const isHighlightApiSupported =
+    (typeof Highlight !== "undefined") && (typeof CSS !== "undefined") && (CSS.highlights != null);
+
 const applyHighlights = (
     searchTerm: string, matchResults: SearchMatch[], currentMatch: SearchMatch | null,
     canvasElement: HTMLDivElement | null, toolbarCanvasElement: HTMLDivElement | null
 ) => {
+    if (isHighlightApiSupported === false) {
+        return;
+    }
+
     if (matchResults.length === 0) {
         clearHighlights();
         return;
@@ -320,6 +329,10 @@ const applyHighlights = (
 };
 
 const clearHighlights = () => {
+    if (isHighlightApiSupported === false) {
+        return;
+    }
+
     CSS.highlights.delete("search-match");
     CSS.highlights.delete("search-match-current");
 };

@@ -2,8 +2,7 @@ import { v4 as uuidV4 } from 'uuid';
 
 import TableIndexModel from '~/models/database/TableIndexModel';
 import TableUniqueKeysModel from '~/models/database/TableUniqueKeysModel';
-import { PropertyNotExistsError } from '~/models/exceptions';
-import { toObjects } from '~/models/util';
+import { requireProperty, toObjects } from '~/models/util';
 
 type TableModelOptions = {
     tableModelId?: string,
@@ -73,7 +72,9 @@ export default class TableModel {
         );
         const addingColumnModelIds: ColumnModelType[] = columnModelIds
             .filter(targetId => (columnModelIdSet.has(targetId) === false))
-            .map(targetId => ({ modelType: "single", columnModelId: targetId }));
+            .map(targetId => {
+                return { modelType: "single", columnModelId: targetId };
+            });
         if (addingColumnModelIds.length === 0) {
             return this;
         }
@@ -206,18 +207,10 @@ export default class TableModel {
     }
 
     public static toObject(obj: object): TableModel {
-        if (!("tableModelId" in obj)) {
-            throw new PropertyNotExistsError("tableModelId", obj);
-        }
-        if (!("physicalName" in obj)) {
-            throw new PropertyNotExistsError("physicalName", obj);
-        }
-        if (!("logicalName" in obj)) {
-            throw new PropertyNotExistsError("logicalName", obj);
-        }
-        if (!("columnModelIds" in obj)) {
-            throw new PropertyNotExistsError("columnModelIds", obj);
-        }
+        requireProperty(obj, "tableModelId");
+        requireProperty(obj, "physicalName");
+        requireProperty(obj, "logicalName");
+        requireProperty(obj, "columnModelIds");
 
         const schemaId = ("schemaId" in obj) ? obj.schemaId as string : "";
 
@@ -225,7 +218,7 @@ export default class TableModel {
             id.startsWith("group:")
                 ? { modelType: "group", columnGroupId: id.substring(6) }
                 : { modelType: "single", columnModelId: id }
-        )
+        );
 
         const uniqueKeysModels = ("uniqueKeysModels" in obj)
             ? toObjects(obj.uniqueKeysModels, "uniqueKeysModels", value => TableUniqueKeysModel.toObject(value)) : [];

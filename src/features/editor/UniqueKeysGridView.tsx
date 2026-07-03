@@ -146,10 +146,12 @@ const UniqueKeysEditDialog = ({
             columnModels.some(columnModel =>
                 (columnModel.columnModelId === model.columnModelId)
             )
-        ).map(model => ({
-            columnModelId: model.columnModelId,
-            sortOrderType: model.sortOrderType
-        }))
+        ).map(model => {
+            return {
+                columnModelId: model.columnModelId,
+                sortOrderType: model.sortOrderType
+            };
+        })
     );
     const [description, setDescription] = React.useState<string>(tableUniqueKeysModel.description);
 

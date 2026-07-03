@@ -353,7 +353,7 @@ const initCallbackForUpdatingPerspective = (
         const previousSetting = previousDocument.erdSettingModel;
 
         const previousPerspective = previousSetting.findPerspectiveModel(perspectiveId);
-        if (!previousPerspective) {
+        if (previousPerspective == null) {
             const url = new URL(erdBudget.perspectiveUri(perspectiveId));
             throw initResourceNotFound(url);
         }
@@ -438,7 +438,7 @@ const initCallbackForDeletingPerspective = (
         const previousSetting = previousDocument.erdSettingModel;
 
         const previousPerspective = previousSetting.findPerspectiveModel(perspectiveId);
-        if (!previousPerspective) {
+        if (previousPerspective == null) {
             return {
                 content: [
                     {

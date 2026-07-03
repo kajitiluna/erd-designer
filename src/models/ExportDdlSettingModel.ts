@@ -1,4 +1,4 @@
-import { PropertyNotExistsError } from "~/models/exceptions";
+import { requireProperty } from "~/models/util";
 
 export type DdlCommentStyle = "logical_name" | "with_description";
 
@@ -82,14 +82,12 @@ export default class ExportDdlSettingModel {
     }
 
     public static toObject(obj: object): ExportDdlSettingModel {
-        if (!("fileName" in obj)) {
-            throw new PropertyNotExistsError("fileName", obj);
-        }
+        requireProperty(obj, "fileName");
 
         const withTable = ("withTable" in obj) ? obj.withTable as boolean : true;
         const withIndex = ("withIndex" in obj) ? obj.withIndex as boolean : true;
         const withForeignKey = ("withForeignKey" in obj) ? obj.withForeignKey as boolean : true;
-        const withSchema = ("withSchema" in obj) ? obj.withSchema as boolean : false;
+        const withSchema = ("withSchema" in obj) ? obj.withSchema as boolean : true;
         const withComment = ("withComment" in obj) ? obj.withComment as boolean : true;
         const commentStyle = ("commentStyle" in obj) ? obj.commentStyle as DdlCommentStyle : "logical_name";
         const commentSeparator = ("commentSeparator" in obj) ? obj.commentSeparator as string : " : ";

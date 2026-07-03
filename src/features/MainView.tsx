@@ -36,23 +36,26 @@ const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) 
     const [localSetting, dispatchLocalSetting] = React.useReducer(reduceLocalSetting, DEFAULT_LOCAL_SETTING);
     const [dragState, dispatchDragAction] = React.useReducer(reduceDragAction, NO_DRAGGING);
 
-    const handleOnSave = (documents: ErdDocument[], cursor: number, loggingMessage: string) => {
-        if ((cursor < 0) || (cursor >= documents.length)) {
-            console.warn(`Invalid cursor value. documents.length: ${documents.length}, cursor: ${cursor}`);
-            return;
-        }
-
-        onSave(documents[cursor], loggingMessage);
-        setHolderProps({ erdDocuments: documents, cursor });
-    };
-
-    const documentsHolder = new ErdDocumentsHolder(holderProps.erdDocuments, holderProps.cursor, handleOnSave);
+    // コンテキスト値は参照が変わると全コンシューマが再レンダーされるため、useMemo で安定化する
+    const documentsHolder = React.useMemo(
+        () => initDocumentsHolder(holderProps, onSave, setHolderProps),
+        [holderProps, onSave]
+    );
+    const editModeContextValue = React.useMemo(() => {
+        return { editMode, dispatchEditMode };
+    }, [editMode]);
+    const selectEntityContextValue = React.useMemo(() => {
+        return { selectState, dispatchSelectAction };
+    }, [selectState]);
+    const localSettingContextValue = React.useMemo(() => {
+        return { localSetting, dispatchLocalSetting };
+    }, [localSetting]);
 
     return (
         <ErdDocumentsHolderContext.Provider value={documentsHolder}>
-            <EditModeContext.Provider value={{ editMode, dispatchEditMode }}>
-                <SelectEntityContext.Provider value={{ selectState, dispatchSelectAction }}>
-                    <LocalSettingContext.Provider value={{ localSetting, dispatchLocalSetting }}>
+            <EditModeContext.Provider value={editModeContextValue}>
+                <SelectEntityContext.Provider value={selectEntityContextValue}>
+                    <LocalSettingContext.Provider value={localSettingContextValue}>
                         <DragActionContext.Provider value={dragState}>
                             <ErdCanvas onDragAction={dispatchDragAction}>
                                 <Box sx={{ position: "fixed", top: "30px", left: "30px" }}>
@@ -74,6 +77,24 @@ const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) 
             </EditModeContext.Provider>
         </ErdDocumentsHolderContext.Provider>
     );
+};
+
+const initDocumentsHolder = (
+    holderProps: ErdDocumentsHolderOptions,
+    onSave: (updating: ErdDocument, loggingMessage: string) => void,
+    setHolderProps: (holderProps: ErdDocumentsHolderOptions) => void
+): ErdDocumentsHolder => {
+    const handleOnSave = (documents: ErdDocument[], cursor: number, loggingMessage: string) => {
+        if ((cursor < 0) || (cursor >= documents.length)) {
+            console.warn(`Invalid cursor value. documents.length: ${documents.length}, cursor: ${cursor}`);
+            return;
+        }
+
+        onSave(documents[cursor], loggingMessage);
+        setHolderProps({ erdDocuments: documents, cursor });
+    };
+
+    return new ErdDocumentsHolder(holderProps.erdDocuments, holderProps.cursor, handleOnSave);
 };
 
 const initReduceEditMode = (dispatchSelectAction: (action: SelectAction) => void) => {

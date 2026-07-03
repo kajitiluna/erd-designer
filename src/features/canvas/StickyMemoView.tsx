@@ -77,7 +77,7 @@ const StickyMemoView = ({
     };
 
     const currentRectangle = (
-        (dragState.status !== "on_dragging") || !selected || !resizingDirection.isResizing()
+        (dragState.status !== "on_dragging") || (selected === false) || (resizingDirection.isResizing() === false)
     ) ? memoViewModel.rectangleViewModel
         : initCurrentRectangle(memoViewModel.rectangleViewModel, dragState.delta(), resizingDirection);
 
@@ -96,7 +96,7 @@ const StickyMemoView = ({
         const mousePosition = viewport.getLogicalPosition(event);
         onDragAction({ type: "start_dragging", start: mousePosition });
 
-        if (!selected) {
+        if (selected === false) {
             const withMultiSelection = withMultiSelectKey(event);
             dispatchSelectAction({
                 type: "memo", memoId: memoViewModel.memoId, withMultiSelection
@@ -130,11 +130,11 @@ const StickyMemoView = ({
             return;
         }
 
-        if ((dragState.status !== "on_dragging") || !selected) {
+        if ((dragState.status !== "on_dragging") || (selected === false)) {
             return;
         }
 
-        if (!resizingDirection.isResizing()) {
+        if (resizingDirection.isResizing() === false) {
             const delta = dragState.delta();
             if ((delta.x !== 0) || (delta.y !== 0)) {
                 return;
@@ -191,7 +191,7 @@ const StickyMemoView = ({
         setResizingDirection(ResizingDirection.NO_RESIZING);
         setMouseCursorStyle("pointer");
 
-        if (!textAreaRef.current) {
+        if (textAreaRef.current == null) {
             return;
         }
 
@@ -207,7 +207,7 @@ const StickyMemoView = ({
     };
 
     const moving = (
-        selected && (dragState.status === "on_dragging") && !resizingDirection.isResizing()
+        selected && (dragState.status === "on_dragging") && (resizingDirection.isResizing() === false)
     ) ? dragState.delta() : { x: 0, y: 0 };
 
     const initTextAreaElement = () => {
@@ -289,7 +289,7 @@ const StickyMemoView = ({
         boxShadow: selected ? "" : "0px 0px 7px 0px #bebebe",
         // "&::-webkit-scrollbar": { display: "none" },
         msOverflowStyle: "none", scrollbarWidth: "none",
-        ...(!visible && { opacity: 0, pointerEvents: 'none', userSelect: "none" })
+        ...((visible === false) && { opacity: 0, pointerEvents: 'none', userSelect: "none" })
     };
     const stickyStyle: React.CSSProperties = {
         width: `${currentRectangle.width}px`,
@@ -537,7 +537,7 @@ const StickyControlPane = ({ memoViewModel, stickyDom, onSettingAction }: Sticky
         backgroundColor: "rgba(255, 255, 255, 0.9)", borderRadius: "10px"
     };
 
-    const alignPanel = !showAlignPanel ? null : (
+    const alignPanel = (showAlignPanel === false) ? null : (
         <div style={{
             position: "absolute", top: "100%", left: "50%",
             transform: "translateX(-50%)", marginTop: "5px"
@@ -602,7 +602,7 @@ const StickyControlPane = ({ memoViewModel, stickyDom, onSettingAction }: Sticky
     );
 
     const portalContainer = toolbarCanvasElement;
-    if (!portalContainer) {
+    if (portalContainer == null) {
         return deleteDialog;
     };
 

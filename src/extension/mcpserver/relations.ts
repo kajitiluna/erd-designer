@@ -167,19 +167,19 @@ const doFilterRelations = (params: RelationFilterParams, erdDocument: ErdDocumen
 
         const matchedParentTableId = (parentTableIds.length === 0)
             || parentTableIds.some(filtering => relationModel.parentTableModelId === filtering);
-        if (!matchedParentTableId) {
+        if (matchedParentTableId === false) {
             return false;
         }
 
         const matchedChildTableId = (childTableIds.length === 0)
             || childTableIds.some(filtering => relationModel.childTableModelId === filtering);
-        if (!matchedChildTableId) {
+        if (matchedChildTableId === false) {
             return false;
         }
 
         const matchedRelationName = (relationNameContains.length === 0)
             || relationNameContains.every(filtering => relationModel.relationName.includes(filtering));
-        if (!matchedRelationName) {
+        if (matchedRelationName === false) {
             return false;
         }
 
@@ -347,10 +347,10 @@ const initCallbackForCreateRelation = (
             });
 
         const relationPairs = input.relationPairs.map(pair => {
-            if (!parentColumnIds.has(pair.parentColumnId)) {
+            if (parentColumnIds.has(pair.parentColumnId) === false) {
                 throw initInvalidParams(`Parent column not found: ${pair.parentColumnId}`);
             }
-            if (!childColumnIds.has(pair.childColumnId)) {
+            if (childColumnIds.has(pair.childColumnId) === false) {
                 throw initInvalidParams(`Child column not found: ${pair.childColumnId}`);
             }
 
@@ -458,9 +458,9 @@ const initCallbackForUpdateRelation = (documentResource: DocumentResource): Tool
         }
 
         const previousRelation = previousRelationView.relationModel;
-        const targetRelationPairs = updating.relationPairs ?? previousRelation.relationPairs.map(pair => (
-            { parentColumnId: pair.parentColumnModelId, childColumnId: pair.childColumnModelId }
-        ));
+        const targetRelationPairs = updating.relationPairs ?? previousRelation.relationPairs.map(pair => {
+            return { parentColumnId: pair.parentColumnModelId, childColumnId: pair.childColumnModelId };
+        });
 
         const parentTableId = updating.parentTableId ?? previousRelation.parentTableModelId;
         const childTableId = updating.childTableId ?? previousRelation.childTableModelId;
@@ -468,10 +468,10 @@ const initCallbackForUpdateRelation = (documentResource: DocumentResource): Tool
             doFindDocumentAndTables(documentResource, documentId, { parentTableId, childTableId });
 
         const nextRelationPairs = targetRelationPairs.map(pair => {
-            if (!parentColumnIds.has(pair.parentColumnId)) {
+            if (parentColumnIds.has(pair.parentColumnId) === false) {
                 throw initInvalidParams(`Parent column not found: ${pair.parentColumnId}`);
             }
-            if (!childColumnIds.has(pair.childColumnId)) {
+            if (childColumnIds.has(pair.childColumnId) === false) {
                 throw initInvalidParams(`Child column not found: ${pair.childColumnId}`);
             }
 
@@ -596,10 +596,12 @@ export const toRelationSummary = (erdBudget: DocumentBudget, relationModel: Rela
         parentCardinality: relationModel.parentCardinality,
         childTableId: relationModel.childTableModelId,
         childCardinality: relationModel.childCardinality,
-        relationPairs: relationModel.relationPairs.map(pair => ({
-            parentColumnId: pair.parentColumnModelId,
-            childColumnId: pair.childColumnModelId
-        })),
+        relationPairs: relationModel.relationPairs.map(pair => {
+            return {
+                parentColumnId: pair.parentColumnModelId,
+                childColumnId: pair.childColumnModelId
+            };
+        }),
         onUpdateAction: relationModel.onUpdateAction,
         onDeleteAction: relationModel.onDeleteAction
     };
@@ -612,17 +614,21 @@ const toRelationDetail = (erdBudget: DocumentBudget, relationView: RelationViewM
     const view = lineViewModel.lineType === "orthogonal"
         ? {
             lineType: "orthogonal" as const,
-            lines: lineViewModel.orthogonalLines.map(line => ({
-                direction: line.direction,
-                position: line.position
-            }))
+            lines: lineViewModel.orthogonalLines.map(line => {
+                return {
+                    direction: line.direction,
+                    position: line.position
+                };
+            })
         }
         : {
             lineType: "points" as const,
-            edges: lineViewModel.edges.map(edge => ({
-                x: edge.x,
-                y: edge.y
-            }))
+            edges: lineViewModel.edges.map(edge => {
+                return {
+                    x: edge.x,
+                    y: edge.y
+                };
+            })
         };
 
     return {

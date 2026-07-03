@@ -1,5 +1,5 @@
 import ColorValue from "~/models/ColorValue";
-import { PropertyNotExistsError } from "~/models/exceptions";
+import { requireProperty } from "~/models/util";
 
 type Point = { x: number, y: number };
 
@@ -101,7 +101,7 @@ export default class LineViewModel {
             return false;
         }
 
-        if (!this.color.equals(other.color)) {
+        if (this.color.equals(other.color) === false) {
             return false;
         }
 
@@ -109,7 +109,7 @@ export default class LineViewModel {
             const otherEdge = other.edges[index];
             return (edge.x === otherEdge.x) && (edge.y === otherEdge.y);
         });
-        if (!isMatchEdges) {
+        if (isMatchEdges === false) {
             return false;
         }
 
@@ -134,9 +134,7 @@ export default class LineViewModel {
     }
 
     public static toObject(obj: object): LineViewModel {
-        if (!("strokeWidth" in obj)) {
-            throw new PropertyNotExistsError("strokeWidth", obj);
-        }
+        requireProperty(obj, "strokeWidth");
 
         const edges = ("edges" in obj) ? obj.edges as Point[] : [];
         const orthogonalLines = ("orthogonalLines" in obj) ? obj.orthogonalLines as OrthogonalDirection[] : [];

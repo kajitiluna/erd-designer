@@ -278,7 +278,7 @@ describe('ExportDdlSettingModel', () => {
             expect(model.withIndex).toBe(true);
             expect(model.withForeignKey).toBe(true);
             expect(model.withComment).toBe(true);
-            expect(model.withSchema).toBe(false); // Note: defaults to false in toObject
+            expect(model.withSchema).toBe(true);
         });
 
         test('should convert from plain object with some missing properties', () => {
@@ -296,7 +296,7 @@ describe('ExportDdlSettingModel', () => {
             expect(model.withIndex).toBe(true); // default
             expect(model.withForeignKey).toBe(false);
             expect(model.withComment).toBe(true); // default
-            expect(model.withSchema).toBe(false); // default in toObject
+            expect(model.withSchema).toBe(true); // default
         });
 
         test('should convert from plain object with withSchema explicitly set to true', () => {

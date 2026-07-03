@@ -106,7 +106,7 @@ const initCallbackForListSchemas = (
 const listSchemaResponses = (documentResource: DocumentResource, documentId: string) => {
     const { erdBudget, erdDocument } = findDocument(documentResource, documentId);
     const database = erdDocument.getDatabase();
-    if (!database.supportsSchema) {
+    if (database.supportsSchema === false) {
         return [];
     }
 
@@ -254,7 +254,7 @@ const initCallbackForCreateSchema = (
     return async ({ documentId, schema: schemaInput }) => {
         const { erdBudget, erdDocument: previousDocument } = findDocument(documentResource, documentId);
         const database = previousDocument.getDatabase();
-        if (!database.supportsSchema) {
+        if (database.supportsSchema === false) {
             throw initInvalidParams("The database type of this document does not support schemas.");
         }
 
@@ -426,7 +426,7 @@ const doFindDocumentAndSchema = (documentResource: DocumentResource, documentId:
     const { erdBudget, erdDocument } = findDocument(documentResource, documentId);
 
     const database = erdDocument.getDatabase();
-    if (!database.supportsSchema) {
+    if (database.supportsSchema === false) {
         throw initInvalidParams("The database type of this document does not support schemas.");
     }
 
@@ -454,14 +454,16 @@ const toSchemaDetail = (erdBudget: DocumentBudget, schema: DbSchemaModel, erdDoc
 
     const tables = erdDocument.getTableViewModels()
         .filter(tableView => tableView.tableModel.schemaId === schema.schemaId)
-        .map(tableView => ({
-            uri: erdBudget.tableUri(tableView.tableId),
-            tableId: tableView.tableId,
-            tableName: {
-                physical: tableView.tableModel.physicalName,
-                logical: tableView.tableModel.logicalName
-            }
-        }));
+        .map(tableView => {
+            return {
+                uri: erdBudget.tableUri(tableView.tableId),
+                tableId: tableView.tableId,
+                tableName: {
+                    physical: tableView.tableModel.physicalName,
+                    logical: tableView.tableModel.logicalName
+                }
+            };
+        });
 
     return {
         uri: erdBudget.schemaUri(schema.schemaId),

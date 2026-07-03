@@ -44,7 +44,7 @@ const DisplayScalePanel = () => {
                                 <MenuItem key={`select-scale-${label}`} value={scale}>{label}</MenuItem>
                             );
                         })}
-                        {!DISPLAY_SCALES.includes(scaleState.scale) && (
+                        {(DISPLAY_SCALES.includes(scaleState.scale) === false) && (
                             <MenuItem value={scaleState.scale} sx={{ display: "none" }}>
                                 {`${(scaleState.scale * 100).toFixed(0)} %`}
                             </MenuItem>

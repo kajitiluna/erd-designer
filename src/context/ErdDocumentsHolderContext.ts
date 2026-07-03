@@ -100,24 +100,10 @@ export class ErdDocumentsHolder {
      * @param selectState 選択状態
      */
     public delete(selectState: SelectState) {
-        const doDelete = (previous: ErdDocument): ErdDocument => {
-            let next: ErdDocument = previous;
-            if (selectState.relationId) {
-                next = previous.deleteRelation(selectState.relationId);
-            }
-
-            for (const tableId of selectState.tableIds) {
-                next = next.deleteTable(tableId);
-            }
-
-            for (const memoId of selectState.memoIds) {
-                next = next.deleteMemo(memoId);
-            }
-
-            return next;
-        };
-
-        this.doUpdate(doDelete, `Delete elements: ${JSON.stringify(selectState)}`);
+        this.doUpdate(
+            previous => previous.deleteSelectedElements(selectState),
+            `Delete elements: ${JSON.stringify(selectState)}`
+        );
     }
 
     /**
@@ -286,20 +272,8 @@ export class ErdDocumentsHolder {
 
     private doUpdateRelationEdge(loggingMessage: string, ...args: DoUpdateRelationEdgeArgs[]) {
         const updateRelation = (previous: ErdDocument): ErdDocument => {
-            return args.reduce((erdDocument, { relationId, updateFunction }) => {
-                const previousRelation = erdDocument.findRelationViewModel(relationId);
-                if (previousRelation == null) {
-                    return erdDocument;
-                }
-
-                const previousLineView = previousRelation.lineViewModel;
-                const nextLineView = updateFunction(previousLineView);
-                if (previousLineView.equals(nextLineView)) {
-                    return erdDocument;
-                }
-
-                return erdDocument.updateRelationLine(relationId, nextLineView);
-            }, previous);
+            return args.reduce((erdDocument, { relationId, updateFunction }) =>
+                erdDocument.updateRelationLineBy(relationId, updateFunction), previous);
         };
 
         this.doUpdate(updateRelation, loggingMessage);
@@ -346,22 +320,7 @@ export class ErdDocumentsHolder {
     private doUpdateRelationLabel(
         relationId: string, updateLabel: (previous: LabelViewModel) => LabelViewModel, message: string
     ) {
-        const updateFunction = (erdDocument: ErdDocument): ErdDocument => {
-            const previousRelation = erdDocument.findRelationViewModel(relationId);
-            if (previousRelation == null) {
-                return erdDocument;
-            }
-
-            const previousLabel = previousRelation.labelViewModel;
-            const nextLabel = updateLabel(previousRelation.labelViewModel);
-            if (nextLabel.equals(previousLabel)) {
-                return erdDocument;
-            }
-
-            return erdDocument.updateRelationLabel(relationId, nextLabel);
-        };
-
-        this.doUpdate(updateFunction, message);
+        this.doUpdate(previous => previous.updateRelationLabelBy(relationId, updateLabel), message);
     }
 
     /**

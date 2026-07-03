@@ -152,6 +152,26 @@ type ToDraggedOrthogonalPointsArgs = {
     dragState: DragState
 };
 
+/**
+ * ドラッグ操作中の直交折れ線 (orthogonal line) の描画座標を再計算する。
+ *
+ * 前提条件:
+ * - points は「親テーブル接続点 → 中間 edge → 子テーブル接続点」の順に並び、
+ *   隣接する 2 点は必ず水平または垂直に整列している (直交線分)
+ * - points[0] は親テーブル境界上、points[points.length - 1] は子テーブル境界上の点である
+ *
+ * 座標計算の方針:
+ * - テーブルドラッグ時: 接続点をドラッグ後のテーブル境界へ追従させる。
+ *   テーブルが隣接線分を覆う位置まで移動した場合は、その線分を除去して折れ線を単純化する
+ *   (reduceParentEdge / reduceChildEdge)。除去が起きると points の要素数が減るため、
+ *   後続 index の処理はフラグを介して除去済みであることを参照する
+ * - 線分ドラッグ時: 選択中の edge (selectState.edgeId) に隣接する点のみを
+ *   ドラッグ位置に合わせて再配置する。ドラッグ位置がテーブル内部に入った場合は
+ *   isReducedLine を立てて線分をまとめる
+ *
+ * @returns draggedPoints 再計算後の座標列 / isReducedLine 線分の除去有無 /
+ *          changedIndex 変更が発生した先頭の segment 番号 (ラベル位置の補正に利用する。変更なしは -1)
+ */
 export const toDraggedOrthogonalPoints = ({
     relationView, points, parentTable, childTable, selectState, dragState
 }: ToDraggedOrthogonalPointsArgs): { draggedPoints: Point[], isReducedLine: boolean, changedIndex: number } => {

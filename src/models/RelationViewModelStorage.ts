@@ -2,6 +2,7 @@ import RelationModel from "~/models/database/RelationModel";
 import LabelViewModel from "~/models/LabelViewModel";
 import LineViewModel from "~/models/LineViewModel";
 import RelationViewModel, { OrthogonalRelation } from "~/models/RelationViewModel";
+import { equalsModelMap } from "~/models/storage-support";
 
 export default class RelationViewModelStorage {
 
@@ -262,7 +263,9 @@ export default class RelationViewModelStorage {
             hasChanged = true;
 
             const nextEdges = relationView.lineViewModel.edges
-                .map(edge => ({ x: edge.x + moving.x, y: edge.y + moving.y }));
+                .map(edge => {
+                    return { x: edge.x + moving.x, y: edge.y + moving.y };
+                });
             const nextLineView = new LineViewModel({
                 ...relationView.lineViewModel,
                 edges: nextEdges
@@ -282,18 +285,7 @@ export default class RelationViewModelStorage {
     }
 
     public equals(other: RelationViewModelStorage): boolean {
-        if (this.relationIdMap.size !== other.relationIdMap.size) {
-            return false;
-        }
-
-        for (const [relationId, model] of this.relationIdMap) {
-            const otherModel = other.relationIdMap.get(relationId);
-            if ((otherModel == null) || (!model.equals(otherModel))) {
-                return false;
-            }
-        }
-
-        return true;
+        return equalsModelMap(this.relationIdMap, other.relationIdMap);
     }
 }
 

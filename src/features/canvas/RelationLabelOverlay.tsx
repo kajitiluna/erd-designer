@@ -110,11 +110,11 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
         isLabelDragging: (draggingPosition != null)
     });
 
-    if (!toolbarCanvasElement) {
+    if (toolbarCanvasElement == null) {
         return null;
     }
 
-    if (!labelView.label || (pathPoints.length < 2)) {
+    if ((labelView.label === "") || (pathPoints.length < 2)) {
         return null;
     }
     // ドラッグ操作により、対象リレーション描画が変わる際に label の描画場所が不安定になるため、非表示にする
@@ -132,6 +132,15 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
         }
 
         event.stopPropagation();
+
+        // mouseup を取りこぼした状態で再度 mousedown が発火した場合、
+        // 前回のリスナーが window に残ったまま ref が上書きされて除去不能になるため、先に除去する
+        if (mouseMoveHandlerRef.current != null) {
+            window.removeEventListener("mousemove", mouseMoveHandlerRef.current);
+        }
+        if (mouseUpHandlerRef.current != null) {
+            window.removeEventListener("mouseup", mouseUpHandlerRef.current);
+        }
 
         const startPos = viewport.getLogicalPosition(event);
         const startLabel = { x: labelX, y: labelY };
@@ -253,7 +262,7 @@ const useRelationLabelToolbar = ({
     const { selectState } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
 
-    if (!toolbarCanvasElement) {
+    if (toolbarCanvasElement == null) {
         return null;
     }
 
@@ -261,7 +270,7 @@ const useRelationLabelToolbar = ({
     // リレーションが選択されている場合は、ラベルの tooltip は表示しない
     const showToolbar = relationSelected && (selectState.edgeType == null)
         && (editMode === EditModeType.SELECT)
-        && !isLabelDragging && (dragState.status !== "on_dragging");
+        && (isLabelDragging === false) && (dragState.status !== "on_dragging");
 
     if (showToolbar === false) {
         return null;
@@ -282,17 +291,17 @@ const useRelationLabelToolbar = ({
     };
 
     const handleToggleBold = () => {
-        const next = { ...labelFont, bold: !labelFont.bold };
+        const next = { ...labelFont, bold: (labelFont.bold === false) };
         documentsHolder.updateRelationLabelStyle(relationView.relationId, next);
     };
 
     const handleToggleItalic = () => {
-        const next = { ...labelFont, italic: !labelFont.italic };
+        const next = { ...labelFont, italic: (labelFont.italic === false) };
         documentsHolder.updateRelationLabelStyle(relationView.relationId, next);
     };
 
     const handleToggleStrikethrough = () => {
-        const next = { ...labelFont, strikethrough: !labelFont.strikethrough };
+        const next = { ...labelFont, strikethrough: (labelFont.strikethrough === false) };
         documentsHolder.updateRelationLabelStyle(relationView.relationId, next);
     };
 

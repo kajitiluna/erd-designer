@@ -1,36 +1,35 @@
 import React from "react";
-import { Box } from "@mui/material";
 
 import useStateRef from "~/components/useStateRef";
-import ViewportContext, { CanvasViewport, useViewport } from "~/context/ViewportContext";
+import ViewportContext, { useViewport } from "~/context/ViewportContext";
 import { DragAction, DragActionContext } from "~/context/DragActionContext";
 import EditModeContext from "~/context/EditModeContext";
-import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
-import { RELEASE_ACTION, SelectAction, SelectEntityContext } from "~/context/SelectEntityContext";
-import { LocalSetting, LocalSettingContext } from "~/context/LocalSettingContext";
+import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
+import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
+import { LocalSettingContext } from "~/context/LocalSettingContext";
 import PortalCanvasContext from "~/context/PortalCanvasContext";
-import TableModel from "~/models/database/TableModel";
-import EditMode, { EditModeType } from "~/models/EditMode";
+import { EditModeType } from "~/models/EditMode";
 import RectangleViewModel from "~/models/RectangleViewModel";
-import TableViewModel from "~/models/TableViewModel";
 import MemoViewModel from "~/models/MemoViewModel";
-import PerspectiveModel from "~/models/PerspectiveModel";
 import ErdDocument from "~/models/ErdDocument";
-import { OrthogonalDirection } from "~/models/LineViewModel";
-import RelationViewModel from "~/models/RelationViewModel";
-import {
-    CARDINALITY_MARKER, handlePreventContextMenu, toNextOrthogonalLines, withMultiSelectKey
-} from "~/features/canvas/support";
+import { handlePreventContextMenu, toNextOrthogonalLines, withMultiSelectKey } from "~/features/canvas/support";
 import EditAction from "~/features/canvas/EditAction";
 import ErdRelationPathView, { ErdRelationTooltipRef } from "~/features/canvas/ErdRelationPathView";
-import ErdTableView, { ERD_TABLE_VIEW_CLASS_NAME } from "~/features/canvas/ErdTableView";
-import PerspectiveSettingView from "~/features/editor/PerspectiveSettingView";
-import RelationEditView from "~/features/editor/RelationEditView";
-import TableEditView from "~/features/editor/TableEditView";
-import StickyMemoView, { ERD_MEMO_VIEW_CLASS_NAME } from "~/features/canvas/StickyMemoView";
-import { DragState } from "~/models/DragState";
-import { SelectState } from "~/models/SelectState";
-import { inOpenControlPanel } from "~/components/support";
+import ErdTableView from "~/features/canvas/ErdTableView";
+import StickyMemoView from "~/features/canvas/StickyMemoView";
+import { useGrabbing } from "~/features/canvas/ErdCanvas/useGrabbing";
+import {
+    initDeleteHandler, initEffectOfKeyDownOnCanvas, initEffectOfMouseCursorOnCanvas,
+    initRedoHandler, initSelectModeHandler, initUndoHandler
+} from "~/features/canvas/ErdCanvas/event-handlers";
+import { RectangleArea, doFindRectangleSelected, initRectangleArea } from "~/features/canvas/ErdCanvas/rectangle-area";
+import ActiveDraggingArea from "~/features/canvas/ErdCanvas/ActiveDraggingArea";
+import {
+    createNewMemo, createNewTable,
+    initCreatingRelationLine, initRelationCardinalityDefinitions
+} from "~/features/canvas/ErdCanvas/decorations";
+import { initEditView } from "~/features/canvas/ErdCanvas/edit-view";
+import { CANVAS_RECTANGLES_DRAWN_EVENT, EXTERNAL_DOCUMENT_CHANGED_EVENT } from "~/extension/webview-messages";
 
 export const ERD_CANVAS_ID = "erd-canvas";
 
@@ -80,6 +79,14 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
 
     const { viewport, scaleState } = useViewport({ viewportRef, canvasRef: erdCanvasRef, isDraggingRef });
     const { grabbingPanel, startGrabbing } = useGrabbing(viewport, editMode);
+
+    // コンテキスト値は参照が変わると全コンシューマが再レンダーされるため、useMemo で安定化する
+    const viewportContextValue = React.useMemo(() => {
+        return { viewport, scaleState };
+    }, [viewport, scaleState]);
+    const portalCanvasContextValue = React.useMemo(() => {
+        return { canvasElement, toolbarCanvasElement, svgCanvasElement };
+    }, [canvasElement, toolbarCanvasElement, svgCanvasElement]);
 
     const erdDocument = documentsHolder.current();
 
@@ -247,7 +254,7 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
 
         // リレーションの edge をドラッグし終えた場合の制御
         if (selectState.relationId && (selectState.edgeId != null)) {
-            if (!selectState.edgeType) {
+            if (selectState.edgeType == null) {
                 return;
             }
 
@@ -292,7 +299,7 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
     // Canvas に描画されている短形の情報を取得
     React.useLayoutEffect(() => {
         const erdCanvas = erdCanvasRef.current;
-        if (!erdCanvas || !viewport.isMounted()) {
+        if ((erdCanvas == null) || (viewport.isMounted() === false)) {
             return;
         }
 
@@ -304,7 +311,7 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
         }
 
         // 描画変更をイベント通知 (VSCode 拡張機能側で利用できるよう、VsCodeExtensionApplication にて制御する)
-        const customEvent = new CustomEvent("canvasRectanglesDrawn", {
+        const customEvent = new CustomEvent(CANVAS_RECTANGLES_DRAWN_EVENT, {
             detail: {
                 tableRectangles: rectangleArea.tableRectangles
             }
@@ -332,7 +339,7 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
     // マウスカーソルのアイコン設定
     React.useLayoutEffect(() => {
         const erdCanvas = erdCanvasRef.current;
-        if (!erdCanvas) {
+        if (erdCanvas == null) {
             return;
         }
 
@@ -365,20 +372,20 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
         const handleExternalDocumentChange = (event: Event) => {
             const customEvent = event as CustomEvent;
             const eventDetail = customEvent.detail;
-            if (!("erdDocument" in eventDetail)) {
+            if (("erdDocument" in eventDetail) === false) {
                 console.warn(`Unexpected event detail structure: ${JSON.stringify(eventDetail)}`);
                 return;
             }
 
             const erdDocument = eventDetail.erdDocument as ErdDocument;
-            documentsHolder.update(erdDocument, `Update document from external change: ${JSON.stringify(erdDocument)}`);
+            documentsHolder.update(erdDocument, `Update document from external change: ${erdDocument.documentName}`);
             console.info("ErdCanvas: External document change has been applied.");
         };
 
-        window.addEventListener("externalDocumentChanged", handleExternalDocumentChange);
+        window.addEventListener(EXTERNAL_DOCUMENT_CHANGED_EVENT, handleExternalDocumentChange);
 
         return () => {
-            window.removeEventListener("externalDocumentChanged", handleExternalDocumentChange);
+            window.removeEventListener(EXTERNAL_DOCUMENT_CHANGED_EVENT, handleExternalDocumentChange);
         };
     }, [documentsHolder]);
 
@@ -422,8 +429,8 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
     );
 
     return (
-        <ViewportContext.Provider value={{ viewport, scaleState }}>
-            <PortalCanvasContext.Provider value={{ canvasElement, toolbarCanvasElement, svgCanvasElement }}>
+        <ViewportContext.Provider value={viewportContextValue}>
+            <PortalCanvasContext.Provider value={portalCanvasContextValue}>
                 {mainCanvas}
                 {children}
             </PortalCanvasContext.Provider>
@@ -467,528 +474,8 @@ const TOOLBAR_CANVAS_STYLE: React.CSSProperties = {
     pointerEvents: "none"
 } as const;
 
-type RectangleArea = {
-    tableRectangles: Map<string, RectangleViewModel>,
-    memoRectangles: Map<string, RectangleViewModel>
-};
-
-const initEditView = (editAction: EditAction, rectangleArea: RectangleArea, onClose: () => void) => {
-    if (editAction.editType === "none") {
-        return (<></>);
-    }
-
-    if (editAction.editType === "table") {
-        return (
-            <TableEditView isOpen={editAction.editType === "table"}
-                tableViewModel={editAction.tableViewModel}
-                onClose={onClose} />
-        );
-    }
-
-    if (editAction.editType === "perspective") {
-        return (
-            <PerspectiveSettingView
-                isOpen={editAction.editType === "perspective"}
-                targetId={editAction.targetId}
-                onClose={onClose} />
-        );
-    }
-
-    if (editAction.editType === "relation") {
-        // 自己関連かつ、新規作成か否かを判断する
-        const relationView = doCreateSelfRelation(editAction, rectangleArea);
-
-        return (
-            <RelationEditView isOpen={editAction.editType === "relation"}
-                relationViewModel={relationView}
-                parentTableModel={editAction.parentTable}
-                childTableModel={editAction.childTable}
-                onClose={onClose} />
-        );
-    }
-
-    return (<></>);
-};
-
-const doCreateSelfRelation = (editAction: EditAction & { editType: "relation" }, rectangleArea: RectangleArea) => {
-    const lineViewModel = editAction.relationViewModel.lineViewModel;
-    const parentTableId = editAction.parentTable.tableModelId;
-    const childTableId = editAction.childTable.tableModelId;
-
-    if ((parentTableId !== childTableId) || (lineViewModel.orthogonalLines.length >= 3)) {
-        return editAction.relationViewModel;
-    }
-
-    const rectangle = rectangleArea.tableRectangles.get(parentTableId) as RectangleViewModel;
-    const orthogonalLines: OrthogonalDirection[] = [
-        { direction: "horizontal", position: rectangle.bottom - rectangle.height / 4 },
-        { direction: "vertical", position: rectangle.right + 70 },
-        { direction: "horizontal", position: rectangle.bottom + 70 },
-        { direction: "vertical", position: rectangle.right - rectangle.width / 4 }
-    ];
-    const nextLineViewModel = lineViewModel.updateOrthogonalLines(orthogonalLines);
-
-    return new RelationViewModel({ ...editAction.relationViewModel, lineViewModel: nextLineViewModel });
-};
-
-const useGrabbing = (viewport: CanvasViewport, editMode: EditMode) => {
-    const grabbingPanelRef = React.useRef<HTMLDivElement>(null);
-    const [availableGrabbing, setAvailableGrabbing] = React.useState<boolean>(false);
-
-    // grabbing 操作による Canvas 移動の起点となる位置を保持する
-    const [isGrabbing, setGrabbing] = React.useState<boolean>(false);
-    const grabbingAnimationRef = React.useRef<number | null>(null);
-
-    const handleGrabMouseDown = React.useCallback((event: React.MouseEvent) => {
-        if (grabbingPanelRef.current == null) {
-            return;
-        }
-
-        event.preventDefault();
-        event.stopPropagation();
-
-        const startPosition = viewport.getLogicalPosition(event);
-        setGrabbing(true);
-
-        const onGrabEndFromPanel = () => setGrabbing(false);
-        performGrabbing({
-            viewport,
-            grabbingPanelRef, grabbingAnimationRef, startPosition,
-            onGrabEnd: onGrabEndFromPanel
-        });
-    }, [viewport]);
-
-    const grabPanelStyle = React.useMemo<React.CSSProperties>(() => ({
-        position: "absolute", top: 0, left: 0,
-        width: ((editMode === EditModeType.GRAB) || availableGrabbing) ? "100%" : "0px",
-        height: ((editMode === EditModeType.GRAB) || availableGrabbing) ? "100%" : "0px",
-        cursor: isGrabbing ? "grabbing" : "grab"
-    }), [editMode, availableGrabbing, isGrabbing]);
-
-    const grabbingPanel = (<div ref={grabbingPanelRef} style={grabPanelStyle} onMouseDown={handleGrabMouseDown} />);
-
-    const startGrabbing = (position: Point) => {
-        if (editMode === EditModeType.GRAB) {
-            return;
-        }
-
-        setGrabbing(true);
-        setAvailableGrabbing(true);
-
-        const onGrabEndFromCanvas = () => {
-            setGrabbing(false);
-            setAvailableGrabbing(false);
-        };
-
-        performGrabbing({
-            viewport, grabbingPanelRef, grabbingAnimationRef, startPosition: position,
-            onGrabEnd: onGrabEndFromCanvas
-        });
-    };
-
-    return { grabbingPanel, startGrabbing };
-};
-
-type PerformGrabbingArgs = {
-    viewport: CanvasViewport;
-    grabbingPanelRef: React.RefObject<HTMLDivElement | null>;
-    grabbingAnimationRef: React.RefObject<number | null>;
-    startPosition: Point;
-    onGrabEnd: () => void;
-};
-
-const performGrabbing = ({
-    viewport, grabbingPanelRef, grabbingAnimationRef, startPosition, onGrabEnd
-}: PerformGrabbingArgs) => {
-
-    if (grabbingPanelRef.current == null) {
-        return;
-    }
-
-    const handleMouseMove = (event: MouseEvent) => {
-        event.preventDefault();
-        event.stopPropagation();
-
-        if (grabbingAnimationRef.current) {
-            cancelAnimationFrame(grabbingAnimationRef.current);
-        }
-
-        const clientX = event.clientX;
-        const clientY = event.clientY;
-
-        grabbingAnimationRef.current = requestAnimationFrame(() => {
-            if (!viewport.isMounted()) {
-                grabbingAnimationRef.current = null;
-                return;
-            }
-
-            const { viewportPosition, screenCenter, scale: currentScale } = viewport.getViewInfo();
-
-            const newCenterX = startPosition.x - (clientX - screenCenter.x) / currentScale;
-            const newCenterY = startPosition.y - (clientY - screenCenter.y) / currentScale;
-
-            const deltaX = Math.abs(newCenterX - viewportPosition.centerX);
-            const deltaY = Math.abs(newCenterY - viewportPosition.centerY);
-            if (deltaX + deltaY < 0.5) {
-                grabbingAnimationRef.current = null;
-                return;
-            }
-
-            viewport.updateViewportPosition(newCenterX, newCenterY);
-            grabbingAnimationRef.current = null;
-        });
-    };
-
-    const handleDragEnd = (event: MouseEvent) => {
-        event.preventDefault();
-        event.stopPropagation();
-
-        onGrabEnd();
-
-        if (grabbingPanelRef.current == null) {
-            return;
-        }
-
-        grabbingPanelRef.current.removeEventListener("mousemove", handleMouseMove);
-        grabbingPanelRef.current.removeEventListener("mouseup", handleDragEnd);
-    };
-
-    grabbingPanelRef.current.addEventListener("mouseup", handleDragEnd);
-    grabbingPanelRef.current.addEventListener("mousemove", handleMouseMove);
-};
-
-type CreateRelationLineArgs = {
-    editMode: EditMode,
-    relationEdge: Point | null,
-    selectState: SelectState,
-    tableRectangles: Map<string, RectangleViewModel>
-};
-
-const initCreatingRelationLine = ({
-    editMode, relationEdge, selectState, tableRectangles
-}: CreateRelationLineArgs) => {
-    if (editMode !== EditModeType.CREATE_RELATION) {
-        return (<></>);
-    }
-
-    if ((relationEdge == null) || (selectState.tableIds.size !== 1)) {
-        return (<></>);
-    }
-
-    const parentTableId = selectState.tableIds.values().next().value as string;
-    const parentRectangle = tableRectangles.get(parentTableId);
-    if (parentRectangle == null) {
-        return (<></>);
-    }
-
-    if (parentRectangle.contains(relationEdge) === false) {
-        return (
-            <line
-                x1={parentRectangle.xCenter}
-                y1={parentRectangle.yCenter}
-                x2={relationEdge.x}
-                y2={relationEdge.y}
-                stroke={SELECTED_LINE_COLOR} strokeDasharray="4" strokeWidth="3">
-                <animate attributeName="stroke-dashoffset" from="24" to="0" dur="1s" repeatCount="indefinite" />
-            </line>
-        );
-    }
-
-    const drawingPoints = [
-        { x: parentRectangle.right, y: parentRectangle.yCenter + parentRectangle.height / 4 },
-        { x: parentRectangle.right + 70, y: parentRectangle.yCenter + parentRectangle.height / 4 },
-        { x: parentRectangle.right + 70, y: parentRectangle.bottom + 70 },
-        { x: parentRectangle.xCenter + parentRectangle.width / 4, y: parentRectangle.bottom + 70 },
-        { x: parentRectangle.xCenter + parentRectangle.width / 4, y: parentRectangle.bottom }
-    ];
-    const drawingLine = "M" + drawingPoints.map(point =>
-        `${point.x},${point.y}`
-    ).join(" L");
-
-    return (
-        <path d={drawingLine} fill="none" stroke={SELECTED_LINE_COLOR} strokeDasharray="4" strokeWidth="3">
-            <animate attributeName="stroke-dashoffset" from="24" to="0" dur="1s" repeatCount="indefinite" />
-        </path>
-    );
-};
-
-type ActiveDraggingAreaProps = {
-    editMode: EditMode,
-    dragState: DragState,
-    selectState: SelectState
-};
-
-const ActiveDraggingArea = ({ editMode, dragState, selectState }: ActiveDraggingAreaProps) => {
-    const { viewport } = React.useContext(ViewportContext);
-
-    if ((editMode !== EditModeType.SELECT) || (dragState.status !== "on_dragging")
-        || (selectState.tableIds.size + selectState.memoIds.size !== 0)
-        || (selectState.relationId != null)) {
-
-        return (<></>);
-    }
-
-    const rectangle = RectangleViewModel.createFromPoints(dragState.start, dragState.current);
-    const physicalPosition = viewport.toPhysicalPosition({ x: rectangle.left, y: rectangle.top });
-
-    return (
-        <Box sx={{
-            position: "absolute",
-            left: physicalPosition.x, top: physicalPosition.y,
-            width: rectangle.width, height: rectangle.height,
-            border: `1px solid ${SELECTED_COLOR}`,
-            backgroundColor: SELECTED_COLOR
-        }} />
-    );
-};
-
-const doFindRectangleSelected = (
-    selectedArea: RectangleViewModel, rectangles: Map<string, RectangleViewModel>,
-    perspective: PerspectiveModel | null
-) =>
-    Array.from(rectangles.entries())
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .filter(([_rectangleId, rectangle]) => selectedArea.contains(rectangle))
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .filter(([rectangleId, _rectangle]) => (perspective == null) || perspective.containsModel(rectangleId))
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .map(([rectangleId, _rectangle]) => rectangleId);
-
 const NO_EDIT_ACTION: EditAction = { editType: "none" } as const
 
-
-const SELECTED_COLOR = "rgba(73, 76, 218, 0.2)";
-const SELECTED_LINE_COLOR = "rgba(73, 76, 218, 1)";
-
 type Point = { x: number, y: number };
-
-// リレーションの線の定義
-const initRelationCardinalityDefinitions = () => {
-    const markerNone = (<circle cx="10" cy="15" r="10" fill="black" />);
-    const markerOne = (<line x1="25" y1="0" x2="25" y2="30" stroke="black" />);
-    const markerMany = (<path d="M 40,0 L 25,15 L 40,30" stroke="black" fill="none" />);
-
-    return (
-        <defs>
-            <marker id={CARDINALITY_MARKER.ONE} orient="auto-start-reverse"
-                markerWidth="40" markerHeight="30" refX="40" refY="15" markerUnits="userSpaceOnUse">
-                {markerOne}
-            </marker>
-            <marker id={CARDINALITY_MARKER.NONE_TO_ONE} orient="auto-start-reverse"
-                markerWidth="40" markerHeight="30" refX="40" refY="15" markerUnits="userSpaceOnUse">
-                {markerNone}
-                {markerOne}
-            </marker>
-            <marker id={CARDINALITY_MARKER.NONE_TO_MANY} orient="auto-start-reverse"
-                markerWidth="40" markerHeight="30" refX="40" refY="15" markerUnits="userSpaceOnUse">
-                {markerNone}
-                {markerMany}
-            </marker>
-            <marker id={CARDINALITY_MARKER.ONE_TO_MANY} orient="auto-start-reverse"
-                markerWidth="40" markerHeight="30" refX="40" refY="15" markerUnits="userSpaceOnUse">
-                {markerOne}
-                {markerMany}
-            </marker>
-        </defs>
-    );
-};
-
-const createNewTable = (position: Point, localSetting: LocalSetting) => {
-    const color = localSetting.defaultColor;
-
-    return new TableViewModel({
-        tableModel: new TableModel({}),
-        corner: { left: position.x, top: position.y },
-        headerColor: { background: color.background, foreground: color.foreground }
-    });
-};
-
-const createNewMemo = (position: Point, localSetting: LocalSetting) => {
-    const stickySize = localSetting.stickySize;
-    const rectangle = new RectangleViewModel({
-        positionX: position.x, positionY: position.y,
-        width: stickySize.width, height: stickySize.height
-    });
-
-    return MemoViewModel.create(rectangle, localSetting.defaultColor, localSetting.stickyFontSize);
-};
-
-const initRectangleArea = (erdCanvas: HTMLDivElement, viewport: CanvasViewport) => {
-    const tableRectangles = new Map<string, RectangleViewModel>();
-    const memoRectangles = new Map<string, RectangleViewModel>();
-
-    Array.from(erdCanvas.children).forEach(element => {
-        if (element.tagName === "svg") {
-            return;
-        }
-
-        const tableElements = element.getElementsByClassName(ERD_TABLE_VIEW_CLASS_NAME);
-        if ((tableElements != null) && (tableElements.length > 0)) {
-            const rectangle = initRectangleWithoutScale(tableElements[0], viewport);
-            tableRectangles.set(tableElements[0].id, rectangle);
-        }
-
-        const memoElements = element.getElementsByClassName(ERD_MEMO_VIEW_CLASS_NAME);
-        if ((memoElements != null) && (memoElements.length > 0)) {
-            const rectangle = initRectangleWithoutScale(memoElements[0], viewport);
-            memoRectangles.set(memoElements[0].id, rectangle);
-        }
-    });
-
-    return { tableRectangles, memoRectangles };
-};
-
-const initRectangleWithoutScale = (element: Element, viewport: CanvasViewport) => {
-    const elementRect = element.getBoundingClientRect();
-    const { viewportPosition, screenCenter, scale: currentScale } = viewport.getViewInfo();
-
-    return new RectangleViewModel({
-        positionX: (elementRect.left - screenCenter.x) / currentScale + viewportPosition.centerX,
-        positionY: (elementRect.top - screenCenter.y) / currentScale + viewportPosition.centerY,
-        width: elementRect.width / currentScale,
-        height: elementRect.height / currentScale
-    });
-};
-
-const initEffectOfMouseCursorOnCanvas = (editMode: EditMode, erdCanvas: HTMLDivElement) => {
-    // Grab モードの場合は、別のコンポーネントでマウスカーソルを制御しているので、ここでは何もしない
-    if (editMode === EditModeType.GRAB) {
-        return;
-    }
-
-    const handleMouseIcon = () => {
-        erdCanvas.style.cursor = findMouseCursorIcon(editMode);
-    };
-
-    erdCanvas.addEventListener("mousemove", handleMouseIcon);
-
-    return () => {
-        erdCanvas.removeEventListener("mousemove", handleMouseIcon);
-    };
-};
-
-const findMouseCursorIcon = (editMode: EditMode) => {
-    if (((editMode === EditModeType.CREATE_TABLE) || (editMode === EditModeType.CREATE_MEMO))) {
-        return "copy";
-    }
-
-    if (editMode === EditModeType.CREATE_RELATION) {
-        return "crosshair";
-    }
-
-    return "default";
-};
-
-
-type KeyEventHandler = {
-
-    isMatching: (event: KeyboardEvent) => boolean,
-
-    /**
-     * Handles the keyboard event. 
-     * 
-     * @returns {boolean}
-     *      Return `true` to prevent event propagation (e.g., calling `event.preventDefault()` and `event.stopPropagation()`).
-     *      Return `false` to allow the event to propagate further.
-     */
-    handle: () => boolean
-};
-
-const initEffectOfKeyDownOnCanvas = (handlers: KeyEventHandler[]) => {
-
-    const handleKeyUpOnCanvas = (event: KeyboardEvent) => {
-
-        // ダイアログが表示されているときはキー操作を無視する
-        const inOpenControlPane = inOpenControlPanel();
-        if (inOpenControlPane) {
-            return;
-        }
-
-        for (const handler of handlers) {
-            if (handler.isMatching(event) === false) {
-                continue;
-            }
-
-            const shouldPreventDefault = handler.handle();
-            if (shouldPreventDefault === false) {
-                return;
-            }
-
-            event.preventDefault();
-            event.stopPropagation();
-            return;
-        }
-    };
-
-    window.document.addEventListener("keydown", handleKeyUpOnCanvas, true);
-
-    return () => {
-        window.document.removeEventListener("keydown", handleKeyUpOnCanvas, true);
-    };
-};
-
-const initSelectModeHandler = (
-    dispatchEditMode: (action: EditMode) => void, erdCanvasRef: React.RefObject<HTMLDivElement | null>
-) => {
-    return {
-        isMatching: (event: KeyboardEvent) => (event.key === "Escape"),
-        handle: () => {
-            dispatchEditMode(EditModeType.SELECT);
-
-            if (erdCanvasRef.current) {
-                erdCanvasRef.current.style.cursor = "default";
-            }
-
-            return true; // イベントの伝播を止める
-        }
-    };
-};
-
-const initRedoHandler = (documentsHolder: ErdDocumentsHolder): KeyEventHandler => {
-    return {
-        isMatching: (event: KeyboardEvent) => (event.metaKey || event.ctrlKey)
-            && ((event.key === "y") || ((event.key === "z") && event.shiftKey)),
-        handle: () => {
-            documentsHolder.redo();
-            return true; // イベントの伝播を止める
-        }
-    };
-};
-
-const initUndoHandler = (documentsHolder: ErdDocumentsHolder): KeyEventHandler => {
-    return {
-        isMatching: (event: KeyboardEvent) => (event.metaKey || event.ctrlKey)
-            && (event.key === "z"),
-        handle: () => {
-            documentsHolder.undo();
-            return true; // イベントの伝播を止める
-        }
-    };
-};
-
-const initDeleteHandler = (
-    documentsHolder: ErdDocumentsHolder, selectState: SelectState,
-    dispatchSelectAction: (action: SelectAction) => void
-): KeyEventHandler => {
-    return {
-        isMatching: (event: KeyboardEvent) => (event.key === "Delete") || (event.key === "Backspace"),
-        handle: () => {
-            if (selectState.status === "none") {
-                return false; // イベントの伝播を止めない
-            }
-
-            const deleteIds = {
-                tableIds: selectState.tableIds,
-                memoIds: selectState.memoIds,
-                relationId: selectState.relationId ?? null
-            };
-
-            documentsHolder.delete(deleteIds);
-            dispatchSelectAction(RELEASE_ACTION);
-
-            return true; // イベントの伝播を止める
-        }
-    };
-};
 
 export default ErdCanvas;

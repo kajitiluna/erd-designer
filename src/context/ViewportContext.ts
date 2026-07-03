@@ -61,7 +61,7 @@ class CanvasViewportImpl implements CanvasViewport {
     public applyTransform(): void {
         const canvas = this.canvasRef.current;
         const viewport = this.viewportRef.current;
-        if (!canvas || !viewport) {
+        if ((canvas == null) || (viewport == null)) {
             return;
         }
 
@@ -87,6 +87,8 @@ class CanvasViewportImpl implements CanvasViewport {
         }
 
         const gridSpacing = GRID_SIZE * currentScale;
+        // JS の % 演算子は負の被除数に対して負の値を返すため、
+        // 二重剰余により translate が負でも常に [0, gridSpacing) の範囲へ正規化する
         const gridOffsetX = ((translateX % gridSpacing) + gridSpacing) % gridSpacing;
         const gridOffsetY = ((translateY % gridSpacing) + gridSpacing) % gridSpacing;
 
@@ -140,7 +142,7 @@ class CanvasViewportImpl implements CanvasViewport {
     }
 
     public updateViewportPosition(centerX: number, centerY: number): void {
-        if (!this.viewportPositionRef.current) {
+        if (this.viewportPositionRef.current == null) {
             return;
         }
 
@@ -261,7 +263,7 @@ const initWheelHandler = ({ isDraggingRef, zoomTimerRef, viewport }: WheelHandle
 
         if (event.ctrlKey || event.metaKey) {
             const changed = viewport.zoomWheel(event.deltaY);
-            if (!changed) {
+            if (changed === false) {
                 return;
             }
 

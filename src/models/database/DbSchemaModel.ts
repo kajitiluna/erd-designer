@@ -1,6 +1,6 @@
 import { v4 as uuidV4 } from 'uuid';
 
-import { PropertyNotExistsError } from "~/models/exceptions";
+import { requireProperty } from "~/models/util";
 
 type DbSchemaModelOptions = {
     schemaId: string;
@@ -46,12 +46,8 @@ class DbSchemaModel {
     }
 
     public static toObject(obj: object): DbSchemaModel {
-        if (!("schemaId" in obj)) {
-            throw new PropertyNotExistsError("schemaId", obj);
-        }
-        if (!("schemaName" in obj)) {
-            throw new PropertyNotExistsError("schemaName", obj);
-        }
+        requireProperty(obj, "schemaId");
+        requireProperty(obj, "schemaName");
 
         return new DbSchemaModel({
             schemaId: obj.schemaId as string,

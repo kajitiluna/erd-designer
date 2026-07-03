@@ -17,7 +17,6 @@ import TableUniqueKeysModel from '~/models/database/TableUniqueKeysModel';
 import DatabaseSettingModel from '~/models/DatabaseSettingModel';
 import DbSchemaConfig from '~/models/DbSchemaConfig';
 import ErdSettingModel from '~/models/ErdSettingModel';
-import { PropertyNotExistsError } from '~/models/exceptions';
 import LabelViewModel from '~/models/LabelViewModel';
 import LineViewModel from '~/models/LineViewModel';
 import MemoViewModel from '~/models/MemoViewModel';
@@ -25,7 +24,7 @@ import MemoViewModelStorage from '~/models/MemoViewModelStorage';
 import RelationViewModel, { OrthogonalRelation } from '~/models/RelationViewModel';
 import RelationViewModelStorage from '~/models/RelationViewModelStorage';
 import TableViewModel from '~/models/TableViewModel';
-import { toDateTime, toObjects } from '~/models/util';
+import { requireProperty, toDateTime, toObjects } from '~/models/util';
 
 type ErdDocumentOptions = {
     documentName: string,
@@ -146,7 +145,7 @@ export default class ErdDocument {
 
     public findSchema(schemaId: string): DbSchemaModel | null {
         const database = this.getDatabase();
-        if (!database.supportsSchema) {
+        if (database.supportsSchema === false) {
             return null;
         }
 
@@ -155,7 +154,7 @@ export default class ErdDocument {
 
     public findDefaultSchema(): DbSchemaModel | null {
         const database = this.getDatabase();
-        if (!database.supportsSchema) {
+        if (database.supportsSchema === false) {
             return null;
         }
 
@@ -1003,7 +1002,8 @@ export default class ErdDocument {
         }
 
         // 親リレーションの更新
-        const updatingParentRelationViewModels: Map<string, RelationModel> = (previousPkColumnModelIds.length > 0)
+        // 削除される PK カラムを参照するペアを取り除き、ペアがなくなったリレーションは削除対象とする
+        const updatingParentRelationModels: Map<string, RelationModel> = (previousPkColumnModelIds.length > 0)
             ? new Map(changedPreviousTableModels
                 .flatMap(tableModel =>
                     this.relationViewModelStorage.fetchRelationsByParent(tableModel.tableModelId)
@@ -1027,33 +1027,21 @@ export default class ErdDocument {
                 .map(relationModel => [relationModel.relationModelId, relationModel])
             ) : new Map();
 
-        // 子リレーションの更新
-        const updatingChildRelationModels = changedPreviousTableModels.flatMap(tableModel =>
-            this.relationViewModelStorage.fetchRelationsByChild(tableModel.tableModelId)
-                .filter(viewModel => deleteRelationIds.has(viewModel.relationId) === false)
-                .map(viewModel => updatingParentRelationViewModels.get(viewModel.relationId) || viewModel.relationModel)
-                .filter(relationModel => {
-                    // 子テーブルから削除されたカラムに紐づくリレーションが存在する場合、該当リレーションを削除する
-                    for (const pair of relationModel.relationPairs) {
-                        for (const columnModelId of deletingModel.columnModelIds) {
-                            if (pair.childColumnModelId === columnModelId) {
-                                deleteRelationIds.add(relationModel.relationModelId);
-                                return false;
-                            }
-                        }
-                    }
-
-                    return true;
-                })
-                .filter(relationModel => updatingParentRelationViewModels.has(relationModel.relationModelId))
-        );
-
-        // 最終的なリレーション更新
-        const updatingRelationModels = new Map(updatingParentRelationViewModels);
-        updatingChildRelationModels.forEach(model => updatingRelationModels.set(model.relationModelId, model));
+        // 子リレーションの削除判定
+        // 削除されるカラムを子側ペアに含むリレーションは、ペア単位の除去ではなくリレーションごと削除対象とする。
+        // 削除対象とならないリレーションには、親側の更新 (updatingParentRelationModels) 以外の変更は発生しない。
+        const deletingColumnModelIds = new Set(deletingModel.columnModelIds);
+        const deletingChildRelationIds = changedPreviousTableModels
+            .flatMap(tableModel => this.relationViewModelStorage.fetchRelationsByChild(tableModel.tableModelId))
+            .filter(viewModel => (deleteRelationIds.has(viewModel.relationId) === false))
+            .map(viewModel => updatingParentRelationModels.get(viewModel.relationId) ?? viewModel.relationModel)
+            .filter(relationModel => relationModel.relationPairs
+                .some(pair => deletingColumnModelIds.has(pair.childColumnModelId)))
+            .map(relationModel => relationModel.relationModelId);
+        deletingChildRelationIds.forEach(relationId => deleteRelationIds.add(relationId));
 
         const nextRelationViewModelStorage = this.relationViewModelStorage
-            .updateRelationModel(Array.from(updatingRelationModels.values()))
+            .updateRelationModel(Array.from(updatingParentRelationModels.values()))
             .deleteFromTableId(deleteTableIds)
             .deleteRelation(Array.from(deleteRelationIds));
 
@@ -1205,8 +1193,76 @@ export default class ErdDocument {
     }
 
     /**
+     * 指定されたリレーションの線描画を更新関数により書き換える。
+     * リレーションが存在しない、または変更が発生しない場合は自身を返す。
+     *
+     * @param relationId 更新対象のリレーションID
+     * @param updateLine 線描画モデルの更新関数
+     * @returns 更新後のドキュメント
+     */
+    public updateRelationLineBy(
+        relationId: string, updateLine: (previous: LineViewModel) => LineViewModel
+    ): ErdDocument {
+        const previousRelation = this.findRelationViewModel(relationId);
+        if (previousRelation == null) {
+            return this;
+        }
+
+        const previousLineView = previousRelation.lineViewModel;
+        const nextLineView = updateLine(previousLineView);
+        if (previousLineView.equals(nextLineView)) {
+            return this;
+        }
+
+        return this.updateRelationLine(relationId, nextLineView);
+    }
+
+    /**
+     * 指定されたリレーションのラベルを更新関数により書き換える。
+     * リレーションが存在しない、または変更が発生しない場合は自身を返す。
+     *
+     * @param relationId 更新対象のリレーションID
+     * @param updateLabel ラベルモデルの更新関数
+     * @returns 更新後のドキュメント
+     */
+    public updateRelationLabelBy(
+        relationId: string, updateLabel: (previous: LabelViewModel) => LabelViewModel
+    ): ErdDocument {
+        const previousRelation = this.findRelationViewModel(relationId);
+        if (previousRelation == null) {
+            return this;
+        }
+
+        const previousLabel = previousRelation.labelViewModel;
+        const nextLabel = updateLabel(previousLabel);
+        if (nextLabel.equals(previousLabel)) {
+            return this;
+        }
+
+        return this.updateRelationLabel(relationId, nextLabel);
+    }
+
+    /**
+     * 選択中の要素 (リレーション・テーブル・メモ) を一括削除する。
+     *
+     * @param selection 削除対象の選択状態
+     * @returns 更新後のドキュメント
+     */
+    public deleteSelectedElements(
+        selection: { relationId: string | null, tableIds: Set<string>, memoIds: Set<string> }
+    ): ErdDocument {
+        const afterRelation = ((selection.relationId != null) && (selection.relationId !== ""))
+            ? this.deleteRelation(selection.relationId) : this;
+        const afterTables = Array.from(selection.tableIds)
+            .reduce((erdDocument, tableId) => erdDocument.deleteTable(tableId), afterRelation);
+
+        return Array.from(selection.memoIds)
+            .reduce((erdDocument, memoId) => erdDocument.deleteMemo(memoId), afterTables);
+    }
+
+    /**
      * 指定されたリレーションの線の描画方法を更新する。
-     * 
+     *
      * @param nextOrthogonals 更新後の直交リレーション情報
      * @returns 更新後のドキュメント
      */
@@ -1465,27 +1521,13 @@ export default class ErdDocument {
     }
 
     public static toObject(obj: object): ErdDocument {
-        if (!("documentName" in obj)) {
-            throw new PropertyNotExistsError("documentName", obj);
-        }
-        if (!("tableViewModels" in obj)) {
-            throw new PropertyNotExistsError("tableViewModels", obj);
-        }
-        if (!("columnModels" in obj)) {
-            throw new PropertyNotExistsError("columnModels", obj);
-        }
-        if (!("columnShareModels" in obj)) {
-            throw new PropertyNotExistsError("columnShareModels", obj);
-        }
-        if (!("relationViewModels" in obj)) {
-            throw new PropertyNotExistsError("relationViewModels", obj);
-        }
-        if (!("erdSettingModel" in obj)) {
-            throw new PropertyNotExistsError("erdSettingModel", obj);
-        }
-        if (!("databaseSetting" in obj)) {
-            throw new PropertyNotExistsError("databaseSetting", obj);
-        }
+        requireProperty(obj, "documentName");
+        requireProperty(obj, "tableViewModels");
+        requireProperty(obj, "columnModels");
+        requireProperty(obj, "columnShareModels");
+        requireProperty(obj, "relationViewModels");
+        requireProperty(obj, "erdSettingModel");
+        requireProperty(obj, "databaseSetting");
 
         const erdSettingModel = ErdSettingModel.toObject(obj.erdSettingModel as object);
         const databaseSettingModel = DatabaseSettingModel.toObject(obj.databaseSetting as object);

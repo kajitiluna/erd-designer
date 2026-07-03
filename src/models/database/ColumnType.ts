@@ -1,4 +1,4 @@
-import { PropertyNotExistsError } from '~/models/exceptions';
+import { requireProperty } from "~/models/util";
 
 type ColumnTypeOptions = {
     id: number,
@@ -115,18 +115,10 @@ export default class ColumnType {
     }
 
     public static toObject(obj: object): ColumnType {
-        if (!("id" in obj)) {
-            throw new PropertyNotExistsError("id", obj);
-        }
-        if (!("name" in obj)) {
-            throw new PropertyNotExistsError("name", obj);
-        }
-        if (!("description" in obj)) {
-            throw new PropertyNotExistsError("description", obj);
-        }
-        if (!("baseQuery" in obj)) {
-            throw new PropertyNotExistsError("baseQuery", obj);
-        }
+        requireProperty(obj, "id");
+        requireProperty(obj, "name");
+        requireProperty(obj, "description");
+        requireProperty(obj, "baseQuery");
 
         const category = ("category" in obj) ? (obj.category as ColumnCategory) : "other";
         const withPrecision = ("withPrecision" in obj) ? (obj.withPrecision as boolean) : false;
@@ -198,7 +190,7 @@ export default class ColumnType {
         // ColumnType の defaultValueCandidates プロパティに動的項目を追加
         if (orgVersion < 20260321) {
             const sourceCandidates = new Set(source.defaultValueCandidates);
-            if (latest.defaultValueCandidates.some(candidate => !sourceCandidates.has(candidate))) {
+            if (latest.defaultValueCandidates.some(candidate => (sourceCandidates.has(candidate) === false))) {
                 return new ColumnType({
                     ...source,
                     defaultValueCandidates: [...latest.defaultValueCandidates]

@@ -1,8 +1,7 @@
 import { v4 as uuidV4 } from 'uuid';
 
 import RelationPair from '~/models/database/RelationPair';
-import { PropertyNotExistsError } from '~/models/exceptions';
-import { toObjects } from '~/models/util';
+import { requireProperty, toObjects } from '~/models/util';
 
 
 export type TableReferenceActionType = "RESTRICT" | "SET NULL" | "CASCADE" | "NO ACTION" | "SET DEFAULT";
@@ -64,18 +63,10 @@ export default class RelationModel {
     }
 
     public static toObject(obj: object): RelationModel {
-        if (!("relationModelId" in obj)) {
-            throw new PropertyNotExistsError("relationModelId", obj);
-        }
-        if (!("parentTableModelId" in obj)) {
-            throw new PropertyNotExistsError("parentTableModelId", obj);
-        }
-        if (!("childTableModelId" in obj)) {
-            throw new PropertyNotExistsError("childTableModelId", obj);
-        }
-        if (!("relationPairs" in obj)) {
-            throw new PropertyNotExistsError("relationPairs", obj);
-        }
+        requireProperty(obj, "relationModelId");
+        requireProperty(obj, "parentTableModelId");
+        requireProperty(obj, "childTableModelId");
+        requireProperty(obj, "relationPairs");
 
         return new RelationModel({
             relationModelId: obj.relationModelId as string,
@@ -119,7 +110,7 @@ export default class RelationModel {
             return false;
         }
         for (let index = 0; index < this.relationPairs.length; index++) {
-            if (!this.relationPairs[index].equals(other.relationPairs[index])) {
+            if (this.relationPairs[index].equals(other.relationPairs[index]) === false) {
                 return false;
             }
         }

@@ -339,7 +339,7 @@ const useRelationTooltip = (
         transform: `scale(${1 / displayScale})`,
     };
 
-    if (!toolbarCanvasElement) {
+    if (toolbarCanvasElement == null) {
         return (<></>);
     }
 
@@ -402,6 +402,16 @@ const useStraightLineView = (
     const dragState = React.useContext(DragActionContext);
 
     const [lineDragging, setLineDragging] = React.useState<LineDragging>({ on_dragging: false });
+    const pendingDragEndHandlerRef = React.useRef<((event: MouseEvent) => void) | null>(null);
+
+    // ドラッグ中にアンマウントされた場合、window に登録した mouseup リスナーが残留するため除去する
+    React.useEffect(() => {
+        return () => {
+            if (pendingDragEndHandlerRef.current != null) {
+                window.removeEventListener("mouseup", pendingDragEndHandlerRef.current);
+            }
+        };
+    }, []);
 
     const findTableRectangle = (tableId: string) => {
         const rectangle = rectangleMap.get(tableId);
@@ -409,7 +419,7 @@ const useStraightLineView = (
             return null;
         }
 
-        if ((dragState.status !== "on_dragging") || !selectState.tableIds.has(tableId)) {
+        if ((dragState.status !== "on_dragging") || (selectState.tableIds.has(tableId) === false)) {
             return rectangle;
         }
 
@@ -551,8 +561,11 @@ const useStraightLineView = (
 
             const handleDragEndOverLine = (event: MouseEvent) => {
                 window.removeEventListener("mouseup", handleDragEndOverLine);
+                pendingDragEndHandlerRef.current = null;
                 doHandleDragEnd(event);
             };
+
+            pendingDragEndHandlerRef.current = handleDragEndOverLine;
             window.addEventListener("mouseup", handleDragEndOverLine);
         };
 
@@ -633,7 +646,7 @@ const useStraightLineView = (
         }
 
         // Edge 変更が有効な場所に移っていない場合は、元の線分を描画する
-        if (!lineDragging.on_dragging || !lineDragging.majorChanging) {
+        if ((lineDragging.on_dragging === false) || (lineDragging.majorChanging === false)) {
             return [pair[1]];
         }
 
@@ -753,14 +766,14 @@ const useStraightLineView = (
     };
 
     const initPathCss = (relationView: RelationViewModel, selected: boolean) => {
-        if (!selected) {
+        if (selected === false) {
             return "";
         }
 
         if (
             lineDragging.on_dragging
             && (selectState.relationId === relationView.relationId)
-            && !lineDragging.majorChanging
+            && (lineDragging.majorChanging === false)
         ) {
             return styleClasses.inactiveDraggedSvg;
         }
@@ -891,8 +904,21 @@ const useOrthogonalLine = (
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
 
+    const pendingDragEndHandlerRef = React.useRef<((event: MouseEvent) => void) | null>(null);
+
+    // ドラッグ中にアンマウントされた場合、window に登録した mouseup リスナーが残留するため除去する
+    React.useEffect(() => {
+        return () => {
+            if (pendingDragEndHandlerRef.current == null) {
+                return;
+            }
+
+            window.removeEventListener("mouseup", pendingDragEndHandlerRef.current);
+        };
+    }, []);
+
     const initPathCss = (selected: boolean, isReducedLine: boolean) => {
-        if (!selected) {
+        if (selected === false) {
             return ERD_RELATION_PATH_CLASS_NAME;
         }
 
@@ -957,8 +983,10 @@ const useOrthogonalLine = (
 
                 const handleDragEndOverLine = (event: MouseEvent) => {
                     window.removeEventListener("mouseup", handleDragEndOverLine);
+                    pendingDragEndHandlerRef.current = null;
                     doHandleDragEnd(event);
                 };
+                pendingDragEndHandlerRef.current = handleDragEndOverLine;
                 window.addEventListener("mouseup", handleDragEndOverLine);
             };
 

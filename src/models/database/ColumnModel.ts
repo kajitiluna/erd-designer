@@ -1,6 +1,6 @@
 import { v4 as uuidV4 } from 'uuid';
 
-import { PropertyNotExistsError } from "~/models/exceptions";
+import { requireProperty } from "~/models/util";
 
 type ColumnModelOptions = {
     columnModelId?: string,
@@ -63,12 +63,8 @@ export default class ColumnModel {
     }
 
     public static toObject(obj: object): ColumnModel {
-        if (!("columnModelId" in obj)) {
-            throw new PropertyNotExistsError("columnModelId", obj);
-        }
-        if (!("columnShareModelId" in obj)) {
-            throw new PropertyNotExistsError("columnShareModelId", obj);
-        }
+        requireProperty(obj, "columnModelId");
+        requireProperty(obj, "columnShareModelId");
 
         const physicalName = ("physicalName" in obj) ? obj.physicalName as string : "";
         const logicalName = ("logicalName" in obj) ? obj.logicalName as string : "";

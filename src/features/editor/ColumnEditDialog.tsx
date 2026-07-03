@@ -329,11 +329,11 @@ const validateColumnTypeAttribute = (value: ColumnTypeAttribute): boolean => {
         return true;
     }
 
-    if (columnType.withScale && (!value.scale)) {
+    if (columnType.withScale && (value.scale === "")) {
         return false;
     }
 
-    return !!value.precision;
+    return value.precision !== "";
 };
 
 const initDefaultValueCandidates = (attribute: ColumnTypeAttribute) => {
@@ -554,13 +554,13 @@ const useBaseEditPanel = ({ attribute, disabled, updateColumnType, onEnterAction
                 </Grid>
                 <Grid size={{ xs: 3, md: 2 }}>
                     <TextField variant="outlined" label="Precision" type="number"
-                        disabled={!editablePrecision || disabled} required={editablePrecision}
+                        disabled={(editablePrecision === false) || disabled} required={editablePrecision}
                         error={editablePrecision && (attribute.precision === "")}
                         value={attribute.precision} onChange={handleChangePrecision} onKeyDown={onEnterAction} />
                 </Grid>
                 <Grid size={{ xs: 3, md: 2 }}>
                     <TextField variant="outlined" label="Scale" type="number"
-                        disabled={!editableScale || disabled} required={editableScale}
+                        disabled={(editableScale === false) || disabled} required={editableScale}
                         error={editableScale && (attribute.scale === "")}
                         value={attribute.scale} onChange={handleChangeScale} onKeyDown={onEnterAction} />
                 </Grid>

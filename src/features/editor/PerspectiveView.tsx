@@ -293,7 +293,7 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
     };
 
     const handleScroll = () => {
-        if (!headerScrollRef.current || !columnScrollRef.current) {
+        if ((headerScrollRef.current == null) || (columnScrollRef.current == null)) {
             return;
         }
 
@@ -505,7 +505,7 @@ const PerspectiveEditDialog = ({
     const editValueValidated = (perspectiveName.length > 0);
 
     const handleCompleted = () => {
-        if (!editValueValidated) {
+        if (editValueValidated === false) {
             return;
         }
 

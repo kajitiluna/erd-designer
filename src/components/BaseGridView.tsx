@@ -186,7 +186,7 @@ const BaseGridView = <RECORD_ENTITY,>({
 
     // スクロール同期
     const handleScroll = () => {
-        if (!headerScrollRef.current || !columnScrollRef.current) {
+        if ((headerScrollRef.current == null) || (columnScrollRef.current == null)) {
             return;
         }
 

@@ -7,10 +7,9 @@ import CloseIcon from '@mui/icons-material/Close';
 import {
     createSpreadSheet, findGdriveMetadata, openGdriveFile, updateGdriveFile
 } from "~/features/gdrive/gdrive-file-support";
-import MainView from "~/features/MainView";
+import ErdApplicationShell from "~/features/ErdApplicationShell";
 import ErdDocument from "~/models/ErdDocument";
 import Logo from "~/logo.svg";
-import ExportSpecificationContext from "~/context/ExportSpecificationContext";
 import exportSpreadSheetFormatSpecification from "~/features/spec/GoogleSpreadSheetFormatSpecification";
 
 type GoogleDriveFileProp = {
@@ -256,11 +255,11 @@ const GoogleDriveFile = ({ implicitToken, authorize }: GoogleDriveFileProp) => {
     );
 
     return (
-        <ExportSpecificationContext.Provider value={{ exportSpecification }}>
-            <MainView erdDocument={sessionDocument.erdDocument}
-                onSave={handleSave} erdExportable={false} />
+        <ErdApplicationShell erdDocument={sessionDocument.erdDocument}
+            onSave={handleSave} erdExportable={false}
+            exportSpecification={exportSpecification}>
             {messageDisplay}
-        </ExportSpecificationContext.Provider>
+        </ErdApplicationShell>
     );
 };
 
@@ -283,7 +282,7 @@ const initSessionDocument = (): (SessionDocument | null) => {
     }
 
     const jsonDocument = JSON.parse(temporaryDocument);
-    if (!("erdDocument" in jsonDocument) || !("version" in jsonDocument)) {
+    if ((("erdDocument" in jsonDocument) === false) || (("version" in jsonDocument) === false)) {
         return null;
     }
 

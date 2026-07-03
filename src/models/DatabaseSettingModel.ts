@@ -1,8 +1,7 @@
 import { findDatabaseColumns, migrateColumns } from "~/models/database/columns";
 import ColumnType from "~/models/database/ColumnType";
 import { Database, DatabaseType } from "~/models/database/DatabaseType";
-import { PropertyNotExistsError } from "~/models/exceptions";
-import { toObjects } from "~/models/util";
+import { requireProperty, toObjects } from "~/models/util";
 
 type DatabaseSettingModelType = {
     databaseType: DatabaseType,
@@ -52,12 +51,8 @@ export default class DatabaseSettingModel {
     }
 
     public static toObject(obj: object): DatabaseSettingModel {
-        if (!("databaseType" in obj)) {
-            throw new PropertyNotExistsError("databaseType", obj);
-        }
-        if (!("columnTypes" in obj)) {
-            throw new PropertyNotExistsError("columnTypes", obj);
-        }
+        requireProperty(obj, "databaseType");
+        requireProperty(obj, "columnTypes");
 
         const databaseType = obj.databaseType as DatabaseType;
         const orgColumnTypes = toObjects(obj.columnTypes, "columnTypes", value => ColumnType.toObject(value));
@@ -80,7 +75,7 @@ export default class DatabaseSettingModel {
             return false;
         }
         for (let index = 0; index < this.columnTypes.length; index++) {
-            if (!this.columnTypes[index].equals(other.columnTypes[index])) {
+            if (this.columnTypes[index].equals(other.columnTypes[index]) === false) {
                 return false;
             }
         }

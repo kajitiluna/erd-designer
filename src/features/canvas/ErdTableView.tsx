@@ -548,7 +548,7 @@ const InnerErdTableView = ({
         left: physicalPosition.x, top: physicalPosition.y,
         display: "flex", flexDirection: "column", justifyContent: "flex-start",
         userSelect: "none",
-        ...(!visible && { opacity: 0, pointerEvents: 'none' })
+        ...((visible === false) && { opacity: 0, pointerEvents: 'none' })
     };
 
     const boundStyle = {
@@ -564,11 +564,11 @@ const InnerErdTableView = ({
         : ERD_TABLE_VIEW_CLASS_NAME;
 
     const initControlPanel = () => {
-        if (!containerRef.current || !toolbarCanvasElement) {
+        if ((containerRef.current == null) || (toolbarCanvasElement == null)) {
             return (<></>);
         }
 
-        if (!selected || (editMode !== EditModeType.SELECT)
+        if ((selected === false) || (editMode !== EditModeType.SELECT)
             || (dragState.status === "on_dragging")
             || (selectState.tableIds.size + selectState.memoIds.size !== 1)) {
             return (<></>);
