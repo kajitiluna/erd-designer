@@ -1,5 +1,4 @@
 import { OrthogonalDirection } from "~/models/LineViewModel";
-import RectangleViewModel from "~/models/RectangleViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
 import EditAction from "~/features/canvas/EditAction";
 import { RectangleArea } from "~/features/canvas/ErdCanvas/rectangle-area";
@@ -59,7 +58,11 @@ const doCreateSelfRelation = (editAction: EditAction & { editType: "relation" },
         return editAction.relationViewModel;
     }
 
-    const rectangle = rectangleArea.tableRectangles.get(parentTableId) as RectangleViewModel;
+    const rectangle = rectangleArea.tableRectangles.get(parentTableId);
+    if (rectangle == null) {
+        return editAction.relationViewModel;
+    }
+
     const orthogonalLines: OrthogonalDirection[] = [
         { direction: "horizontal", position: rectangle.bottom - rectangle.height / 4 },
         { direction: "vertical", position: rectangle.right + 70 },
