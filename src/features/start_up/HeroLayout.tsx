@@ -1,13 +1,14 @@
-import { Box, Grid, Stack, Typography } from "@mui/material";
+import { Box, Grid, Typography } from "@mui/material";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 
-import Logo from "~/logo.svg";
 import RegalFooter from "~/features/regal/RegalFooter";
 import DiagramActionButtons from "~/features/start_up/DiagramActionButtons";
 import GitHubLinkButton from "~/features/start_up/GitHubLinkButton";
 import FeatureCard from "~/components/FeatureCard";
+import ErdAppLogo from "~/features/regal/ErdAppLogo";
+import { descriptionStyle, gradientStyle } from "~/features/start_up/start-up-styles";
 
 type HeroLayoutProp = {
     onOpenCreateDialog: () => void;
@@ -35,14 +36,8 @@ const MainPanel = ({ onOpenCreateDialog, onOpenImportDialog }: HeroLayoutProp) =
     return (
         <Box sx={mainPanelStyle}>
             <Box sx={{ maxWidth: 960, margin: "0 auto" }}>
-                <Stack direction="row" spacing={3.5}
-                    sx={{ alignItems: "center", justifyContent: "center", marginBottom: "24px" }}>
-                    <img src={Logo} alt="ERD Designer" width={160} height={160} style={{ flexShrink: 0 }} />
-                    <Typography variant="h3" sx={{ fontWeight: 700, lineHeight: 1.15, letterSpacing: "-0.02em" }}>
-                        Entity Relationship<br />Diagram Designer
-                    </Typography>
-                </Stack>
-                <Typography sx={descriptionStyle}>
+                <ErdAppLogo />
+                <Typography sx={descriptionTextStyle}>
                     A browser-based tool for designing database tables and relationships
                     through a graphical interface.
                 </Typography>
@@ -54,16 +49,12 @@ const MainPanel = ({ onOpenCreateDialog, onOpenImportDialog }: HeroLayoutProp) =
 };
 
 const mainPanelStyle = {
-    background: "linear-gradient(180deg, #f6f3fa 0%, #ffffff 100%)",
-    borderBottom: "1px solid #efeaf4",
+    ...gradientStyle,
     padding: "52px 64px 44px",
 };
 
-const descriptionStyle = {
-    fontSize: 17,
-    lineHeight: 1.55,
-    color: "text.secondary",
-    textAlign: "center",
+const descriptionTextStyle = {
+    ...descriptionStyle,
     maxWidth: 540,
     margin: "0 auto 28px",
 };

@@ -5,8 +5,9 @@ import { useSearchParams } from "react-router-dom";
 import ErdDocument from "~/models/ErdDocument";
 import InitializeDatabaseDialog from "~/features/start_up/InitializeDatabaseDialog";
 import { createGdriveFile, openGdriveFile } from "~/features/gdrive/gdrive-file-support";
-import Logo from "~/logo.svg";
 import RegalFooter from "~/features/regal/RegalFooter";
+import ErdAppLogo from "~/features/regal/ErdAppLogo";
+import { containedButtonStyle, descriptionStyle, gradientStyle } from "~/features/start_up/start-up-styles";
 
 type GoogleDriveInitializerProp = {
     implicitToken: { accessToken: string, expiresAt: number },
@@ -76,19 +77,16 @@ const GoogleDriveInitializer = ({ implicitToken, authorize, onInitialize }: Goog
         || ((implicitToken.expiresAt >= currentDate) && (gdriveState.action === "open"));
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+        <Box sx={{ ...gradientStyle, display: "flex", flexDirection: "column", minHeight: "100vh" }}>
             <Box sx={boxStyle} style={{ flex: 1 }}>
-                <img src={Logo} alt="" width="200px" height="200px" />
-                <Typography variant="h2" align="center" style={{ marginTop: "30px", marginBottom: "30px" }}>
-                    Entity Relationship Diagram Designer
-                </Typography>
+                <ErdAppLogo />
 
                 {(implicitToken.expiresAt < currentDate) && (
-                    <Stack spacing={2} sx={{ justifyContent: "center", alignItems: "center" }}>
-                        <Typography variant="body1" gutterBottom>
+                    <Stack spacing={3} sx={{ justifyContent: "center", alignItems: "center", margin: 3 }}>
+                        <Typography variant="body1" sx={descriptionStyle}>
                             Need to authorize to edit the ERD file on the Google Drive.
                         </Typography>
-                        <Button variant="contained" size="large" onClick={authorize}>
+                        <Button variant="contained" size="large" onClick={authorize} sx={containedButtonStyle}>
                             Authorize with Google
                         </Button>
                     </Stack>
@@ -100,13 +98,11 @@ const GoogleDriveInitializer = ({ implicitToken, authorize, onInitialize }: Goog
                         onCreate={handleCreateDocument}
                         onClose={() => { }} />
                 )}
-                {onProcessing && (
-                    <CircularProgress />
-                )}
+                {onProcessing && (<CircularProgress />)}
             </Box>
 
             <RegalFooter />
-        </div>
+        </Box>
     );
 };
 
