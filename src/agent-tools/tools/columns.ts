@@ -4,19 +4,19 @@ import {
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import z from "zod";
 
-import { DocumentResource } from "~/extension/DocumentResource";
+import { DocumentResource } from "~/agent-tools/DocumentResource";
 import {
     calculateIndexFromPosition, DESCRIPTION_DOCUMENT_ID, findDocument, findDocumentAndTable, indent,
     initInvalidParams, initPositionSchema, initResourceNotFound, initResourceResponse, initToolJsonResponse,
     McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs,
     searchParameters, validatePhysicalName, validatePositiveNumber
-} from "~/extension/mcpserver/support";
+} from "~/agent-tools/tools/support";
 import { Database } from "~/models/database";
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
 import ErdDocument from "~/models/ErdDocument";
 import { overrideColumnName } from '~/models/database/support';
-import DocumentBudget, { uriTemplates } from '~/extension/mcpserver/DocumentBudget';
+import DocumentBudget, { uriTemplates } from '~/agent-tools/DocumentBudget';
 import TableViewModel from '~/models/TableViewModel';
 import TableModel from '~/models/database/TableModel';
 

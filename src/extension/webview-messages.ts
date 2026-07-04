@@ -1,4 +1,4 @@
-import { RectangleType } from "~/extension/mcpserver/DocumentBudget";
+import { RectangleType } from "~/agent-tools/DocumentBudget";
 
 /**
  * VSCode 拡張機能と Webview (React アプリ) 間で交換するメッセージ、

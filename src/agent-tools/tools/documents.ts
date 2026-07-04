@@ -3,13 +3,13 @@ import {
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import z from "zod";
 
-import { DocumentResource } from "~/extension/DocumentResource";
-import DocumentBudget, { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
+import { DocumentResource } from "~/agent-tools/DocumentResource";
+import DocumentBudget, { uriTemplates } from "~/agent-tools/DocumentBudget";
 import {
     DESCRIPTION_DOCUMENT_ID, findDocument, initResourceNotFound, initResourceResponse, initToolJsonResponse,
     McpRegisterConfig, McpServerRegisterResourceArgs, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs
-} from "~/extension/mcpserver/support";
-import { toTableSummary } from "~/extension/mcpserver/tables";
+} from "~/agent-tools/tools/support";
+import { toTableSummary } from "~/agent-tools/tools/tables";
 import { createDdl } from "~/models/create-ddl";
 import { toNextOrthogonalLines } from "~/features/canvas/support";
 import DisplayStyle from "~/models/database/DisplayStyle";

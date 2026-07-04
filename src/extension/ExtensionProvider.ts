@@ -1,17 +1,17 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import { DocumentResource } from '~/extension/DocumentResource';
-import { RectangleType } from '~/extension/mcpserver/DocumentBudget';
+import { RectangleType } from '~/agent-tools/DocumentBudget';
 import {
     ChangeDocumentMessage, ERD_MESSAGE_EVENT_SOURCE, InitDocumentMessage
 } from '~/extension/webview-messages';
+import { VsCodeDocumentResource } from '~/extension/VsCodeDocumentResource';
 
 export class ExtensionProvider implements vscode.CustomTextEditorProvider {
 
     private readonly context: vscode.ExtensionContext
-    private readonly documentResource: DocumentResource;
+    private readonly documentResource: VsCodeDocumentResource;
 
-    constructor(context: vscode.ExtensionContext, documentResource: DocumentResource) {
+    constructor(context: vscode.ExtensionContext, documentResource: VsCodeDocumentResource) {
         this.context = context;
         this.documentResource = documentResource;
     }
@@ -25,7 +25,7 @@ export class ExtensionProvider implements vscode.CustomTextEditorProvider {
 }
 
 const handleResolvingTextEditor = (
-    context: vscode.ExtensionContext, documentResource: DocumentResource,
+    context: vscode.ExtensionContext, documentResource: VsCodeDocumentResource,
     textDocument: vscode.TextDocument, webviewPanel: vscode.WebviewPanel
 ) => {
     // Webviewの設定
@@ -37,7 +37,10 @@ const handleResolvingTextEditor = (
     };
 
     const documentUri = textDocument.uri.toString();
-    const jsonContent = textDocument.getText().trim();
+
+    // 外部 (CLI 等) によるファイル変更の監視
+    const { watcher: externalChangeWatcher, recordSavedContent } =
+        initWatcherForExternalChange(documentResource, textDocument, webviewPanel);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleReceivedMessage = async (message: any) => {
@@ -49,6 +52,8 @@ const handleResolvingTextEditor = (
         }
 
         if (message.messageType === "ready") {
+            // resolve 〜 ready の間に外部変更が入っても最新の内容で初期化できるよう、ここで取得する
+            const jsonContent = textDocument.getText().trim();
             const handleChangeView = (updating: string) => {
                 // 自身の操作以外で更新された場合は WebView に変更を通知する
                 const changeDocumentMessage: ChangeDocumentMessage = {
@@ -102,6 +107,16 @@ const handleResolvingTextEditor = (
             const updating = message.erdDocument as Record<string, unknown>;
             const loggingMessage = ("loggingMessage" in message) ? message.loggingMessage as string : "";
 
+            const jsonContent = JSON.stringify(updating, null, 4);
+            recordSavedContent(jsonContent);
+
+            // 外部変更通知 (changeDocument) に対する WebView からの保存返送など、
+            // ディスク上の内容と同一の場合は書き込みしない
+            if (jsonContent === textDocument.getText().trim()) {
+                console.debug(`Skipped saving identical content: ${documentUri}`);
+                return;
+            }
+
             documentResource.update(textDocument, JSON.stringify(updating));
             await saveDocument(textDocument, updating, loggingMessage);
             return;
@@ -114,8 +129,83 @@ const handleResolvingTextEditor = (
 
     // Webviewが閉じられたときのクリーンアップ
     webviewPanel.onDidDispose(() => {
+        externalChangeWatcher.dispose();
         documentResource.remove(textDocument);
     });
+};
+
+type ExternalChangeWatching = {
+    watcher: vscode.Disposable;
+    recordSavedContent: (content: string) => void;
+};
+
+const initWatcherForExternalChange = (
+    documentResource: VsCodeDocumentResource, textDocument: vscode.TextDocument,
+    webviewPanel: vscode.WebviewPanel
+): ExternalChangeWatching => {
+    const documentUri = textDocument.uri.toString();
+
+    // WebView が保持している最新の内容。自身の保存に起因する change イベントを
+    // 外部変更として WebView にエコーバックしないための照合に使う。
+    let lastSavedContent = "";
+
+    const recordSavedContent = (content: string) => {
+        lastSavedContent = content;
+    };
+
+    const watcher = vscode.workspace.onDidChangeTextDocument(event => {
+        if (event.document.uri.toString() !== documentUri) {
+            return;
+        }
+
+        if (event.contentChanges.length === 0) {
+            return;
+        }
+
+        // WebView 発の保存 (applyEdit) は dirty 状態で発火するため無視する。
+        // 外部 (CLI 等) からのディスク変更は VSCode の自動リロード後に非 dirty で発火する。
+        if (event.document.isDirty === true) {
+            return;
+        }
+
+        const jsonContent = event.document.getText().trim();
+        // WebView が既に保持している内容なら通知不要（自己保存のエコー防止）
+        if (jsonContent === lastSavedContent) {
+            return;
+        }
+
+        if (isParsableJson(jsonContent) === false) {
+            console.warn(`Skipped notifying invalid external change: ${documentUri}`);
+            return;
+        }
+
+        // MCP サーバー側が保持するドキュメントも最新化する
+        documentResource.update(event.document, jsonContent);
+
+        const changeDocumentMessage: ChangeDocumentMessage = {
+            eventSource: ERD_MESSAGE_EVENT_SOURCE,
+            messageType: "changeDocument",
+            documentUri: documentUri,
+            jsonContext: jsonContent
+        };
+        webviewPanel.webview.postMessage(changeDocumentMessage);
+
+        console.info(`Notified external document change to webview: ${documentUri}`);
+    });
+
+    return { watcher, recordSavedContent };
+};
+
+const isParsableJson = (content: string): boolean => {
+    if (content.length === 0) {
+        return false;
+    }
+    try {
+        JSON.parse(content);
+        return true;
+    } catch {
+        return false;
+    }
 };
 
 const saveDocument = async (

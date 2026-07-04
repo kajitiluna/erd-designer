@@ -1,0 +1,17 @@
+{
+    "name": "erd-designer",
+    "owner": {
+        "name": "kajitiluna"
+    },
+    "metadata": {
+        "description": "Marketplace for the ERD Designer agent plugin.",
+        "version": "0.0.1"
+    },
+    "plugins": [
+        {
+            "name": "erd-designer",
+            "source": "./agent-plugin",
+            "description": "Design and edit ERD Designer (.erd) files with an agent via a bundled CLI and skill."
+        }
+    ]
+}

@@ -13,6 +13,11 @@ samples/**
 src/**
 work/**
 
+# Agent plugin files (distributed via git, not part of the extension)
+.claude-plugin/**
+agent-plugin/**
+out/cli/**
+
 node_modules/**
 
 .gitignore

@@ -18,6 +18,8 @@
     "jsx": "react-jsx"
   },
   "include": [
+    "src/agent-tools/**/*",
+    "src/cli/**/*",
     "src/extension/**/*",
     "src/components/**/*",
     "src/context/**/*",

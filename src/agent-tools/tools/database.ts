@@ -3,13 +3,13 @@ import {
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import z from "zod";
 
-import { DocumentResource } from "~/extension/DocumentResource";
-import { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
+import { DocumentResource } from "~/agent-tools/DocumentResource";
+import { uriTemplates } from "~/agent-tools/DocumentBudget";
 import {
     DESCRIPTION_DOCUMENT_ID, findDocument, initResourceResponse, initToolJsonResponse,
     McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs
-} from "~/extension/mcpserver/support";
-import DocumentBudget from "~/extension/mcpserver/DocumentBudget";
+} from "~/agent-tools/tools/support";
+import DocumentBudget from "~/agent-tools/DocumentBudget";
 
 export const mcpRegisterDatabase = (documentResource: DocumentResource): McpRegisterConfig => {
     return {

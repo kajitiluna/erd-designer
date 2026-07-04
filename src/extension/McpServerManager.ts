@@ -3,18 +3,9 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import express from "express";
 import { Server } from "http";
 
-import { DocumentResource } from "~/extension/DocumentResource";
-import { mcpRegisterColumnGroup } from "~/extension/mcpserver/column-groups";
-import { mcpRegisterColumnType } from "~/extension/mcpserver/column-types";
-import { mcpRegisterColumn } from "~/extension/mcpserver/columns";
-import { mcpRegisterDatabase } from "~/extension/mcpserver/database";
-import { mcpRegisterErdDocument } from "~/extension/mcpserver/documents";
-import { mcpRegisterMemo } from "~/extension/mcpserver/memos";
-import { mcpRegisterPerspective } from "~/extension/mcpserver/perspectives";
-import { mcpRegisterRelation } from "~/extension/mcpserver/relations";
-import { mcpRegisterSchema } from "~/extension/mcpserver/schemas";
-import { McpErrorCode, McpRegisterConfig } from "~/extension/mcpserver/support";
-import { mcpRegisterTable } from "~/extension/mcpserver/tables";
+import { DocumentResource } from "~/agent-tools/DocumentResource";
+import { initToolRegistrations } from "~/agent-tools/tools";
+import { McpErrorCode, McpRegisterConfig } from "~/agent-tools/tools/support";
 import { ShowMessage } from "~/extension/vscode-message";
 
 export class McpServerManager {
@@ -126,29 +117,7 @@ const createMcpServer = (documentResource: DocumentResource) => {
         version: "0.1.0"
     });
 
-    const registrations: McpRegisterConfig[] = [
-        // `erd-designer://documents`
-        mcpRegisterErdDocument(documentResource),
-        // `erd-designer://documents/{documentId}/database`
-        mcpRegisterDatabase(documentResource),
-        // `erd-designer://documents/{documentId}/tables`
-        mcpRegisterTable(documentResource),
-        // `erd-designer://documents/{documentId}/columns`
-        // `erd-designer://documents/{documentId}/column_shares/`
-        mcpRegisterColumn(documentResource),
-        // `erd-designer://documents/{documentId}/column_types`
-        mcpRegisterColumnType(documentResource),
-        // `erd-designer://documents/{documentId}/relations`
-        mcpRegisterRelation(documentResource),
-        // `erd-designer://documents/{documentId}/schemas`
-        mcpRegisterSchema(documentResource),
-        // `erd-designer://documents/{documentId}/column_groups`
-        mcpRegisterColumnGroup(documentResource),
-        // `erd-designer://documents/{documentId}/memos`
-        mcpRegisterMemo(documentResource),
-        // `erd-designer://documents/{documentId}/perspectives`
-        mcpRegisterPerspective(documentResource)
-    ];
+    const registrations = initToolRegistrations(documentResource);
 
     const initialConfig: McpRegisterConfig = { resources: [], resourceTemplates: [], tools: [] };
     const mcpConfig = registrations.reduce<McpRegisterConfig>((merged, config) => {

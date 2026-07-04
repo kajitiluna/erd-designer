@@ -3,9 +3,9 @@ import { vi, describe, test, expect, beforeEach } from 'vitest';
 // vscode モジュールをモック（DocumentResource が依存）
 vi.mock('vscode', () => ({}));
 
-import { DocumentResource } from '~/extension/DocumentResource';
-import DocumentBudget from '~/extension/mcpserver/DocumentBudget';
-import { mcpRegisterPerspective } from '~/extension/mcpserver/perspectives';
+import { DocumentResource } from '~/agent-tools/DocumentResource';
+import DocumentBudget from '~/agent-tools/DocumentBudget';
+import { mcpRegisterPerspective } from '~/agent-tools/tools/perspectives';
 import ColorValue from '~/models/ColorValue';
 import DatabaseSettingModel from '~/models/DatabaseSettingModel';
 import DbSchemaConfig from '~/models/DbSchemaConfig';

@@ -2,7 +2,8 @@ import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 
 import ErdDocument from '~/models/ErdDocument';
-import DocumentBudget, { RectangleType } from '~/extension/mcpserver/DocumentBudget';
+import DocumentBudget, { RectangleType } from '~/agent-tools/DocumentBudget';
+import { DocumentResource } from '~/agent-tools/DocumentResource';
 
 type InnerErdBudget = {
     status: "ready";
@@ -19,7 +20,7 @@ type InnerErdBudget = {
     onUpdateDocument: (updating: string) => void;
 };
 
-export class DocumentResource {
+export class VsCodeDocumentResource implements DocumentResource {
 
     // uri から documentId へのマッピング
     private readonly uriToIdMap: Map<string, string>;
