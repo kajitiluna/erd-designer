@@ -138,7 +138,7 @@ const initHandleExternallyChangedDocument = (documentsHolder: ErdDocumentsHolder
 
         const erdDocument = eventDetail.erdDocument as ErdDocument;
         documentsHolder.update(erdDocument, `Update document from external change: ${erdDocument.documentName}`);
-        console.info("ErdCanvas: External document change has been applied.");
+        console.info("MainView: External document change has been applied.");
     };
 };
 

@@ -18,7 +18,7 @@ export const GRID_CELL_STYLE: React.CSSProperties = {
     minHeight: "30px"
 } as const;
 
-/** Webview 内部 CustomEvent: 外部からのドキュメント変更を ErdCanvas へ伝搬する */
+/** Webview 内部 CustomEvent: 外部からのドキュメント変更を MainView へ伝搬する */
 export const EXTERNAL_DOCUMENT_CHANGED_EVENT = "externalDocumentChanged";
 
 /** Webview 内部 CustomEvent: Canvas 描画矩形の更新を VsCodeExtensionApplication へ伝搬する */
