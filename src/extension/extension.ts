@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
-import { DocumentResource } from '~/extension/DocumentResource';
 
 import { ExtensionProvider } from '~/extension/ExtensionProvider';
 import { McpServerManager } from '~/extension/McpServerManager';
 import { showVsCodeMessage } from '~/extension/vscode-message';
+import { VsCodeDocumentResource } from '~/extension/VsCodeDocumentResource';
 
-const documentResource = new DocumentResource();
+const documentResource = new VsCodeDocumentResource();
 const mcpManager = new McpServerManager(documentResource, showVsCodeMessage);
 
 export const activate = (context: vscode.ExtensionContext) => {

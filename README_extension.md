@@ -37,7 +37,12 @@ Inspired by [ERMaster](https://ermaster.sourceforge.net/index.html), built for t
 - **Image export** — Export as PNG, SVG, or interactive HTML with pan/zoom and perspective switching
 
 ### AI Integration (Experimental)
-- **MCP Server** — Built-in [Model Context Protocol](https://modelcontextprotocol.io/) server that enables AI assistants like Claude to read and modify your ER diagrams programmatically
+- **MCP Server** — Built-in [Model Context Protocol](https://modelcontextprotocol.io/) server
+that enables AI assistants like Claude to read and modify your ER diagrams programmatically
+- **Agent plugin (CLI + skill)** — Alternatively, a plugin with a bundled CLI (for Claude Code and
+GitHub Copilot CLI) lets coding agents edit `.erd` files directly, with lower token overhead and
+no need to keep VS Code running.
+See the [GitHub repository](https://github.com/kajitiluna/erd-designer#ai-agent-integration-agent-plugin)
 
 ## Supported Databases
 
@@ -106,6 +111,7 @@ ERD Designer includes an experimental MCP (Model Context Protocol) Server that a
 - The MCP Server only runs when VS Code is active
 - Only ERD files currently open in VS Code can be accessed and modified
 - Ensure the port 53753 is not blocked by firewall settings
+- If you use Claude Code or GitHub Copilot CLI, consider the [agent plugin](https://github.com/kajitiluna/erd-designer#ai-agent-integration-agent-plugin) instead: it edits `.erd` files directly through a bundled CLI and consumes far fewer context tokens than the MCP tool schemas
 
 ## Sample File
 

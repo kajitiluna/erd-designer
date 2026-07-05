@@ -2,23 +2,24 @@
   "compilerOptions": {
     "target": "ES2021",
     "lib": ["ES2021", "DOM", "DOM.Iterable"],
-    "module": "CommonJS",
+    "module": "ESNext",
     "skipLibCheck": true,
     "outDir": "./out",
     "rootDir": "./src",
 
-    "baseUrl": "src/",
     "paths": {
-      "~/*": ["*"]
+      "~/*": ["./src/*"]
     },
 
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "jsx": "react-jsx"
   },
   "include": [
+    "src/agent-tools/**/*",
+    "src/cli/**/*",
     "src/extension/**/*",
     "src/components/**/*",
     "src/context/**/*",

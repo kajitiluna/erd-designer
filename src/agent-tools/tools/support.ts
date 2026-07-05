@@ -4,8 +4,8 @@ import {
 import { ErrorCode, McpError, ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import z, { ZodRawShape } from "zod";
 
-import { DocumentResource } from "~/extension/DocumentResource";
-import { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
+import { DocumentResource } from "~/agent-tools/DocumentResource";
+import { uriTemplates } from "~/agent-tools/DocumentBudget";
 
 export const McpErrorCode = {
     ResourceNotFound: -32002,

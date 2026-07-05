@@ -1,0 +1,17 @@
+{
+    "name": "erd-designer",
+    "description": "Design and edit ERD Designer (.erd) files with an agent. Provides a bundled CLI and a skill so agents can add tables, columns and relations, and export DDL without the MCP server.",
+    "version": "0.0.1",
+    "author": {
+        "name": "kajitiluna"
+    },
+    "homepage": "https://github.com/kajitiluna/erd-designer",
+    "repository": "https://github.com/kajitiluna/erd-designer",
+    "license": "Apache-2.0",
+    "keywords": [
+        "erd",
+        "database",
+        "ddl",
+        "diagram"
+    ]
+}

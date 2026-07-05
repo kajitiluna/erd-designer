@@ -4,15 +4,15 @@ import {
 import { v4 as uuidV4 } from 'uuid';
 import z from "zod";
 
-import { DocumentResource } from "~/extension/DocumentResource";
-import { addColumnSchema, buildAddingColumnPairs } from "~/extension/mcpserver/columns";
-import DocumentBudget, { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
-import { toRelationSummary } from "~/extension/mcpserver/relations";
+import { DocumentResource } from "~/agent-tools/DocumentResource";
+import { addColumnSchema, buildAddingColumnPairs } from "~/agent-tools/tools/columns";
+import DocumentBudget, { uriTemplates } from "~/agent-tools/DocumentBudget";
+import { toRelationSummary } from "~/agent-tools/tools/relations";
 import {
     colorValueSchema, DESCRIPTION_DOCUMENT_ID, McpRegisterConfig, McpServerRegisterResourceTemplateArgs,
     McpServerRegisterToolArgs, findDocument, findDocumentAndTable, initInvalidParams, initResourceNotFound,
     initResourceResponse, initToolJsonResponse, searchParameters, validatePhysicalName
-} from "~/extension/mcpserver/support";
+} from "~/agent-tools/tools/support";
 import { toNextOrthogonalLines } from "~/features/canvas/support";
 import ColorValue from "~/models/ColorValue";
 import { Database } from "~/models/database";

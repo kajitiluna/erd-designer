@@ -11,7 +11,6 @@ import PortalCanvasContext from "~/context/PortalCanvasContext";
 import { EditModeType } from "~/models/EditMode";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import MemoViewModel from "~/models/MemoViewModel";
-import ErdDocument from "~/models/ErdDocument";
 import { handlePreventContextMenu, toNextOrthogonalLines, withMultiSelectKey } from "~/features/canvas/support";
 import EditAction from "~/features/canvas/EditAction";
 import ErdRelationPathView, { ErdRelationTooltipRef } from "~/features/canvas/ErdRelationPathView";
@@ -29,7 +28,7 @@ import {
     initCreatingRelationLine, initRelationCardinalityDefinitions
 } from "~/features/canvas/ErdCanvas/decorations";
 import { initEditView } from "~/features/canvas/ErdCanvas/edit-view";
-import { CANVAS_RECTANGLES_DRAWN_EVENT, EXTERNAL_DOCUMENT_CHANGED_EVENT } from "~/extension/webview-messages";
+import { CANVAS_RECTANGLES_DRAWN_EVENT } from "~/components/constant";
 
 export const ERD_CANVAS_ID = "erd-canvas";
 
@@ -366,28 +365,6 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
 
         return initEffectOfKeyDownOnCanvas(handlers);
     }, [editAction.editType, selectState, dispatchSelectAction, dispatchEditMode, documentsHolder]);
-
-    // 外部からの変更を Canvas の表示に反映する
-    React.useEffect(() => {
-        const handleExternalDocumentChange = (event: Event) => {
-            const customEvent = event as CustomEvent;
-            const eventDetail = customEvent.detail;
-            if (("erdDocument" in eventDetail) === false) {
-                console.warn(`Unexpected event detail structure: ${JSON.stringify(eventDetail)}`);
-                return;
-            }
-
-            const erdDocument = eventDetail.erdDocument as ErdDocument;
-            documentsHolder.update(erdDocument, `Update document from external change: ${erdDocument.documentName}`);
-            console.info("ErdCanvas: External document change has been applied.");
-        };
-
-        window.addEventListener(EXTERNAL_DOCUMENT_CHANGED_EVENT, handleExternalDocumentChange);
-
-        return () => {
-            window.removeEventListener(EXTERNAL_DOCUMENT_CHANGED_EVENT, handleExternalDocumentChange);
-        };
-    }, [documentsHolder]);
 
     const mainCanvas = (
         <div ref={viewportRef} style={VIEWPORT_CONTAINER_STYLE}

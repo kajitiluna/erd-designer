@@ -2,9 +2,9 @@ import { vi, describe, test, expect, beforeEach } from 'vitest';
 
 vi.mock('vscode', () => ({}));
 
-import { DocumentResource } from '~/extension/DocumentResource';
-import DocumentBudget from '~/extension/mcpserver/DocumentBudget';
-import { mcpRegisterTable } from '~/extension/mcpserver/tables';
+import { DocumentResource } from '~/agent-tools/DocumentResource';
+import DocumentBudget from '~/agent-tools/DocumentBudget';
+import { mcpRegisterTable } from '~/agent-tools/tools/tables';
 import ColorValue from '~/models/ColorValue';
 import DatabaseSettingModel from '~/models/DatabaseSettingModel';
 import DbSchemaConfig from '~/models/DbSchemaConfig';

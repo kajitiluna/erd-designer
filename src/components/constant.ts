@@ -17,3 +17,9 @@ export const GRID_CELL_STYLE: React.CSSProperties = {
     letterSpacing: "0.01071em",
     minHeight: "30px"
 } as const;
+
+/** Webview 内部 CustomEvent: 外部からのドキュメント変更を MainView へ伝搬する */
+export const EXTERNAL_DOCUMENT_CHANGED_EVENT = "externalDocumentChanged";
+
+/** Webview 内部 CustomEvent: Canvas 描画矩形の更新を VsCodeExtensionApplication へ伝搬する */
+export const CANVAS_RECTANGLES_DRAWN_EVENT = "canvasRectanglesDrawn";

@@ -11,6 +11,7 @@ import ErdApplicationShell from "~/features/ErdApplicationShell";
 import ErdDocument from "~/models/ErdDocument";
 import Logo from "~/logo.svg";
 import exportSpreadSheetFormatSpecification from "~/features/spec/GoogleSpreadSheetFormatSpecification";
+import { containedButtonStyle } from "~/features/start_up/start-up-styles";
 
 type GoogleDriveFileProp = {
     implicitToken: { accessToken: string, expiresAt: number },
@@ -231,7 +232,7 @@ const GoogleDriveFile = ({ implicitToken, authorize }: GoogleDriveFileProp) => {
                         <Typography variant="body1" gutterBottom>
                             Need to re-authorize to edit the ERD file on the Google Drive.
                         </Typography>
-                        <Button variant="contained" size="large" onClick={authorize}>
+                        <Button variant="contained" size="large" sx={containedButtonStyle} onClick={authorize}>
                             Authorize with Google
                         </Button>
                     </Stack>

@@ -15,6 +15,7 @@ import EditMode, { EditModeType } from "~/models/EditMode";
 import ErdDocument from "~/models/ErdDocument";
 import { DEFAULT_LOCAL_SETTING, LocalSettingContext, reduceLocalSetting } from "~/context/LocalSettingContext";
 import TitlePanel from "~/features/canvas/TitlePanel";
+import { EXTERNAL_DOCUMENT_CHANGED_EVENT } from "~/components/constant";
 
 type MainViewProps = {
     erdDocument: ErdDocument,
@@ -29,54 +30,75 @@ type ErdDocumentsHolderOptions = {
 
 const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) => {
 
-    const [holderProps, setHolderProps] =
-        React.useState<ErdDocumentsHolderOptions>({ erdDocuments: [erdDocument], cursor: 0 });
-    const [selectState, dispatchSelectAction] = React.useReducer(reduceSelectAction, EMPTY_SELECT_STATE);
-    const [editMode, dispatchEditMode] = React.useReducer(initReduceEditMode(dispatchSelectAction), EditModeType.SELECT);
-    const [localSetting, dispatchLocalSetting] = React.useReducer(reduceLocalSetting, DEFAULT_LOCAL_SETTING);
+    const { documentsHolder, editModeHolder, selectEntityHolder, localSettingHolder } =
+        useMainHolder({ erdDocument, onSave });
     const [dragState, dispatchDragAction] = React.useReducer(reduceDragAction, NO_DRAGGING);
 
-    // コンテキスト値は参照が変わると全コンシューマが再レンダーされるため、useMemo で安定化する
-    const documentsHolder = React.useMemo(
-        () => initDocumentsHolder(holderProps, onSave, setHolderProps),
-        [holderProps, onSave]
+    // 外部からの変更を Canvas の表示に反映する
+    React.useEffect(() => {
+        const handleDocumentChange = initHandleExternallyChangedDocument(documentsHolder);
+        window.addEventListener(EXTERNAL_DOCUMENT_CHANGED_EVENT, handleDocumentChange);
+
+        return () => {
+            window.removeEventListener(EXTERNAL_DOCUMENT_CHANGED_EVENT, handleDocumentChange);
+        };
+    }, [documentsHolder]);
+
+    const erdCanvas = (
+        <ErdCanvas onDragAction={dispatchDragAction}>
+            <Box sx={{ position: "fixed", top: "30px", left: "30px" }}>
+                <TitlePanel />
+            </Box>
+            <Box sx={{ position: "fixed", top: "50%", left: "50px", transform: "translateY(-50%)" }}>
+                <ControlPanel erdExportable={erdExportable} />
+            </Box>
+            <Box sx={{ position: "fixed", bottom: "30px", right: "30px" }}>
+                <DisplayScalePanel />
+            </Box>
+            <Box sx={{ position: "fixed", top: "34px", right: "34px", zIndex: 10 }}>
+                <CanvasSearchPanel />
+            </Box>
+        </ErdCanvas>
     );
-    const editModeContextValue = React.useMemo(() => {
-        return { editMode, dispatchEditMode };
-    }, [editMode]);
-    const selectEntityContextValue = React.useMemo(() => {
-        return { selectState, dispatchSelectAction };
-    }, [selectState]);
-    const localSettingContextValue = React.useMemo(() => {
-        return { localSetting, dispatchLocalSetting };
-    }, [localSetting]);
 
     return (
         <ErdDocumentsHolderContext.Provider value={documentsHolder}>
-            <EditModeContext.Provider value={editModeContextValue}>
-                <SelectEntityContext.Provider value={selectEntityContextValue}>
-                    <LocalSettingContext.Provider value={localSettingContextValue}>
+            <EditModeContext.Provider value={editModeHolder}>
+                <SelectEntityContext.Provider value={selectEntityHolder}>
+                    <LocalSettingContext.Provider value={localSettingHolder}>
                         <DragActionContext.Provider value={dragState}>
-                            <ErdCanvas onDragAction={dispatchDragAction}>
-                                <Box sx={{ position: "fixed", top: "30px", left: "30px" }}>
-                                    <TitlePanel />
-                                </Box>
-                                <Box sx={{ position: "fixed", top: "50%", left: "50px", transform: "translateY(-50%)" }}>
-                                    <ControlPanel erdExportable={erdExportable} />
-                                </Box>
-                                <Box sx={{ position: "fixed", bottom: "30px", right: "30px" }}>
-                                    <DisplayScalePanel />
-                                </Box>
-                                <Box sx={{ position: "fixed", top: "34px", right: "34px", zIndex: 10 }}>
-                                    <CanvasSearchPanel />
-                                </Box>
-                            </ErdCanvas>
+                            {erdCanvas}
                         </DragActionContext.Provider>
                     </LocalSettingContext.Provider>
                 </SelectEntityContext.Provider>
             </EditModeContext.Provider>
         </ErdDocumentsHolderContext.Provider>
     );
+};
+
+const useMainHolder = ({ erdDocument, onSave }: MainViewProps) => {
+    const [holderProps, setHolderProps] =
+        React.useState<ErdDocumentsHolderOptions>({ erdDocuments: [erdDocument], cursor: 0 });
+    const [selectState, dispatchSelectAction] = React.useReducer(reduceSelectAction, EMPTY_SELECT_STATE);
+    const [editMode, dispatchEditMode] = React.useReducer(initReduceEditMode(dispatchSelectAction), EditModeType.SELECT);
+    const [localSetting, dispatchLocalSetting] = React.useReducer(reduceLocalSetting, DEFAULT_LOCAL_SETTING);
+
+    // コンテキスト値は参照が変わると全コンシューマが再レンダーされるため、useMemo で安定化する
+    const documentsHolder = React.useMemo(
+        () => initDocumentsHolder(holderProps, onSave, setHolderProps),
+        [holderProps, onSave]
+    );
+    const editModeHolder = React.useMemo(() => {
+        return { editMode, dispatchEditMode };
+    }, [editMode]);
+    const selectEntityHolder = React.useMemo(() => {
+        return { selectState, dispatchSelectAction };
+    }, [selectState]);
+    const localSettingHolder = React.useMemo(() => {
+        return { localSetting, dispatchLocalSetting };
+    }, [localSetting]);
+
+    return { documentsHolder, editModeHolder, selectEntityHolder, localSettingHolder };
 };
 
 const initDocumentsHolder = (
@@ -102,6 +124,21 @@ const initReduceEditMode = (dispatchSelectAction: (action: SelectAction) => void
         dispatchSelectAction(RELEASE_ACTION);
 
         return action;
+    };
+};
+
+const initHandleExternallyChangedDocument = (documentsHolder: ErdDocumentsHolder) => {
+    return (event: Event) => {
+        const customEvent = event as CustomEvent;
+        const eventDetail = customEvent.detail;
+        if (("erdDocument" in eventDetail) === false) {
+            console.warn(`Unexpected event detail structure: ${JSON.stringify(eventDetail)}`);
+            return;
+        }
+
+        const erdDocument = eventDetail.erdDocument as ErdDocument;
+        documentsHolder.update(erdDocument, `Update document from external change: ${erdDocument.documentName}`);
+        console.info("MainView: External document change has been applied.");
     };
 };
 

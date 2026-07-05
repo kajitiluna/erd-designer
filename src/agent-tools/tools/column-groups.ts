@@ -3,12 +3,12 @@ import {
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import z from "zod";
 
-import { DocumentResource } from "~/extension/DocumentResource";
-import DocumentBudget, { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
+import { DocumentResource } from "~/agent-tools/DocumentResource";
+import DocumentBudget, { uriTemplates } from "~/agent-tools/DocumentBudget";
 import {
     DESCRIPTION_DOCUMENT_ID, findDocument, initInvalidParams, initResourceNotFound, initResourceResponse,
     initToolJsonResponse, McpRegisterConfig, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs
-} from "~/extension/mcpserver/support";
+} from "~/agent-tools/tools/support";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import ColumnModel from "~/models/database/ColumnModel";
 import ErdDocument from "~/models/ErdDocument";

@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.20260706] - 2026-07-06
+
+### Added
+
+- **Agent plugin (CLI + skill) for coding agents**:
+
+  A new agent plugin enables coding agents like Claude Code to read and edit `.erd` files
+  without requiring a running VSCode extension.
+  The plugin bundles a standalone CLI (`erd-cli.cjs`) and a skill definition,
+  so agents can create tables, columns, relations, and perspectives directly from the terminal.
+
+### Changed
+
+- **Google Drive app top page redesign**:
+
+  The Google Drive app landing page now uses a unified visual style with the main web app,
+  including a gradient background, a refreshed logo layout, and consistent button styling.
+
+
 ## [0.20260704] - 2026-07-04
 
 ### Added

@@ -1,15 +1,16 @@
 import {
     ReadResourceCallback, ReadResourceTemplateCallback, ResourceTemplate, ToolCallback
 } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { pathToFileURL } from "url";
 import z from "zod";
 
-import { DocumentResource } from "~/extension/DocumentResource";
-import DocumentBudget, { uriTemplates } from "~/extension/mcpserver/DocumentBudget";
+import { DocumentResource } from "~/agent-tools/DocumentResource";
+import DocumentBudget, { uriTemplates } from "~/agent-tools/DocumentBudget";
 import {
     DESCRIPTION_DOCUMENT_ID, findDocument, initResourceNotFound, initResourceResponse, initToolJsonResponse,
     McpRegisterConfig, McpServerRegisterResourceArgs, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs
-} from "~/extension/mcpserver/support";
-import { toTableSummary } from "~/extension/mcpserver/tables";
+} from "~/agent-tools/tools/support";
+import { toTableSummary } from "~/agent-tools/tools/tables";
 import { createDdl } from "~/models/create-ddl";
 import { toNextOrthogonalLines } from "~/features/canvas/support";
 import DisplayStyle from "~/models/database/DisplayStyle";
@@ -40,7 +41,8 @@ export const mcpRegisterErdDocument = (documentResource: DocumentResource): McpR
 
 const descriptionList = `\
 Retrieves a list of currently accessible ERD documents.
-To manipulate ERD documents from the MCP Server, the corresponding document must be open in VSCode.
+To manipulate ERD documents, the corresponding document must be registered in the current session
+(e.g., opened in an editor or specified via --file in the CLI).
 
 RESPONSE:
 An array of document summary objects, each containing:
@@ -285,7 +287,7 @@ const toDetail = (erdBudget: DocumentBudget) => {
 const descriptionFindByFilepath = `\
 Retrieves detailed information about an ERD document by its file path.
 Accepts both absolute OS paths and file URIs.
-The document must be currently open in VSCode.
+The document must be registered in the current session.
 
 RESPONSE:
 Same format as the 'find-document' tool response.
@@ -296,7 +298,7 @@ const findDocumentByFilepathInputSchema = {
         .describe("The file path or URI of the ERD document. "
             + "Accepts both absolute OS paths (e.g., /path/to/document.erd) "
             + "and file URIs (e.g., file:///path/to/document.erd). "
-            + "The document must be currently open in VSCode.")
+            + "The document must be registered in the current session.")
 };
 
 const mcpFindDocumentByFilePath = (
@@ -318,7 +320,7 @@ const initCallbackForFindDocumentByFilepath = (
     documentResource: DocumentResource
 ): ToolCallback<typeof findDocumentByFilepathInputSchema> => {
     return async ({ filePath }) => {
-        const fileUri = filePath.startsWith("file://") ? filePath : `file://${filePath}`;
+        const fileUri = filePath.startsWith("file://") ? filePath : pathToFileURL(filePath).href;
         const budget = documentResource.findByUri(fileUri);
         if (budget == null) {
             const url = new URL(fileUri);

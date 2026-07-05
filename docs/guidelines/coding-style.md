@@ -18,6 +18,8 @@ const initCallbackForXxx = (deps: Deps): ToolCallback<typeof schema> => {
 };
 ```
 
+Exception: skip extraction if the only possible target is a nested function within the same parent (the lambda captures mutable local state). That doesn't improve readability. Extract only when the result can be a file-top-level function.
+
 ## 2. No single-letter or abbreviated variable names
 
 No `t`, `v`, `p`, `g`, `m`, `ct`, `el`, `tmp`. Use meaningful names. Applies to `map`/`filter`/`find`/`reduce` callbacks too.
@@ -40,6 +42,10 @@ return initToolJsonResponse(items.map(item => toSummary(ctx, item)));
 const responses = items.map(item => toSummary(ctx, item));
 return initToolJsonResponse(responses);
 ```
+
+Exceptions:
+- Continuous conversion pipelines with no meaningful intermediate name (e.g. `ErdDocument.toObject(JSON.parse(content))`).
+- `Array.from(iterable)` wrappers required by TypeScript syntax (e.g. `Array.from(map.values()).map(...)`). Split only if the argument itself is long.
 
 ## 4. No mutation of function arguments
 

@@ -1,6 +1,8 @@
 import { Button, Stack } from "@mui/material";
 import { SxProps, Theme } from "@mui/material/styles";
 
+import { containedButtonStyle } from "~/features/start_up/start-up-styles";
+
 type DiagramActionButtonsProp = {
     onOpenCreateDialog: () => void;
     onOpenImportDialog: () => void;
@@ -13,7 +15,7 @@ const DiagramActionButtons = ({
 }: DiagramActionButtonsProp) => {
 
     const isFullWidth = direction === "column";
-    const createButtonSx = (direction === "row") ? { ...createButtonStyle, flex: 1 } : createButtonStyle;
+    const createButtonSx = (direction === "row") ? { ...containedButtonStyle, flex: 1 } : containedButtonStyle;
     const importButtonSx = (direction === "row") ? { ...importButtonStyle, flex: 1 } : importButtonStyle;
 
     return (
@@ -28,14 +30,6 @@ const DiagramActionButtons = ({
             </Button>
         </Stack>
     );
-};
-
-const createButtonStyle = {
-    fontSize: 15,
-    padding: "14px 28px",
-    borderRadius: "9px",
-    boxShadow: "0 2px 8px rgba(58,33,90,.25)",
-    "&:hover": { backgroundColor: "primary.dark" },
 };
 
 const importButtonStyle = {

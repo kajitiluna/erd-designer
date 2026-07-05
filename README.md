@@ -2,7 +2,9 @@
 
 # Entity Relationship Diagram Designer
 
-**ERD Designer** is a free, open-source tool for visually designing database schemas. Design your tables and relationships in the browser, VSCode, or Google Drive — with AI integration via MCP (Model Context Protocol).
+**ERD Designer** is a free, open-source tool for visually designing database schemas.
+Design your tables and relationships in the browser, VSCode, or Google Drive
+ — with AI integration via an agent plugin (CLI + skill) or MCP (Model Context Protocol).
 
 Inspired by [ERMaster](https://ermaster.sourceforge.net/index.html), built for the modern development workflow.
 
@@ -25,7 +27,12 @@ Inspired by [ERMaster](https://ermaster.sourceforge.net/index.html), built for t
 - **Image export** — Export as PNG, SVG, or interactive HTML with pan/zoom and perspective switching
 
 ### AI Integration (Experimental)
-- **MCP Server** — The VSCode extension includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) server, enabling AI assistants like Claude to read and modify your ER diagrams programmatically
+- **Agent plugin (CLI + skill)** — A plugin with a bundled CLI lets coding agents edit `.erd` files
+  directly, without a running app or MCP server. Works with [Claude Code](https://claude.com/claude-code)
+  and [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-plugins).
+  Token-efficient: nothing is loaded into the agent context until the skill is used
+- **MCP Server** — The VSCode extension includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) server,
+  enabling AI assistants like Claude to read and modify your ER diagrams programmatically.
 
 ### Multi-Platform
 | | Browser | Google Drive | VSCode |
@@ -34,6 +41,7 @@ Inspired by [ERMaster](https://ermaster.sourceforge.net/index.html), built for t
 | **Storage** | Local (IndexedDB) | Google Drive | Local file system (.erd) |
 | **Spec export** | Excel | Google Spreadsheet | Excel |
 | **Team sharing** | — | View sharing via Drive | Git version control |
+| **Agent plugin (CLI)** | — | Via [Google Drive for Desktop](https://www.google.com/drive/download/) | Supported |
 | **MCP / AI** | — | — | Supported |
 
 ## Screenshots
@@ -61,17 +69,51 @@ Inspired by [ERMaster](https://ermaster.sourceforge.net/index.html), built for t
 
 ### Online Tool
 
-Try ERD Designer instantly at **[kajitiluna.github.io/erd-designer](https://kajitiluna.github.io/erd-designer)** — no installation or account required. Your data is stored locally in your browser (IndexedDB).
+Try ERD Designer instantly at **[kajitiluna.github.io/erd-designer](https://kajitiluna.github.io/erd-designer)**
+— no installation or account required. Your data is stored locally in your browser (IndexedDB).
 
 ### Google Drive App
 
-Install from the [Google Workspace Marketplace](https://workspace.google.com/marketplace/app/erd_designer/952307856491) to save and edit ERD files on Google Drive. Shared files can be viewed simultaneously, though simultaneous editing is not supported (optimistic concurrency control).
+Install from the [Google Workspace Marketplace](https://workspace.google.com/marketplace/app/erd_designer/952307856491)
+to save and edit ERD files on Google Drive.
+Shared files can be viewed simultaneously, though simultaneous editing is not supported (optimistic concurrency control).
 
 ### VSCode Extension
 
-Install from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=kajitiluna.erd-designer) to design ER diagrams within VSCode. Save as `.erd` files and manage them with Git.
+Install from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=kajitiluna.erd-designer)
+to design ER diagrams within VSCode. Save as `.erd` files and manage them with Git.
 
-> **Note:** The MCP Server feature is currently experimental and under active development. Functionality and behavior may change in future releases.
+> **Note:**
+> The MCP Server feature is currently experimental and under active development.
+> Functionality and behavior may change in future releases.
+
+### AI Agent Integration (agent plugin)
+
+Let a coding agent design tables incrementally by editing `.erd` files directly — no MCP server or running app required.
+
+With [Claude Code](https://claude.com/claude-code):
+
+```sh
+claude plugin marketplace add kajitiluna/erd-designer
+claude plugin install erd-designer@erd-designer
+```
+
+With [GitHub Copilot CLI](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-plugin-reference):
+
+```sh
+copilot plugin marketplace add kajitiluna/erd-designer
+copilot plugin install erd-designer@erd-designer
+```
+
+The plugin ships a skill and a self-contained CLI (`agent-plugin/skills/erd-designer/scripts/erd-cli.cjs`, requires Node.js 20+),
+so the agent consumes almost no context until the skill is actually used.
+The skill folder follows the open Agent Skills format, so other skill-compatible agents may also use it.
+Files stored on Google Drive can be edited through the local path synced by
+[Google Drive for Desktop](https://www.google.com/drive/download/).
+The bundled CLI can also be downloaded standalone from [GitHub Releases](https://github.com/kajitiluna/erd-designer/releases).
+
+> **Note:**
+> The agent plugin is experimental, like the MCP Server.
 
 ## Manual
 
@@ -80,7 +122,8 @@ Please refer to the [Wiki](https://github.com/kajitiluna/erd-designer/wiki) for 
 ## Sample file
 
 You can use the sample ERD file as a reference for your designs:
-- [sample-ec_mysql.erd](https://github.com/kajitiluna/erd-designer/raw/main/samples/sample-ec_mysql.erd) (Right-click and select "Save link as...")
+- [sample-ec_mysql.erd](https://github.com/kajitiluna/erd-designer/raw/main/samples/sample-ec_mysql.erd)
+(Right-click and select "Save link as...")
 
 **How to use:**
 - **Online Tool**: Download the file and import it into ERD Designer
@@ -126,7 +169,8 @@ After starting the development server, open your browser and navigate to http://
 
 ## Contributing
 
-Contributions are welcome! Please feel free to open an [Issue](https://github.com/kajitiluna/erd-designer/issues) for bug reports or feature requests.
+Contributions are welcome!
+Please feel free to open an [Issue](https://github.com/kajitiluna/erd-designer/issues) for bug reports or feature requests.
 
 Contribution guidelines are currently under preparation. In the meantime:
 - For bugs: please include steps to reproduce, expected behavior, screenshots, and your environment
