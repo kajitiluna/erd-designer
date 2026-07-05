@@ -1,6 +1,7 @@
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
+import { pathToFileURL } from 'url';
 
 import DocumentBudget, { RectangleType } from '~/agent-tools/DocumentBudget';
 import { DocumentResource } from '~/agent-tools/DocumentResource';
@@ -39,7 +40,7 @@ export class FileDocumentResource implements DocumentResource {
         const content = fs.readFileSync(absolutePath, 'utf-8');
         const erdDocument = ErdDocument.toObject(JSON.parse(content));
 
-        const fileUri = `file://${absolutePath}`;
+        const fileUri = pathToFileURL(absolutePath).href;
         const documentId = crypto.createHash('sha256')
             .update(fileUri)
             .digest('hex').substring(0, 16);

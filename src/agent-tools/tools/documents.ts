@@ -1,6 +1,7 @@
 import {
     ReadResourceCallback, ReadResourceTemplateCallback, ResourceTemplate, ToolCallback
 } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { pathToFileURL } from "url";
 import z from "zod";
 
 import { DocumentResource } from "~/agent-tools/DocumentResource";
@@ -318,7 +319,7 @@ const initCallbackForFindDocumentByFilepath = (
     documentResource: DocumentResource
 ): ToolCallback<typeof findDocumentByFilepathInputSchema> => {
     return async ({ filePath }) => {
-        const fileUri = filePath.startsWith("file://") ? filePath : `file://${filePath}`;
+        const fileUri = filePath.startsWith("file://") ? filePath : pathToFileURL(filePath).href;
         const budget = documentResource.findByUri(fileUri);
         if (budget == null) {
             const url = new URL(fileUri);
