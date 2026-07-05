@@ -1,10 +1,9 @@
-import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { pathToFileURL } from 'url';
 
 import DocumentBudget, { RectangleType } from '~/agent-tools/DocumentBudget';
-import { DocumentResource } from '~/agent-tools/DocumentResource';
+import { DocumentResource, generateDocumentId } from '~/agent-tools/DocumentResource';
 import ErdDocument from '~/models/ErdDocument';
 
 type FileErdBudget = {
@@ -41,9 +40,7 @@ export class FileDocumentResource implements DocumentResource {
         const erdDocument = ErdDocument.toObject(JSON.parse(content));
 
         const fileUri = pathToFileURL(absolutePath).href;
-        const documentId = crypto.createHash('sha256')
-            .update(fileUri)
-            .digest('hex').substring(0, 16);
+        const documentId = generateDocumentId(fileUri);
 
         this.uriToIdMap.set(fileUri, documentId);
         this.idToBudgetMap.set(documentId, { documentId, fileUri, filePath: absolutePath, erdDocument });

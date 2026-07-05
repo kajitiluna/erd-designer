@@ -1,3 +1,5 @@
+import * as crypto from 'crypto';
+
 import DocumentBudget from '~/agent-tools/DocumentBudget';
 import ErdDocument from '~/models/ErdDocument';
 
@@ -21,3 +23,13 @@ export interface DocumentResource {
 
     findByUri(uri: string): DocumentBudget | null;
 }
+
+/**
+ * ドキュメントの uri から documentId を導出する。VSCode 拡張・CLI 双方の
+ * DocumentResource 実装で同じ ID を得るための共通ロジック。
+ *
+ * @param uri ドキュメントの uri
+ */
+export const generateDocumentId = (uri: string): string => {
+    return crypto.createHash('sha256').update(uri).digest('hex').substring(0, 16);
+};

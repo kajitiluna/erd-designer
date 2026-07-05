@@ -41,7 +41,8 @@ export const mcpRegisterErdDocument = (documentResource: DocumentResource): McpR
 
 const descriptionList = `\
 Retrieves a list of currently accessible ERD documents.
-To manipulate ERD documents from the MCP Server, the corresponding document must be open in VSCode.
+To manipulate ERD documents, the corresponding document must be registered in the current session
+(e.g., opened in an editor or specified via --file in the CLI).
 
 RESPONSE:
 An array of document summary objects, each containing:
@@ -286,7 +287,7 @@ const toDetail = (erdBudget: DocumentBudget) => {
 const descriptionFindByFilepath = `\
 Retrieves detailed information about an ERD document by its file path.
 Accepts both absolute OS paths and file URIs.
-The document must be currently open in VSCode.
+The document must be registered in the current session.
 
 RESPONSE:
 Same format as the 'find-document' tool response.
@@ -297,7 +298,7 @@ const findDocumentByFilepathInputSchema = {
         .describe("The file path or URI of the ERD document. "
             + "Accepts both absolute OS paths (e.g., /path/to/document.erd) "
             + "and file URIs (e.g., file:///path/to/document.erd). "
-            + "The document must be currently open in VSCode.")
+            + "The document must be registered in the current session.")
 };
 
 const mcpFindDocumentByFilePath = (

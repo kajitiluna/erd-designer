@@ -103,7 +103,7 @@ const runDescribe = (toolName: string | undefined): number => {
     const [name, config] = tool;
     const inputSchema = z.object(config.inputSchema ?? {});
     const jsonSchema = zodToJsonSchema(inputSchema);
-    const jsonSchemaText = JSON.stringify(jsonSchema, null, 2);
+    const jsonSchemaText = JSON.stringify(jsonSchema);
 
     console.log(`Tool: ${name}`);
     console.log("");
@@ -144,7 +144,7 @@ const runTool = async (toolName: string | undefined, optionArgv: string[]): Prom
 
     const parsedArguments = z.object(inputSchemaShape).safeParse(mergedArguments);
     if (parsedArguments.success === false) {
-        const issueText = JSON.stringify(parsedArguments.error.issues, null, 2);
+        const issueText = JSON.stringify(parsedArguments.error.issues);
         console.error(`Invalid arguments for tool '${name}'. Use 'describe ${name}' to see the schema.`);
         console.error(issueText);
         return 1;
@@ -170,9 +170,11 @@ const parseToolArguments = (argsJson: string | null): Record<string, unknown> =>
     return parsed as Record<string, unknown>;
 };
 
-const initToolCallbackExtra = (): Parameters<ToolCallback<ZodRawShape>>[1] => {
+type ToolCallbackExtra = Parameters<ToolCallback<ZodRawShape>>[1];
+
+const initToolCallbackExtra = (): ToolCallbackExtra => {
     const abortController = new AbortController();
-    const extra = {
+    const extra: Partial<ToolCallbackExtra> = {
         signal: abortController.signal,
         requestId: "erd-cli",
         sendNotification: async () => { return; },
@@ -181,12 +183,12 @@ const initToolCallbackExtra = (): Parameters<ToolCallback<ZodRawShape>>[1] => {
         }
     };
 
-    return extra as unknown as Parameters<ToolCallback<ZodRawShape>>[1];
+    return extra as ToolCallbackExtra;
 };
 
 const printToolResult = (result: CallToolResult): void => {
     if (result.structuredContent != null) {
-        const structuredText = JSON.stringify(result.structuredContent, null, 2);
+        const structuredText = JSON.stringify(result.structuredContent);
         console.log(structuredText);
         return;
     }
@@ -199,7 +201,7 @@ const printToolResult = (result: CallToolResult): void => {
     }
 
     // resource_link などテキスト以外を含む場合は content 全体を JSON で出力する
-    const contentText = JSON.stringify(contents, null, 2);
+    const contentText = JSON.stringify(contents);
     console.log(contentText);
 };
 

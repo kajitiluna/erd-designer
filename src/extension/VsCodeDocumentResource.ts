@@ -1,9 +1,8 @@
 import * as vscode from 'vscode';
-import * as crypto from 'crypto';
 
 import ErdDocument from '~/models/ErdDocument';
 import DocumentBudget, { RectangleType } from '~/agent-tools/DocumentBudget';
-import { DocumentResource } from '~/agent-tools/DocumentResource';
+import { DocumentResource, generateDocumentId } from '~/agent-tools/DocumentResource';
 
 type InnerErdBudget = {
     status: "ready";
@@ -52,9 +51,7 @@ export class VsCodeDocumentResource implements DocumentResource {
         }
 
         const uri = textDocument.uri;
-        const documentId = crypto.createHash('sha256')
-            .update(uri.toString())
-            .digest('hex').substring(0, 16);
+        const documentId = generateDocumentId(uri.toString());
         const drawnRectangles = new Map<string, RectangleType>();
         const budget: InnerErdBudget = erdDocument
             ? { status: "ready", documentId, uri, drawnRectangles, onUpdateDocument, erdDocument }
@@ -63,13 +60,13 @@ export class VsCodeDocumentResource implements DocumentResource {
         this.uriToIdMap.set(uri.toString(), documentId);
         this.idToBudgetMap.set(documentId, budget);
 
-        console.info(`ErdDocumentResource registered document: ${uri.toString()} (id: ${documentId})`);
+        console.info(`VsCodeDocumentResource registered document: ${uri.toString()} (id: ${documentId})`);
     }
 
     private doFindBudget(textDocument: vscode.TextDocument) {
         const documentId = this.uriToIdMap.get(textDocument.uri.toString());
         if (documentId == null) {
-            console.warn(`documentId not found for uri: ${textDocument.uri.toString()}`);
+            console.debug(`documentId not found for uri: ${textDocument.uri.toString()}`);
             return null;
         }
 
@@ -84,26 +81,27 @@ export class VsCodeDocumentResource implements DocumentResource {
 
     /**
      * ドキュメント管理者がドキュメントを更新する。
-     * 
+     *
      * @param textDocument ファイル参照
      * @param content ドキュメント本文
      */
-    public update(textDocument: vscode.TextDocument, content: string) {
+    public update(textDocument: vscode.TextDocument, content: Record<string, unknown>): boolean {
         const previous = this.doFindBudget(textDocument);
         if (previous == null) {
-            return;
+            return false;
         }
 
-        const erdDocument = parseErdDocument(content);
+        const erdDocument = tryBuildErdDocument(content);
         if (erdDocument == null) {
-            console.warn(`failed to parse ErdDocument for uri: ${textDocument.uri.toString()}, content : ${content}`);
-            return;
+            console.warn(`failed to build ErdDocument for uri: ${textDocument.uri.toString()}`);
+            return false;
         }
 
         const nextBudget: InnerErdBudget = { ...previous.budget, status: "ready", erdDocument };
         this.idToBudgetMap.set(previous.documentId, nextBudget);
 
-        console.info(`ErdDocumentResource updated document: ${textDocument.uri.toString()} (id: ${previous.documentId})`);
+        console.info(`VsCodeDocumentResource updated document: ${textDocument.uri.toString()} (id: ${previous.documentId})`);
+        return true;
     }
 
     public updateDrawnRectangles(
@@ -118,11 +116,11 @@ export class VsCodeDocumentResource implements DocumentResource {
         const nextBudget: InnerErdBudget = { ...previous.budget, drawnRectangles };
         this.idToBudgetMap.set(previous.documentId, nextBudget);
 
-        console.info(`ErdDocumentResource updated drawn rectangles: ${textDocument.uri.toString()} (id: ${previous.documentId})`);
+        console.info(`VsCodeDocumentResource updated drawn rectangles: ${textDocument.uri.toString()} (id: ${previous.documentId})`);
     }
 
     /**
-     * ドキュメント管理者が該当ドキュメントを除外する。
+     * 該当ドキュメントを管理対象から除外する。
      * 
      * @param textDocument ファイル参照
      */
@@ -135,7 +133,7 @@ export class VsCodeDocumentResource implements DocumentResource {
         this.idToBudgetMap.delete(documentId);
         this.uriToIdMap.delete(textDocument.uri.toString());
 
-        console.info(`ErdDocumentResource removed document: ${textDocument.uri.toString()} (id: ${documentId})`);
+        console.info(`VsCodeDocumentResource removed document: ${textDocument.uri.toString()} (id: ${documentId})`);
     }
 
     /**
@@ -154,6 +152,9 @@ export class VsCodeDocumentResource implements DocumentResource {
         if ((erdBudget.status === "ready") && (erdBudget.erdDocument === erdDocument)) {
             return;
         }
+
+        const nextBudget: InnerErdBudget = { ...erdBudget, status: "ready", erdDocument };
+        this.idToBudgetMap.set(documentId, nextBudget);
 
         erdBudget.onUpdateDocument(JSON.stringify(erdDocument.toJSON()));
     }
@@ -190,6 +191,14 @@ export class VsCodeDocumentResource implements DocumentResource {
 const parseErdDocument = (content: string): ErdDocument | null => {
     try {
         return ErdDocument.toObject(JSON.parse(content));
+    } catch {
+        return null;
+    }
+};
+
+const tryBuildErdDocument = (content: Record<string, unknown>): ErdDocument | null => {
+    try {
+        return ErdDocument.toObject(content);
     } catch {
         return null;
     }
