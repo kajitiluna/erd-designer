@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.20260707] - 2026-07-07
+
+### Fixed
+
+- **PNG export rendering in the VS Code extension**:
+
+  Exporting a diagram to PNG from the VS Code extension could produce a broken or
+  incomplete image. PNG export now renders correctly.
+
+
 ## [0.20260706] - 2026-07-06
 
 ### Added

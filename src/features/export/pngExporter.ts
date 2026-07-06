@@ -66,8 +66,7 @@ const rasterizeSvgOnClonedCanvas = (
 
     const serializer = new XMLSerializer();
     const svgString = serializer.serializeToString(svgElement);
-    const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
-    const svgUrl = URL.createObjectURL(svgBlob);
+    const svgUrl = `data:image/svg+xml,${encodeURIComponent(svgString)}`;
 
     return new Promise<void>(resolve => {
         const svgImage = new Image();
@@ -82,8 +81,6 @@ const rasterizeSvgOnClonedCanvas = (
                 renderingContext.drawImage(svgImage, 0, 0, svgWidth, svgHeight);
             }
 
-            URL.revokeObjectURL(svgUrl);
-
             rasterCanvas.style.position = "absolute";
             rasterCanvas.style.left = `${svgLeft}px`;
             rasterCanvas.style.top = `${svgTop}px`;
@@ -97,7 +94,6 @@ const rasterizeSvgOnClonedCanvas = (
         };
 
         svgImage.onerror = () => {
-            URL.revokeObjectURL(svgUrl);
             resolve();
         };
 
