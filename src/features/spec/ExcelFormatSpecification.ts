@@ -235,7 +235,9 @@ const initColumnHeader = (databaseType: DatabaseType, withTableInfo: boolean = t
         { header: "Scale", key: "scale", width: 7 }
     ];
 
-    const header2: Partial<ExcelJS.Column>[] = (databaseType === "mysql") ? [
+    const isMySqlCompatible = (databaseType === "mysql") || (databaseType === "mariadb");
+
+    const header2: Partial<ExcelJS.Column>[] = isMySqlCompatible ? [
         { header: "Unsigned", key: "unsigned", width: 8, style: centerAlignmentStyle }
     ] : [];
 
@@ -244,8 +246,8 @@ const initColumnHeader = (databaseType: DatabaseType, withTableInfo: boolean = t
         { header: "NotNull", key: "notNull", width: 7, style: centerAlignmentStyle },
         { header: "Unique", key: "unique", width: 7, style: centerAlignmentStyle },
         {
-            header: (databaseType === "mysql") ? "Increment" : "Identity",
-            key: "autoIncrement", width: (databaseType === "mysql") ? 10 : 8, style: centerAlignmentStyle
+            header: isMySqlCompatible ? "Increment" : "Identity",
+            key: "autoIncrement", width: isMySqlCompatible ? 10 : 8, style: centerAlignmentStyle
         },
         { header: "Default", key: "defaultValue", width: 10 },
         { header: "Foreign Key", key: "foreignRelation", width: 15 },
