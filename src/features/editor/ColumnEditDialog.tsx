@@ -186,9 +186,11 @@ const ColumnEditDialog = ({
             <FormControlLabel label="Not Null" control={
                 <Checkbox checked={checkedNotNull} disabled={checkedPrimaryKey}
                     onChange={event => setNotNull(event.target.checked)} />} />
-            <FormControlLabel label="Unique" control={
-                <Checkbox checked={checkedUnique} disabled={checkedPrimaryKey}
-                    onChange={event => setUnique(event.target.checked)} />} />
+            {(database.uniqueKeySupport.supportsUniqueKey === true) && (
+                <FormControlLabel label="Unique" control={
+                    <Checkbox checked={checkedUnique} disabled={checkedPrimaryKey}
+                        onChange={event => setUnique(event.target.checked)} />} />
+            )}
             {(columnTypeAttribute.columnType != null) && (columnTypeAttribute.columnType.withAutoIncrement) &&
                 <FormControlLabel label={database.autoIncrementLabel()} control={
                     <Checkbox checked={checkAutoIncrement}
