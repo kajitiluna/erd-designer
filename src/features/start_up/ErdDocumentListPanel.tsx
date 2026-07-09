@@ -10,6 +10,7 @@ import MySQLIcon from "~/components/icons/MySQLIcon";
 import PostgreSQLIcon from "~/components/icons/PostgreSQLIcon";
 import MsSQLServerIcon from "~/components/icons/MsSQLServerIcon";
 import MariaDBIcon from "~/components/icons/MariaDBIcon";
+import SqliteIcon from "~/components/icons/SqliteIcon";
 import { DatabaseType } from "~/models/database";
 import ErdDocumentStorage from "~/features/storage/ErdDocumentStorage";
 import ErdDocument from "~/models/ErdDocument";
@@ -126,6 +127,7 @@ const databaseTypeIcons: { [key in DatabaseType]: React.JSX.Element } = {
     "mysql": <MySQLIcon />,
     "mariadb": <MariaDBIcon />,
     "ms_sqlserver": <MsSQLServerIcon />,
+    "sqlite": <SqliteIcon />,
 };
 
 const buildDatabaseIcon = (databaseType: DatabaseType | undefined): React.JSX.Element => {

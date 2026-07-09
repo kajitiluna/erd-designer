@@ -1,7 +1,7 @@
 import TableIndexSupport from "~/models/database/TableIndexSupport";
 import TableUniqueKeySupport from "~/models/database/TableUniqueKeySupport";
 
-export type DatabaseType = "postgres" | "mysql" | "ms_sqlserver" | "mariadb";
+export type DatabaseType = "postgres" | "mysql" | "ms_sqlserver" | "mariadb" | "sqlite";
 
 export class Database {
 
@@ -102,5 +102,15 @@ const databases: { [key in DatabaseType]: Database } = {
         }),
         { supportsSchema: true, supportsTableCollate: false, collatePattern: /^[a-zA-Z][a-zA-Z0-9_]*$/ } as const,
         { autoIncrementLabel: "Identity", editableCharacterSet: false, supportArray: false } as const
+    ),
+    "sqlite": new Database(
+        "sqlite", "SQLite",
+        new TableUniqueKeySupport({ orderable: true }),
+        new TableIndexSupport({
+            indexOptions: ["UNIQUE"],
+            indexTypes: []
+        }),
+        { supportsSchema: false, supportsTableCollate: false, collatePattern: /^[a-zA-Z][a-zA-Z0-9_]*$/ } as const,
+        { autoIncrementLabel: "", editableCharacterSet: false, supportArray: false } as const
     ),
 };

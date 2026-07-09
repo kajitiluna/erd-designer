@@ -14,6 +14,7 @@ import ColumnGroupView from "~/features/editor/ColumnGroupView";
 import ImportFromDdlView from "~/features/editor/ImportFromDdlView";
 import MsSQLServerIcon from "~/components/icons/MsSQLServerIcon";
 import MariaDBIcon from "~/components/icons/MariaDBIcon";
+import SqliteIcon from "~/components/icons/SqliteIcon";
 import ErdSettingModel from "~/models/ErdSettingModel";
 import DisplayStyle from "~/models/database/DisplayStyle";
 import PerspectiveView from "~/features/editor/PerspectiveView";
@@ -207,6 +208,13 @@ const databaseTypeIcons: { [key in DatabaseType]: React.JSX.Element } = {
         <Tooltip title="MariaDB" placement="top">
             <span style={{ display: "flex", alignItems: "center" }}>
                 <MariaDBIcon />
+            </span>
+        </Tooltip>
+    ),
+    "sqlite": (
+        <Tooltip title="SQLite" placement="top">
+            <span style={{ display: "flex", alignItems: "center" }}>
+                <SqliteIcon />
             </span>
         </Tooltip>
     )
