@@ -522,6 +522,13 @@ const mysqlReservedWords = [
     "X509", "XA", "XID", "XML", "XOR", "YEAR", "YEAR_MONTH", "ZEROFILL"
 ];
 
+const mariadbReservedWords = [
+    ...mysqlReservedWords,
+    "CURRENT_ROLE", "DELETE_DOMAIN_ID", "DO_DOMAIN_IDS", "GENERAL", "IGNORE_DOMAIN_IDS",
+    "MASTER_HEARTBEAT_PERIOD", "PAGE_CHECKSUM", "PARSE_VCOL_EXPR", "POSITION", "ROWNUM", "ROWTYPE",
+    "SLOW", "STATEMENT", "UTC_DATE", "UTC_TIME", "UTC_TIMESTAMP"
+];
+
 const msSqlServerReservedWords = [
     "ADD", "EXTERNAL", "PROCEDURE", "ALL", "FETCH", "PUBLIC", "ALTER", "FILE", "RAISERROR", "AND",
     "FILLFACTOR", "READ", "ANY", "FOR", "READTEXT", "AS", "FOREIGN", "RECONFIGURE", "ASC", "FREETEXT",
@@ -662,6 +669,18 @@ const exportConfigs: { [key in DatabaseType]: DatabaseDdlCreator } = {
         autoIncrementKeyword: "AUTO_INCREMENT",
         reservedWords: [...commonReservedWords, ...mysqlReservedWords],
         escapeString: (value: string) => '`' + value + '`' // MySQL uses backticks as escape character
+    }),
+
+    "mariadb": new DatabaseDdlCreator({
+        tableQueryWithOption: tableQueryForMySql,
+        columnQueryWithOption: columnQueryForMySql,
+        indexQuery: (args: IndexQueryArgs) =>
+            `CREATE ${args.indexOption}INDEX ${args.indexName}${args.indexTypeQuery}`
+            + ` ON ${args.tableName} (${args.columnQueries.join(", ")});`,
+        commentQuery: () => [],
+        autoIncrementKeyword: "AUTO_INCREMENT",
+        reservedWords: [...commonReservedWords, ...mariadbReservedWords],
+        escapeString: (value: string) => '`' + value + '`' // MariaDB uses backticks as escape character
     }),
 
     "ms_sqlserver": new DatabaseDdlCreator({

@@ -9,6 +9,7 @@ import TableChartIcon from '@mui/icons-material/TableChart';
 import MySQLIcon from "~/components/icons/MySQLIcon";
 import PostgreSQLIcon from "~/components/icons/PostgreSQLIcon";
 import MsSQLServerIcon from "~/components/icons/MsSQLServerIcon";
+import MariaDBIcon from "~/components/icons/MariaDBIcon";
 import { DatabaseType } from "~/models/database";
 import ErdDocumentStorage from "~/features/storage/ErdDocumentStorage";
 import ErdDocument from "~/models/ErdDocument";
@@ -123,6 +124,7 @@ const ErdDocumentListPanel = ({ documentStorage, erdSummaries, onOpenDocument, o
 const databaseTypeIcons: { [key in DatabaseType]: React.JSX.Element } = {
     "postgres": <PostgreSQLIcon />,
     "mysql": <MySQLIcon />,
+    "mariadb": <MariaDBIcon />,
     "ms_sqlserver": <MsSQLServerIcon />,
 };
 

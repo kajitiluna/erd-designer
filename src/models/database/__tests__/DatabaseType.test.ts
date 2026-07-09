@@ -81,6 +81,26 @@ describe('databases constant', () => {
         expect(sqlServer.tableIndexSupport.nullsOrder).toBe(false);
     });
 
+    test('should contain mariadb database configuration', () => {
+        const mariadb = Database.get("mariadb");
+
+        expect(mariadb.databaseType).toBe('mariadb');
+        expect(mariadb.name).toBe('MariaDB');
+        expect(mariadb.uniqueKeySupport).toBeDefined();
+        expect(mariadb.tableIndexSupport).toBeDefined();
+    });
+
+    test('mariadb should support expected index options and types', () => {
+        const mariadb = Database.get("mariadb");
+
+        expect(mariadb.tableIndexSupport.indexOptions).toContain('UNIQUE');
+        expect(mariadb.tableIndexSupport.indexOptions).toContain('FULLTEXT');
+        expect(mariadb.tableIndexSupport.indexOptions).toContain('SPATIAL');
+        expect(mariadb.tableIndexSupport.indexTypes).toContain('BTREE');
+        expect(mariadb.tableIndexSupport.indexTypes).toContain('HASH');
+        expect(mariadb.tableIndexSupport.nullsOrder).toBe(false);
+    });
+
     test('postgres should support schema', () => {
         const postgres = Database.get("postgres");
         expect(postgres.supportsSchema).toBe(true);
@@ -94,6 +114,11 @@ describe('databases constant', () => {
     test('ms_sqlserver should support schema', () => {
         const sqlServer = Database.get("ms_sqlserver");
         expect(sqlServer.supportsSchema).toBe(true);
+    });
+
+    test('mariadb should not support schema', () => {
+        const mariadb = Database.get("mariadb");
+        expect(mariadb.supportsSchema).toBe(false);
     });
 
     test('postgres should have non-orderable unique key support', () => {
@@ -111,6 +136,11 @@ describe('databases constant', () => {
         expect(sqlServer.uniqueKeySupport.orderable).toBe(true);
     });
 
+    test('mariadb should have orderable unique key support', () => {
+        const mariadb = Database.get("mariadb");
+        expect(mariadb.uniqueKeySupport.orderable).toBe(true);
+    });
+
     test('postgres should support array types', () => {
         const postgres = Database.get("postgres");
         expect(postgres.supportsArrayType).toBe(true);
@@ -124,6 +154,11 @@ describe('databases constant', () => {
     test('ms_sqlserver should not support array types', () => {
         const sqlServer = Database.get("ms_sqlserver");
         expect(sqlServer.supportsArrayType).toBe(false);
+    });
+
+    test('mariadb should not support array types', () => {
+        const mariadb = Database.get("mariadb");
+        expect(mariadb.supportsArrayType).toBe(false);
     });
 
     test('postgres should have no auto increment label', () => {
@@ -141,12 +176,18 @@ describe('databases constant', () => {
         expect(sqlServer.autoIncrementLabel()).toBe('Identity');
     });
 
+    test('mariadb should have "Auto Increment" label', () => {
+        const mariadb = Database.get("mariadb");
+        expect(mariadb.autoIncrementLabel()).toBe('Auto Increment');
+    });
+
     test('allDatabaseTypes should return all database types', () => {
         const allTypes = Database.allDatabaseTypes();
-        
-        expect(allTypes).toHaveLength(3);
+
+        expect(allTypes).toHaveLength(4);
         expect(allTypes).toContain('postgres');
         expect(allTypes).toContain('mysql');
         expect(allTypes).toContain('ms_sqlserver');
+        expect(allTypes).toContain('mariadb');
     });
 });

@@ -1,7 +1,7 @@
 import TableIndexSupport from "~/models/database/TableIndexSupport";
 import TableUniqueKeySupport from "~/models/database/TableUniqueKeySupport";
 
-export type DatabaseType = "postgres" | "mysql" | "ms_sqlserver";
+export type DatabaseType = "postgres" | "mysql" | "ms_sqlserver" | "mariadb";
 
 export class Database {
 
@@ -74,6 +74,16 @@ const databases: { [key in DatabaseType]: Database } = {
     ),
     "mysql": new Database(
         "mysql", "MySQL",
+        new TableUniqueKeySupport({ orderable: true }),
+        new TableIndexSupport({
+            indexOptions: ["UNIQUE", "FULLTEXT", "SPATIAL"],
+            indexTypes: ["BTREE", "HASH"]
+        }),
+        { supportsSchema: false, supportsTableCollate: true, collatePattern: /^[a-zA-Z][a-zA-Z0-9_]*$/ } as const,
+        { autoIncrementLabel: "Auto Increment", editableCharacterSet: true, supportArray: false } as const
+    ),
+    "mariadb": new Database(
+        "mariadb", "MariaDB",
         new TableUniqueKeySupport({ orderable: true }),
         new TableIndexSupport({
             indexOptions: ["UNIQUE", "FULLTEXT", "SPATIAL"],

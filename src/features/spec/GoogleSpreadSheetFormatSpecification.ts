@@ -84,7 +84,9 @@ const initColumnHeader = (databaseType: DatabaseType, withTableInfo: boolean = t
         { title: "Scale", key: "scale", type: "number", width: 50 }
     ];
 
-    const header2 = (databaseType === "mysql") ? [
+    const isMySqlCompatible = (databaseType === "mysql") || (databaseType === "mariadb");
+
+    const header2 = isMySqlCompatible ? [
         { title: "Unsigned", key: "unsigned", horizontalAlignment: "CENTER", width: 60 }
     ] : [];
 
@@ -93,7 +95,7 @@ const initColumnHeader = (databaseType: DatabaseType, withTableInfo: boolean = t
         { title: "NotNull", key: "notNull", horizontalAlignment: "CENTER", width: 50 },
         { title: "Unique", key: "unique", horizontalAlignment: "CENTER", width: 50 },
         {
-            title: (databaseType === "mysql") ? "Increment" : "Identity",
+            title: isMySqlCompatible ? "Increment" : "Identity",
             key: "autoIncrement", horizontalAlignment: "CENTER", width: 55
         },
         { title: "Default", key: "defaultValue", width: 75 },
