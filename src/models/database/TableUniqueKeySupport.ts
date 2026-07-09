@@ -1,12 +1,15 @@
 type TableUniqueKeySupportArgs = {
-    orderable: boolean
+    orderable: boolean,
+    supportsUniqueKey?: boolean
 }
 
 export default class TableUniqueKeySupport {
 
     public readonly orderable: boolean;
+    public readonly supportsUniqueKey: boolean;
 
-    constructor({ orderable }: TableUniqueKeySupportArgs) {
+    constructor({ orderable, supportsUniqueKey = true }: TableUniqueKeySupportArgs) {
         this.orderable = orderable;
+        this.supportsUniqueKey = supportsUniqueKey;
     }
 }

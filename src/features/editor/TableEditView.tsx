@@ -198,51 +198,80 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
     const hasOtherOption = tableOption.characterSet || tableOption.collate ||
         tableOption.definitionExpression || tableOption.optionExpression;
 
+    const showUniqueKeyTab = database.uniqueKeySupport.supportsUniqueKey === true;
+    const showIndexTab = database.tableIndexSupport.supportsIndex === true;
+
+    const columnPanel = (
+        <ColumnViewTable
+            columnWrapModels={columnWrapModels}
+            availableColumnGroup={true}
+            isChildRelation={isChildRelation}
+            isEditableColumnType={isEditableColumnType}
+            onUpdateColumnWrapModels={setColumnWrapModels}
+            onUpdateCheckExpression={setCheckExpression} />
+    );
+    const uniqueKeyPanel = (
+        <UniqueKeysGridView
+            database={database}
+            columnWrapModels={columnWrapModels}
+            tableUniqueKeysModels={uniqueKeysModels}
+            isChildRelation={isChildRelation}
+            onUpdateTableUniqueKeysModels={setUniqueKeysModels} />
+    );
+    const indexPanel = (
+        <IndexGridView
+            database={database}
+            columnWrapModels={columnWrapModels}
+            tableIndexModels={tableIndexModels}
+            isChildRelation={isChildRelation}
+            onUpdateTableIndexModels={setTableIndexModels} />
+    );
+    const checkPanel = (
+        <Stack direction="column" spacing={2}>
+            <TextField label="Check Expression" size="small" fullWidth variant="outlined" multiline minRows={4}
+                value={checkExpression} onChange={event => setCheckExpression(event.target.value)} />
+            <Alert severity="info" variant="outlined">
+                <Typography variant="body2" gutterBottom>{explanationForExpression}</Typography>
+            </Alert>
+        </Stack>
+    );
+    const otherOptionPanel =
+        initExtraOptionPanel({ extraOption: tableOption, database, onUpdateExtraOption: setTableOption });
+
+    type TabEntry = { key: string, tab: React.ReactNode, panel: React.ReactNode };
+    const tabEntries: TabEntry[] = [
+        { key: "column", tab: <Tab key="column" label="Column" />, panel: columnPanel },
+        ...(showUniqueKeyTab ? [{
+            key: "uniqueKey",
+            tab: <Tab key="uniqueKey" label={`Unique constraint (${uniqueKeysModels.length})`}
+                disabled={columnWrapModels.length < 2} />,
+            panel: uniqueKeyPanel
+        }] : []),
+        ...(showIndexTab ? [{
+            key: "index",
+            tab: <Tab key="index" label={`Index (${tableIndexModels.length})`}
+                disabled={columnWrapModels.length === 0} />,
+            panel: indexPanel
+        }] : []),
+        {
+            key: "check",
+            tab: <Tab key="check" label={`Check${checkExpression ? " (+)" : ""}`} />,
+            panel: checkPanel
+        },
+        {
+            key: "otherOption",
+            tab: <Tab key="otherOption" label={`Other Option${hasOtherOption ? " (+)" : ""}`} />,
+            panel: otherOptionPanel
+        }
+    ];
+
     const tabPanel = (<>
         <Tabs value={tabIndex} onChange={(_, newValue) => setTabIndex(newValue)}>
-            <Tab label="Column" />
-            <Tab label={`Unique constraint (${uniqueKeysModels.length})`} disabled={columnWrapModels.length < 2} />
-            <Tab label={`Index (${tableIndexModels.length})`} disabled={columnWrapModels.length === 0} />
-            <Tab label={`Check${checkExpression ? " (+)" : ""}`} />
-            <Tab label={`Other Option${hasOtherOption ? " (+)" : ""}`} />
+            {tabEntries.map(entry => entry.tab)}
         </Tabs>
-        <div hidden={tabIndex !== 0}>
-            <ColumnViewTable
-                columnWrapModels={columnWrapModels}
-                availableColumnGroup={true}
-                isChildRelation={isChildRelation}
-                isEditableColumnType={isEditableColumnType}
-                onUpdateColumnWrapModels={setColumnWrapModels}
-                onUpdateCheckExpression={setCheckExpression} />
-        </div>
-        <div hidden={tabIndex !== 1}>
-            <UniqueKeysGridView
-                database={erdDocument.getDatabase()}
-                columnWrapModels={columnWrapModels}
-                tableUniqueKeysModels={uniqueKeysModels}
-                isChildRelation={isChildRelation}
-                onUpdateTableUniqueKeysModels={setUniqueKeysModels} />
-        </div>
-        <div hidden={tabIndex !== 2}>
-            <IndexGridView
-                database={erdDocument.getDatabase()}
-                columnWrapModels={columnWrapModels}
-                tableIndexModels={tableIndexModels}
-                isChildRelation={isChildRelation}
-                onUpdateTableIndexModels={setTableIndexModels} />
-        </div>
-        <div hidden={tabIndex !== 3}>
-            <Stack direction="column" spacing={2}>
-                <TextField label="Check Expression" size="small" fullWidth variant="outlined" multiline minRows={4}
-                    value={checkExpression} onChange={event => setCheckExpression(event.target.value)} />
-                <Alert severity="info" variant="outlined">
-                    <Typography variant="body2" gutterBottom>{explanationForExpression}</Typography>
-                </Alert>
-            </Stack>
-        </div>
-        <div hidden={tabIndex !== 4}>
-            {initExtraOptionPanel({ extraOption: tableOption, database, onUpdateExtraOption: setTableOption })}
-        </div>
+        {tabEntries.map((entry, index) => (
+            <div key={entry.key} hidden={tabIndex !== index}>{entry.panel}</div>
+        ))}
     </>);
 
     return (

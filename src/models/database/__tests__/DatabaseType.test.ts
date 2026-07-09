@@ -118,6 +118,31 @@ describe('databases constant', () => {
         expect(sqlite.tableIndexSupport.nullsOrder).toBe(false);
     });
 
+    test('postgres should support index', () => {
+        const postgres = Database.get("postgres");
+        expect(postgres.tableIndexSupport.supportsIndex).toBe(true);
+    });
+
+    test('mysql should support index', () => {
+        const mysql = Database.get("mysql");
+        expect(mysql.tableIndexSupport.supportsIndex).toBe(true);
+    });
+
+    test('ms_sqlserver should support index', () => {
+        const sqlServer = Database.get("ms_sqlserver");
+        expect(sqlServer.tableIndexSupport.supportsIndex).toBe(true);
+    });
+
+    test('mariadb should support index', () => {
+        const mariadb = Database.get("mariadb");
+        expect(mariadb.tableIndexSupport.supportsIndex).toBe(true);
+    });
+
+    test('sqlite should support index', () => {
+        const sqlite = Database.get("sqlite");
+        expect(sqlite.tableIndexSupport.supportsIndex).toBe(true);
+    });
+
     test('postgres should support schema', () => {
         const postgres = Database.get("postgres");
         expect(postgres.supportsSchema).toBe(true);
@@ -166,6 +191,31 @@ describe('databases constant', () => {
     test('sqlite should have orderable unique key support', () => {
         const sqlite = Database.get("sqlite");
         expect(sqlite.uniqueKeySupport.orderable).toBe(true);
+    });
+
+    test('postgres should support unique key', () => {
+        const postgres = Database.get("postgres");
+        expect(postgres.uniqueKeySupport.supportsUniqueKey).toBe(true);
+    });
+
+    test('mysql should support unique key', () => {
+        const mysql = Database.get("mysql");
+        expect(mysql.uniqueKeySupport.supportsUniqueKey).toBe(true);
+    });
+
+    test('ms_sqlserver should support unique key', () => {
+        const sqlServer = Database.get("ms_sqlserver");
+        expect(sqlServer.uniqueKeySupport.supportsUniqueKey).toBe(true);
+    });
+
+    test('mariadb should support unique key', () => {
+        const mariadb = Database.get("mariadb");
+        expect(mariadb.uniqueKeySupport.supportsUniqueKey).toBe(true);
+    });
+
+    test('sqlite should support unique key', () => {
+        const sqlite = Database.get("sqlite");
+        expect(sqlite.uniqueKeySupport.supportsUniqueKey).toBe(true);
     });
 
     test('postgres should support array types', () => {
