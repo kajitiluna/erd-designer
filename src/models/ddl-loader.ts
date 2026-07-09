@@ -1,9 +1,10 @@
 import { v4 as uuidV4 } from 'uuid';
 import { Parser as PostgresParser } from "node-sql-parser/build/postgresql";
 import { Parser as MySqlParser } from "node-sql-parser/build/mysql";
-// cSpell: ignore transactsql mariadb
+// cSpell: ignore transactsql mariadb sqlite
 import { Parser as MsSqlServerParser } from "node-sql-parser/build/transactsql";
 import { Parser as MariaDbParser } from "node-sql-parser/build/mariadb";
+import { Parser as SqliteParser } from "node-sql-parser/build/sqlite";
 import { Alter, AST, Create, Parser, ValueExpr } from "node-sql-parser";
 
 import {
@@ -37,6 +38,7 @@ const dispatchInitParser: { [key in DatabaseType]: () => Parser } = {
     "mysql": () => new MySqlParser(),
     "mariadb": () => new MariaDbParser(),
     "ms_sqlserver": () => new MsSqlServerParser(),
+    "sqlite": () => new SqliteParser(),
 };
 
 class DdlLoader {
@@ -301,6 +303,7 @@ const parseOptions: { [key in DatabaseType]: { database: string } } = {
     "mysql": { database: "MySQL" },
     "mariadb": { database: "MariaDB" },
     "ms_sqlserver": { database: "TransactSQL" },
+    "sqlite": { database: "Sqlite" },
 };
 
 export type DdlLoadSummary = {

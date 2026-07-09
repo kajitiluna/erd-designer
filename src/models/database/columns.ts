@@ -282,6 +282,22 @@ const databaseColumns: { [key in DatabaseType]: ColumnType[] } = {
         new ColumnType({ id: 1114, name: 'inet6', description: 'IPv6アドレスを格納するデータ型 (MariaDB 10.5+)。', baseQuery: 'INET6', category: 'other', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
 
         ColumnType.EMPTY
+    ],
+
+    "sqlite": [
+        new ColumnType({ id: 15, name: 'integer', description: '整数値。INTEGERアフィニティ。単一列のPRIMARY KEYに設定するとrowidエイリアスとなり自動採番相当になる。', baseQuery: 'INTEGER', category: 'integer', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 33, name: 'real', description: '浮動小数点数値。REALアフィニティ。', baseQuery: 'REAL', category: 'decimal', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 325, name: 'text', description: '文字列。TEXTアフィニティ。', baseQuery: 'TEXT', category: 'text', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 363, name: 'blob', description: 'バイナリデータ。BLOBアフィニティ(型指定なしと同義)。', baseQuery: 'BLOB', category: 'bit', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 36, name: 'numeric', description: '数値。NUMERICアフィニティ。', baseQuery: 'NUMERIC', category: 'decimal', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 6, name: 'boolean', description: '論理値。NUMERICアフィニティに解決される実用エイリアス。', baseQuery: 'BOOLEAN', category: 'bit', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 311, name: 'char (n)', description: '固定長文字列の実用エイリアス。nは構文上書けるが無視されTEXTアフィニティに解決される。', baseQuery: 'CHAR[[PARAM]]', category: 'text', withPrecision: true, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 312, name: 'varchar (n)', description: '可変長文字列の実用エイリアス。nは構文上書けるが無視されTEXTアフィニティに解決される。', baseQuery: 'VARCHAR[[PARAM]]', category: 'text', withPrecision: true, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 101, name: 'date', description: '日付の実用エイリアス。NUMERICアフィニティに解決される慣用型。', baseQuery: 'DATE', category: 'timestamp', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 112, name: 'datetime', description: '日時の実用エイリアス。NUMERICアフィニティに解決される慣用型。', baseQuery: 'DATETIME', category: 'timestamp', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 45, name: 'decimal (p, s)', description: '固定小数点数の実用エイリアス。p,sは構文上書けるが無視されNUMERICアフィニティに解決される。', baseQuery: 'DECIMAL[[PARAM]]', category: 'decimal', withPrecision: true, withScale: true, withUnsigned: false, withAutoIncrement: false }),
+
+        ColumnType.EMPTY
     ]
 };
 
