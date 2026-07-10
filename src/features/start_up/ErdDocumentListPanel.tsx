@@ -12,6 +12,7 @@ import MsSQLServerIcon from "~/components/icons/MsSQLServerIcon";
 import MariaDBIcon from "~/components/icons/MariaDBIcon";
 import SqliteIcon from "~/components/icons/SqliteIcon";
 import SnowflakeIcon from "~/components/icons/SnowflakeIcon";
+import BigQueryIcon from "~/components/icons/BigQueryIcon";
 import { DatabaseType } from "~/models/database";
 import ErdDocumentStorage from "~/features/storage/ErdDocumentStorage";
 import ErdDocument from "~/models/ErdDocument";
@@ -130,6 +131,7 @@ const databaseTypeIcons: { [key in DatabaseType]: React.JSX.Element } = {
     "ms_sqlserver": <MsSQLServerIcon />,
     "sqlite": <SqliteIcon />,
     "snowflake": <SnowflakeIcon />,
+    "bigquery": <BigQueryIcon />,
 };
 
 const buildDatabaseIcon = (databaseType: DatabaseType | undefined): React.JSX.Element => {

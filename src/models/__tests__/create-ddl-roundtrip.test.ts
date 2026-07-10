@@ -953,3 +953,437 @@ describe('create-ddl / ddl-loader roundtrip (Snowflake)', () => {
         expect(hasFailure).toBe(true);
     });
 });
+
+// BigQuery 向けの代表的なテーブルを構築し、DDL 生成内容 (OPTIONS(description=...) / PRIMARY KEY NOT ENFORCED /
+// UNIQUE 制約の警告コメント / インデックス警告コメント / ARRAY<T>) を確認する。
+// PRIMARY KEY / OPTIONS / NUMERIC(p,s) / FK NOT ENFORCED はいずれも node-sql-parser の bigquery
+// ダイアレクトが読込めないため、このドキュメントは生成内容の検証専用とし、
+// 往復には buildBigQueryRoundtripDocument を使う。
+const buildBigQuerySampleDocument = (): ErdDocument => {
+    const idColumnShare = new ColumnShareModel({
+        columnShareModelId: 'share-id',
+        physicalName: 'id',
+        logicalName: 'ID',
+        columnType: findColumnType('bigquery', 'int64')
+    });
+    const nameColumnShare = new ColumnShareModel({
+        columnShareModelId: 'share-name',
+        physicalName: 'name',
+        logicalName: 'Name',
+        columnType: findColumnType('bigquery', 'string'),
+        description: 'ユーザー名'
+    });
+    const priceColumnShare = new ColumnShareModel({
+        columnShareModelId: 'share-price',
+        physicalName: 'price',
+        logicalName: 'Price',
+        columnType: findColumnType('bigquery', 'numeric (p, s)'),
+        precision: '10',
+        scale: '2'
+    });
+    const tagsColumnShare = new ColumnShareModel({
+        columnShareModelId: 'share-tags',
+        physicalName: 'tags',
+        logicalName: 'Tags',
+        columnType: findColumnType('bigquery', 'int64'),
+        isArray: true
+    });
+
+    const idColumn = new ColumnModel({
+        columnModelId: 'col-id',
+        columnShareModelId: idColumnShare.columnShareModelId,
+        physicalName: 'id',
+        primaryKey: true,
+        notNull: true
+    });
+    const nameColumn = new ColumnModel({
+        columnModelId: 'col-name',
+        columnShareModelId: nameColumnShare.columnShareModelId,
+        physicalName: 'name',
+        notNull: true,
+        unique: true
+    });
+    const priceColumn = new ColumnModel({
+        columnModelId: 'col-price',
+        columnShareModelId: priceColumnShare.columnShareModelId,
+        physicalName: 'price'
+    });
+    const tagsColumn = new ColumnModel({
+        columnModelId: 'col-tags',
+        columnShareModelId: tagsColumnShare.columnShareModelId,
+        physicalName: 'tags'
+    });
+
+    // BigQuery は UNIQUE 制約自体をサポートしないため (supportsUniqueKey: false)、
+    // テーブルレベルの UNIQUE 制約定義も警告コメントとして出力される
+    const uniqueKeysModel = new TableUniqueKeysModel({
+        tableUniqueKeysModelId: 'uk-tags',
+        uniqueKeysColumnModels: [
+            new UniqueKeysColumnModel({ columnModelId: tagsColumn.columnModelId, sortOrderType: "" })
+        ]
+    });
+    const tableIndexModel = new TableIndexModel({
+        tableIndexModelId: 'idx-price',
+        physicalName: 'idx_sample_price',
+        indexColumnModels: [new IndexColumnModel({ columnModelId: priceColumn.columnModelId })]
+    });
+
+    const tableModel = new TableModel({
+        tableModelId: 'table-sample',
+        physicalName: 'sample_table',
+        logicalName: 'サンプル',
+        columns: [
+            { modelType: 'single', columnModelId: idColumn.columnModelId },
+            { modelType: 'single', columnModelId: nameColumn.columnModelId },
+            { modelType: 'single', columnModelId: priceColumn.columnModelId },
+            { modelType: 'single', columnModelId: tagsColumn.columnModelId }
+        ] as ColumnModelType[],
+        uniqueKeysModels: [uniqueKeysModel],
+        tableIndexModels: [tableIndexModel],
+        description: 'サンプルテーブル'
+    });
+
+    const tableViewModel = new TableViewModel({
+        tableModel,
+        corner: { top: 0, left: 0 },
+        headerColor: TEST_COLORS
+    });
+
+    return ErdDocument.create({
+        documentName: 'bigquery-roundtrip',
+        erdSettingModel: ErdSettingModel.create('bigquery-roundtrip'),
+        databaseSettingModel: DatabaseSettingModel.create('bigquery'),
+        schemaConfig: DbSchemaConfig.create(),
+        tableViewModels: [tableViewModel],
+        columnModels: [idColumn, nameColumn, priceColumn, tagsColumn],
+        columnShareModels: [idColumnShare, nameColumnShare, priceColumnShare, tagsColumnShare]
+    });
+};
+
+// 往復検証用: PRIMARY KEY / OPTIONS(description=...) / NUMERIC(p,s) を含まないドキュメント
+// (いずれも node-sql-parser の bigquery ダイアレクトが読込めない。documented limitation テスト参照)
+const buildBigQueryRoundtripDocument = (): ErdDocument => {
+    // BigQuery は列レベル OPTIONS(description=...) の読込に非対応なため、
+    // 論理名を物理名と一致させてコメントが生成されないようにする (documented limitation テスト参照)。
+    const idColumnShare = new ColumnShareModel({
+        columnShareModelId: 'share-id',
+        physicalName: 'id',
+        logicalName: 'id',
+        columnType: findColumnType('bigquery', 'int64')
+    });
+    const nameColumnShare = new ColumnShareModel({
+        columnShareModelId: 'share-name',
+        physicalName: 'name',
+        logicalName: 'name',
+        columnType: findColumnType('bigquery', 'string')
+    });
+    const activeColumnShare = new ColumnShareModel({
+        columnShareModelId: 'share-active',
+        physicalName: 'active',
+        logicalName: 'active',
+        columnType: findColumnType('bigquery', 'bool')
+    });
+    const tagsColumnShare = new ColumnShareModel({
+        columnShareModelId: 'share-tags',
+        physicalName: 'tags',
+        logicalName: 'tags',
+        columnType: findColumnType('bigquery', 'int64'),
+        isArray: true
+    });
+
+    const idColumn = new ColumnModel({
+        columnModelId: 'col-id',
+        columnShareModelId: idColumnShare.columnShareModelId,
+        physicalName: 'id'
+    });
+    const nameColumn = new ColumnModel({
+        columnModelId: 'col-name',
+        columnShareModelId: nameColumnShare.columnShareModelId,
+        physicalName: 'name'
+    });
+    const activeColumn = new ColumnModel({
+        columnModelId: 'col-active',
+        columnShareModelId: activeColumnShare.columnShareModelId,
+        physicalName: 'active'
+    });
+    const tagsColumn = new ColumnModel({
+        columnModelId: 'col-tags',
+        columnShareModelId: tagsColumnShare.columnShareModelId,
+        physicalName: 'tags'
+    });
+
+    const tableModel = new TableModel({
+        tableModelId: 'table-sample',
+        physicalName: 'sample_table',
+        columns: [
+            { modelType: 'single', columnModelId: idColumn.columnModelId },
+            { modelType: 'single', columnModelId: nameColumn.columnModelId },
+            { modelType: 'single', columnModelId: activeColumn.columnModelId },
+            { modelType: 'single', columnModelId: tagsColumn.columnModelId }
+        ] as ColumnModelType[]
+    });
+
+    const tableViewModel = new TableViewModel({
+        tableModel,
+        corner: { top: 0, left: 0 },
+        headerColor: TEST_COLORS
+    });
+
+    return ErdDocument.create({
+        documentName: 'bigquery-roundtrip',
+        erdSettingModel: ErdSettingModel.create('bigquery-roundtrip'),
+        databaseSettingModel: DatabaseSettingModel.create('bigquery'),
+        schemaConfig: DbSchemaConfig.create(),
+        tableViewModels: [tableViewModel],
+        columnModels: [idColumn, nameColumn, activeColumn, tagsColumn],
+        columnShareModels: [idColumnShare, nameColumnShare, activeColumnShare, tagsColumnShare]
+    });
+};
+
+const buildEmptyBigQueryDocument = (): ErdDocument => {
+    return ErdDocument.create({
+        documentName: 'bigquery-roundtrip-target',
+        erdSettingModel: ErdSettingModel.create('bigquery-roundtrip-target'),
+        databaseSettingModel: DatabaseSettingModel.create('bigquery'),
+        schemaConfig: DbSchemaConfig.create()
+    });
+};
+
+describe('create-ddl / ddl-loader roundtrip (BigQuery)', () => {
+    test('generates syntactically expected DDL for BigQuery', () => {
+        const erdDocument = buildBigQuerySampleDocument();
+
+        const ddl = createDdl(erdDocument, {
+            withTable: true,
+            withIndex: true,
+            withForeignKey: true,
+            withSchema: false,
+            withComment: true,
+            commentStyle: "logical_name",
+            commentSeparator: " : "
+        });
+
+        expect(ddl).toContain('CREATE TABLE sample_table');
+        expect(ddl).toContain('id INT64 NOT NULL');
+        expect(ddl).toContain('name STRING NOT NULL');
+        expect(ddl).toContain('OPTIONS(description="Name")');
+        expect(ddl).toContain('price NUMERIC(10, 2)');
+        expect(ddl).toContain('tags ARRAY<INT64>');
+        expect(ddl).toContain('PRIMARY KEY (id) NOT ENFORCED');
+        expect(ddl).toContain('OPTIONS(description="サンプル")');
+        // BigQuery は UNIQUE 制約をサポートしないため、カラム単独 UNIQUE もテーブルレベル UNIQUE も警告コメントのみになる
+        expect(ddl).toContain('-- sample_table: UNIQUE constraint is not supported: (name)');
+        expect(ddl).toContain('-- sample_table: UNIQUE constraint is not supported: (tags)');
+        expect(ddl).not.toMatch(/^\s*UNIQUE \(/m);
+        // インデックスは CREATE INDEX 構文自体が存在しないため警告コメントのみ出力される
+        expect(ddl).toContain('-- BigQuery: CREATE INDEX is not supported: idx_sample_price');
+        expect(ddl).not.toMatch(/^\s*CREATE INDEX/m);
+    });
+
+    test('outputs the foreign key as ALTER TABLE with NOT ENFORCED and no ON UPDATE/DELETE clauses', () => {
+        const parentIdShare = new ColumnShareModel({
+            columnShareModelId: 'share-fk-parent-id',
+            physicalName: 'id',
+            logicalName: 'ID',
+            columnType: findColumnType('bigquery', 'int64')
+        });
+        const childRefShare = new ColumnShareModel({
+            columnShareModelId: 'share-fk-child-ref',
+            physicalName: 'parent_id',
+            logicalName: 'Parent ID',
+            columnType: findColumnType('bigquery', 'int64')
+        });
+
+        const parentIdColumn = new ColumnModel({
+            columnModelId: 'col-fk-parent-id',
+            columnShareModelId: parentIdShare.columnShareModelId,
+            physicalName: 'id',
+            primaryKey: true,
+            notNull: true
+        });
+        const childRefColumn = new ColumnModel({
+            columnModelId: 'col-fk-child-ref',
+            columnShareModelId: childRefShare.columnShareModelId,
+            physicalName: 'parent_id'
+        });
+
+        const parentTableModel = new TableModel({
+            tableModelId: 'table-fk-parent',
+            physicalName: 'fk_parent',
+            columns: [{ modelType: 'single', columnModelId: parentIdColumn.columnModelId }] as ColumnModelType[]
+        });
+        const childTableModel = new TableModel({
+            tableModelId: 'table-fk-child',
+            physicalName: 'fk_child',
+            columns: [{ modelType: 'single', columnModelId: childRefColumn.columnModelId }] as ColumnModelType[]
+        });
+
+        const parentTableView = new TableViewModel({
+            tableModel: parentTableModel, corner: { top: 0, left: 0 }, headerColor: TEST_COLORS
+        });
+        const childTableView = new TableViewModel({
+            tableModel: childTableModel, corner: { top: 200, left: 0 }, headerColor: TEST_COLORS
+        });
+
+        const relationModel = new RelationModel({
+            parentTableModelId: parentTableModel.tableModelId,
+            childTableModelId: childTableModel.tableModelId,
+            relationPairs: [
+                new RelationPair({
+                    parentColumnModelId: parentIdColumn.columnModelId,
+                    childColumnModelId: childRefColumn.columnModelId
+                })
+            ]
+        });
+        const relationViewModel = new RelationViewModel({
+            relationModel,
+            lineViewModel: new LineViewModel({})
+        });
+
+        const erdDocument = ErdDocument.create({
+            documentName: 'bigquery-fk',
+            erdSettingModel: ErdSettingModel.create('bigquery-fk'),
+            databaseSettingModel: DatabaseSettingModel.create('bigquery'),
+            schemaConfig: DbSchemaConfig.create(),
+            tableViewModels: [parentTableView, childTableView],
+            relationViewModels: [relationViewModel],
+            columnModels: [parentIdColumn, childRefColumn],
+            columnShareModels: [parentIdShare, childRefShare]
+        });
+
+        const ddl = createDdl(erdDocument, {
+            withTable: true,
+            withIndex: false,
+            withForeignKey: true,
+            withSchema: false,
+            withComment: false,
+            commentStyle: "logical_name",
+            commentSeparator: " : "
+        });
+
+        expect(ddl).toContain('ALTER TABLE fk_child');
+        expect(ddl).toContain('ADD FOREIGN KEY (parent_id)');
+        expect(ddl).toContain('REFERENCES fk_parent (id) NOT ENFORCED');
+        expect(ddl).not.toContain('ON UPDATE');
+        expect(ddl).not.toContain('ON DELETE');
+    });
+
+    test('reloads the generated DDL back into equivalent column definitions', () => {
+        const sourceDocument = buildBigQueryRoundtripDocument();
+        const ddl = createDdl(sourceDocument, {
+            withTable: true,
+            withIndex: true,
+            withForeignKey: true,
+            withSchema: false,
+            withComment: true,
+            commentStyle: "logical_name",
+            commentSeparator: " : "
+        });
+
+        const targetDocument = buildEmptyBigQueryDocument();
+        const result = loadDdl(targetDocument, ddl);
+
+        const failures = result.summaries.filter(summary => summary.result === "failure");
+        expect(failures).toEqual([]);
+
+        expect(result.tableDefinitions).toHaveLength(1);
+        const [tableDefinition] = result.tableDefinitions;
+        expect(tableDefinition.tableName).toBe('sample_table');
+        expect(tableDefinition.columnDefinitions).toHaveLength(4);
+
+        const idDefinition = tableDefinition.columnDefinitions.find(column => column.columnName === 'id');
+        expect(idDefinition).toBeDefined();
+
+        const nameDefinition = tableDefinition.columnDefinitions.find(column => column.columnName === 'name');
+        expect(nameDefinition).toBeDefined();
+
+        const activeDefinition = tableDefinition.columnDefinitions.find(column => column.columnName === 'active');
+        expect(activeDefinition).toBeDefined();
+
+        const tagsDefinition = tableDefinition.columnDefinitions.find(column => column.columnName === 'tags');
+        expect(tagsDefinition?.isArray).toBe(true);
+        expect(tagsDefinition?.columnShareModel.columnType.name).toBe('int64');
+    });
+
+    test('node-sql-parser (bigquery dialect) does not support parsing PRIMARY KEY ... NOT ENFORCED '
+        + '(library limitation, not a generation-side restriction)', () => {
+        const targetDocument = buildEmptyBigQueryDocument();
+
+        const ddl = 'CREATE TABLE sample_table (\n'
+            + '    id INT64 NOT NULL,\n'
+            + '    PRIMARY KEY (id) NOT ENFORCED\n'
+            + ');';
+
+        const result = loadDdl(targetDocument, ddl);
+
+        const hasFailure = result.summaries.some(summary => summary.result === "failure");
+        expect(hasFailure).toBe(true);
+    });
+
+    test('node-sql-parser (bigquery dialect) does not support parsing column-level OPTIONS(description=...) '
+        + '(library limitation, not a generation-side restriction)', () => {
+        const targetDocument = buildEmptyBigQueryDocument();
+
+        const ddl = 'CREATE TABLE sample_table (\n'
+            + '    id INT64 OPTIONS(description="x")\n'
+            + ');';
+
+        const result = loadDdl(targetDocument, ddl);
+
+        const hasFailure = result.summaries.some(summary => summary.result === "failure");
+        expect(hasFailure).toBe(true);
+    });
+
+    test('node-sql-parser (bigquery dialect) does not support parsing NUMERIC(p, s) column parameters '
+        + '(library limitation, not a generation-side restriction)', () => {
+        const targetDocument = buildEmptyBigQueryDocument();
+
+        const ddl = 'CREATE TABLE sample_table (\n'
+            + '    amount NUMERIC(10, 2)\n'
+            + ');';
+
+        const result = loadDdl(targetDocument, ddl);
+
+        const hasFailure = result.summaries.some(summary => summary.result === "failure");
+        expect(hasFailure).toBe(true);
+    });
+
+    test('node-sql-parser (bigquery dialect) does not support parsing ALTER TABLE ... ADD FOREIGN KEY ... NOT ENFORCED '
+        + '(library limitation, not a generation-side restriction)', () => {
+        const targetDocument = buildEmptyBigQueryDocument();
+
+        const ddl = 'ALTER TABLE fk_child\n'
+            + '    ADD FOREIGN KEY (parent_id)\n'
+            + '    REFERENCES fk_parent (id) NOT ENFORCED;\n';
+
+        const result = loadDdl(targetDocument, ddl);
+
+        const hasFailure = result.summaries.some(summary => summary.result === "failure");
+        expect(hasFailure).toBe(true);
+    });
+
+    test('STRUCT columns are skipped with a warning instead of failing the whole table', () => {
+        const targetDocument = buildEmptyBigQueryDocument();
+
+        const ddl = 'CREATE TABLE sample_table (\n'
+            + '    id INT64,\n'
+            + '    info STRUCT<name STRING, age INT64>\n'
+            + ');';
+
+        const result = loadDdl(targetDocument, ddl);
+
+        const failures = result.summaries.filter(summary => summary.result === "failure");
+        expect(failures).toEqual([]);
+
+        const warnings = result.summaries.filter(summary => summary.result === "warning");
+        expect(warnings).toHaveLength(1);
+        expect(warnings[0].message).toContain('info');
+        expect(warnings[0].message).toContain('STRUCT');
+
+        expect(result.tableDefinitions).toHaveLength(1);
+        const [tableDefinition] = result.tableDefinitions;
+        expect(tableDefinition.tableName).toBe('sample_table');
+        expect(tableDefinition.columnDefinitions).toHaveLength(1);
+        expect(tableDefinition.columnDefinitions[0].columnName).toBe('id');
+    });
+});

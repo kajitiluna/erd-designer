@@ -76,7 +76,8 @@ const buildSampleDocument = (databaseType: DatabaseType): ErdDocument => {
     });
 };
 
-const allDatabaseTypes: DatabaseType[] = ["postgres", "mysql", "mariadb", "ms_sqlserver", "sqlite", "snowflake"];
+const allDatabaseTypes: DatabaseType[] =
+    ["postgres", "mysql", "mariadb", "ms_sqlserver", "sqlite", "snowflake", "bigquery"];
 
 describe('spec export smoke test (all database types)', () => {
     test.each(allDatabaseTypes)('GoogleSpreadSheet export does not throw for %s', (databaseType) => {
@@ -107,6 +108,18 @@ describe('spec export smoke test (all database types)', () => {
 
     test('snowflake column header has neither Unsigned nor NULLS Order columns', () => {
         const erdDocument = buildSampleDocument("snowflake");
+        const { spreadSheet } = exportSpreadSheetFormatSpecification(erdDocument);
+
+        const columnSheet = spreadSheet.sheets.find(sheet => sheet.properties.title.includes('Column'))
+            ?? spreadSheet.sheets[1];
+        const headerRow = JSON.stringify(columnSheet.data);
+
+        expect(headerRow).not.toContain('Unsigned');
+        expect(headerRow).not.toContain('NULLS Order');
+    });
+
+    test('bigquery column header has neither Unsigned nor NULLS Order columns', () => {
+        const erdDocument = buildSampleDocument("bigquery");
         const { spreadSheet } = exportSpreadSheetFormatSpecification(erdDocument);
 
         const columnSheet = spreadSheet.sheets.find(sheet => sheet.properties.title.includes('Column'))
