@@ -19,6 +19,7 @@ import { overrideColumnName } from '~/models/database/support';
 import DocumentBudget, { uriTemplates } from '~/agent-tools/DocumentBudget';
 import TableViewModel from '~/models/TableViewModel';
 import TableModel from '~/models/database/TableModel';
+import { findStructCycle } from '~/agent-tools/tools/struct-types';
 
 export const mcpRegisterColumn = (documentResource: DocumentResource): McpRegisterConfig => {
     return {
@@ -125,6 +126,9 @@ const addingColumnShareModelSchema = {
         "(only applicable to text types and databases that support character set specification)."),
     collate: z.string().optional().describe("The collation for the column-share (only applicable to text types)."),
     optionExpression: z.string().optional().describe("Custom column option expression appended to the column definition."),
+    columnStructId: z.string().optional().describe(
+        "The column struct ID referencing a ColumnStructModel. Only valid for STRUCT column types (BigQuery)."
+    ),
 } as const;
 
 export const addColumnSchema = z.union([
@@ -755,6 +759,12 @@ const initCallbackForUpdatingColumn = (
         } else if ("columnShare" in updatingColumn) {
             const nextColumnShare = buildColumnShare(erdBudget, updatingColumn.columnShare);
 
+            if (nextColumnShare.columnStructId !== "") {
+                validateNoStructCycleForColumnModel(
+                    previousDocument, erdBudget, previousColumn.columnModelId, nextColumnShare.columnStructId
+                );
+            }
+
             nextColumnShareId = nextColumnShare.columnShareModelId;
             nextColumnType = nextColumnShare.columnType;
             addingColumnShares.push(nextColumnShare);
@@ -886,6 +896,9 @@ const updateColumnShareInputSchema = {
             "(only applicable to text types and databases that support character set specification)."),
         collate: z.string().optional().describe("The collation for the column-share (only applicable to text types)."),
         optionExpression: z.string().optional().describe("Custom column option expression appended to the column definition."),
+        columnStructId: z.string().optional().describe(
+            "The updated column struct ID referencing a ColumnStructModel. Only valid for STRUCT column types (BigQuery)."
+        ),
     }).describe("The updated column-share model data.")
 } as const;
 
@@ -947,6 +960,25 @@ const initCallbackForUpdatingColumnShare = (
             }
         }
 
+        if ((nextColumnType.withStructFields === false) && (updating.columnStructId != null)) {
+            throw initInvalidParams(
+                `Column struct must not be specified for the selected column type : ${nextColumnType.name}`
+            );
+        }
+
+        const nextColumnStructId = nextColumnType.withStructFields
+            ? (updating.columnStructId ?? previous.columnStructId) : "";
+
+        if (nextColumnStructId !== "") {
+            const columnStruct = previousDocument.findColumnStructModel(nextColumnStructId);
+            if (columnStruct == null) {
+                const url = new URL(erdBudget.columnStructUri(nextColumnStructId));
+                throw initResourceNotFound(url);
+            }
+
+            validateNoStructCycleForColumnShare(previousDocument, erdBudget, columnShareId, nextColumnStructId);
+        }
+
         const nextColumnShare = new ColumnShareModel({
             ...previous,
             physicalName: updating.columnName?.physical ?? previous.physicalName,
@@ -963,6 +995,7 @@ const initCallbackForUpdatingColumnShare = (
                 characterSet: updating.characterSet ?? previous.characterSet(database)
             }),
             optionExpression: updating.optionExpression ?? previous.optionExpression,
+            columnStructId: nextColumnStructId,
         });
 
         const nextDocument = previousDocument.updateColumnModels([], [nextColumnShare]);
@@ -1239,6 +1272,39 @@ const initCallbackForRemoveColumnsFromTable = (
 
 // ==================== shared helpers ====================
 
+// columnShareId を参照する各カラムについて、そのカラムが既に何らかの struct のメンバーであれば、
+// nextColumnStructId から辿れる struct 群の中に当該 struct が含まれないこと (循環参照にならないこと) を検証する。
+const validateNoStructCycleForColumnShare = (
+    erdDocument: ErdDocument, erdBudget: DocumentBudget, columnShareId: string, nextColumnStructId: string
+) => {
+    const referencingColumns = erdDocument.fetchReferencedColumnModelsForShareModel(columnShareId);
+
+    referencingColumns.forEach(referencingColumn => {
+        validateNoStructCycleForColumnModel(erdDocument, erdBudget, referencingColumn.columnModelId, nextColumnStructId);
+    });
+};
+
+// 指定したカラムが既に何らかの struct のメンバーであれば、nextColumnStructId から辿れる struct 群の中に
+// 当該 struct が含まれないこと (循環参照にならないこと) を検証する。
+const validateNoStructCycleForColumnModel = (
+    erdDocument: ErdDocument, erdBudget: DocumentBudget, columnModelId: string, nextColumnStructId: string
+) => {
+    const columnStructs = erdDocument.getColumnStructModels();
+    const containingStruct = columnStructs.find(struct => struct.columnModelIds.includes(columnModelId));
+    if (containingStruct == null) {
+        return;
+    }
+
+    const cycleColumnStructId = findStructCycle(erdDocument, containingStruct.columnStructId, [nextColumnStructId]);
+    if (cycleColumnStructId != null) {
+        const url = new URL(erdBudget.columnStructUri(cycleColumnStructId));
+        throw initInvalidParams(
+            `Circular STRUCT reference detected: column struct ${containingStruct.columnStructId} `
+            + `would (in)directly reference itself through struct ${cycleColumnStructId} (${url.href}).`
+        );
+    }
+};
+
 export const buildAddingColumnPairs = (erdBudget: DocumentBudget, columns: z.infer<typeof addColumnSchema>[]) => {
     return zipPairs(() =>
         columns.map(column => buildColumnPair(erdBudget, column))
@@ -1349,6 +1415,20 @@ const buildColumnShare = (
         }
     }
 
+    if (input.columnStructId != null) {
+        if (columnType.withStructFields === false) {
+            throw initInvalidParams(
+                `Column struct must not be specified for the selected column type : ${columnType.name}`
+            );
+        }
+
+        const columnStruct = erdDocument.findColumnStructModel(input.columnStructId);
+        if (columnStruct == null) {
+            const url = new URL(erdBudget.columnStructUri(input.columnStructId));
+            throw initResourceNotFound(url);
+        }
+    }
+
     return new ColumnShareModel({
         columnShareModelId: uuidV4(),
         physicalName,
@@ -1363,6 +1443,7 @@ const buildColumnShare = (
         ...((columnType.category === "text") && { collate: input.collate }),
         ...((columnType.category === "text") && database.editableCharacterSet && { characterSet: input.characterSet }),
         optionExpression: input.optionExpression,
+        ...(columnType.withStructFields && { columnStructId: input.columnStructId ?? "" }),
     });
 };
 
