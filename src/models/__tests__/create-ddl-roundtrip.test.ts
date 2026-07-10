@@ -554,3 +554,402 @@ describe('create-ddl / ddl-loader roundtrip (SQLite)', () => {
         expect(hasFailure).toBe(true);
     });
 });
+
+// Snowflake 向けの代表的なテーブルを構築し、DDL 生成内容 (インライン COMMENT / AUTOINCREMENT /
+// インデックス警告コメント / 半構造化型) を確認する (Phase 3 検証ゲート)。
+// AUTOINCREMENT と VARIANT は node-sql-parser の snowflake ダイアレクトが読込めないため、
+// このドキュメントは生成内容の検証専用とし、往復には buildSnowflakeRoundtripDocument を使う。
+const buildSnowflakeSampleDocument = (): ErdDocument => {
+    const idColumnShare = new ColumnShareModel({
+        columnShareModelId: 'share-id',
+        physicalName: 'id',
+        logicalName: 'ID',
+        columnType: findColumnType('snowflake', 'number')
+    });
+    const nameColumnShare = new ColumnShareModel({
+        columnShareModelId: 'share-name',
+        physicalName: 'name',
+        logicalName: 'Name',
+        columnType: findColumnType('snowflake', 'varchar (n)'),
+        precision: '100',
+        description: 'ユーザー名'
+    });
+    const priceColumnShare = new ColumnShareModel({
+        columnShareModelId: 'share-price',
+        physicalName: 'price',
+        logicalName: 'Price',
+        columnType: findColumnType('snowflake', 'number (p, s)'),
+        precision: '10',
+        scale: '2'
+    });
+    const createdAtColumnShare = new ColumnShareModel({
+        columnShareModelId: 'share-created-at',
+        physicalName: 'created_at',
+        logicalName: 'Created At',
+        columnType: findColumnType('snowflake', 'timestamp_tz')
+    });
+    const payloadColumnShare = new ColumnShareModel({
+        columnShareModelId: 'share-payload',
+        physicalName: 'payload',
+        logicalName: 'Payload',
+        columnType: findColumnType('snowflake', 'variant')
+    });
+
+    const idColumn = new ColumnModel({
+        columnModelId: 'col-id',
+        columnShareModelId: idColumnShare.columnShareModelId,
+        physicalName: 'id',
+        primaryKey: true,
+        notNull: true,
+        autoIncrement: true
+    });
+    const nameColumn = new ColumnModel({
+        columnModelId: 'col-name',
+        columnShareModelId: nameColumnShare.columnShareModelId,
+        physicalName: 'name',
+        notNull: true
+    });
+    const priceColumn = new ColumnModel({
+        columnModelId: 'col-price',
+        columnShareModelId: priceColumnShare.columnShareModelId,
+        physicalName: 'price'
+    });
+    const createdAtColumn = new ColumnModel({
+        columnModelId: 'col-created-at',
+        columnShareModelId: createdAtColumnShare.columnShareModelId,
+        physicalName: 'created_at'
+    });
+    const payloadColumn = new ColumnModel({
+        columnModelId: 'col-payload',
+        columnShareModelId: payloadColumnShare.columnShareModelId,
+        physicalName: 'payload'
+    });
+
+    // Snowflake の UNIQUE 制約は ASC/DESC を受け付けない (TableUniqueKeySupport.orderable: false)
+    const uniqueKeysModel = new TableUniqueKeysModel({
+        tableUniqueKeysModelId: 'uk-name',
+        uniqueKeysColumnModels: [
+            new UniqueKeysColumnModel({ columnModelId: nameColumn.columnModelId, sortOrderType: "" })
+        ]
+    });
+    const tableIndexModel = new TableIndexModel({
+        tableIndexModelId: 'idx-price',
+        physicalName: 'idx_sample_price',
+        indexColumnModels: [new IndexColumnModel({ columnModelId: priceColumn.columnModelId })]
+    });
+
+    const tableModel = new TableModel({
+        tableModelId: 'table-sample',
+        physicalName: 'sample_table',
+        logicalName: 'サンプル',
+        columns: [
+            { modelType: 'single', columnModelId: idColumn.columnModelId },
+            { modelType: 'single', columnModelId: nameColumn.columnModelId },
+            { modelType: 'single', columnModelId: priceColumn.columnModelId },
+            { modelType: 'single', columnModelId: createdAtColumn.columnModelId },
+            { modelType: 'single', columnModelId: payloadColumn.columnModelId }
+        ] as ColumnModelType[],
+        uniqueKeysModels: [uniqueKeysModel],
+        tableIndexModels: [tableIndexModel],
+        description: 'サンプルテーブル'
+    });
+
+    const tableViewModel = new TableViewModel({
+        tableModel,
+        corner: { top: 0, left: 0 },
+        headerColor: TEST_COLORS
+    });
+
+    return ErdDocument.create({
+        documentName: 'snowflake-roundtrip',
+        erdSettingModel: ErdSettingModel.create('snowflake-roundtrip'),
+        databaseSettingModel: DatabaseSettingModel.create('snowflake'),
+        schemaConfig: DbSchemaConfig.create(),
+        tableViewModels: [tableViewModel],
+        columnModels: [idColumn, nameColumn, priceColumn, createdAtColumn, payloadColumn],
+        columnShareModels: [
+            idColumnShare, nameColumnShare, priceColumnShare, createdAtColumnShare, payloadColumnShare
+        ]
+    });
+};
+
+// 往復検証用: AUTOINCREMENT / 半構造化型 (VARIANT 等) を含まないドキュメント
+// (どちらも node-sql-parser の snowflake ダイアレクトが読込めない。documented limitation テスト参照)
+const buildSnowflakeRoundtripDocument = (): ErdDocument => {
+    const idColumnShare = new ColumnShareModel({
+        columnShareModelId: 'share-id',
+        physicalName: 'id',
+        logicalName: 'ID',
+        columnType: findColumnType('snowflake', 'number')
+    });
+    const nameColumnShare = new ColumnShareModel({
+        columnShareModelId: 'share-name',
+        physicalName: 'name',
+        logicalName: 'Name',
+        columnType: findColumnType('snowflake', 'varchar (n)'),
+        precision: '100',
+        description: 'ユーザー名'
+    });
+    const priceColumnShare = new ColumnShareModel({
+        columnShareModelId: 'share-price',
+        physicalName: 'price',
+        logicalName: 'Price',
+        columnType: findColumnType('snowflake', 'number (p, s)'),
+        precision: '10',
+        scale: '2'
+    });
+
+    const idColumn = new ColumnModel({
+        columnModelId: 'col-id',
+        columnShareModelId: idColumnShare.columnShareModelId,
+        physicalName: 'id',
+        primaryKey: true,
+        notNull: true
+    });
+    const nameColumn = new ColumnModel({
+        columnModelId: 'col-name',
+        columnShareModelId: nameColumnShare.columnShareModelId,
+        physicalName: 'name',
+        notNull: true
+    });
+    const priceColumn = new ColumnModel({
+        columnModelId: 'col-price',
+        columnShareModelId: priceColumnShare.columnShareModelId,
+        physicalName: 'price'
+    });
+
+    const uniqueKeysModel = new TableUniqueKeysModel({
+        tableUniqueKeysModelId: 'uk-name',
+        uniqueKeysColumnModels: [
+            new UniqueKeysColumnModel({ columnModelId: nameColumn.columnModelId, sortOrderType: "" })
+        ]
+    });
+
+    const tableModel = new TableModel({
+        tableModelId: 'table-sample',
+        physicalName: 'sample_table',
+        columns: [
+            { modelType: 'single', columnModelId: idColumn.columnModelId },
+            { modelType: 'single', columnModelId: nameColumn.columnModelId },
+            { modelType: 'single', columnModelId: priceColumn.columnModelId }
+        ] as ColumnModelType[],
+        uniqueKeysModels: [uniqueKeysModel]
+    });
+
+    const tableViewModel = new TableViewModel({
+        tableModel,
+        corner: { top: 0, left: 0 },
+        headerColor: TEST_COLORS
+    });
+
+    return ErdDocument.create({
+        documentName: 'snowflake-roundtrip',
+        erdSettingModel: ErdSettingModel.create('snowflake-roundtrip'),
+        databaseSettingModel: DatabaseSettingModel.create('snowflake'),
+        schemaConfig: DbSchemaConfig.create(),
+        tableViewModels: [tableViewModel],
+        columnModels: [idColumn, nameColumn, priceColumn],
+        columnShareModels: [idColumnShare, nameColumnShare, priceColumnShare]
+    });
+};
+
+const buildEmptySnowflakeDocument = (): ErdDocument => {
+    return ErdDocument.create({
+        documentName: 'snowflake-roundtrip-target',
+        erdSettingModel: ErdSettingModel.create('snowflake-roundtrip-target'),
+        databaseSettingModel: DatabaseSettingModel.create('snowflake'),
+        schemaConfig: DbSchemaConfig.create()
+    });
+};
+
+describe('create-ddl / ddl-loader roundtrip (Snowflake)', () => {
+    test('generates syntactically expected DDL for Snowflake', () => {
+        const erdDocument = buildSnowflakeSampleDocument();
+
+        const ddl = createDdl(erdDocument, {
+            withTable: true,
+            withIndex: true,
+            withForeignKey: true,
+            withSchema: false,
+            withComment: true,
+            commentStyle: "logical_name",
+            commentSeparator: " : "
+        });
+
+        expect(ddl).toContain('CREATE TABLE sample_table');
+        expect(ddl).toContain('id NUMBER NOT NULL AUTOINCREMENT');
+        expect(ddl).toContain("name VARCHAR(100) NOT NULL COMMENT 'Name'");
+        expect(ddl).toContain('price NUMBER(10, 2)');
+        expect(ddl).toContain('created_at TIMESTAMP_TZ');
+        expect(ddl).toContain('payload VARIANT');
+        expect(ddl).toContain('PRIMARY KEY (id)');
+        expect(ddl).toContain('UNIQUE (name)');
+        expect(ddl).toContain("COMMENT = 'サンプル'");
+        // インデックスは Snowflake の標準テーブルに存在しないため警告コメントのみ出力される
+        expect(ddl).toContain(
+            '-- Snowflake: CREATE INDEX is not supported on standard tables: idx_sample_price'
+        );
+        expect(ddl).not.toMatch(/^\s*CREATE INDEX/m);
+        // コメントはインライン構文のみで、COMMENT ON 文は出力しない
+        expect(ddl).not.toContain('COMMENT ON');
+    });
+
+    test('reloads the generated DDL back into equivalent column definitions', () => {
+        const sourceDocument = buildSnowflakeRoundtripDocument();
+        const ddl = createDdl(sourceDocument, {
+            withTable: true,
+            withIndex: true,
+            withForeignKey: true,
+            withSchema: false,
+            withComment: true,
+            commentStyle: "logical_name",
+            commentSeparator: " : "
+        });
+
+        const targetDocument = buildEmptySnowflakeDocument();
+        const result = loadDdl(targetDocument, ddl);
+
+        const failures = result.summaries.filter(summary => summary.result === "failure");
+        expect(failures).toEqual([]);
+
+        expect(result.tableDefinitions).toHaveLength(1);
+        const [tableDefinition] = result.tableDefinitions;
+        expect(tableDefinition.tableName).toBe('sample_table');
+        expect(tableDefinition.columnDefinitions).toHaveLength(3);
+
+        const idDefinition = tableDefinition.columnDefinitions.find(column => column.columnName === 'id');
+        expect(idDefinition?.primaryKey).toBe(true);
+        expect(idDefinition?.notNull).toBe(true);
+
+        const nameDefinition = tableDefinition.columnDefinitions.find(column => column.columnName === 'name');
+        expect(nameDefinition?.notNull).toBe(true);
+        expect(nameDefinition?.precision).toBe(100);
+
+        const priceDefinition = tableDefinition.columnDefinitions.find(column => column.columnName === 'price');
+        expect(priceDefinition?.precision).toBe(10);
+        expect(priceDefinition?.scale).toBe(2);
+    });
+
+    test('outputs the foreign key as ALTER TABLE and reloads it without failure', () => {
+        const parentIdShare = new ColumnShareModel({
+            columnShareModelId: 'share-fk-parent-id',
+            physicalName: 'id',
+            logicalName: 'ID',
+            columnType: findColumnType('snowflake', 'number')
+        });
+        const childRefShare = new ColumnShareModel({
+            columnShareModelId: 'share-fk-child-ref',
+            physicalName: 'parent_id',
+            logicalName: 'Parent ID',
+            columnType: findColumnType('snowflake', 'number')
+        });
+
+        const parentIdColumn = new ColumnModel({
+            columnModelId: 'col-fk-parent-id',
+            columnShareModelId: parentIdShare.columnShareModelId,
+            physicalName: 'id',
+            primaryKey: true,
+            notNull: true
+        });
+        const childRefColumn = new ColumnModel({
+            columnModelId: 'col-fk-child-ref',
+            columnShareModelId: childRefShare.columnShareModelId,
+            physicalName: 'parent_id'
+        });
+
+        const parentTableModel = new TableModel({
+            tableModelId: 'table-fk-parent',
+            physicalName: 'fk_parent',
+            columns: [{ modelType: 'single', columnModelId: parentIdColumn.columnModelId }] as ColumnModelType[]
+        });
+        const childTableModel = new TableModel({
+            tableModelId: 'table-fk-child',
+            physicalName: 'fk_child',
+            columns: [{ modelType: 'single', columnModelId: childRefColumn.columnModelId }] as ColumnModelType[]
+        });
+
+        const parentTableView = new TableViewModel({
+            tableModel: parentTableModel, corner: { top: 0, left: 0 }, headerColor: TEST_COLORS
+        });
+        const childTableView = new TableViewModel({
+            tableModel: childTableModel, corner: { top: 200, left: 0 }, headerColor: TEST_COLORS
+        });
+
+        const relationModel = new RelationModel({
+            parentTableModelId: parentTableModel.tableModelId,
+            childTableModelId: childTableModel.tableModelId,
+            relationPairs: [
+                new RelationPair({
+                    parentColumnModelId: parentIdColumn.columnModelId,
+                    childColumnModelId: childRefColumn.columnModelId
+                })
+            ]
+        });
+        const relationViewModel = new RelationViewModel({
+            relationModel,
+            lineViewModel: new LineViewModel({})
+        });
+
+        const erdDocument = ErdDocument.create({
+            documentName: 'snowflake-fk',
+            erdSettingModel: ErdSettingModel.create('snowflake-fk'),
+            databaseSettingModel: DatabaseSettingModel.create('snowflake'),
+            schemaConfig: DbSchemaConfig.create(),
+            tableViewModels: [parentTableView, childTableView],
+            relationViewModels: [relationViewModel],
+            columnModels: [parentIdColumn, childRefColumn],
+            columnShareModels: [parentIdShare, childRefShare]
+        });
+
+        const ddl = createDdl(erdDocument, {
+            withTable: true,
+            withIndex: false,
+            withForeignKey: true,
+            withSchema: false,
+            withComment: false,
+            commentStyle: "logical_name",
+            commentSeparator: " : "
+        });
+
+        expect(ddl).toContain('ALTER TABLE fk_child');
+        expect(ddl).toContain('ADD FOREIGN KEY (parent_id)');
+        expect(ddl).toContain('REFERENCES fk_parent (id)');
+
+        const targetDocument = buildEmptySnowflakeDocument();
+        const result = loadDdl(targetDocument, ddl);
+
+        const failures = result.summaries.filter(summary => summary.result === "failure");
+        expect(failures).toEqual([]);
+    });
+
+    test('node-sql-parser (snowflake dialect) does not support parsing AUTOINCREMENT columns ' +
+        '(library limitation, not a generation-side restriction)', () => {
+        const targetDocument = buildEmptySnowflakeDocument();
+
+        const ddl = 'CREATE TABLE sample_table (\n'
+            + '    id NUMBER NOT NULL AUTOINCREMENT,\n'
+            + '    PRIMARY KEY (id)\n'
+            + ');';
+
+        const result = loadDdl(targetDocument, ddl);
+
+        const hasFailure = result.summaries.some(summary => summary.result === "failure");
+        expect(hasFailure).toBe(true);
+    });
+
+    test('node-sql-parser (snowflake dialect) does not support parsing semi-structured types ' +
+        'VARIANT / OBJECT / ARRAY (library limitation, not a generation-side restriction)', () => {
+        const targetDocument = buildEmptySnowflakeDocument();
+
+        const ddl = 'CREATE TABLE sample_table (\n'
+            + '    id NUMBER NOT NULL,\n'
+            + '    payload VARIANT,\n'
+            + '    PRIMARY KEY (id)\n'
+            + ');';
+
+        const result = loadDdl(targetDocument, ddl);
+
+        const hasFailure = result.summaries.some(summary => summary.result === "failure");
+        expect(hasFailure).toBe(true);
+    });
+});

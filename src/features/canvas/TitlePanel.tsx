@@ -15,6 +15,7 @@ import ImportFromDdlView from "~/features/editor/ImportFromDdlView";
 import MsSQLServerIcon from "~/components/icons/MsSQLServerIcon";
 import MariaDBIcon from "~/components/icons/MariaDBIcon";
 import SqliteIcon from "~/components/icons/SqliteIcon";
+import SnowflakeIcon from "~/components/icons/SnowflakeIcon";
 import ErdSettingModel from "~/models/ErdSettingModel";
 import DisplayStyle from "~/models/database/DisplayStyle";
 import PerspectiveView from "~/features/editor/PerspectiveView";
@@ -215,6 +216,13 @@ const databaseTypeIcons: { [key in DatabaseType]: React.JSX.Element } = {
         <Tooltip title="SQLite" placement="top">
             <span style={{ display: "flex", alignItems: "center" }}>
                 <SqliteIcon />
+            </span>
+        </Tooltip>
+    ),
+    "snowflake": (
+        <Tooltip title="Snowflake" placement="top">
+            <span style={{ display: "flex", alignItems: "center" }}>
+                <SnowflakeIcon />
             </span>
         </Tooltip>
     )

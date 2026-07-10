@@ -1,7 +1,7 @@
 import TableIndexSupport from "~/models/database/TableIndexSupport";
 import TableUniqueKeySupport from "~/models/database/TableUniqueKeySupport";
 
-export type DatabaseType = "postgres" | "mysql" | "ms_sqlserver" | "mariadb" | "sqlite";
+export type DatabaseType = "postgres" | "mysql" | "ms_sqlserver" | "mariadb" | "sqlite" | "snowflake";
 
 export class Database {
 
@@ -112,5 +112,12 @@ const databases: { [key in DatabaseType]: Database } = {
         }),
         { supportsSchema: false, supportsTableCollate: false, collatePattern: /^[a-zA-Z][a-zA-Z0-9_]*$/ } as const,
         { autoIncrementLabel: "", editableCharacterSet: false, supportArray: false } as const
+    ),
+    "snowflake": new Database(
+        "snowflake", "Snowflake",
+        new TableUniqueKeySupport({ orderable: false }),
+        new TableIndexSupport({ indexOptions: [], indexTypes: [], supportsIndex: false }),
+        { supportsSchema: true, supportsTableCollate: false, collatePattern: /^[a-zA-Z][a-zA-Z0-9_.-]*$/ } as const,
+        { autoIncrementLabel: "Autoincrement", editableCharacterSet: false, supportArray: false } as const
     ),
 };
