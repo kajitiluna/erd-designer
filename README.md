@@ -21,7 +21,7 @@ Inspired by [ERMaster](https://ermaster.sourceforge.net/index.html), built for t
 - **Column Groups** — Bundle commonly used columns (e.g., `created_at`, `updated_at`) and apply them to tables in bulk
 
 ### Import & Export
-- **DDL export** — Generate CREATE TABLE scripts for PostgreSQL, MySQL, and MS SQL Server
+- **DDL export** — Generate CREATE TABLE scripts for PostgreSQL, MySQL, MariaDB, MS SQL Server, SQLite, Snowflake, and BigQuery
 - **DDL import** — Import existing DDL scripts to auto-generate ER diagrams
 - **Specification documents** — Export table definitions as Excel files or Google Spreadsheets
 - **Image export** — Export as PNG, SVG, or interactive HTML with pan/zoom and perspective switching
@@ -64,6 +64,12 @@ Inspired by [ERMaster](https://ermaster.sourceforge.net/index.html), built for t
 - **PostgreSQL** — Schema support, array types, GIN/GiST/BRIN indexes
 - **MySQL** — CHARACTER SET / COLLATE, FULLTEXT / SPATIAL indexes, Auto Increment
 - **MS SQL Server** — Schema support, clustered indexes, Identity columns
+- **MariaDB** — MySQL-compatible DDL, UUID / INET4 / INET6 types, Auto Increment
+- **SQLite** — Type affinity based column types, rowid-based auto numbering (table-level PRIMARY KEY), comments as `--` lines, foreign keys emitted as guidance comments
+- **Snowflake** — Schema support, inline `COMMENT` syntax, AUTOINCREMENT, semi-structured types (VARIANT / OBJECT / ARRAY)
+- **BigQuery** — Dataset (schema) support, `ARRAY<T>` / `STRUCT` types, `NOT ENFORCED` primary / foreign keys, `OPTIONS(description=...)` comments
+
+PostgreSQL/MySQL-compatible databases such as Amazon Aurora, CockroachDB, and TiDB can generally be modeled using the corresponding dialect.
 
 ## Getting Started
 
