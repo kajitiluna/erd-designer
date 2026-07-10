@@ -1,5 +1,5 @@
 import ColumnStructModel from '../ColumnStructModel';
-import { ColumnModelType } from '../TableModel';
+import { ColumnEntry } from '../TableModel';
 import { PropertyNotExistsError } from '~/models/exceptions';
 
 describe('ColumnStructModel', () => {
@@ -13,7 +13,7 @@ describe('ColumnStructModel', () => {
             expect(model.description).toBe('');
             expect(model.isArray).toBe(false);
             expect(model.notNull).toBe(false);
-            expect(model.columns).toEqual([]);
+            expect(model.columnEntries).toEqual([]);
         });
 
         test('should create with provided columnStructId', () => {
@@ -49,7 +49,7 @@ describe('ColumnStructModel', () => {
         });
 
         test('should create with provided values', () => {
-            const columns: ColumnModelType[] = [
+            const columns: ColumnEntry[] = [
                 { modelType: 'single', columnModelId: 'col1' },
                 { modelType: 'group', columnGroupId: 'group1' },
                 { modelType: 'struct', columnStructId: 'nested-struct' }
@@ -62,7 +62,7 @@ describe('ColumnStructModel', () => {
                 description: 'Address struct',
                 isArray: true,
                 notNull: true,
-                columns: columns
+                columnEntries: columns
             });
 
             expect(model.columnStructId).toBe('struct-id');
@@ -71,7 +71,7 @@ describe('ColumnStructModel', () => {
             expect(model.description).toBe('Address struct');
             expect(model.isArray).toBe(true);
             expect(model.notNull).toBe(true);
-            expect(model.columns).toEqual(columns);
+            expect(model.columnEntries).toEqual(columns);
         });
     });
 
@@ -94,7 +94,7 @@ describe('ColumnStructModel', () => {
             const model = new ColumnStructModel({
                 columnStructId: 'struct-id',
                 physicalName: 'address',
-                columns: [
+                columnEntries: [
                     { modelType: 'single', columnModelId: 'col1' },
                     { modelType: 'group', columnGroupId: 'group1' },
                     { modelType: 'struct', columnStructId: 'nested-struct' }
@@ -179,7 +179,7 @@ describe('ColumnStructModel', () => {
         });
 
         test('should always include columnModelIds even when empty', () => {
-            const model = new ColumnStructModel({ columnStructId: 'id', physicalName: 'p', columns: [] });
+            const model = new ColumnStructModel({ columnStructId: 'id', physicalName: 'p', columnEntries: [] });
 
             const json = model.toJSON();
 
@@ -208,7 +208,7 @@ describe('ColumnStructModel', () => {
             expect(model.description).toBe('desc');
             expect(model.isArray).toBe(true);
             expect(model.notNull).toBe(true);
-            expect(model.columns).toEqual([
+            expect(model.columnEntries).toEqual([
                 { modelType: 'single', columnModelId: 'col1' },
                 { modelType: 'group', columnGroupId: 'group1' },
                 { modelType: 'struct', columnStructId: 'nested-struct' }
@@ -228,7 +228,7 @@ describe('ColumnStructModel', () => {
             expect(model.description).toBe('');
             expect(model.isArray).toBe(false);
             expect(model.notNull).toBe(false);
-            expect(model.columns).toEqual([]);
+            expect(model.columnEntries).toEqual([]);
         });
 
         test('should throw error when columnStructId is missing', () => {
@@ -257,7 +257,7 @@ describe('ColumnStructModel', () => {
                 description: 'desc',
                 isArray: true,
                 notNull: true,
-                columns: [
+                columnEntries: [
                     { modelType: 'single', columnModelId: 'col1' },
                     { modelType: 'group', columnGroupId: 'group1' },
                     { modelType: 'struct', columnStructId: 'nested-struct' }
@@ -272,7 +272,7 @@ describe('ColumnStructModel', () => {
     });
 
     describe('equals', () => {
-        const baseColumns: ColumnModelType[] = [
+        const baseColumns: ColumnEntry[] = [
             { modelType: 'single', columnModelId: 'col1' },
             { modelType: 'group', columnGroupId: 'group1' }
         ];
@@ -332,10 +332,10 @@ describe('ColumnStructModel', () => {
 
         test('should return false for different number of columns', () => {
             const model1 = new ColumnStructModel({
-                columns: [{ modelType: 'single', columnModelId: 'col1' }]
+                columnEntries: [{ modelType: 'single', columnModelId: 'col1' }]
             });
             const model2 = new ColumnStructModel({
-                columns: [
+                columnEntries: [
                     { modelType: 'single', columnModelId: 'col1' },
                     { modelType: 'single', columnModelId: 'col2' }
                 ]
@@ -346,13 +346,13 @@ describe('ColumnStructModel', () => {
 
         test('should return false for different column order (order matters)', () => {
             const model1 = new ColumnStructModel({
-                columns: [
+                columnEntries: [
                     { modelType: 'single', columnModelId: 'col1' },
                     { modelType: 'single', columnModelId: 'col2' }
                 ]
             });
             const model2 = new ColumnStructModel({
-                columns: [
+                columnEntries: [
                     { modelType: 'single', columnModelId: 'col2' },
                     { modelType: 'single', columnModelId: 'col1' }
                 ]
@@ -363,10 +363,10 @@ describe('ColumnStructModel', () => {
 
         test('should return false for different column model types at same position', () => {
             const model1 = new ColumnStructModel({
-                columns: [{ modelType: 'single', columnModelId: 'col1' }]
+                columnEntries: [{ modelType: 'single', columnModelId: 'col1' }]
             });
             const model2 = new ColumnStructModel({
-                columns: [{ modelType: 'group', columnGroupId: 'col1' }]
+                columnEntries: [{ modelType: 'group', columnGroupId: 'col1' }]
             });
 
             expect(model1.equals(model2)).toBe(false);
@@ -374,10 +374,10 @@ describe('ColumnStructModel', () => {
 
         test('should return false for different struct references', () => {
             const model1 = new ColumnStructModel({
-                columns: [{ modelType: 'struct', columnStructId: 'struct1' }]
+                columnEntries: [{ modelType: 'struct', columnStructId: 'struct1' }]
             });
             const model2 = new ColumnStructModel({
-                columns: [{ modelType: 'struct', columnStructId: 'struct2' }]
+                columnEntries: [{ modelType: 'struct', columnStructId: 'struct2' }]
             });
 
             expect(model1.equals(model2)).toBe(false);

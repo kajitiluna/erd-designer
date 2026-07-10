@@ -9,7 +9,7 @@ type TableModelOptions = {
     physicalName?: string,
     logicalName?: string,
     schemaId?: string,
-    columns?: readonly ColumnModelType[],
+    columnEntries?: readonly ColumnEntry[],
     uniqueKeysModels?: readonly TableUniqueKeysModel[],
     tableIndexModels?: readonly TableIndexModel[],
     description?: string,
@@ -20,16 +20,10 @@ type TableModelOptions = {
     optionExpression?: string
 }
 
-export type ColumnModelType = {
-    modelType: "single",
-    columnModelId: string
-} | {
-    modelType: "group",
-    columnGroupId: string
-} | {
-    modelType: "struct",
-    columnStructId: string
-}
+export type ColumnEntry =
+    { modelType: "single", columnModelId: string }
+    | { modelType: "group", columnGroupId: string }
+    | { modelType: "struct", columnStructId: string }
 
 export default class TableModel {
 
@@ -37,7 +31,7 @@ export default class TableModel {
     public readonly physicalName: string;
     public readonly logicalName: string;
     public readonly schemaId: string;
-    public readonly columns: readonly ColumnModelType[];
+    public readonly columnEntries: readonly ColumnEntry[];
     public readonly uniqueKeysModels: readonly TableUniqueKeysModel[];
     public readonly tableIndexModels: readonly TableIndexModel[];
     public readonly description: string;
@@ -49,14 +43,14 @@ export default class TableModel {
 
     constructor({
         tableModelId = "", physicalName = "", logicalName = "", schemaId = "",
-        columns = [], uniqueKeysModels = [], tableIndexModels = [], description = "",
+        columnEntries = [], uniqueKeysModels = [], tableIndexModels = [], description = "",
         checkExpression = "", characterSet = "", collate = "", definitionExpression = "", optionExpression = ""
     }: TableModelOptions) {
         this.tableModelId = tableModelId ? tableModelId : uuidV4();
         this.physicalName = physicalName.trim();
         this.logicalName = logicalName.trim();
         this.schemaId = schemaId;
-        this.columns = columns;
+        this.columnEntries = columnEntries;
         this.uniqueKeysModels = uniqueKeysModels;
         this.tableIndexModels = tableIndexModels;
         this.description = description.trim();
@@ -69,11 +63,11 @@ export default class TableModel {
 
     public addColumnModelIds(columnModelIds: string[]): TableModel {
         // TODO 本来はグループに属する columnModelId も検査対象にするべき
-        const columnModelIdSet = new Set(this.columns
+        const columnModelIdSet = new Set(this.columnEntries
             .filter(column => column.modelType === "single")
             .map(column => column.columnModelId)
         );
-        const addingColumnModelIds: ColumnModelType[] = columnModelIds
+        const addingColumnModelIds: ColumnEntry[] = columnModelIds
             .filter(targetId => (columnModelIdSet.has(targetId) === false))
             .map(targetId => {
                 return { modelType: "single", columnModelId: targetId };
@@ -84,7 +78,7 @@ export default class TableModel {
 
         return new TableModel({
             ...this,
-            columns: this.columns.concat(addingColumnModelIds),
+            columnEntries: this.columnEntries.concat(addingColumnModelIds),
         });
     }
 
@@ -123,12 +117,12 @@ export default class TableModel {
         if (this.schemaId !== other.schemaId) {
             return false;
         }
-        if (this.columns.length !== other.columns.length) {
+        if (this.columnEntries.length !== other.columnEntries.length) {
             return false;
         }
-        for (let index = 0; index < this.columns.length; index++) {
-            const thisColumn = this.columns[index];
-            const otherColumn = other.columns[index];
+        for (let index = 0; index < this.columnEntries.length; index++) {
+            const thisColumn = this.columnEntries[index];
+            const otherColumn = other.columnEntries[index];
             if (thisColumn.modelType !== otherColumn.modelType) {
                 return false;
             }
@@ -189,7 +183,7 @@ export default class TableModel {
     }
 
     public toJSON(): Record<string, unknown> {
-        const columnModelIds = serializeColumnEntries(this.columns);
+        const columnModelIds = serializeColumnEntries(this.columnEntries);
 
         return {
             tableModelId: this.tableModelId,
@@ -218,7 +212,7 @@ export default class TableModel {
 
         const schemaId = ("schemaId" in obj) ? obj.schemaId as string : "";
 
-        const columns: ColumnModelType[] = deserializeColumnEntries(obj.columnModelIds as string[]);
+        const columnEntries: ColumnEntry[] = deserializeColumnEntries(obj.columnModelIds as string[]);
 
         const uniqueKeysModels = ("uniqueKeysModels" in obj)
             ? toObjects(obj.uniqueKeysModels, "uniqueKeysModels", value => TableUniqueKeysModel.toObject(value)) : [];
@@ -236,7 +230,7 @@ export default class TableModel {
             physicalName: obj.physicalName as string,
             logicalName: obj.logicalName as string,
             schemaId: schemaId,
-            columns: columns,
+            columnEntries: columnEntries,
             uniqueKeysModels: uniqueKeysModels,
             tableIndexModels: tableIndexModels,
             description: description,
@@ -257,7 +251,7 @@ export default class TableModel {
  * @param columns 変換対象のカラムエントリ一覧
  * @returns 永続化用の文字列配列
  */
-export const serializeColumnEntries = (columns: readonly ColumnModelType[]): string[] => {
+export const serializeColumnEntries = (columns: readonly ColumnEntry[]): string[] => {
     return columns.map(column => {
         if (column.modelType === "group") {
             return `group:${column.columnGroupId}`;
@@ -278,7 +272,7 @@ export const serializeColumnEntries = (columns: readonly ColumnModelType[]): str
  * @param columnModelIds 永続化された文字列配列
  * @returns 復元後のカラムエントリ一覧
  */
-export const deserializeColumnEntries = (columnModelIds: string[]): ColumnModelType[] => {
+export const deserializeColumnEntries = (columnModelIds: string[]): ColumnEntry[] => {
     return columnModelIds.map(id => {
         if (id.startsWith("group:")) {
             return { modelType: "group", columnGroupId: id.substring(6) };

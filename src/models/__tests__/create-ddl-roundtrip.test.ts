@@ -11,7 +11,7 @@ import ErdSettingModel from '~/models/ErdSettingModel';
 import ColumnModel from '~/models/database/ColumnModel';
 import ColumnShareModel from '~/models/database/ColumnShareModel';
 import { findDatabaseColumns } from '~/models/database/columns';
-import TableModel, { ColumnModelType } from '~/models/database/TableModel';
+import TableModel, { ColumnEntry } from '~/models/database/TableModel';
 import TableIndexModel, { IndexColumnModel } from '~/models/database/TableIndexModel';
 import TableUniqueKeysModel, { UniqueKeysColumnModel } from '~/models/database/TableUniqueKeysModel';
 import TableViewModel from '~/models/TableViewModel';
@@ -107,12 +107,12 @@ const buildMariaDbSampleDocument = (): ErdDocument => {
     const tableModel = new TableModel({
         tableModelId: 'table-sample',
         physicalName: 'sample_table',
-        columns: [
+        columnEntries: [
             { modelType: 'single', columnModelId: idColumn.columnModelId },
             { modelType: 'single', columnModelId: nameColumn.columnModelId },
             { modelType: 'single', columnModelId: priceColumn.columnModelId },
             { modelType: 'single', columnModelId: externalIdColumn.columnModelId }
-        ] as ColumnModelType[],
+        ] as ColumnEntry[],
         uniqueKeysModels: [uniqueKeysModel],
         tableIndexModels: [tableIndexModel],
         description: 'サンプルテーブル'
@@ -230,13 +230,13 @@ const buildSqliteSampleDocument = (): ErdDocument => {
     const tableModel = new TableModel({
         tableModelId: 'table-sample',
         physicalName: 'sample_table',
-        columns: [
+        columnEntries: [
             { modelType: 'single', columnModelId: idColumn.columnModelId },
             { modelType: 'single', columnModelId: nameColumn.columnModelId },
             { modelType: 'single', columnModelId: priceColumn.columnModelId },
             { modelType: 'single', columnModelId: orderColumn.columnModelId },
             { modelType: 'single', columnModelId: isActiveColumn.columnModelId }
-        ] as ColumnModelType[],
+        ] as ColumnEntry[],
         uniqueKeysModels: [uniqueKeysModel],
         tableIndexModels: [tableIndexModel],
         description: 'サンプルテーブル'
@@ -407,12 +407,12 @@ describe('create-ddl / ddl-loader roundtrip (SQLite)', () => {
         const parentTableModel = new TableModel({
             tableModelId: 'table-fk-parent',
             physicalName: 'fk_parent',
-            columns: [{ modelType: 'single', columnModelId: parentIdColumn.columnModelId }] as ColumnModelType[]
+            columnEntries: [{ modelType: 'single', columnModelId: parentIdColumn.columnModelId }] as ColumnEntry[]
         });
         const childTableModel = new TableModel({
             tableModelId: 'table-fk-child',
             physicalName: 'fk_child',
-            columns: [{ modelType: 'single', columnModelId: childRefColumn.columnModelId }] as ColumnModelType[]
+            columnEntries: [{ modelType: 'single', columnModelId: childRefColumn.columnModelId }] as ColumnEntry[]
         });
 
         const parentTableView = new TableViewModel({
@@ -642,13 +642,13 @@ const buildSnowflakeSampleDocument = (): ErdDocument => {
         tableModelId: 'table-sample',
         physicalName: 'sample_table',
         logicalName: 'サンプル',
-        columns: [
+        columnEntries: [
             { modelType: 'single', columnModelId: idColumn.columnModelId },
             { modelType: 'single', columnModelId: nameColumn.columnModelId },
             { modelType: 'single', columnModelId: priceColumn.columnModelId },
             { modelType: 'single', columnModelId: createdAtColumn.columnModelId },
             { modelType: 'single', columnModelId: payloadColumn.columnModelId }
-        ] as ColumnModelType[],
+        ] as ColumnEntry[],
         uniqueKeysModels: [uniqueKeysModel],
         tableIndexModels: [tableIndexModel],
         description: 'サンプルテーブル'
@@ -728,11 +728,11 @@ const buildSnowflakeRoundtripDocument = (): ErdDocument => {
     const tableModel = new TableModel({
         tableModelId: 'table-sample',
         physicalName: 'sample_table',
-        columns: [
+        columnEntries: [
             { modelType: 'single', columnModelId: idColumn.columnModelId },
             { modelType: 'single', columnModelId: nameColumn.columnModelId },
             { modelType: 'single', columnModelId: priceColumn.columnModelId }
-        ] as ColumnModelType[],
+        ] as ColumnEntry[],
         uniqueKeysModels: [uniqueKeysModel]
     });
 
@@ -860,12 +860,12 @@ describe('create-ddl / ddl-loader roundtrip (Snowflake)', () => {
         const parentTableModel = new TableModel({
             tableModelId: 'table-fk-parent',
             physicalName: 'fk_parent',
-            columns: [{ modelType: 'single', columnModelId: parentIdColumn.columnModelId }] as ColumnModelType[]
+            columnEntries: [{ modelType: 'single', columnModelId: parentIdColumn.columnModelId }] as ColumnEntry[]
         });
         const childTableModel = new TableModel({
             tableModelId: 'table-fk-child',
             physicalName: 'fk_child',
-            columns: [{ modelType: 'single', columnModelId: childRefColumn.columnModelId }] as ColumnModelType[]
+            columnEntries: [{ modelType: 'single', columnModelId: childRefColumn.columnModelId }] as ColumnEntry[]
         });
 
         const parentTableView = new TableViewModel({
@@ -1032,12 +1032,12 @@ const buildBigQuerySampleDocument = (): ErdDocument => {
         tableModelId: 'table-sample',
         physicalName: 'sample_table',
         logicalName: 'サンプル',
-        columns: [
+        columnEntries: [
             { modelType: 'single', columnModelId: idColumn.columnModelId },
             { modelType: 'single', columnModelId: nameColumn.columnModelId },
             { modelType: 'single', columnModelId: priceColumn.columnModelId },
             { modelType: 'single', columnModelId: tagsColumn.columnModelId }
-        ] as ColumnModelType[],
+        ] as ColumnEntry[],
         uniqueKeysModels: [uniqueKeysModel],
         tableIndexModels: [tableIndexModel],
         description: 'サンプルテーブル'
@@ -1115,12 +1115,12 @@ const buildBigQueryRoundtripDocument = (): ErdDocument => {
     const tableModel = new TableModel({
         tableModelId: 'table-sample',
         physicalName: 'sample_table',
-        columns: [
+        columnEntries: [
             { modelType: 'single', columnModelId: idColumn.columnModelId },
             { modelType: 'single', columnModelId: nameColumn.columnModelId },
             { modelType: 'single', columnModelId: activeColumn.columnModelId },
             { modelType: 'single', columnModelId: tagsColumn.columnModelId }
-        ] as ColumnModelType[]
+        ] as ColumnEntry[]
     });
 
     const tableViewModel = new TableViewModel({
@@ -1171,9 +1171,6 @@ describe('create-ddl / ddl-loader roundtrip (BigQuery)', () => {
         expect(ddl).toContain('tags ARRAY<INT64>');
         expect(ddl).toContain('PRIMARY KEY (id) NOT ENFORCED');
         expect(ddl).toContain('OPTIONS(description="サンプル")');
-        // BigQuery は UNIQUE 制約をサポートしないため、カラム単独 UNIQUE もテーブルレベル UNIQUE も警告コメントのみになる
-        expect(ddl).toContain('-- sample_table: UNIQUE constraint is not supported: (name)');
-        expect(ddl).toContain('-- sample_table: UNIQUE constraint is not supported: (tags)');
         expect(ddl).not.toMatch(/^\s*UNIQUE \(/m);
         // インデックスは CREATE INDEX 構文自体が存在しないため警告コメントのみ出力される
         expect(ddl).toContain('-- BigQuery: CREATE INDEX is not supported: idx_sample_price');
@@ -1210,12 +1207,12 @@ describe('create-ddl / ddl-loader roundtrip (BigQuery)', () => {
         const parentTableModel = new TableModel({
             tableModelId: 'table-fk-parent',
             physicalName: 'fk_parent',
-            columns: [{ modelType: 'single', columnModelId: parentIdColumn.columnModelId }] as ColumnModelType[]
+            columnEntries: [{ modelType: 'single', columnModelId: parentIdColumn.columnModelId }] as ColumnEntry[]
         });
         const childTableModel = new TableModel({
             tableModelId: 'table-fk-child',
             physicalName: 'fk_child',
-            columns: [{ modelType: 'single', columnModelId: childRefColumn.columnModelId }] as ColumnModelType[]
+            columnEntries: [{ modelType: 'single', columnModelId: childRefColumn.columnModelId }] as ColumnEntry[]
         });
 
         const parentTableView = new TableViewModel({

@@ -27,12 +27,11 @@ import { handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/s
 import TableViewModel from "~/models/TableViewModel";
 import ColorValue from "~/models/ColorValue";
 import { EditModeType } from "~/models/EditMode";
-import ErdDocument from "~/models/ErdDocument";
+import ErdDocument, { ColumnDetailEntry } from "~/models/ErdDocument";
 import LineViewModel from "~/models/LineViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
-import ColumnStructModel from "~/models/database/ColumnStructModel";
 import DisplayStyle from "~/models/database/DisplayStyle";
 import RelationModel from "~/models/database/RelationModel";
 import TableModel from "~/models/database/TableModel";
@@ -64,11 +63,9 @@ const ErdTableView = ({ tableViewModel, visible = true, onEditAction, onDragActi
 
     const tableContentCache = React.useMemo(() => {
         const tableModel = tableViewModel.tableModel;
-        const displayEntries = erdDocument.toDisplayColumnEntries(tableModel);
-        const tableRows = (displayEntries.length > 0)
-            ? displayEntries.map(entry => (entry.entryType === "struct")
-                ? initStructTableColumn(entry.columnStructModel, tableModel, erdDocument)
-                : initTableColumn(entry.columnModel, tableModel, erdDocument, selectState))
+        const columnEntries = erdDocument.toColumnDetailEntries(tableModel);
+        const tableRows = (columnEntries.length > 0)
+            ? columnEntries.map(entry => initTableColumn(entry, tableModel, erdDocument, selectState))
             : (<TableRow><TableCell></TableCell></TableRow>);
 
         return (
@@ -148,7 +145,19 @@ const BODY_STYLE = {
     backgroundColor: "#FDFDFD"
 };
 
-const initTableColumn = (columnModel: ColumnModel, tableModel: TableModel, erdDocument: ErdDocument, selectState: SelectState) => {
+const initTableColumn = (
+    detailEntry: ColumnDetailEntry, tableModel: TableModel, erdDocument: ErdDocument, selectState: SelectState
+) => {
+    if ((detailEntry.entryType === "column")) {
+        return initTableSingleColumn(detailEntry.columnModel, tableModel, erdDocument, selectState);
+    }
+
+    return initTableStructColumn(detailEntry, tableModel, erdDocument);
+};
+
+const initTableSingleColumn = (
+    columnModel: ColumnModel, tableModel: TableModel, erdDocument: ErdDocument, selectState: SelectState
+) => {
     const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
     if (columnShareModel == null) {
         console.warn(`columnShareModel is not existed. columnShareModelId = ${columnModel.columnShareModelId}`)
@@ -167,15 +176,9 @@ const initTableColumn = (columnModel: ColumnModel, tableModel: TableModel, erdDo
     const displayColumnType = columnShareModel.specifiedColumnType(inChildRelation).replace("TIME ZONE", "TZ");
     const displayOption = initDisplayOption(columnModel);
 
-    const styleRow = selectedRelationColumn ? {
-        backgroundColor: "rgba(73, 76, 218, 0.12)",
-    } : {};
-    const styleTextCell = {
-        whiteSpace: "nowrap", color: fontColor
-    };
-    const styleAttributeCell = {
-        whiteSpace: "nowrap", color: fontColor, fontSize: "0.914em"
-    };
+    const styleRow = selectedRelationColumn ? { backgroundColor: "rgba(73, 76, 218, 0.12)" } : {};
+    const styleTextCell = { whiteSpace: "nowrap", color: fontColor };
+    const styleAttributeCell = { whiteSpace: "nowrap", color: fontColor, fontSize: "0.914em" };
 
     return (
         <TableRow key={`erd-table-column_${columnModel.columnModelId}`}
@@ -199,27 +202,26 @@ const initTableColumn = (columnModel: ColumnModel, tableModel: TableModel, erdDo
     );
 };
 
-const initStructTableColumn = (columnStructModel: ColumnStructModel, tableModel: TableModel, erdDocument: ErdDocument) => {
-    const displayColumnName = erdDocument.getDisplayStyle()
-        .displayName(columnStructModel.physicalName, columnStructModel.logicalName);
-    const displayColumnType = columnStructModel.displayTypeQuery();
-    const displayOption = columnStructModel.notNull ? "(NN)" : "";
+const initTableStructColumn = (
+    entry: ColumnDetailEntry & { entryType: "struct" }, tableModel: TableModel, erdDocument: ErdDocument
+) => {
+    const structModel = entry.structModel;
 
-    const styleTextCell = {
-        whiteSpace: "nowrap", color: "#000000"
-    };
-    const styleAttributeCell = {
-        whiteSpace: "nowrap", color: "#000000", fontSize: "0.914em"
-    };
+    const columnName = erdDocument.getDisplayStyle().displayName(structModel.physicalName, structModel.logicalName);
+    const displayColumnType = structModel.displayTypeQuery();
+    const displayOption = structModel.notNull ? "(NN)" : "";
+
+    const styleTextCell = { whiteSpace: "nowrap", color: "#000000" };
+    const styleAttributeCell = { whiteSpace: "nowrap", color: "#000000", fontSize: "0.914em" };
 
     return (
-        <TableRow key={`erd-table-column_${columnStructModel.columnStructId}`}
-            data-column-struct-id={columnStructModel.columnStructId}>
+        <TableRow key={`erd-table-column_${structModel.columnStructId}`}
+            data-column-struct-id={structModel.columnStructId}>
             <TableCell align="center" sx={STYLE_PRIMARY_CELL} />
             <TableCell align="center" sx={STYLE_FOREIGN_CELL} />
 
-            <DescriptionTooltip title={columnStructModel.description} placement="top">
-                <TableCell sx={styleTextCell}>{displayColumnName}</TableCell>
+            <DescriptionTooltip title={structModel.description} placement="top">
+                <TableCell sx={styleTextCell}>{columnName}</TableCell>
             </DescriptionTooltip>
 
             <TableCell sx={styleAttributeCell}>{displayColumnType}</TableCell>

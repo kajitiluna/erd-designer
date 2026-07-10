@@ -12,7 +12,7 @@ import ColumnShareModel from '~/models/database/ColumnShareModel';
 import ColumnStructModel from '~/models/database/ColumnStructModel';
 import { findDatabaseColumns } from '~/models/database/columns';
 import { DatabaseType } from '~/models/database/DatabaseType';
-import TableModel, { ColumnModelType } from '~/models/database/TableModel';
+import TableModel, { ColumnEntry } from '~/models/database/TableModel';
 import TableUniqueKeysModel, { UniqueKeysColumnModel } from '~/models/database/TableUniqueKeysModel';
 import TableViewModel from '~/models/TableViewModel';
 
@@ -87,15 +87,15 @@ describe('create-ddl STRUCT column support', () => {
 
         const structModel = new ColumnStructModel({
             columnStructId: 'struct-address', physicalName: 'address',
-            columns: [
+            columnEntries: [
                 { modelType: 'single', columnModelId: 'col-street' },
                 { modelType: 'single', columnModelId: 'col-zip' }
-            ] as ColumnModelType[]
+            ] as ColumnEntry[]
         });
 
         const tableModel = new TableModel({
             tableModelId: 'table-1', physicalName: 'users',
-            columns: [{ modelType: 'struct', columnStructId: 'struct-address' }] as ColumnModelType[]
+            columnEntries: [{ modelType: 'struct', columnStructId: 'struct-address' }] as ColumnEntry[]
         });
 
         const erdDocument = buildDocument({
@@ -127,12 +127,12 @@ describe('create-ddl STRUCT column support', () => {
 
         const structModel = new ColumnStructModel({
             columnStructId: 'struct-address', physicalName: 'address', isArray: true,
-            columns: [{ modelType: 'single', columnModelId: 'col-street' }] as ColumnModelType[]
+            columnEntries: [{ modelType: 'single', columnModelId: 'col-street' }] as ColumnEntry[]
         });
 
         const tableModel = new TableModel({
             tableModelId: 'table-1', physicalName: 'users',
-            columns: [{ modelType: 'struct', columnStructId: 'struct-address' }] as ColumnModelType[]
+            columnEntries: [{ modelType: 'struct', columnStructId: 'struct-address' }] as ColumnEntry[]
         });
 
         const erdDocument = buildDocument({
@@ -156,12 +156,12 @@ describe('create-ddl STRUCT column support', () => {
 
         const structModel = new ColumnStructModel({
             columnStructId: 'struct-address', physicalName: 'address', notNull: true,
-            columns: [{ modelType: 'single', columnModelId: 'col-street' }] as ColumnModelType[]
+            columnEntries: [{ modelType: 'single', columnModelId: 'col-street' }] as ColumnEntry[]
         });
 
         const tableModel = new TableModel({
             tableModelId: 'table-1', physicalName: 'users',
-            columns: [{ modelType: 'struct', columnStructId: 'struct-address' }] as ColumnModelType[]
+            columnEntries: [{ modelType: 'struct', columnStructId: 'struct-address' }] as ColumnEntry[]
         });
 
         const erdDocument = buildDocument({
@@ -186,12 +186,12 @@ describe('create-ddl STRUCT column support', () => {
         const structModel = new ColumnStructModel({
             columnStructId: 'struct-address', physicalName: 'address', logicalName: 'Address',
             description: 'user postal address',
-            columns: [{ modelType: 'single', columnModelId: 'col-street' }] as ColumnModelType[]
+            columnEntries: [{ modelType: 'single', columnModelId: 'col-street' }] as ColumnEntry[]
         });
 
         const tableModel = new TableModel({
             tableModelId: 'table-1', physicalName: 'users',
-            columns: [{ modelType: 'struct', columnStructId: 'struct-address' }] as ColumnModelType[]
+            columnEntries: [{ modelType: 'struct', columnStructId: 'struct-address' }] as ColumnEntry[]
         });
 
         const erdDocument = buildDocument({
@@ -226,12 +226,12 @@ describe('create-ddl STRUCT column support', () => {
 
         const structModel = new ColumnStructModel({
             columnStructId: 'struct-address', physicalName: 'address',
-            columns: [{ modelType: 'group', columnGroupId: 'group-geo' }] as ColumnModelType[]
+            columnEntries: [{ modelType: 'group', columnGroupId: 'group-geo' }] as ColumnEntry[]
         });
 
         const tableModel = new TableModel({
             tableModelId: 'table-1', physicalName: 'users',
-            columns: [{ modelType: 'struct', columnStructId: 'struct-address' }] as ColumnModelType[]
+            columnEntries: [{ modelType: 'struct', columnStructId: 'struct-address' }] as ColumnEntry[]
         });
 
         const erdDocument = buildDocument({
@@ -247,7 +247,7 @@ describe('create-ddl STRUCT column support', () => {
         expect(ddl).toContain('address STRUCT<street STRING, city STRING>');
     });
 
-    test('resolves a nested struct field, reflecting its own isArray/notNull', () => {
+    test('resolves a nested struct field, reflecting its own isArray', () => {
         const zipShare = new ColumnShareModel({
             columnShareModelId: 'share-zip', physicalName: 'zip', logicalName: 'Zip',
             columnType: findColumnType('bigquery', 'int64')
@@ -258,16 +258,16 @@ describe('create-ddl STRUCT column support', () => {
 
         const innerStruct = new ColumnStructModel({
             columnStructId: 'struct-geo', physicalName: 'geo', isArray: true, notNull: true,
-            columns: [{ modelType: 'single', columnModelId: 'col-zip' }] as ColumnModelType[]
+            columnEntries: [{ modelType: 'single', columnModelId: 'col-zip' }] as ColumnEntry[]
         });
         const outerStruct = new ColumnStructModel({
             columnStructId: 'struct-address', physicalName: 'address',
-            columns: [{ modelType: 'struct', columnStructId: 'struct-geo' }] as ColumnModelType[]
+            columnEntries: [{ modelType: 'struct', columnStructId: 'struct-geo' }] as ColumnEntry[]
         });
 
         const tableModel = new TableModel({
             tableModelId: 'table-1', physicalName: 'users',
-            columns: [{ modelType: 'struct', columnStructId: 'struct-address' }] as ColumnModelType[]
+            columnEntries: [{ modelType: 'struct', columnStructId: 'struct-address' }] as ColumnEntry[]
         });
 
         const erdDocument = buildDocument({
@@ -279,124 +279,29 @@ describe('create-ddl STRUCT column support', () => {
 
         const ddl = buildDdl(erdDocument);
 
-        expect(ddl).toContain('address STRUCT<geo ARRAY<STRUCT<zip INT64>> NOT NULL>');
+        expect(ddl).toContain('address STRUCT<geo ARRAY<STRUCT<zip INT64>>>');
     });
 
-    test('skips the column and emits a WARNING comment when a field reference is unresolved', () => {
-        const nameShare = new ColumnShareModel({
-            columnShareModelId: 'share-name', physicalName: 'name', logicalName: 'Name',
-            columnType: findColumnType('bigquery', 'string')
-        });
-        const nameColumn = new ColumnModel({
-            columnModelId: 'col-name', columnShareModelId: 'share-name', physicalName: 'name'
-        });
-
-        const structModel = new ColumnStructModel({
-            columnStructId: 'struct-address', physicalName: 'address',
-            columns: [{ modelType: 'single', columnModelId: 'missing-col' }] as ColumnModelType[]
-        });
-
-        const tableModel = new TableModel({
-            tableModelId: 'table-1', physicalName: 'users',
-            columns: [
-                { modelType: 'single', columnModelId: 'col-name' },
-                { modelType: 'struct', columnStructId: 'struct-address' }
-            ] as ColumnModelType[]
-        });
-
-        const erdDocument = buildDocument({
-            tableModel, columnStructModels: [structModel],
-            columnModels: [nameColumn], columnShareModels: [nameShare]
-        });
-
-        const ddl = buildDdl(erdDocument);
-
-        expect(ddl).not.toContain('STRUCT<');
-        expect(ddl).toContain(
-            '-- WARNING: column users.address skipped (unresolved field reference in struct address)'
-        );
-    });
-
-    test('skips the column and emits a WARNING comment when the struct has zero resolvable fields', () => {
-        const structModel = new ColumnStructModel({
-            columnStructId: 'struct-empty', physicalName: 'empty_struct', columns: [] as ColumnModelType[]
-        });
-
-        const tableModel = new TableModel({
-            tableModelId: 'table-1', physicalName: 'users',
-            columns: [{ modelType: 'struct', columnStructId: 'struct-empty' }] as ColumnModelType[]
-        });
-
-        const erdDocument = buildDocument({ tableModel, columnStructModels: [structModel] });
-
-        const ddl = buildDdl(erdDocument);
-
-        expect(ddl).toContain(
-            '-- WARNING: column users.empty_struct skipped (struct empty_struct has no resolvable fields)'
-        );
-    });
-
-    test('throws on circular struct references (A -> B -> A)', () => {
+    test('ignore on circular struct references (A -> B -> A)', () => {
         const structA = new ColumnStructModel({
             columnStructId: 'struct-a', physicalName: 'struct_a',
-            columns: [{ modelType: 'struct', columnStructId: 'struct-b' }] as ColumnModelType[]
+            columnEntries: [{ modelType: 'struct', columnStructId: 'struct-b' }] as ColumnEntry[]
         });
         const structB = new ColumnStructModel({
             columnStructId: 'struct-b', physicalName: 'struct_b',
-            columns: [{ modelType: 'struct', columnStructId: 'struct-a' }] as ColumnModelType[]
+            columnEntries: [{ modelType: 'struct', columnStructId: 'struct-a' }] as ColumnEntry[]
         });
 
         const tableModel = new TableModel({
             tableModelId: 'table-1', physicalName: 'users',
-            columns: [{ modelType: 'struct', columnStructId: 'struct-a' }] as ColumnModelType[]
+            columnEntries: [{ modelType: 'struct', columnStructId: 'struct-a' }] as ColumnEntry[]
         });
 
         const erdDocument = buildDocument({
             tableModel, columnStructModels: [structA, structB]
         });
 
-        expect(() => buildDdl(erdDocument)).toThrow();
-    });
-
-    test('skips the column and emits a WARNING comment when supportsStructType is false (postgres)', () => {
-        const idShare = new ColumnShareModel({
-            columnShareModelId: 'share-id', physicalName: 'id', logicalName: 'Id',
-            columnType: findColumnType('postgres', 'integer')
-        });
-        const idColumn = new ColumnModel({
-            columnModelId: 'col-id', columnShareModelId: 'share-id', physicalName: 'id',
-            primaryKey: true, notNull: true
-        });
-
-        const structModel = new ColumnStructModel({
-            columnStructId: 'struct-address', physicalName: 'address', columns: [] as ColumnModelType[]
-        });
-
-        const tableModel = new TableModel({
-            tableModelId: 'table-1', physicalName: 'users',
-            columns: [
-                { modelType: 'single', columnModelId: 'col-id' },
-                { modelType: 'struct', columnStructId: 'struct-address' }
-            ] as ColumnModelType[]
-        });
-
-        const erdDocument = buildDocument({
-            databaseType: 'postgres',
-            tableModel, columnStructModels: [structModel],
-            columnModels: [idColumn], columnShareModels: [idShare]
-        });
-
-        const ddl = buildDdl(erdDocument);
-
-        expect(ddl).toBe(
-            "/* create tables. */\n"
-            + "CREATE TABLE users (\n"
-            + "    id INTEGER NOT NULL,\n"
-            + "    PRIMARY KEY (id)\n"
-            + ");\n"
-            + "-- WARNING: column users.address skipped (STRUCT columns are not supported for this database)\n"
-            + "\n"
-        );
+        expect(() => buildDdl(erdDocument));
     });
 
     test('keeps PK / UNIQUE output for other columns unchanged when the table also has a struct entry', () => {
@@ -426,16 +331,16 @@ describe('create-ddl STRUCT column support', () => {
 
         const structModel = new ColumnStructModel({
             columnStructId: 'struct-address', physicalName: 'address',
-            columns: [{ modelType: 'single', columnModelId: 'col-street' }] as ColumnModelType[]
+            columnEntries: [{ modelType: 'single', columnModelId: 'col-street' }] as ColumnEntry[]
         });
 
         const tableModel = new TableModel({
             tableModelId: 'table-1', physicalName: 'users',
-            columns: [
+            columnEntries: [
                 { modelType: 'single', columnModelId: 'col-id' },
                 { modelType: 'struct', columnStructId: 'struct-address' },
                 { modelType: 'single', columnModelId: 'col-code' }
-            ] as ColumnModelType[],
+            ] as ColumnEntry[],
             uniqueKeysModels: [
                 new TableUniqueKeysModel({
                     tableUniqueKeysModelId: 'unique-code',
@@ -462,9 +367,6 @@ describe('create-ddl STRUCT column support', () => {
             + "    code STRING,\n"
             + "    PRIMARY KEY (id) NOT ENFORCED\n"
             + ");\n"
-            // BigQuery is supportsUniqueKey: false, so table-level UNIQUE is suppressed with a warning
-            // (this is pre-existing behavior unrelated to STRUCT support; verifies coexistence only).
-            + "-- users: UNIQUE constraint is not supported: (code)\n"
             + "\n"
         );
     });

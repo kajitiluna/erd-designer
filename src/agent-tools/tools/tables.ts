@@ -21,10 +21,12 @@ import TableIndexModel, { IndexColumnModel } from "~/models/database/TableIndexM
 import TableModel from "~/models/database/TableModel";
 import TableUniqueKeysModel, { UniqueKeysColumnModel } from "~/models/database/TableUniqueKeysModel";
 import { DragState } from "~/models/DragState";
-import ErdDocument from "~/models/ErdDocument";
+import ErdDocument, { ColumnDetailEntry } from "~/models/ErdDocument";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import { SelectState } from "~/models/SelectState";
 import TableViewModel from "~/models/TableViewModel";
+import ColumnModel from "~/models/database/ColumnModel";
+import ColumnStructModel from "~/models/database/ColumnStructModel";
 
 export const mcpRegisterTable = (documentResource: DocumentResource): McpRegisterConfig => {
     return {
@@ -250,63 +252,94 @@ const doListTables = (
 };
 
 const doFilterTableViews = (params: TableListFilterParams, erdDocument: ErdDocument) => {
-    const { tablePhysicalNameContains, tableLogicalNameContains, columnIds,
-        columnPhysicalNameContains, columnLogicalNameContains } = params;
+    const {
+        tablePhysicalNameContains: tablePhysicalNames,
+        tableLogicalNameContains: tableLogicalNames,
+        columnIds,
+        columnPhysicalNameContains: columnPhysicalNames,
+        columnLogicalNameContains: columnLogicalNames
+    } = params;
 
     return erdDocument.getTableViewModels().filter(tableView => {
-        const matchedTablePhysical = (tablePhysicalNameContains.length === 0)
-            || tablePhysicalNameContains.every(filtering =>
+        const matchedTablePhysical = (tablePhysicalNames.length === 0)
+            || tablePhysicalNames.every(filtering =>
                 tableView.tableModel.physicalName.includes(filtering));
         if (matchedTablePhysical === false) {
             return false;
         };
 
-        const matchedTableLogical = (tableLogicalNameContains.length === 0)
-            || tableLogicalNameContains.every(filtering =>
+        const matchedTableLogical = (tableLogicalNames.length === 0)
+            || tableLogicalNames.every(filtering =>
                 tableView.tableModel.logicalName.includes(filtering));
         if (matchedTableLogical === false) {
             return false;
         };
 
-        const allColumns = erdDocument.toAllColumnModels(tableView.tableModel);
+        const allEntries = erdDocument.toColumnDetailEntries(tableView.tableModel);
+        const targetEntries = extractToSearchEntries(allEntries);
 
         const matchedColumnIds = (columnIds.length === 0)
-            || columnIds.every(filtering => allColumns.some(column => column.columnModelId === filtering));
+            || columnIds.every(filtering => targetEntries.some(entry => {
+                return (entry.entryType === "column") && (entry.column.columnModelId === filtering);
+            }));
         if (matchedColumnIds === false) {
             return false;
         };
 
-        const matchedColumnPhysical = (columnPhysicalNameContains.length === 0)
-            || allColumns.some(column => {
-                const columnShare = erdDocument.findColumnShareModel(column.columnShareModelId);
+        const matchedColumnPhysical = (columnPhysicalNames.length === 0)
+            || targetEntries.some(entry => {
+                if (entry.entryType === "struct") {
+                    return columnPhysicalNames.every(filtering => entry.structModel.physicalName.includes(filtering));
+                }
+
+                const columnShare = erdDocument.findColumnShareModel(entry.column.columnShareModelId);
                 if (columnShare == null) {
                     return false;
                 }
 
-                const overrideNames = overrideColumnName(column, columnShare);
-                return columnPhysicalNameContains.every(filtering =>
-                    overrideNames.physicalName.includes(filtering));
+                const overrideNames = overrideColumnName(entry.column, columnShare);
+                return columnPhysicalNames.every(filtering => overrideNames.physicalName.includes(filtering));
             });
         if (matchedColumnPhysical === false) {
             return false;
         };
 
-        const matchedColumnLogical = (columnLogicalNameContains.length === 0)
-            || allColumns.some(column => {
-                const columnShare = erdDocument.findColumnShareModel(column.columnShareModelId);
+        const matchedColumnLogical = (columnLogicalNames.length === 0)
+            || targetEntries.some(entry => {
+                if (entry.entryType === "struct") {
+                    return columnLogicalNames.every(filtering => entry.structModel.logicalName.includes(filtering));
+                }
+
+                const columnShare = erdDocument.findColumnShareModel(entry.column.columnShareModelId);
                 if (columnShare == null) {
                     return false;
                 }
 
-                const overrideNames = overrideColumnName(column, columnShare);
-                return columnLogicalNameContains.every(filtering =>
-                    overrideNames.logicalName.includes(filtering));
+                const overrideNames = overrideColumnName(entry.column, columnShare);
+                return columnLogicalNames.every(filtering => overrideNames.logicalName.includes(filtering));
             });
         if (matchedColumnLogical === false) {
             return false;
         };
 
         return true;
+    });
+};
+
+type SearchEntry = { entryType: "column", column: ColumnModel }
+    | { entryType: "struct", structModel: ColumnStructModel };
+
+const extractToSearchEntries = (detailEntries: ColumnDetailEntry[]): SearchEntry[] => {
+    return detailEntries.flatMap((detail): SearchEntry[] => {
+        if (detail.entryType === "column") {
+            const column = detail.columnModel;
+            return [{ entryType: "column", column: column }];
+        }
+
+        const inners = extractToSearchEntries(detail.entries);
+
+        const structEntry: SearchEntry = { entryType: "struct", structModel: detail.structModel };
+        return [structEntry, ...inners];
     });
 };
 
@@ -569,7 +602,7 @@ const initCallbackForAddTable = (documentResource: DocumentResource): ToolCallba
         const { erdBudget, erdDocument: previousDocument } = findDocument(documentResource, documentId);
         const schemaId = validateSchemaId(erdBudget, table.schemaId);
 
-        const [columns, columnShares] = buildAddingColumnPairs(erdBudget, table.columns);
+        const [columnEntries, columnShares] = buildAddingColumnPairs(erdBudget, table.columns);
 
         const addTable = new TableModel({
             physicalName: table.tableName.physical,
@@ -581,7 +614,7 @@ const initCallbackForAddTable = (documentResource: DocumentResource): ToolCallba
             collate: table.collate || "",
             definitionExpression: table.definitionExpression || "",
             optionExpression: table.optionExpression || "",
-            columns: columns.map(column => {
+            columnEntries: columnEntries.map(column => {
                 return {
                     modelType: "single" as const,
                     columnModelId: column.columnModelId
@@ -602,7 +635,7 @@ const initCallbackForAddTable = (documentResource: DocumentResource): ToolCallba
         });
 
         const nextColumnShareStorage = previousDocument.getColumnShareModelStorage().addModel(...columnShares);
-        const nextDocument = previousDocument.updateTableViewWithColumns(addTableView, columns, nextColumnShareStorage);
+        const nextDocument = previousDocument.updateTableViewWithColumns(addTableView, columnEntries, nextColumnShareStorage);
         documentResource.notify(documentId, nextDocument);
 
         return {
@@ -1111,7 +1144,9 @@ const initCallbackForAddUniqueConstraint = (
         const previousTable = previousTableView.tableModel;
         const nextUniqueKeysModels = [...previousTable.uniqueKeysModels];
 
-        const columnIdSet = new Set(previousDocument.toAllColumnModels(previousTable).map(model => model.columnModelId));
+        const columnIdSet = new Set(
+            previousDocument.toAllColumnsExceptStruct(previousTable).map(model => model.columnModelId)
+        );
 
         for (const entry of uniqueConstraints) {
             const uniqueConstraint = entry.uniqueConstraint;
@@ -1218,7 +1253,9 @@ const initCallbackForUpdateUniqueConstraint = (
             throw initInvalidParams(`Unique constraint not found: ${uniqueConstraintId}`);
         }
 
-        const columnIdSet = new Set(previousDocument.toAllColumnModels(previousTable).map(model => model.columnModelId));
+        const columnIdSet = new Set(
+            previousDocument.toAllColumnsExceptStruct(previousTable).map(model => model.columnModelId)
+        );
 
         const nextUniqueKeysColumnModels = updating.uniqueKeys?.map(uniqueKey => {
             if (columnIdSet.has(uniqueKey.columnId) === false) {
@@ -1398,7 +1435,9 @@ const initCallbackForAddTableIndex = (
 
         const previousTable = previousTableView.tableModel;
         const nextTableIndexModels = [...previousTable.tableIndexModels];
-        const columnIdSet = new Set(previousDocument.toAllColumnModels(previousTable).map(model => model.columnModelId));
+        const columnIdSet = new Set(
+            previousDocument.toAllColumnsExceptStruct(previousTable).map(model => model.columnModelId)
+        );
 
         for (const entry of tableIndexes) {
             const tableIndex = entry.tableIndex;
@@ -1515,7 +1554,10 @@ const initCallbackForUpdateTableIndex = (
         if (existingModel == null) {
             throw initInvalidParams(`Table index not found: ${tableIndexId}`);
         }
-        const columnIdSet = new Set(previousDocument.toAllColumnModels(previousTable).map(model => model.columnModelId));
+
+        const columnIdSet = new Set(
+            previousDocument.toAllColumnsExceptStruct(previousTable).map(model => model.columnModelId)
+        );
         const nextIndexColumnModels = updating.indexColumns?.map(indexColumn => {
             if (columnIdSet.has(indexColumn.columnId) === false) {
                 throw initInvalidParams(`ColumnId not found in the table: ${indexColumn.columnId}`);
@@ -1699,7 +1741,13 @@ export const toTableSummary = (erdBudget: DocumentBudget, tableView: TableViewMo
 const toTableSummaryWithColumns = (erdBudget: DocumentBudget, tableView: TableViewModel) => {
     const tableColumns = toTableColumns(erdBudget, tableView);
 
-    const columnMapping = new Map(tableColumns.map(column => [column.columnModelId, column]));
+    const columnMapping = new Map(tableColumns.flatMap(entry => {
+        if (entry.entryType === "struct") {
+            return [];
+        }
+
+        return [[entry.columnModelId, entry]];
+    }));
 
     const erdDocument = erdBudget.erdDocument;
     const database = erdDocument.getDatabase();
@@ -1718,6 +1766,7 @@ const toTableSummaryWithColumns = (erdBudget: DocumentBudget, tableView: TableVi
 
 const toTableDetail = (erdBudget: DocumentBudget, tableView: TableViewModel) => {
     const erdDocument = erdBudget.erdDocument;
+    // TODO テーブルの詳細取得なので、ここでは struct のカラムも必要。
     const tableWithColumns = toTableSummaryWithColumns(erdBudget, tableView);
     const { parentRelations, childRelations } = erdDocument.findRelatedRelations(tableView.tableId);
     const columnDefinitions = toTableColumnDefinitions(erdBudget, tableView);
@@ -1731,61 +1780,104 @@ const toTableDetail = (erdBudget: DocumentBudget, tableView: TableViewModel) => 
 };
 
 const toTableColumnDefinitions = (erdBudget: DocumentBudget, tableView: TableViewModel) => {
-    const columns = tableView.tableModel.columns;
+    const columnEntries = tableView.tableModel.columnEntries;
 
-    return columns.map(column => {
-        if (column.modelType === "group") {
+    return columnEntries.map(columnEntry => {
+        if (columnEntry.modelType === "group") {
             return {
-                uri: erdBudget.columnGroupUri(column.columnGroupId),
-                columnGroupId: column.columnGroupId,
+                uri: erdBudget.columnGroupUri(columnEntry.columnGroupId),
+                columnGroupId: columnEntry.columnGroupId,
                 modelType: "group" as const
             };
         }
 
-        if (column.modelType === "struct") {
+        if (columnEntry.modelType === "struct") {
             return {
-                uri: erdBudget.columnStructUri(column.columnStructId),
-                columnStructId: column.columnStructId,
+                uri: erdBudget.columnStructUri(columnEntry.columnStructId),
+                columnStructId: columnEntry.columnStructId,
                 modelType: "struct" as const
             };
         }
 
         return {
-            uri: erdBudget.columnUri(column.columnModelId),
-            columnModelId: column.columnModelId,
+            uri: erdBudget.columnUri(columnEntry.columnModelId),
+            columnModelId: columnEntry.columnModelId,
             modelType: "single" as const
-        }
+        };
     });
 };
 
-const toTableColumns = (erdBudget: DocumentBudget, tableView: TableViewModel) => {
-    const erdDocument = erdBudget.erdDocument;
-    const columnModels = erdDocument.toAllColumnModels(tableView.tableModel);
+type TableColumnEntry = (
+    {
+        entryType: "column";
+        columnModelId: string;
+        columnName: { physical: string; logical: string; };
+        typeExpression: string;
+        primaryKey: boolean;
+        unique: boolean;
+        autoIncrement?: boolean | undefined;
+        defaultValue: string;
+    } | {
+        entryType: "struct";
+        columnStructId: string;
+        structName: { physical: string; logical: string; };
+        isArray: boolean;
+    }
+) & {
+    uri: string;
+    notNull: boolean;
+    description: string;
+};
 
-    return columnModels.flatMap(columnModel => {
-        const shareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
+const toTableColumns = (erdBudget: DocumentBudget, tableView: TableViewModel): TableColumnEntry[] => {
+    const erdDocument = erdBudget.erdDocument;
+    const columnEntries = erdDocument.toColumnDetailEntries(tableView.tableModel);
+
+    return columnEntries.flatMap((columnEntry): TableColumnEntry[] => {
+        if (columnEntry.entryType === "struct") {
+            const columnStruct = columnEntry.structModel;
+
+            return [
+                {
+                    uri: erdBudget.columnStructUri(columnStruct.columnStructId),
+                    entryType: "struct",
+                    columnStructId: columnStruct.columnStructId,
+                    structName: {
+                        physical: columnStruct.physicalName,
+                        logical: columnStruct.logicalName
+                    },
+                    notNull: columnStruct.notNull,
+                    isArray: columnStruct.isArray,
+                    description: columnStruct.description
+                }
+            ];
+        }
+
+        const column = columnEntry.columnModel;
+        const shareModel = erdDocument.findColumnShareModel(column.columnShareModelId);
         if (shareModel == null) {
             return [];
         }
 
-        const columnName = overrideColumnName(columnModel, shareModel);
-        const inChildRelation = erdDocument.inChildRelation(tableView.tableId, columnModel.columnModelId);
+        const columnName = overrideColumnName(column, shareModel);
+        const inChildRelation = erdDocument.inChildRelation(tableView.tableId, column.columnModelId);
         const typeExpression = shareModel.specifiedColumnType(inChildRelation);
 
         return [
             {
-                uri: erdBudget.columnUri(columnModel.columnModelId),
-                columnModelId: columnModel.columnModelId,
+                uri: erdBudget.columnUri(column.columnModelId),
+                entryType: "column",
+                columnModelId: column.columnModelId,
                 columnName: {
                     physical: columnName.physicalName,
                     logical: columnName.logicalName
                 },
                 typeExpression: typeExpression,
-                primaryKey: columnModel.primaryKey,
-                notNull: columnModel.notNull,
-                unique: columnModel.unique,
-                ...((shareModel.columnType.withAutoIncrement) && { autoIncrement: columnModel.autoIncrement }),
-                defaultValue: columnModel.defaultValue,
+                primaryKey: column.primaryKey,
+                notNull: column.notNull,
+                unique: column.unique,
+                ...((shareModel.columnType.withAutoIncrement) && { autoIncrement: column.autoIncrement }),
+                defaultValue: column.defaultValue,
                 description: shareModel.description
             }
         ];

@@ -1,4 +1,4 @@
-import TableModel, { ColumnModelType } from '../TableModel';
+import TableModel, { ColumnEntry } from '../TableModel';
 import TableIndexModel from '../TableIndexModel';
 import { IndexColumnModel } from '../TableIndexModel';
 import TableUniqueKeysModel, { UniqueKeysColumnModel } from '../TableUniqueKeysModel';
@@ -13,7 +13,7 @@ describe('TableModel', () => {
             expect(model.physicalName).toBe('');
             expect(model.logicalName).toBe('');
             expect(model.schemaId).toBe('');
-            expect(model.columns).toEqual([]);
+            expect(model.columnEntries).toEqual([]);
             expect(model.uniqueKeysModels).toEqual([]);
             expect(model.tableIndexModels).toEqual([]);
             expect(model.description).toBe('');
@@ -48,10 +48,10 @@ describe('TableModel', () => {
                 physicalName: 'test_table',
                 logicalName: 'Test Table',
                 schemaId: 'test-schema',
-                columns: [
+                columnEntries: [
                     { modelType: 'single', columnModelId: 'col1' },
                     { modelType: 'single', columnModelId: 'col2' }
-                ] as ColumnModelType[],
+                ] as ColumnEntry[],
                 uniqueKeysModels: [uniqueKeysModel],
                 tableIndexModels: [tableIndexModel],
                 description: 'Test description',
@@ -67,7 +67,7 @@ describe('TableModel', () => {
             expect(model.physicalName).toBe(options.physicalName);
             expect(model.logicalName).toBe(options.logicalName);
             expect(model.schemaId).toBe(options.schemaId);
-            expect(model.columns).toEqual(options.columns);
+            expect(model.columnEntries).toEqual(options.columnEntries);
             expect(model.uniqueKeysModels).toEqual(options.uniqueKeysModels);
             expect(model.tableIndexModels).toEqual(options.tableIndexModels);
             expect(model.description).toBe(options.description);
@@ -133,11 +133,11 @@ describe('TableModel', () => {
             const columns = [
                 { modelType: 'single', columnModelId: 'col1' },
                 { modelType: 'group', columnGroupId: 'group1' }
-            ] as ColumnModelType[];
+            ] as ColumnEntry[];
 
-            const model = new TableModel({ columns });
+            const model = new TableModel({ columnEntries: columns });
 
-            expect(model.columns).toEqual(columns);
+            expect(model.columnEntries).toEqual(columns);
         });
     });
 
@@ -145,12 +145,12 @@ describe('TableModel', () => {
         test('should add new column model ids', () => {
             const existingColumns = [
                 { modelType: 'single', columnModelId: 'col1' }
-            ] as ColumnModelType[];
-            const model = new TableModel({ columns: existingColumns });
+            ] as ColumnEntry[];
+            const model = new TableModel({ columnEntries: existingColumns });
 
             const result = model.addColumnModelIds(['col2', 'col3']);
 
-            expect(result.columns).toEqual([
+            expect(result.columnEntries).toEqual([
                 { modelType: 'single', columnModelId: 'col1' },
                 { modelType: 'single', columnModelId: 'col2' },
                 { modelType: 'single', columnModelId: 'col3' }
@@ -161,12 +161,12 @@ describe('TableModel', () => {
             const existingColumns = [
                 { modelType: 'single', columnModelId: 'col1' },
                 { modelType: 'single', columnModelId: 'col2' }
-            ] as ColumnModelType[];
-            const model = new TableModel({ columns: existingColumns });
+            ] as ColumnEntry[];
+            const model = new TableModel({ columnEntries: existingColumns });
 
             const result = model.addColumnModelIds(['col1', 'col3']);
 
-            expect(result.columns).toEqual([
+            expect(result.columnEntries).toEqual([
                 { modelType: 'single', columnModelId: 'col1' },
                 { modelType: 'single', columnModelId: 'col2' },
                 { modelType: 'single', columnModelId: 'col3' }
@@ -176,8 +176,8 @@ describe('TableModel', () => {
         test('should return same instance when no new columns to add', () => {
             const existingColumns = [
                 { modelType: 'single', columnModelId: 'col1' }
-            ] as ColumnModelType[];
-            const model = new TableModel({ columns: existingColumns });
+            ] as ColumnEntry[];
+            const model = new TableModel({ columnEntries: existingColumns });
 
             const result = model.addColumnModelIds(['col1']);
 
@@ -207,7 +207,7 @@ describe('TableModel', () => {
                 physicalName: 'test_table',
                 logicalName: 'Test Table',
                 schemaId: 'test-schema',
-                columns: [{ modelType: 'single', columnModelId: 'col1' }] as ColumnModelType[],
+                columns: [{ modelType: 'single', columnModelId: 'col1' }] as ColumnEntry[],
                 uniqueKeysModels: [uniqueKeysModel],
                 description: 'Test description',
                 characterSet: 'utf8mb4',
@@ -235,12 +235,12 @@ describe('TableModel', () => {
             const existingColumns = [
                 { modelType: 'single', columnModelId: 'col1' },
                 { modelType: 'group', columnGroupId: 'group1' }
-            ] as ColumnModelType[];
-            const model = new TableModel({ columns: existingColumns });
+            ] as ColumnEntry[];
+            const model = new TableModel({ columnEntries: existingColumns });
 
             const result = model.addColumnModelIds(['col1', 'col2']);
 
-            expect(result.columns).toEqual([
+            expect(result.columnEntries).toEqual([
                 { modelType: 'single', columnModelId: 'col1' },
                 { modelType: 'group', columnGroupId: 'group1' },
                 { modelType: 'single', columnModelId: 'col2' }
@@ -267,7 +267,7 @@ describe('TableModel', () => {
                 columns: [
                     { modelType: 'single', columnModelId: 'col1' },
                     { modelType: 'group', columnGroupId: 'group1' }
-                ] as ColumnModelType[],
+                ] as ColumnEntry[],
                 uniqueKeysModels: [uniqueKeysModel],
                 description: 'Test description'
             };
@@ -307,13 +307,13 @@ describe('TableModel', () => {
 
         test('should return false for different number of columns', () => {
             const model1 = new TableModel({
-                columns: [{ modelType: 'single', columnModelId: 'col1' }] as ColumnModelType[]
+                columnEntries: [{ modelType: 'single', columnModelId: 'col1' }] as ColumnEntry[]
             });
             const model2 = new TableModel({
-                columns: [
+                columnEntries: [
                     { modelType: 'single', columnModelId: 'col1' },
                     { modelType: 'single', columnModelId: 'col2' }
-                ] as ColumnModelType[]
+                ] as ColumnEntry[]
             });
 
             expect(model1.equals(model2)).toBe(false);
@@ -321,10 +321,10 @@ describe('TableModel', () => {
 
         test('should return false for different column model types', () => {
             const model1 = new TableModel({
-                columns: [{ modelType: 'single', columnModelId: 'col1' }] as ColumnModelType[]
+                columnEntries: [{ modelType: 'single', columnModelId: 'col1' }] as ColumnEntry[]
             });
             const model2 = new TableModel({
-                columns: [{ modelType: 'group', columnGroupId: 'col1' }] as ColumnModelType[]
+                columnEntries: [{ modelType: 'group', columnGroupId: 'col1' }] as ColumnEntry[]
             });
 
             expect(model1.equals(model2)).toBe(false);
@@ -332,10 +332,10 @@ describe('TableModel', () => {
 
         test('should return false for different single column model ids', () => {
             const model1 = new TableModel({
-                columns: [{ modelType: 'single', columnModelId: 'col1' }] as ColumnModelType[]
+                columnEntries: [{ modelType: 'single', columnModelId: 'col1' }] as ColumnEntry[]
             });
             const model2 = new TableModel({
-                columns: [{ modelType: 'single', columnModelId: 'col2' }] as ColumnModelType[]
+                columnEntries: [{ modelType: 'single', columnModelId: 'col2' }] as ColumnEntry[]
             });
 
             expect(model1.equals(model2)).toBe(false);
@@ -343,10 +343,10 @@ describe('TableModel', () => {
 
         test('should return false for different group column ids', () => {
             const model1 = new TableModel({
-                columns: [{ modelType: 'group', columnGroupId: 'group1' }] as ColumnModelType[]
+                columnEntries: [{ modelType: 'group', columnGroupId: 'group1' }] as ColumnEntry[]
             });
             const model2 = new TableModel({
-                columns: [{ modelType: 'group', columnGroupId: 'group2' }] as ColumnModelType[]
+                columnEntries: [{ modelType: 'group', columnGroupId: 'group2' }] as ColumnEntry[]
             });
 
             expect(model1.equals(model2)).toBe(false);
@@ -355,11 +355,11 @@ describe('TableModel', () => {
         test('should return true for identical struct column entries', () => {
             const model1 = new TableModel({
                 tableModelId: 'test-id',
-                columns: [{ modelType: 'struct', columnStructId: 'struct1' }] as ColumnModelType[]
+                columnEntries: [{ modelType: 'struct', columnStructId: 'struct1' }] as ColumnEntry[]
             });
             const model2 = new TableModel({
                 tableModelId: 'test-id',
-                columns: [{ modelType: 'struct', columnStructId: 'struct1' }] as ColumnModelType[]
+                columnEntries: [{ modelType: 'struct', columnStructId: 'struct1' }] as ColumnEntry[]
             });
 
             expect(model1.equals(model2)).toBe(true);
@@ -367,10 +367,10 @@ describe('TableModel', () => {
 
         test('should return false for different struct column ids', () => {
             const model1 = new TableModel({
-                columns: [{ modelType: 'struct', columnStructId: 'struct1' }] as ColumnModelType[]
+                columnEntries: [{ modelType: 'struct', columnStructId: 'struct1' }] as ColumnEntry[]
             });
             const model2 = new TableModel({
-                columns: [{ modelType: 'struct', columnStructId: 'struct2' }] as ColumnModelType[]
+                columnEntries: [{ modelType: 'struct', columnStructId: 'struct2' }] as ColumnEntry[]
             });
 
             expect(model1.equals(model2)).toBe(false);
@@ -378,10 +378,10 @@ describe('TableModel', () => {
 
         test('should return false for different column model types (single vs struct)', () => {
             const model1 = new TableModel({
-                columns: [{ modelType: 'single', columnModelId: 'col1' }] as ColumnModelType[]
+                columnEntries: [{ modelType: 'single', columnModelId: 'col1' }] as ColumnEntry[]
             });
             const model2 = new TableModel({
-                columns: [{ modelType: 'struct', columnStructId: 'col1' }] as ColumnModelType[]
+                columnEntries: [{ modelType: 'struct', columnStructId: 'col1' }] as ColumnEntry[]
             });
 
             expect(model1.equals(model2)).toBe(false);
@@ -529,10 +529,10 @@ describe('TableModel', () => {
                 physicalName: 'test_table',
                 logicalName: 'Test Table',
                 schemaId: 'test-schema',
-                columns: [
+                columnEntries: [
                     { modelType: 'single', columnModelId: 'col1' },
                     { modelType: 'group', columnGroupId: 'group1' }
-                ] as ColumnModelType[],
+                ] as ColumnEntry[],
                 uniqueKeysModels: [uniqueKeysModel],
                 tableIndexModels: [tableIndexModel],
                 description: 'Test description',
@@ -619,11 +619,11 @@ describe('TableModel', () => {
 
         test('should handle group columns in columnModelIds', () => {
             const model = new TableModel({
-                columns: [
+                columnEntries: [
                     { modelType: 'single', columnModelId: 'col1' },
                     { modelType: 'group', columnGroupId: 'group1' },
                     { modelType: 'single', columnModelId: 'col2' }
-                ] as ColumnModelType[]
+                ] as ColumnEntry[]
             });
 
             const json = model.toJSON();
@@ -633,11 +633,11 @@ describe('TableModel', () => {
 
         test('should handle struct columns in columnModelIds (mixed with single/group)', () => {
             const model = new TableModel({
-                columns: [
+                columnEntries: [
                     { modelType: 'single', columnModelId: 'col1' },
                     { modelType: 'group', columnGroupId: 'group1' },
                     { modelType: 'struct', columnStructId: 'struct1' }
-                ] as ColumnModelType[]
+                ] as ColumnEntry[]
             });
 
             const json = model.toJSON();
@@ -723,7 +723,7 @@ describe('TableModel', () => {
             expect(model.physicalName).toBe('test_table');
             expect(model.logicalName).toBe('Test Table');
             expect(model.schemaId).toBe('test-schema');
-            expect(model.columns).toEqual([
+            expect(model.columnEntries).toEqual([
                 { modelType: 'single', columnModelId: 'col1' },
                 { modelType: 'group', columnGroupId: 'group1' }
             ]);
@@ -787,7 +787,7 @@ describe('TableModel', () => {
 
             const model = TableModel.toObject(jsonData);
 
-            expect(model.columns).toEqual([
+            expect(model.columnEntries).toEqual([
                 { modelType: 'single', columnModelId: 'col1' },
                 { modelType: 'group', columnGroupId: 'group1' },
                 { modelType: 'single', columnModelId: 'col2' },
@@ -805,7 +805,7 @@ describe('TableModel', () => {
 
             const model = TableModel.toObject(jsonData);
 
-            expect(model.columns).toEqual([
+            expect(model.columnEntries).toEqual([
                 { modelType: 'single', columnModelId: 'col1' },
                 { modelType: 'group', columnGroupId: 'group1' },
                 { modelType: 'struct', columnStructId: 'struct1' }
@@ -1011,10 +1011,10 @@ describe('TableModel', () => {
                 physicalName: 'test_table',
                 logicalName: 'Test Table',
                 schemaId: 'test-schema',
-                columns: [
+                columnEntries: [
                     { modelType: 'single', columnModelId: 'col1' },
                     { modelType: 'group', columnGroupId: 'group1' }
-                ] as ColumnModelType[],
+                ] as ColumnEntry[],
                 uniqueKeysModels: [uniqueKeysModel],
                 tableIndexModels: [tableIndexModel],
                 description: 'Test description',
@@ -1048,11 +1048,11 @@ describe('TableModel', () => {
                 tableModelId: 'test-id',
                 physicalName: 'test_table',
                 logicalName: 'Test Table',
-                columns: [
+                columnEntries: [
                     { modelType: 'single', columnModelId: 'col1' },
                     { modelType: 'group', columnGroupId: 'group1' },
                     { modelType: 'struct', columnStructId: 'struct1' }
-                ] as ColumnModelType[]
+                ] as ColumnEntry[]
             });
 
             const json = original.toJSON();

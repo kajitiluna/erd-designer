@@ -1,5 +1,4 @@
-import ErdDocument from "~/models/ErdDocument";
-import ColumnStructModel from "~/models/database/ColumnStructModel";
+import ErdDocument, { ColumnDetailEntry } from "~/models/ErdDocument";
 import DbSchemaModel from "~/models/database/DbSchemaModel";
 import TableModel from "~/models/database/TableModel";
 import { overrideColumnName } from "~/models/database/support";
@@ -135,9 +134,9 @@ const initExportColumnGenerator = (erdDocument: ErdDocument, tableModel: TableMo
     const schemaModel = erdDocument.findSchema(tableModel.schemaId);
     const physicalTableName = initTablePhysicalName(tableModel, schemaModel);
 
-    for (const entry of erdDocument.toDisplayColumnEntries(tableModel)) {
+    for (const entry of erdDocument.toColumnDetailEntries(tableModel)) {
         if (entry.entryType === "struct") {
-            yield initStructColumnSpec(entry.columnStructModel, physicalTableName, tableModel.logicalName);
+            yield initStructColumnSpec(entry, physicalTableName, tableModel.logicalName);
             continue;
         }
 
@@ -171,24 +170,26 @@ const initExportColumnGenerator = (erdDocument: ErdDocument, tableModel: TableMo
 });
 
 const initStructColumnSpec = (
-    columnStructModel: ColumnStructModel, physicalTableName: string, logicalTableName: string
+    entry: ColumnDetailEntry & {entryType: "struct"}, physicalTableName: string, logicalTableName: string
 ) => {
+    const structModel = entry.structModel;
+
     return {
         physicalTableName: physicalTableName,
         logicalTableName: logicalTableName,
-        physicalColumnName: columnStructModel.physicalName,
-        logicalColumnName: columnStructModel.logicalName,
-        columnType: columnStructModel.displayTypeQuery(),
+        physicalColumnName: structModel.physicalName,
+        logicalColumnName: structModel.logicalName,
+        columnType: structModel.displayTypeQuery(),
         precision: null,
         scale: null,
         unsigned: "",
         primaryKey: "",
-        notNull: columnStructModel.notNull ? "✓" : "",
+        notNull: structModel.notNull ? "✓" : "",
         unique: "",
         autoIncrement: "",
         defaultValue: "",
         foreignRelation: null,
-        description: columnStructModel.description,
+        description: structModel.description,
     };
 };
 

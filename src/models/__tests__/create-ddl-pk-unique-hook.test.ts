@@ -9,7 +9,7 @@ import ErdSettingModel from '~/models/ErdSettingModel';
 import ColumnModel from '~/models/database/ColumnModel';
 import ColumnShareModel from '~/models/database/ColumnShareModel';
 import { findDatabaseColumns } from '~/models/database/columns';
-import TableModel, { ColumnModelType } from '~/models/database/TableModel';
+import TableModel, { ColumnEntry } from '~/models/database/TableModel';
 import TableUniqueKeysModel, { UniqueKeysColumnModel } from '~/models/database/TableUniqueKeysModel';
 import TableViewModel from '~/models/TableViewModel';
 import { DatabaseType } from '~/models/database/DatabaseType';
@@ -92,13 +92,13 @@ const buildPkUniqueSampleDocument = (
     const tableModel = new TableModel({
         tableModelId: 'table-sample',
         physicalName: 'sample_table',
-        columns: [
+        columnEntries: [
             { modelType: 'single', columnModelId: idAColumn.columnModelId },
             { modelType: 'single', columnModelId: idBColumn.columnModelId },
             { modelType: 'single', columnModelId: emailColumn.columnModelId },
             { modelType: 'single', columnModelId: codeColumn.columnModelId },
             { modelType: 'single', columnModelId: nameColumn.columnModelId }
-        ] as ColumnModelType[],
+        ] as ColumnEntry[],
         uniqueKeysModels: [
             new TableUniqueKeysModel({
                 tableUniqueKeysModelId: 'unique-code-name',

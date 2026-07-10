@@ -44,7 +44,7 @@ describe('ErdDocument column struct integration', () => {
             const tableModel = new TableModel({
                 tableModelId: 'table-1',
                 physicalName: 'users',
-                columns: [{ modelType: 'struct', columnStructId: 'struct-1' }]
+                columnEntries: [{ modelType: 'struct', columnStructId: 'struct-1' }]
             });
             const document = initDocument({ tableModels: [tableModel], columnStructModels: [structModel] });
 
@@ -58,7 +58,7 @@ describe('ErdDocument column struct integration', () => {
             const tableModel = new TableModel({
                 tableModelId: 'table-1',
                 physicalName: 'users',
-                columns: []
+                columnEntries: []
             });
             const document = initDocument({
                 tableModels: [tableModel], columnStructModels: [structA, structB]
@@ -69,17 +69,17 @@ describe('ErdDocument column struct integration', () => {
         });
     });
 
-    describe('toAllColumnModels', () => {
+    describe('toAllColumnsExceptStruct', () => {
         test('should exclude struct entries (return empty for struct-only columns)', () => {
             const singleColumn = new ColumnModel({ columnModelId: 'col-1', primaryKey: true });
             const structModel = new ColumnStructModel({
                 columnStructId: 'struct-1', physicalName: 'address',
-                columns: [{ modelType: 'single', columnModelId: 'nested-col' }]
+                columnEntries: [{ modelType: 'single', columnModelId: 'nested-col' }]
             });
             const tableModel = new TableModel({
                 tableModelId: 'table-1',
                 physicalName: 'users',
-                columns: [
+                columnEntries: [
                     { modelType: 'single', columnModelId: 'col-1' },
                     { modelType: 'struct', columnStructId: 'struct-1' }
                 ]
@@ -90,7 +90,7 @@ describe('ErdDocument column struct integration', () => {
                 columnModels: [singleColumn]
             });
 
-            const allColumns = document.toAllColumnModels(tableModel);
+            const allColumns = document.toAllColumnsExceptStruct(tableModel);
             expect(allColumns).toHaveLength(1);
             expect(allColumns[0].columnModelId).toBe('col-1');
         });
@@ -107,7 +107,7 @@ describe('ErdDocument column struct integration', () => {
             const tableModel = new TableModel({
                 tableModelId: 'table-1',
                 physicalName: 'users',
-                columns: [
+                columnEntries: [
                     { modelType: 'single', columnModelId: 'col-1' },
                     { modelType: 'group', columnGroupId: 'group-1' },
                     { modelType: 'struct', columnStructId: 'struct-1' }
@@ -120,19 +120,19 @@ describe('ErdDocument column struct integration', () => {
                 columnModels: [singleColumn, groupMemberColumn]
             });
 
-            const entries = document.toDisplayColumnEntries(tableModel);
+            const entries = document.toColumnDetailEntries(tableModel);
 
             expect(entries).toHaveLength(3);
             expect(entries[0]).toEqual({ entryType: 'column', columnModel: singleColumn });
             expect(entries[1]).toEqual({ entryType: 'column', columnModel: groupMemberColumn });
-            expect(entries[2]).toEqual({ entryType: 'struct', columnStructModel: structModel });
+            expect(entries[2]).toEqual({ entryType: 'struct', structModel: structModel, entries: [] });
         });
 
         test('should skip unresolved struct/group/single references', () => {
             const tableModel = new TableModel({
                 tableModelId: 'table-1',
                 physicalName: 'users',
-                columns: [
+                columnEntries: [
                     { modelType: 'single', columnModelId: 'missing-col' },
                     { modelType: 'struct', columnStructId: 'missing-struct' },
                     { modelType: 'group', columnGroupId: 'missing-group' }
@@ -140,7 +140,7 @@ describe('ErdDocument column struct integration', () => {
             });
             const document = initDocument({ tableModels: [tableModel] });
 
-            const entries = document.toDisplayColumnEntries(tableModel);
+            const entries = document.toColumnDetailEntries(tableModel);
 
             expect(entries).toEqual([]);
         });
@@ -151,12 +151,12 @@ describe('ErdDocument column struct integration', () => {
             const tableModel = new TableModel({
                 tableModelId: 'table-1',
                 physicalName: 'users',
-                columns: []
+                columnEntries: []
             });
             const document = initDocument({ tableModels: [tableModel] });
 
             const newStruct = new ColumnStructModel({ columnStructId: 'struct-1', physicalName: 'address' });
-            const nextDocument = document.updateColumnStruct(newStruct, []);
+            const nextDocument = document.updateColumnStruct(newStruct);
 
             expect(nextDocument.findColumnStructModel('struct-1')).not.toBeNull();
         });
@@ -165,12 +165,12 @@ describe('ErdDocument column struct integration', () => {
             const memberColumn = new ColumnModel({ columnModelId: 'member-1' });
             const previousStruct = new ColumnStructModel({
                 columnStructId: 'struct-1', physicalName: 'address',
-                columns: [{ modelType: 'single', columnModelId: 'member-1' }]
+                columnEntries: [{ modelType: 'single', columnModelId: 'member-1' }]
             });
             const tableModel = new TableModel({
                 tableModelId: 'table-1',
                 physicalName: 'users',
-                columns: [{ modelType: 'struct', columnStructId: 'struct-1' }]
+                columnEntries: [{ modelType: 'struct', columnStructId: 'struct-1' }]
             });
             const document = initDocument({
                 tableModels: [tableModel],
@@ -179,9 +179,9 @@ describe('ErdDocument column struct integration', () => {
             });
 
             const updatedStruct = new ColumnStructModel({
-                columnStructId: 'struct-1', physicalName: 'address', columns: []
+                columnStructId: 'struct-1', physicalName: 'address', columnEntries: []
             });
-            const nextDocument = document.updateColumnStruct(updatedStruct, []);
+            const nextDocument = document.updateColumnStruct(updatedStruct);
 
             expect(nextDocument.findColumnModel('member-1')).toBeNull();
         });
@@ -190,17 +190,17 @@ describe('ErdDocument column struct integration', () => {
             const memberColumn = new ColumnModel({ columnModelId: 'member-1' });
             const previousStruct = new ColumnStructModel({
                 columnStructId: 'struct-1', physicalName: 'address',
-                columns: [{ modelType: 'single', columnModelId: 'member-1' }]
+                columnEntries: [{ modelType: 'single', columnModelId: 'member-1' }]
             });
             const structTable = new TableModel({
                 tableModelId: 'table-1',
                 physicalName: 'users',
-                columns: [{ modelType: 'struct', columnStructId: 'struct-1' }]
+                columnEntries: [{ modelType: 'struct', columnStructId: 'struct-1' }]
             });
             const otherTable = new TableModel({
                 tableModelId: 'table-2',
                 physicalName: 'other',
-                columns: [{ modelType: 'single', columnModelId: 'member-1' }]
+                columnEntries: [{ modelType: 'single', columnModelId: 'member-1' }]
             });
             const document = initDocument({
                 tableModels: [structTable, otherTable],
@@ -209,9 +209,9 @@ describe('ErdDocument column struct integration', () => {
             });
 
             const updatedStruct = new ColumnStructModel({
-                columnStructId: 'struct-1', physicalName: 'address', columns: []
+                columnStructId: 'struct-1', physicalName: 'address', columnEntries: []
             });
-            const nextDocument = document.updateColumnStruct(updatedStruct, []);
+            const nextDocument = document.updateColumnStruct(updatedStruct);
 
             expect(nextDocument.findColumnModel('member-1')).not.toBeNull();
         });
@@ -223,12 +223,12 @@ describe('ErdDocument column struct integration', () => {
             });
             const previousStruct = new ColumnStructModel({
                 columnStructId: 'struct-1', physicalName: 'address',
-                columns: [{ modelType: 'single', columnModelId: 'member-1' }]
+                columnEntries: [{ modelType: 'single', columnModelId: 'member-1' }]
             });
             const tableModel = new TableModel({
                 tableModelId: 'table-1',
                 physicalName: 'users',
-                columns: [
+                columnEntries: [
                     { modelType: 'struct', columnStructId: 'struct-1' },
                     { modelType: 'group', columnGroupId: 'group-1' }
                 ]
@@ -241,9 +241,9 @@ describe('ErdDocument column struct integration', () => {
             });
 
             const updatedStruct = new ColumnStructModel({
-                columnStructId: 'struct-1', physicalName: 'address', columns: []
+                columnStructId: 'struct-1', physicalName: 'address', columnEntries: []
             });
-            const nextDocument = document.updateColumnStruct(updatedStruct, []);
+            const nextDocument = document.updateColumnStruct(updatedStruct);
 
             expect(nextDocument.findColumnModel('member-1')).not.toBeNull();
         });
@@ -252,16 +252,16 @@ describe('ErdDocument column struct integration', () => {
             const memberColumn = new ColumnModel({ columnModelId: 'member-1' });
             const structA = new ColumnStructModel({
                 columnStructId: 'struct-a', physicalName: 'address',
-                columns: [{ modelType: 'single', columnModelId: 'member-1' }]
+                columnEntries: [{ modelType: 'single', columnModelId: 'member-1' }]
             });
             const structB = new ColumnStructModel({
                 columnStructId: 'struct-b', physicalName: 'billing_address',
-                columns: [{ modelType: 'single', columnModelId: 'member-1' }]
+                columnEntries: [{ modelType: 'single', columnModelId: 'member-1' }]
             });
             const tableModel = new TableModel({
                 tableModelId: 'table-1',
                 physicalName: 'users',
-                columns: [
+                columnEntries: [
                     { modelType: 'struct', columnStructId: 'struct-a' },
                     { modelType: 'struct', columnStructId: 'struct-b' }
                 ]
@@ -273,9 +273,9 @@ describe('ErdDocument column struct integration', () => {
             });
 
             const updatedStructA = new ColumnStructModel({
-                columnStructId: 'struct-a', physicalName: 'address', columns: []
+                columnStructId: 'struct-a', physicalName: 'address', columnEntries: []
             });
-            const nextDocument = document.updateColumnStruct(updatedStructA, []);
+            const nextDocument = document.updateColumnStruct(updatedStructA);
 
             expect(nextDocument.findColumnModel('member-1')).not.toBeNull();
         });
@@ -286,12 +286,12 @@ describe('ErdDocument column struct integration', () => {
             const memberColumn = new ColumnModel({ columnModelId: 'member-1' });
             const structModel = new ColumnStructModel({
                 columnStructId: 'struct-1', physicalName: 'address',
-                columns: [{ modelType: 'single', columnModelId: 'member-1' }]
+                columnEntries: [{ modelType: 'single', columnModelId: 'member-1' }]
             });
             const tableModel = new TableModel({
                 tableModelId: 'table-1',
                 physicalName: 'users',
-                columns: [
+                columnEntries: [
                     { modelType: 'single', columnModelId: 'other-col' },
                     { modelType: 'struct', columnStructId: 'struct-1' }
                 ]
@@ -310,7 +310,7 @@ describe('ErdDocument column struct integration', () => {
 
             const nextTableView = nextDocument.findTableViewModel('table-1');
             expect(nextTableView).not.toBeNull();
-            expect(nextTableView?.tableModel.columns).toEqual([
+            expect(nextTableView?.tableModel.columnEntries).toEqual([
                 { modelType: 'single', columnModelId: 'other-col' }
             ]);
         });
@@ -319,17 +319,17 @@ describe('ErdDocument column struct integration', () => {
             const memberColumn = new ColumnModel({ columnModelId: 'member-1' });
             const structModel = new ColumnStructModel({
                 columnStructId: 'struct-1', physicalName: 'address',
-                columns: [{ modelType: 'single', columnModelId: 'member-1' }]
+                columnEntries: [{ modelType: 'single', columnModelId: 'member-1' }]
             });
             const structTable = new TableModel({
                 tableModelId: 'table-1',
                 physicalName: 'users',
-                columns: [{ modelType: 'struct', columnStructId: 'struct-1' }]
+                columnEntries: [{ modelType: 'struct', columnStructId: 'struct-1' }]
             });
             const otherTable = new TableModel({
                 tableModelId: 'table-2',
                 physicalName: 'other',
-                columns: [{ modelType: 'single', columnModelId: 'member-1' }]
+                columnEntries: [{ modelType: 'single', columnModelId: 'member-1' }]
             });
             const document = initDocument({
                 tableModels: [structTable, otherTable],
@@ -347,7 +347,7 @@ describe('ErdDocument column struct integration', () => {
             const tableModel = new TableModel({
                 tableModelId: 'table-1',
                 physicalName: 'users',
-                columns: [{ modelType: 'struct', columnStructId: 'struct-1' }]
+                columnEntries: [{ modelType: 'struct', columnStructId: 'struct-1' }]
             });
             const document = initDocument({ tableModels: [tableModel], columnStructModels: [structModel] });
 
@@ -360,12 +360,12 @@ describe('ErdDocument column struct integration', () => {
             const nestedStruct = new ColumnStructModel({ columnStructId: 'struct-nested', physicalName: 'inner' });
             const outerStruct = new ColumnStructModel({
                 columnStructId: 'struct-outer', physicalName: 'outer',
-                columns: [{ modelType: 'struct', columnStructId: 'struct-nested' }]
+                columnEntries: [{ modelType: 'struct', columnStructId: 'struct-nested' }]
             });
             const tableModel = new TableModel({
                 tableModelId: 'table-1',
                 physicalName: 'users',
-                columns: [{ modelType: 'struct', columnStructId: 'struct-outer' }]
+                columnEntries: [{ modelType: 'struct', columnStructId: 'struct-outer' }]
             });
             const document = initDocument({
                 tableModels: [tableModel],
@@ -376,11 +376,11 @@ describe('ErdDocument column struct integration', () => {
 
             const survivedOuter = nextDocument.findColumnStructModel('struct-outer');
             expect(survivedOuter).not.toBeNull();
-            expect(survivedOuter?.columns).toEqual([]);
+            expect(survivedOuter?.columnEntries).toEqual([]);
         });
 
         test('should return same instance when struct does not exist', () => {
-            const tableModel = new TableModel({ tableModelId: 'table-1', physicalName: 'users', columns: [] });
+            const tableModel = new TableModel({ tableModelId: 'table-1', physicalName: 'users', columnEntries: [] });
             const document = initDocument({ tableModels: [tableModel] });
 
             const nextDocument = document.deleteColumnStruct('unknown');
@@ -397,7 +397,7 @@ describe('ErdDocument column struct integration', () => {
             });
             const structWithGroupRef = new ColumnStructModel({
                 columnStructId: 'struct-1', physicalName: 'address',
-                columns: [
+                columnEntries: [
                     { modelType: 'group', columnGroupId: 'group-1' },
                     { modelType: 'single', columnModelId: 'group-member' }
                 ]
@@ -405,7 +405,7 @@ describe('ErdDocument column struct integration', () => {
             const tableModel = new TableModel({
                 tableModelId: 'table-1',
                 physicalName: 'users',
-                columns: [
+                columnEntries: [
                     { modelType: 'group', columnGroupId: 'group-1' },
                     { modelType: 'struct', columnStructId: 'struct-1' }
                 ]
@@ -421,7 +421,7 @@ describe('ErdDocument column struct integration', () => {
 
             const survivedStruct = nextDocument.findColumnStructModel('struct-1');
             expect(survivedStruct).not.toBeNull();
-            expect(survivedStruct?.columns).toEqual([]);
+            expect(survivedStruct?.columnEntries).toEqual([]);
         });
     });
 
@@ -435,7 +435,7 @@ describe('ErdDocument column struct integration', () => {
             });
             const structModel = new ColumnStructModel({
                 columnStructId: 'struct-1', physicalName: 'address',
-                columns: [
+                columnEntries: [
                     { modelType: 'single', columnModelId: 'kept-member' },
                     { modelType: 'single', columnModelId: 'removed-member' }
                 ]
@@ -443,7 +443,7 @@ describe('ErdDocument column struct integration', () => {
             const tableModel = new TableModel({
                 tableModelId: 'table-1',
                 physicalName: 'users',
-                columns: [
+                columnEntries: [
                     { modelType: 'group', columnGroupId: 'group-1' },
                     { modelType: 'struct', columnStructId: 'struct-1' }
                 ]
@@ -465,7 +465,7 @@ describe('ErdDocument column struct integration', () => {
 
             const survivedStruct = nextDocument.findColumnStructModel('struct-1');
             expect(survivedStruct).not.toBeNull();
-            expect(survivedStruct?.columns).toEqual([
+            expect(survivedStruct?.columnEntries).toEqual([
                 { modelType: 'single', columnModelId: 'kept-member' }
             ]);
         });
@@ -476,12 +476,12 @@ describe('ErdDocument column struct integration', () => {
             const memberColumn = new ColumnModel({ columnModelId: 'member-1' });
             const structModel = new ColumnStructModel({
                 columnStructId: 'struct-1', physicalName: 'address',
-                columns: [{ modelType: 'single', columnModelId: 'member-1' }]
+                columnEntries: [{ modelType: 'single', columnModelId: 'member-1' }]
             });
             const tableModel = new TableModel({
                 tableModelId: 'table-1',
                 physicalName: 'users',
-                columns: [
+                columnEntries: [
                     { modelType: 'single', columnModelId: 'member-1' },
                     { modelType: 'struct', columnStructId: 'struct-1' }
                 ]
@@ -494,7 +494,7 @@ describe('ErdDocument column struct integration', () => {
 
             const nextTableModel = new TableModel({
                 ...tableModel,
-                columns: [{ modelType: 'struct', columnStructId: 'struct-1' }]
+                columnEntries: [{ modelType: 'struct', columnStructId: 'struct-1' }]
             });
             const nextTableView = new TableViewModel({
                 tableModel: nextTableModel,
@@ -506,24 +506,24 @@ describe('ErdDocument column struct integration', () => {
 
             const survivedStruct = nextDocument.findColumnStructModel('struct-1');
             expect(survivedStruct).not.toBeNull();
-            expect(survivedStruct?.columns).toEqual([]);
+            expect(survivedStruct?.columnEntries).toEqual([]);
         });
 
         test('deleteTable should clean struct references to columns owned by the deleted table', () => {
             const memberColumn = new ColumnModel({ columnModelId: 'member-1' });
             const structModel = new ColumnStructModel({
                 columnStructId: 'struct-1', physicalName: 'address',
-                columns: [{ modelType: 'single', columnModelId: 'member-1' }]
+                columnEntries: [{ modelType: 'single', columnModelId: 'member-1' }]
             });
             const ownerTable = new TableModel({
                 tableModelId: 'table-owner',
                 physicalName: 'owner',
-                columns: [{ modelType: 'single', columnModelId: 'member-1' }]
+                columnEntries: [{ modelType: 'single', columnModelId: 'member-1' }]
             });
             const structTable = new TableModel({
                 tableModelId: 'table-struct',
                 physicalName: 'users',
-                columns: [{ modelType: 'struct', columnStructId: 'struct-1' }]
+                columnEntries: [{ modelType: 'struct', columnStructId: 'struct-1' }]
             });
             const document = initDocument({
                 tableModels: [ownerTable, structTable],
@@ -535,7 +535,7 @@ describe('ErdDocument column struct integration', () => {
 
             const survivedStruct = nextDocument.findColumnStructModel('struct-1');
             expect(survivedStruct).not.toBeNull();
-            expect(survivedStruct?.columns).toEqual([]);
+            expect(survivedStruct?.columnEntries).toEqual([]);
         });
     });
 
@@ -545,12 +545,12 @@ describe('ErdDocument column struct integration', () => {
             const structModel = new ColumnStructModel({
                 columnStructId: 'struct-1', physicalName: 'address', logicalName: 'Address',
                 isArray: true, notNull: true,
-                columns: [{ modelType: 'single', columnModelId: 'member-1' }]
+                columnEntries: [{ modelType: 'single', columnModelId: 'member-1' }]
             });
             const tableModel = new TableModel({
                 tableModelId: 'table-1',
                 physicalName: 'users',
-                columns: [{ modelType: 'struct', columnStructId: 'struct-1' }]
+                columnEntries: [{ modelType: 'struct', columnStructId: 'struct-1' }]
             });
             const document = initDocument({
                 tableModels: [tableModel],
@@ -566,7 +566,7 @@ describe('ErdDocument column struct integration', () => {
         });
 
         test('should omit columnStructModels key when no struct models are registered', () => {
-            const tableModel = new TableModel({ tableModelId: 'table-1', physicalName: 'users', columns: [] });
+            const tableModel = new TableModel({ tableModelId: 'table-1', physicalName: 'users', columnEntries: [] });
             const document = initDocument({ tableModels: [tableModel] });
 
             const json = document.toJSON();

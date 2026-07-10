@@ -13,7 +13,7 @@ import ColumnStructModel from '~/models/database/ColumnStructModel';
 import { findDatabaseColumns } from '~/models/database/columns';
 import { DatabaseType } from '~/models/database/DatabaseType';
 import TableIndexModel, { IndexColumnModel } from '~/models/database/TableIndexModel';
-import TableModel, { ColumnModelType } from '~/models/database/TableModel';
+import TableModel, { ColumnEntry } from '~/models/database/TableModel';
 import TableUniqueKeysModel, { UniqueKeysColumnModel } from '~/models/database/TableUniqueKeysModel';
 import TableViewModel from '~/models/TableViewModel';
 
@@ -57,7 +57,7 @@ const buildSampleDocument = (databaseType: DatabaseType): ErdDocument => {
     const tableModel = new TableModel({
         tableModelId: 'table-sample',
         physicalName: 'sample_table',
-        columns: [{ modelType: 'single', columnModelId: idColumn.columnModelId }] as ColumnModelType[],
+        columnEntries: [{ modelType: 'single', columnModelId: idColumn.columnModelId }] as ColumnEntry[],
         uniqueKeysModels: [uniqueKeysModel],
         tableIndexModels: [tableIndexModel]
     });
@@ -100,16 +100,16 @@ const buildSampleDocumentWithStruct = (databaseType: DatabaseType): ErdDocument 
         logicalName: '住所',
         description: 'struct column for smoke test',
         notNull: true,
-        columns: []
+        columnEntries: []
     });
 
     const tableModel = new TableModel({
         tableModelId: 'table-sample-struct',
         physicalName: 'sample_table_struct',
-        columns: [
+        columnEntries: [
             { modelType: 'single', columnModelId: idColumn.columnModelId },
             { modelType: 'struct', columnStructId: structColumnModel.columnStructId }
-        ] as ColumnModelType[]
+        ] as ColumnEntry[]
     });
 
     const tableViewModel = new TableViewModel({

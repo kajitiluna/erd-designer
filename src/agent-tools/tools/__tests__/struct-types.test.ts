@@ -48,7 +48,7 @@ type DocumentFixtureOptions = {
     columnStructModels?: ColumnStructModel[];
     extraColumns?: ColumnModel[];
     extraColumnShares?: ColumnShareModel[];
-    tableColumns?: TableModel['columns'];
+    tableColumns?: TableModel['columnEntries'];
     // 既存の column1/column2 を引き継いで同一ドキュメント内で ID を一貫させたい場合に指定する。
     column1?: ColumnModel;
     column2?: ColumnModel;
@@ -72,7 +72,7 @@ const createTestDocument = (options: DocumentFixtureOptions = {}): {
     const tableModel = new TableModel({
         tableModelId: TEST_TABLE_ID,
         physicalName: 'test_table',
-        columns: options.tableColumns ?? [
+        columnEntries: options.tableColumns ?? [
             { modelType: 'single', columnModelId: column1.columnModelId },
             { modelType: 'single', columnModelId: column2.columnModelId },
         ]
@@ -200,7 +200,7 @@ describe('struct-types MCP tools', () => {
         test('list-column-structs で作成済み struct が一覧取得できる', async () => {
             const structModel = new ColumnStructModel({
                 physicalName: 'address',
-                columns: [{ modelType: 'single', columnModelId: column1.columnModelId }]
+                columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
             const fixture = createTestDocument({ column1, column2, columnStructModels: [structModel] });
             refreshBudget(fixture.erdDocument);
@@ -216,7 +216,7 @@ describe('struct-types MCP tools', () => {
         test('find-column-struct で詳細1件を取得できる', async () => {
             const structModel = new ColumnStructModel({
                 physicalName: 'address',
-                columns: [{ modelType: 'single', columnModelId: column1.columnModelId }]
+                columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
             const fixture = createTestDocument({ column1, column2, columnStructModels: [structModel] });
             refreshBudget(fixture.erdDocument);
@@ -232,7 +232,7 @@ describe('struct-types MCP tools', () => {
         test('update-column-struct で部分更新ができる', async () => {
             const structModel = new ColumnStructModel({
                 physicalName: 'address',
-                columns: [{ modelType: 'single', columnModelId: column1.columnModelId }]
+                columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
             const fixture = createTestDocument({ column1, column2, columnStructModels: [structModel] });
             refreshBudget(fixture.erdDocument);
@@ -252,7 +252,7 @@ describe('struct-types MCP tools', () => {
         test('delete-column-struct で struct を削除できる', async () => {
             const structModel = new ColumnStructModel({
                 physicalName: 'address',
-                columns: [{ modelType: 'single', columnModelId: column1.columnModelId }]
+                columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
             const fixture = createTestDocument({ column1, column2, columnStructModels: [structModel] });
             refreshBudget(fixture.erdDocument);
@@ -298,7 +298,7 @@ describe('struct-types MCP tools', () => {
             // struct A を作成後、update で A 自身を members に含めようとする
             const structA = new ColumnStructModel({
                 physicalName: 'struct_a',
-                columns: [{ modelType: 'single', columnModelId: column1.columnModelId }]
+                columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
             const fixture = createTestDocument({ column1, column2, columnStructModels: [structA] });
             refreshBudget(fixture.erdDocument);
@@ -317,11 +317,11 @@ describe('struct-types MCP tools', () => {
         test('A→B→A の間接循環はエラーになる', async () => {
             const structB = new ColumnStructModel({
                 physicalName: 'struct_b',
-                columns: [{ modelType: 'single', columnModelId: column1.columnModelId }]
+                columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
             const structA = new ColumnStructModel({
                 physicalName: 'struct_a',
-                columns: [{ modelType: 'struct', columnStructId: structB.columnStructId }]
+                columnEntries: [{ modelType: 'struct', columnStructId: structB.columnStructId }]
             });
             const fixture = createTestDocument({ column1, column2, columnStructModels: [structA, structB] });
             refreshBudget(fixture.erdDocument);
@@ -346,7 +346,7 @@ describe('struct-types MCP tools', () => {
         test('add-column-struct-to-table でテーブルに struct エントリを追加できる (position 指定)', async () => {
             const structModel = new ColumnStructModel({
                 physicalName: 'address',
-                columns: [{ modelType: 'single', columnModelId: column1.columnModelId }]
+                columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
             const fixture = createTestDocument({ column1, column2, columnStructModels: [structModel] });
             refreshBudget(fixture.erdDocument);
@@ -360,7 +360,7 @@ describe('struct-types MCP tools', () => {
             });
 
             const updatedTable = erdDocument.findTableViewModel(TEST_TABLE_ID)!;
-            expect(updatedTable.tableModel.columns[0]).toEqual({
+            expect(updatedTable.tableModel.columnEntries[0]).toEqual({
                 modelType: 'struct', columnStructId: structModel.columnStructId
             });
         });
@@ -368,7 +368,7 @@ describe('struct-types MCP tools', () => {
         test('add-column-struct-to-table で before 指定 (columnId anchor) が機能する', async () => {
             const structModel = new ColumnStructModel({
                 physicalName: 'address',
-                columns: [{ modelType: 'single', columnModelId: column1.columnModelId }]
+                columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
             const fixture = createTestDocument({ column1, column2, columnStructModels: [structModel] });
             refreshBudget(fixture.erdDocument);
@@ -382,7 +382,7 @@ describe('struct-types MCP tools', () => {
             });
 
             const updatedTable = erdDocument.findTableViewModel(TEST_TABLE_ID)!;
-            const columns = updatedTable.tableModel.columns;
+            const columns = updatedTable.tableModel.columnEntries;
             const structIndex = columns.findIndex(column => (column.modelType === 'struct'));
             const column2Index = columns.findIndex(column =>
                 (column.modelType === 'single') && (column.columnModelId === column2.columnModelId));
@@ -392,7 +392,7 @@ describe('struct-types MCP tools', () => {
         test('同一テーブルへの重複追加はエラーになる', async () => {
             const structModel = new ColumnStructModel({
                 physicalName: 'address',
-                columns: [{ modelType: 'single', columnModelId: column1.columnModelId }]
+                columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
             const fixture = createTestDocument({
                 column1, column2,
@@ -417,7 +417,7 @@ describe('struct-types MCP tools', () => {
         test('remove-column-struct-from-table でテーブルから struct エントリを除去できる (struct 自体は残る)', async () => {
             const structModel = new ColumnStructModel({
                 physicalName: 'address',
-                columns: [{ modelType: 'single', columnModelId: column1.columnModelId }]
+                columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
             const fixture = createTestDocument({
                 column1, column2,
@@ -437,7 +437,7 @@ describe('struct-types MCP tools', () => {
             });
 
             const updatedTable = erdDocument.findTableViewModel(TEST_TABLE_ID)!;
-            expect(updatedTable.tableModel.columns.some(column => (column.modelType === 'struct'))).toBe(false);
+            expect(updatedTable.tableModel.columnEntries.some(column => (column.modelType === 'struct'))).toBe(false);
             // struct モデル自体は残っている
             expect(erdDocument.findColumnStructModel(structModel.columnStructId)).not.toBeNull();
         });
@@ -447,7 +447,7 @@ describe('struct-types MCP tools', () => {
         test('struct エントリを移動できる', async () => {
             const structModel = new ColumnStructModel({
                 physicalName: 'address',
-                columns: [{ modelType: 'single', columnModelId: column1.columnModelId }]
+                columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
             const fixture = createTestDocument({
                 column1, column2,
@@ -470,7 +470,7 @@ describe('struct-types MCP tools', () => {
             });
 
             const updatedTable = erdDocument.findTableViewModel(TEST_TABLE_ID)!;
-            expect(updatedTable.tableModel.columns[0]).toEqual({
+            expect(updatedTable.tableModel.columnEntries[0]).toEqual({
                 modelType: 'struct', columnStructId: structModel.columnStructId
             });
         });
@@ -480,7 +480,7 @@ describe('struct-types MCP tools', () => {
         test('struct エントリが columnDefinitions に含まれる', async () => {
             const structModel = new ColumnStructModel({
                 physicalName: 'address',
-                columns: [{ modelType: 'single', columnModelId: column1.columnModelId }]
+                columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
             const fixture = createTestDocument({
                 column1, column2,

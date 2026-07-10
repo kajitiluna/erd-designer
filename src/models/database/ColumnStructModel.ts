@@ -1,16 +1,16 @@
 import { v4 as uuidV4 } from 'uuid';
 
-import { ColumnModelType, deserializeColumnEntries, serializeColumnEntries } from '~/models/database/TableModel';
+import { ColumnEntry, deserializeColumnEntries, serializeColumnEntries } from '~/models/database/TableModel';
 import { requireProperty } from "~/models/util";
 
 type ColumnStructModelOptions = {
     columnStructId?: string,
     physicalName?: string,
     logicalName?: string,
-    description?: string,
-    isArray?: boolean,
+    columnEntries?: readonly ColumnEntry[]
     notNull?: boolean,
-    columns?: readonly ColumnModelType[]
+    isArray?: boolean,
+    description?: string,
 }
 
 export default class ColumnStructModel {
@@ -18,22 +18,22 @@ export default class ColumnStructModel {
     public readonly columnStructId: string;
     public readonly physicalName: string;
     public readonly logicalName: string;
-    public readonly description: string;
-    public readonly isArray: boolean;
+    public readonly columnEntries: readonly ColumnEntry[];
     public readonly notNull: boolean;
-    public readonly columns: readonly ColumnModelType[];
+    public readonly isArray: boolean;
+    public readonly description: string;
 
     constructor({
-        columnStructId = "", physicalName = "", logicalName = "", description = "",
-        isArray = false, notNull = false, columns = []
+        columnStructId = "", physicalName = "", logicalName = "", columnEntries = [],
+        notNull = false, isArray = false, description = ""
     }: ColumnStructModelOptions) {
         this.columnStructId = columnStructId ? columnStructId : uuidV4();
         this.physicalName = physicalName.trim();
         this.logicalName = logicalName.trim();
-        this.description = description.trim();
-        this.isArray = isArray;
+        this.columnEntries = columnEntries;
         this.notNull = notNull;
-        this.columns = columns;
+        this.isArray = isArray;
+        this.description = description.trim();
     }
 
     /**
@@ -46,7 +46,7 @@ export default class ColumnStructModel {
     }
 
     public toJSON(): Record<string, unknown> {
-        const columnModelIds = serializeColumnEntries(this.columns);
+        const columnModelIds = serializeColumnEntries(this.columnEntries);
 
         return {
             columnStructId: this.columnStructId,
@@ -65,19 +65,19 @@ export default class ColumnStructModel {
         requireProperty(obj, "columnModelIds");
 
         const logicalName = ("logicalName" in obj) ? obj.logicalName as string : "";
-        const description = ("description" in obj) ? obj.description as string : "";
-        const isArray = ("isArray" in obj) ? obj.isArray as boolean : false;
+        const columnEntries = deserializeColumnEntries(obj.columnModelIds as string[]);
         const notNull = ("notNull" in obj) ? obj.notNull as boolean : false;
-        const columns = deserializeColumnEntries(obj.columnModelIds as string[]);
+        const isArray = ("isArray" in obj) ? obj.isArray as boolean : false;
+        const description = ("description" in obj) ? obj.description as string : "";
 
         return new ColumnStructModel({
             columnStructId: obj.columnStructId as string,
             physicalName: obj.physicalName as string,
             logicalName: logicalName,
-            description: description,
-            isArray: isArray,
+            columnEntries: columnEntries,
             notNull: notNull,
-            columns: columns
+            isArray: isArray,
+            description: description
         });
     }
 
@@ -101,12 +101,12 @@ export default class ColumnStructModel {
             return false;
         }
 
-        if (this.columns.length !== other.columns.length) {
+        if (this.columnEntries.length !== other.columnEntries.length) {
             return false;
         }
-        for (let index = 0; index < this.columns.length; index++) {
-            const thisColumn = this.columns[index];
-            const otherColumn = other.columns[index];
+        for (let index = 0; index < this.columnEntries.length; index++) {
+            const thisColumn = this.columnEntries[index];
+            const otherColumn = other.columnEntries[index];
             if (thisColumn.modelType !== otherColumn.modelType) {
                 return false;
             }

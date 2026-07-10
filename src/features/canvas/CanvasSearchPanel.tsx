@@ -12,10 +12,11 @@ import PortalCanvasContext from "~/context/PortalCanvasContext";
 import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { LocalSettingContext } from "~/context/LocalSettingContext";
 import { inOpenControlPanel } from "~/components/support";
-import ErdDocument from "~/models/ErdDocument";
+import ErdDocument, { ColumnDetailEntry } from "~/models/ErdDocument";
 import PerspectiveModel from "~/models/PerspectiveModel";
 import { overrideColumnName } from "~/models/database/support";
 import TableViewModel from "~/models/TableViewModel";
+import ColumnModel from "~/models/database/ColumnModel";
 
 const CanvasSearchPanel = () => {
     const documentsHolder = React.useContext(ErdDocumentsHolderContext);
@@ -526,7 +527,10 @@ const collectTableMatches = (
 
     const tableNameMatches = doCollectTableMatches(erdDocument, visibleTables, lowerTerm, searchTargets);
     const columnMatches = (searchTargets.onColumn === false) ? []
-        : visibleTables.flatMap(tableView => collectColumnMatches(erdDocument, tableView, lowerTerm));
+        : visibleTables.flatMap(tableView => {
+            const columnEntries = erdDocument.toColumnDetailEntries(tableView.tableModel);
+            return collectColumnMatches(erdDocument, tableView, columnEntries, lowerTerm);
+        });
 
     return [...tableNameMatches, ...columnMatches];
 };
@@ -558,33 +562,57 @@ const doCollectTableMatches = (
 };
 
 const collectColumnMatches = (
-    erdDocument: ErdDocument, tableView: TableViewModel, lowerTerm: string
+    erdDocument: ErdDocument, tableView: TableViewModel, columnEntries: ColumnDetailEntry[], lowerTerm: string
 ): SearchMatch[] => {
     const displayStyle = erdDocument.getDisplayStyle();
-    // TODO struct カラムの検索対応は別スコープ
-    const allColumns = erdDocument.toAllColumnModels(tableView.tableModel);
 
-    return allColumns.flatMap(column => {
-        const columnShareModel = erdDocument.findColumnShareModel(column.columnShareModelId);
-        if (columnShareModel == null) {
-            return [];
+    return columnEntries.flatMap(columnEntry => {
+        if (columnEntry.entryType === "column") {
+            return doCollectSingleColumnMatches(erdDocument, tableView, columnEntry.columnModel, lowerTerm);
         }
 
-        const overrideName = overrideColumnName(column, columnShareModel);
-        const columnDisplayName = displayStyle.displayName(overrideName.physicalName, overrideName.logicalName);
-        if (columnDisplayName.toLowerCase().includes(lowerTerm) === false) {
-            return [];
+        const structModel = columnEntry.structModel;
+        const displayStructName = displayStyle.displayName(structModel.physicalName, structModel.logicalName);
+
+        const innerMatches = collectColumnMatches(erdDocument, tableView, columnEntry.entries, lowerTerm);
+        if (displayStructName.toLowerCase().includes(lowerTerm) === false) {
+            return innerMatches;
         }
 
-        return [
-            {
-                matchType: "onColumn" as const,
-                entityId: tableView.tableId,
-                subEntityId: column.columnModelId,
-                position: { x: tableView.corner.left, y: tableView.corner.top },
-            }
-        ];
+        const matchedStruct = {
+            matchType: "onColumn" as const,
+            entityId: tableView.tableId,
+            subEntityId: structModel.columnStructId,
+            position: { x: tableView.corner.left, y: tableView.corner.top },
+        };
+
+        return [matchedStruct, ...innerMatches];
     });
+};
+
+const doCollectSingleColumnMatches = (
+    erdDocument: ErdDocument, tableView: TableViewModel, column: ColumnModel, lowerTerm: string
+) => {
+    const columnShare = erdDocument.findColumnShareModel(column.columnShareModelId);
+    if (columnShare == null) {
+        return [];
+    }
+
+    const overrideName = overrideColumnName(column, columnShare);
+    const displayStyle = erdDocument.getDisplayStyle();
+    const columnDisplayName = displayStyle.displayName(overrideName.physicalName, overrideName.logicalName);
+    if (columnDisplayName.toLowerCase().includes(lowerTerm) === false) {
+        return [];
+    }
+
+    return [
+        {
+            matchType: "onColumn" as const,
+            entityId: tableView.tableId,
+            subEntityId: column.columnModelId,
+            position: { x: tableView.corner.left, y: tableView.corner.top },
+        }
+    ];
 };
 
 const collectMemoMatches = (

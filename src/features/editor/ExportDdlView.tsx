@@ -162,7 +162,7 @@ const ExportDdlView = ({ documentsHolder, isViewOpen, onClose }: ExportDdlViewPr
 
 const initInvalidMessages = (erdDocument: ErdDocument) => {
     return erdDocument.getTableViewModels()
-        .filter(tableView => tableView.tableModel.columns.length === 0)
+        .filter(tableView => tableView.tableModel.columnEntries.length === 0)
         .map(tableView => `Table "${tableView.tableModel.physicalName}" has no columns.`);
 }
 

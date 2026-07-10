@@ -15,9 +15,9 @@ type ColumnTypeOptions = {
     arrayQueryTemplate?: string
 }
 
-const DEFAULT_ARRAY_QUERY_TEMPLATE = "[[TYPE]][]";
-
 type ColumnCategory = "integer" | "decimal" | "text" | "timestamp" | "bit" | "other";
+
+const DEFAULT_ARRAY_QUERY_TEMPLATE = "[[TYPE]][]";
 
 export default class ColumnType {
 

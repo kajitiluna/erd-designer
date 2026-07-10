@@ -10,7 +10,7 @@ import ColumnModel from "~/models/database/ColumnModel";
 import { Database } from "~/models/database";
 import { overrideColumnName } from "~/models/database/support";
 import TableIndexModel from "~/models/database/TableIndexModel";
-import TableModel, { ColumnModelType } from "~/models/database/TableModel";
+import TableModel, { ColumnEntry } from "~/models/database/TableModel";
 import ErdDocument from "~/models/ErdDocument";
 import TableViewModel from "~/models/TableViewModel";
 import TableUniqueKeysModel from "~/models/database/TableUniqueKeysModel";
@@ -96,7 +96,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             return;
         }
 
-        const columns: ColumnModelType[] = columnWrapModels.map(wrapModel => {
+        const columnEntries: ColumnEntry[] = columnWrapModels.map(wrapModel => {
             if (wrapModel.modelType === "single") {
                 return { modelType: "single", columnModelId: wrapModel.columnModel.columnModelId };
             }
@@ -106,6 +106,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
 
             return { modelType: "group", columnGroupId: wrapModel.columnGroupModel.columnGroupId };
         });
+
         const updatingColumnModels = columnWrapModels
             .flatMap(wrapModel => (wrapModel.modelType === "single") ? [wrapModel.columnModel] : []);
         const allColumnModelIds = new Set(columnWrapModels
@@ -130,7 +131,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             physicalName: physicalTableName,
             logicalName: logicalTableName,
             schemaId: schemaId,
-            columns: columns,
+            columnEntries: columnEntries,
             uniqueKeysModels: updatedUniqueKeys.tableUniqueKeysModels,
             tableIndexModels: updatedTableIndex.tableIndexModels,
             description: description,
@@ -318,7 +319,7 @@ If a column has an override physical name configured, specify that override name
 </>);
 
 const initColumnWrapModels = (erdDocument: ErdDocument, tableModel: TableModel): ColumnWrapModel[] => {
-    return tableModel.columns.flatMap((column): ColumnWrapModel[] => {
+    return tableModel.columnEntries.flatMap((column): ColumnWrapModel[] => {
         if (column.modelType === "single") {
             return [{
                 modelType: "single",

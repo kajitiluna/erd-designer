@@ -11,7 +11,7 @@ import ColumnShareModel from '~/models/database/ColumnShareModel';
 import { findDatabaseColumns } from '~/models/database/columns';
 import RelationModel from '~/models/database/RelationModel';
 import RelationPair from '~/models/database/RelationPair';
-import TableModel, { ColumnModelType } from '~/models/database/TableModel';
+import TableModel, { ColumnEntry } from '~/models/database/TableModel';
 import TableViewModel from '~/models/TableViewModel';
 import RelationViewModel from '~/models/RelationViewModel';
 import LineViewModel from '~/models/LineViewModel';
@@ -75,15 +75,15 @@ const buildFkSampleDocument = (databaseType: DatabaseType, integerTypeName: stri
     const parentTableModel = new TableModel({
         tableModelId: 'table-parent',
         physicalName: 'parent_table',
-        columns: [{ modelType: 'single', columnModelId: parentIdColumn.columnModelId }] as ColumnModelType[]
+        columnEntries: [{ modelType: 'single', columnModelId: parentIdColumn.columnModelId }] as ColumnEntry[]
     });
     const childTableModel = new TableModel({
         tableModelId: 'table-child',
         physicalName: 'child_table',
-        columns: [
+        columnEntries: [
             { modelType: 'single', columnModelId: childIdColumn.columnModelId },
             { modelType: 'single', columnModelId: childRefColumn.columnModelId }
-        ] as ColumnModelType[]
+        ] as ColumnEntry[]
     });
 
     const parentTableView = new TableViewModel({

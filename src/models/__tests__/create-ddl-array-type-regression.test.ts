@@ -9,7 +9,7 @@ import ErdSettingModel from '~/models/ErdSettingModel';
 import ColumnModel from '~/models/database/ColumnModel';
 import ColumnShareModel from '~/models/database/ColumnShareModel';
 import { findDatabaseColumns } from '~/models/database/columns';
-import TableModel, { ColumnModelType } from '~/models/database/TableModel';
+import TableModel, { ColumnEntry } from '~/models/database/TableModel';
 import TableViewModel from '~/models/TableViewModel';
 
 const TEST_COLORS = {
@@ -45,7 +45,7 @@ const buildArrayColumnDocument = (): ErdDocument => {
     const tableModel = new TableModel({
         tableModelId: 'table-item',
         physicalName: 'item',
-        columns: [{ modelType: 'single', columnModelId: tagsColumn.columnModelId }] as ColumnModelType[]
+        columnEntries: [{ modelType: 'single', columnModelId: tagsColumn.columnModelId }] as ColumnEntry[]
     });
 
     const tableView = new TableViewModel({

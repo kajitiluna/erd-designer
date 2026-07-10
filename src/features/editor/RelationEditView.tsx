@@ -32,7 +32,7 @@ const RelationEditView = ({
     const erdDocument: ErdDocument = documentsHolder.current();
 
     const relationModel: RelationModel = relationViewModel.relationModel;
-    const parentPrimaryColumns: ColumnModel[] = erdDocument.toAllColumnModels(parentTableModel)
+    const parentPrimaryColumns: ColumnModel[] = erdDocument.toAllColumnsExceptStruct(parentTableModel)
         .filter(columnModel => columnModel.primaryKey);
 
     const [relationName, setRelationName] = React.useState<string>(relationModel.relationName);
@@ -177,7 +177,7 @@ const RelationReferencesPanel = ({
 }: RelationReferencesPanelProps) => {
 
     const displayStyle = erdDocument.getDisplayStyle();
-    const childColumnDetails = erdDocument.toAllColumnModels(childTableModel)
+    const childColumnDetails = erdDocument.toAllColumnsExceptStruct(childTableModel)
         .map(columnModel => {
             const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
             if (columnShareModel == null) {

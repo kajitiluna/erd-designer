@@ -11,7 +11,7 @@ import {
     McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs
 } from "~/agent-tools/tools/support";
 import ColumnStructModel from "~/models/database/ColumnStructModel";
-import TableModel, { ColumnModelType } from "~/models/database/TableModel";
+import TableModel, { ColumnEntry } from "~/models/database/TableModel";
 import ErdDocument from "~/models/ErdDocument";
 import TableViewModel from "~/models/TableViewModel";
 
@@ -270,20 +270,20 @@ const initCallbackForCreateColumnStruct = (
         const { erdBudget, erdDocument: previousDocument } = findDocument(documentResource, documentId);
         validateSupportsStructType(previousDocument);
 
-        const columns = toColumnEntries(previousDocument, structInput.columns);
+        const columnEntries = toColumnEntries(previousDocument, structInput.columns);
 
         const newStruct = new ColumnStructModel({
             physicalName: structInput.columnName.physical,
             logicalName: structInput.columnName.logical ?? "",
             isArray: structInput.isArray ?? false,
             notNull: structInput.notNull ?? false,
-            columns: columns,
+            columnEntries: columnEntries,
             description: structInput.description ?? ""
         });
 
         validateNoStructCycle(previousDocument, newStruct);
 
-        const nextDocument = previousDocument.updateColumnStruct(newStruct, []);
+        const nextDocument = previousDocument.updateColumnStruct(newStruct);
         documentResource.notify(documentId, nextDocument);
 
         const response = toColumnStructDetail(erdBudget, newStruct);
@@ -355,7 +355,7 @@ const initCallbackForUpdateColumnStruct = (
 
         const nextColumns = (structInput.columns != null)
             ? toColumnEntries(previousDocument, structInput.columns)
-            : previousStruct.columns;
+            : previousStruct.columnEntries;
 
         const nextStruct = new ColumnStructModel({
             columnStructId: previousStruct.columnStructId,
@@ -363,13 +363,13 @@ const initCallbackForUpdateColumnStruct = (
             logicalName: structInput.columnName?.logical ?? previousStruct.logicalName,
             isArray: structInput.isArray ?? previousStruct.isArray,
             notNull: structInput.notNull ?? previousStruct.notNull,
-            columns: nextColumns,
+            columnEntries: nextColumns,
             description: structInput.description ?? previousStruct.description
         });
 
         validateNoStructCycle(previousDocument, nextStruct);
 
-        const nextDocument = previousDocument.updateColumnStruct(nextStruct, []);
+        const nextDocument = previousDocument.updateColumnStruct(nextStruct);
         documentResource.notify(documentId, nextDocument);
 
         const response = toColumnStructDetail(erdBudget, nextStruct);
@@ -505,7 +505,7 @@ const initCallbackForAddColumnStructToTable = (
             throw initResourceNotFound(url);
         }
 
-        const previousColumns = previousTableView.tableModel.columns;
+        const previousColumns = previousTableView.tableModel.columnEntries;
         const alreadyAdded = previousColumns.some(column =>
             (column.modelType === "struct") && (column.columnStructId === columnStructId));
         if (alreadyAdded) {
@@ -521,7 +521,7 @@ const initCallbackForAddColumnStructToTable = (
             ...previousTableView,
             tableModel: new TableModel({
                 ...previousTableView.tableModel,
-                columns: nextColumns
+                columnEntries: nextColumns
             })
         });
 
@@ -542,7 +542,7 @@ const initCallbackForAddColumnStructToTable = (
 };
 
 const calculateStructTargetIndex = (
-    columns: readonly ColumnModelType[], position: StructPositionType
+    columns: readonly ColumnEntry[], position: StructPositionType
 ): number => {
     if ("columnId" in position) {
         const columnIdToIndex = (columnId: string) => columns
@@ -613,14 +613,14 @@ const initCallbackForRemoveColumnStructFromTable = (
         const { erdBudget, erdDocument: previousDocument, tableView: previousTableView } =
             findDocumentAndTable(documentResource, documentId, tableId);
 
-        const nextColumns = previousTableView.tableModel.columns
+        const nextColumns = previousTableView.tableModel.columnEntries
             .filter(column => (column.modelType !== "struct") || (column.columnStructId !== columnStructId));
 
         const updatingTable = new TableViewModel({
             ...previousTableView,
             tableModel: new TableModel({
                 ...previousTableView.tableModel,
-                columns: nextColumns
+                columnEntries: nextColumns
             })
         });
 
@@ -651,13 +651,14 @@ const validateSupportsStructType = (erdDocument: ErdDocument): void => {
 
 const toColumnEntries = (
     erdDocument: ErdDocument, refs: z.infer<typeof columnEntryRefSchema>[]
-): ColumnModelType[] => {
+): ColumnEntry[] => {
     return refs.map(ref => {
         if ("columnId" in ref) {
             const column = erdDocument.findColumnModel(ref.columnId);
             if (column == null) {
                 throw initInvalidParams(`Column not found: ${ref.columnId}`);
             }
+
             return { modelType: "single" as const, columnModelId: ref.columnId };
         }
 
@@ -666,6 +667,7 @@ const toColumnEntries = (
             if (columnGroup == null) {
                 throw initInvalidParams(`Column group not found: ${ref.columnGroupId}`);
             }
+
             return { modelType: "group" as const, columnGroupId: ref.columnGroupId };
         }
 
@@ -673,6 +675,7 @@ const toColumnEntries = (
         if (columnStruct == null) {
             throw initInvalidParams(`Column struct not found: ${ref.columnStructId}`);
         }
+
         return { modelType: "struct" as const, columnStructId: ref.columnStructId };
     });
 };
@@ -719,7 +722,7 @@ const findStructCycle = (erdDocument: ErdDocument, updatingStruct: ColumnStructM
         }
 
         visiting.add(columnStructId);
-        const hasCycle = structModel.columns.some(column =>
+        const hasCycle = structModel.columnEntries.some(column =>
             (column.modelType === "struct") && visit(column.columnStructId));
         visiting.delete(columnStructId);
 
@@ -744,7 +747,7 @@ const doFindDocumentAndColumnStruct = (
 };
 
 const toColumnStructDetail = (erdBudget: DocumentBudget, structModel: ColumnStructModel) => {
-    const columns = structModel.columns.map(column => toColumnEntrySummary(erdBudget, column));
+    const columns = structModel.columnEntries.map(column => toColumnEntrySummary(erdBudget, column));
 
     return {
         uri: erdBudget.columnStructUri(structModel.columnStructId),
@@ -760,7 +763,7 @@ const toColumnStructDetail = (erdBudget: DocumentBudget, structModel: ColumnStru
     };
 };
 
-const toColumnEntrySummary = (erdBudget: DocumentBudget, column: ColumnModelType) => {
+const toColumnEntrySummary = (erdBudget: DocumentBudget, column: ColumnEntry) => {
     if (column.modelType === "group") {
         return {
             modelType: "group" as const,

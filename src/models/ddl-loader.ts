@@ -18,7 +18,7 @@ import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
 import ColumnModel from '~/models/database/ColumnModel';
 import TableIndexModel from '~/models/database/TableIndexModel';
-import TableModel, { ColumnModelType } from '~/models/database/TableModel';
+import TableModel, { ColumnEntry } from '~/models/database/TableModel';
 import RelationPair from '~/models/database/RelationPair';
 import RelationModel from '~/models/database/RelationModel';
 import { NullsOrderType, SortOrderType } from '~/models/database/ValueType';
@@ -590,15 +590,19 @@ const loadCreateColumnDefinition = (
             + "Reading STRUCT columns from DDL is not supported.")];
     }
 
-    const { columnType, isArray } = doResolveColumnTypeAndArray(dataType);
+    const { columnType, isArray } = resolveColumnType(dataType);
     if (columnType == null) {
         return [null, fail(`Unsupported ARRAY column definition at position ${index + 1}. `
             + `create_definitions[${index}].definition : ${JSON.stringify(dataType)}`)];
     }
+    if (columnType.toUpperCase() === "STRUCT") {
+        return [null, skip(`Column "${columnName}" has an unsupported ARRAY<STRUCT<...>> type at position ${index + 1}. `
+            + "Reading STRUCT columns from DDL is not supported.")];
+    }
+
     const timezone = (dataType.suffix && (dataType.suffix.length === 3)
         && (dataType.suffix[1] === "TIME") && (dataType.suffix[2] === "ZONE"))
-        ? ((dataType.suffix[0] === "WITH") ? "with time zone" : "without time zone")
-        : "";
+        ? ((dataType.suffix[0] === "WITH") ? "with time zone" : "without time zone") : "";
     const unsigned = (dataType.suffix && (dataType.suffix.length === 1) && (dataType.suffix[0] === "UNSIGNED")) || false;
     const zeroFill = (dataType.suffix && (dataType.suffix.length === 1) && (dataType.suffix[0] === "ZEROFILL")) || false;
     const precision = dataType.length || null;
@@ -648,7 +652,7 @@ const loadCreateColumnDefinition = (
     ];
 };
 
-const doResolveColumnTypeAndArray = (
+const resolveColumnType = (
     dataType: DataType
 ): { columnType: string | null, isArray: boolean } => {
     if (dataType.dataType === "ARRAY") {
@@ -1480,7 +1484,7 @@ const doInitTableModels = (database: Database, tableDefinitions: DdlTableDefinit
         const [logicalName, description] = parseComment(tableDefinition.comment, separator);
         const logicalTableName = (logicalName !== "") ? logicalName : physicalTableName;
 
-        const columnModelTypes = tableDefinition.columnDefinitions.map(columnDefinition => {
+        const columnEntries = tableDefinition.columnDefinitions.map(columnDefinition => {
             const columnShareModel = columnDefinition.columnShareModel;
 
             columnShareModels.push(columnShareModel);
@@ -1498,7 +1502,7 @@ const doInitTableModels = (database: Database, tableDefinitions: DdlTableDefinit
             return {
                 modelType: "single",
                 columnModelId: columnModel.columnModelId,
-            } as ColumnModelType;
+            } as ColumnEntry;
         });
 
         const uniqueKeysModels = tableDefinition.tableIndexDefinitions
@@ -1547,7 +1551,7 @@ const doInitTableModels = (database: Database, tableDefinitions: DdlTableDefinit
             tableModelId: uuidV4(),
             physicalName: physicalTableName,
             logicalName: logicalTableName,
-            columns: columnModelTypes,
+            columnEntries: columnEntries,
             uniqueKeysModels: uniqueKeysModels,
             tableIndexModels: tableIndexModels,
             description: description,

@@ -1,4 +1,4 @@
-import ErdDocument, { TableDisplayEntry } from "~/models/ErdDocument";
+import ErdDocument, { ColumnDetailEntry } from "~/models/ErdDocument";
 import DisplayStyle from "~/models/database/DisplayStyle";
 import TableModel from "~/models/database/TableModel";
 import download from "~/components/file-downloader";
@@ -82,97 +82,13 @@ const BORDER_RADIUS = 10;
 const FALLBACK_HEADER_H = 28;
 const FALLBACK_ROW_H = 24;
 
-type ColumnRowContext = {
-  erdDocument: ErdDocument,
-  displayStyle: DisplayStyle,
-  tableModel: TableModel,
-  tableWidth: number,
-  fkColumnIds: Set<string>,
-  pkColumnWidth: number,
-  fkColumnWidth: number,
-  nameColumnWidth: number,
-  typeColumnWidth: number
-};
-
-const initColumnSvgRow = (
-  entry: Extract<TableDisplayEntry, { entryType: "column" }>, context: ColumnRowContext, textY: number
-) => {
-  const { erdDocument, displayStyle, tableModel, fkColumnIds, pkColumnWidth, fkColumnWidth, nameColumnWidth, typeColumnWidth } = context;
-  const columnModel = entry.columnModel;
-
-  const shareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
-  if (shareModel == null) {
-    return null;
-  }
-
-  const { physicalName, logicalName } = overrideColumnName(columnModel, shareModel);
-  const columnName = displayStyle.displayName(physicalName, logicalName);
-  const inRelation = erdDocument.inChildRelation(tableModel.tableModelId, columnModel.columnModelId);
-  const columnType = shareModel.specifiedColumnType(inRelation);
-
-  let xOffset = COL_PAD;
-  const pkIcon = (columnModel.primaryKey === false) ? ""
-    : `<text x="${xOffset + 2}" y="${textY}" fill="#90292F" font-size="10" font-family="monospace">PK</text>`;
-  xOffset += pkColumnWidth;
-
-  const fkIcon = (fkColumnIds.has(columnModel.columnModelId) === false) ? ""
-    : `<text x="${xOffset + 2}" y="${textY}" fill="#212490" font-size="10" font-family="monospace">FK</text>`;
-  xOffset += fkColumnWidth;
-
-  const nameColor = columnModel.primaryKey ? "#90292F" : (
-    (fkColumnIds.has(columnModel.columnModelId) ? "#212490" : "#333")
-  );
-  const nameEl = `<text x="${xOffset}" y="${textY}" fill="${nameColor}" font-size="${FONT_SIZE}" ` +
-    `font-family="sans-serif">${escapeSvg(columnName)}</text>`;
-  xOffset += nameColumnWidth;
-
-  const typeEl = `<text x="${xOffset}" y="${textY}" fill="#666" font-size="11" ` +
-    `font-family="sans-serif">${escapeSvg(columnType)}</text>`;
-  xOffset += typeColumnWidth;
-
-  const options = [(columnModel.notNull ? "NN" : null), (columnModel.unique ? "U" : null)]
-    .filter(option => option !== null);
-  const optEl = (options.length === 0) ? ""
-    : `<text x="${xOffset}" y="${textY}" fill="#888" font-size="11" font-family="sans-serif">` +
-    `${escapeSvg(options.join(", "))}</text>`;
-
-  return pkIcon + fkIcon + nameEl + typeEl + optEl;
-};
-
-const initStructColumnSvgRow = (
-  entry: Extract<TableDisplayEntry, { entryType: "struct" }>, context: ColumnRowContext, textY: number
-) => {
-  const { displayStyle, pkColumnWidth, fkColumnWidth, nameColumnWidth, typeColumnWidth } = context;
-  const columnStructModel = entry.columnStructModel;
-
-  const columnName = displayStyle.displayName(columnStructModel.physicalName, columnStructModel.logicalName);
-  const columnType = columnStructModel.displayTypeQuery();
-
-  let xOffset = COL_PAD;
-  xOffset += pkColumnWidth;
-  xOffset += fkColumnWidth;
-
-  const nameEl = `<text x="${xOffset}" y="${textY}" fill="#333" font-size="${FONT_SIZE}" ` +
-    `font-family="sans-serif">${escapeSvg(columnName)}</text>`;
-  xOffset += nameColumnWidth;
-
-  const typeEl = `<text x="${xOffset}" y="${textY}" fill="#666" font-size="11" ` +
-    `font-family="sans-serif">${escapeSvg(columnType)}</text>`;
-  xOffset += typeColumnWidth;
-
-  const optEl = (columnStructModel.notNull === false) ? ""
-    : `<text x="${xOffset}" y="${textY}" fill="#888" font-size="11" font-family="sans-serif">NN</text>`;
-
-  return nameEl + typeEl + optEl;
-};
-
 const initTableSvg = (erdDocument: ErdDocument) => {
   const tableViewModels = erdDocument.getTableViewModels();
   const displayStyle = erdDocument.getDisplayStyle();
 
   const tableElements = tableViewModels.map(tableView => {
     const tableModel = tableView.tableModel;
-    const displayEntries = erdDocument.toDisplayColumnEntries(tableModel);
+    const columnEntries = erdDocument.toColumnDetailEntries(tableModel);
     const tableName = displayStyle.displayName(tableModel.physicalName, tableModel.logicalName);
 
     const tableDom = document.getElementById(tableView.tableId);
@@ -195,9 +111,7 @@ const initTableSvg = (erdDocument: ErdDocument) => {
     const headerHeight = tableHeaderDom ? tableHeaderDom.offsetHeight : FALLBACK_HEADER_H;
 
     const tableTrDom = tableDom.querySelectorAll("tr");
-    const rowHeights: number[] = (tableTrDom.length > 0)
-      ? Array.from(tableTrDom).map(rowDom => rowDom.offsetHeight)
-      : Array(displayEntries.length).fill(FALLBACK_ROW_H);
+    const rowHeightById = initRowHeightById(tableTrDom);
 
     const cellDoms = (tableTrDom.length > 0) ? tableTrDom[0].querySelectorAll("td") : null;
     const pkColumnWidth = (cellDoms && (cellDoms.length >= 1)) ? cellDoms[0].offsetWidth : 20;
@@ -210,10 +124,12 @@ const initTableSvg = (erdDocument: ErdDocument) => {
       pkColumnWidth, fkColumnWidth, nameColumnWidth, typeColumnWidth
     };
 
-    const { svgText: svgColumns } = displayEntries.reduce((acc, entry, indexColumn) => {
-      const columnRowHeight = rowHeights[indexColumn] ?? FALLBACK_ROW_H;
+    const { svgText: svgColumns } = columnEntries.reduce((acc, entry) => {
+      const entryId = (entry.entryType === "struct")
+        ? entry.structModel.columnStructId : entry.columnModel.columnModelId;
+      const columnRowHeight = rowHeightById.get(entryId) ?? FALLBACK_ROW_H;
       const textY = acc.height + columnRowHeight * 0.68;
-      const separator = (indexColumn === 0) ? ""
+      const separator = (acc.svgText === "") ? ""
         : `<line x1="1" y1="${acc.height}" x2="${tableWidth - 1}" y2="${acc.height}" stroke="#e0e0e0" stroke-width="0.5"/>`;
 
       const rowSvgText = (entry.entryType === "struct")
@@ -258,6 +174,106 @@ const initTableSvg = (erdDocument: ErdDocument) => {
 
     return { svgTables: [...acc.svgTables, svgTable], location: nextLocation };
   }, { svgTables: [] as string[], location: INIT_LOCATION });
+};
+
+// 描画された <tr> の実高さを、カラム/struct の ID をキーに引けるようにする。
+// columnEntries の配列位置と実際の <tr> 数は、共有モデル欠損などで描画がスキップされた行がある場合にずれるため、
+// 配列位置ではなく ID で対応付ける。
+const initRowHeightById = (tableTrDom: NodeListOf<HTMLTableRowElement>): Map<string, number> => {
+  const rowHeightEntries = Array.from(tableTrDom)
+    .map((rowDom): readonly [string, number] | null => {
+      const rowId = rowDom.getAttribute("data-column-id") ?? rowDom.getAttribute("data-column-struct-id");
+      return (rowId != null) ? [rowId, rowDom.offsetHeight] : null;
+    })
+    .filter((rowHeightEntry): rowHeightEntry is readonly [string, number] => (rowHeightEntry != null));
+
+  return new Map(rowHeightEntries);
+};
+
+const initStructColumnSvgRow = (
+  entry: Extract<ColumnDetailEntry, { entryType: "struct" }>, context: ColumnRowContext, textY: number
+) => {
+  const { displayStyle, pkColumnWidth, fkColumnWidth, nameColumnWidth, typeColumnWidth } = context;
+  const columnStructModel = entry.structModel;
+
+  const columnName = displayStyle.displayName(columnStructModel.physicalName, columnStructModel.logicalName);
+  const columnType = columnStructModel.displayTypeQuery();
+
+  let xOffset = COL_PAD;
+  xOffset += pkColumnWidth;
+  xOffset += fkColumnWidth;
+
+  const nameEl = `<text x="${xOffset}" y="${textY}" fill="#333" font-size="${FONT_SIZE}" ` +
+    `font-family="sans-serif">${escapeSvg(columnName)}</text>`;
+  xOffset += nameColumnWidth;
+
+  const typeEl = `<text x="${xOffset}" y="${textY}" fill="#666" font-size="11" ` +
+    `font-family="sans-serif">${escapeSvg(columnType)}</text>`;
+  xOffset += typeColumnWidth;
+
+  const optEl = (columnStructModel.notNull === false) ? ""
+    : `<text x="${xOffset}" y="${textY}" fill="#888" font-size="11" font-family="sans-serif">NN</text>`;
+
+  return nameEl + typeEl + optEl;
+};
+
+type ColumnRowContext = {
+  erdDocument: ErdDocument,
+  displayStyle: DisplayStyle,
+  tableModel: TableModel,
+  tableWidth: number,
+  fkColumnIds: Set<string>,
+  pkColumnWidth: number,
+  fkColumnWidth: number,
+  nameColumnWidth: number,
+  typeColumnWidth: number
+};
+
+const initColumnSvgRow = (
+  entry: Extract<ColumnDetailEntry, { entryType: "column" }>, context: ColumnRowContext, textY: number
+) => {
+  const {
+    erdDocument, displayStyle, tableModel, fkColumnIds, pkColumnWidth, fkColumnWidth, nameColumnWidth, typeColumnWidth
+  } = context;
+  const columnModel = entry.columnModel;
+
+  const shareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
+  if (shareModel == null) {
+    return null;
+  }
+
+  const { physicalName, logicalName } = overrideColumnName(columnModel, shareModel);
+  const columnName = displayStyle.displayName(physicalName, logicalName);
+  const inRelation = erdDocument.inChildRelation(tableModel.tableModelId, columnModel.columnModelId);
+  const columnType = shareModel.specifiedColumnType(inRelation);
+
+  let xOffset = COL_PAD;
+  const pkIcon = (columnModel.primaryKey === false) ? ""
+    : `<text x="${xOffset + 2}" y="${textY}" fill="#90292F" font-size="10" font-family="monospace">PK</text>`;
+  xOffset += pkColumnWidth;
+
+  const fkIcon = (fkColumnIds.has(columnModel.columnModelId) === false) ? ""
+    : `<text x="${xOffset + 2}" y="${textY}" fill="#212490" font-size="10" font-family="monospace">FK</text>`;
+  xOffset += fkColumnWidth;
+
+  const nameColor = columnModel.primaryKey ? "#90292F" : (
+    (fkColumnIds.has(columnModel.columnModelId) ? "#212490" : "#333")
+  );
+  const nameEl = `<text x="${xOffset}" y="${textY}" fill="${nameColor}" font-size="${FONT_SIZE}" ` +
+    `font-family="sans-serif">${escapeSvg(columnName)}</text>`;
+  xOffset += nameColumnWidth;
+
+  const typeEl = `<text x="${xOffset}" y="${textY}" fill="#666" font-size="11" ` +
+    `font-family="sans-serif">${escapeSvg(columnType)}</text>`;
+  xOffset += typeColumnWidth;
+
+  const options = [(columnModel.notNull ? "NN" : null), (columnModel.unique ? "U" : null)]
+    .filter(option => option !== null);
+  const optEl = (options.length === 0) ? ""
+    : `<text x="${xOffset}" y="${textY}" fill="#888" font-size="11" font-family="sans-serif">` +
+    `${escapeSvg(options.join(", "))}</text>`;
+
+  return pkIcon + fkIcon + nameEl + typeEl + optEl;
 };
 
 const initMemoSvg = (erdDocument: ErdDocument) => {

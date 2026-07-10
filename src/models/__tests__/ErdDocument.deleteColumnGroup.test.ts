@@ -43,12 +43,12 @@ describe('ErdDocument.deleteColumnGroup', () => {
     const parentTableModel = new TableModel({
         tableModelId: 'table-parent',
         physicalName: 'parent_table',
-        columns: [{ modelType: 'single', columnModelId: 'parent-pk-col' }]
+        columnEntries: [{ modelType: 'single', columnModelId: 'parent-pk-col' }]
     });
     const childTableModel = new TableModel({
         tableModelId: 'table-child',
         physicalName: 'child_table',
-        columns: [
+        columnEntries: [
             { modelType: 'single', columnModelId: 'child-own-col' },
             { modelType: 'group', columnGroupId: 'group-1' }
         ]
@@ -110,7 +110,7 @@ describe('ErdDocument.deleteColumnGroup', () => {
 
         const childTableView = nextDocument.findTableViewModel('table-child');
         expect(childTableView).not.toBeNull();
-        expect(childTableView?.tableModel.columns).toHaveLength(1);
+        expect(childTableView?.tableModel.columnEntries).toHaveLength(1);
         expect(nextDocument.findColumnGroupModel('group-1')).toBeNull();
         expect(nextDocument.findColumnModel('group-member-col')).toBeNull();
     });
@@ -126,7 +126,7 @@ describe('ErdDocument.deleteColumnGroup', () => {
         const groupedParentTableModel = new TableModel({
             tableModelId: 'table-grouped-parent',
             physicalName: 'grouped_parent_table',
-            columns: [
+            columnEntries: [
                 { modelType: 'single', columnModelId: 'parent-pk-col' },
                 { modelType: 'group', columnGroupId: 'group-pk' }
             ]

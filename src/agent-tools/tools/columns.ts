@@ -551,7 +551,7 @@ const initCallbackForAddColumnsToTable = (
         const { erdBudget, erdDocument: previousDocument, tableView: previousTableView } =
             findDocumentAndTable(documentResource, documentId, tableId);
 
-        const nextColumns = [...previousTableView.tableModel.columns];
+        const nextColumns = [...previousTableView.tableModel.columnEntries];
         const columnIdToIndexMap = new Map(nextColumns.flatMap((column, index) =>
             (column.modelType === "single") ? [[column.columnModelId, index]] : []));
         const columnGroupIdToIndexMap = new Map(nextColumns.flatMap((column, index) =>
@@ -580,7 +580,7 @@ const initCallbackForAddColumnsToTable = (
             })
         );
 
-        const updatingColumnModels = previousTableView.tableModel.columns
+        const updatingColumnModels = previousTableView.tableModel.columnEntries
             .flatMap(column => {
                 if (column.modelType !== "single") {
                     return [];
@@ -598,7 +598,7 @@ const initCallbackForAddColumnsToTable = (
             ...previousTableView,
             tableModel: new TableModel({
                 ...previousTableView.tableModel,
-                columns: nextColumns
+                columnEntries: nextColumns
             })
         });
 
@@ -1073,7 +1073,7 @@ const initReorderColumnsInTable = (
         const { erdBudget, erdDocument: previousDocument, tableView: previousTableView } =
             findDocumentAndTable(documentResource, documentId, tableId);
 
-        const nextColumns = [...previousTableView.tableModel.columns];
+        const nextColumns = [...previousTableView.tableModel.columnEntries];
 
         reorders.forEach(reorder => {
             // 移動するカラム/カラムグループの現在位置を特定して削除
@@ -1124,7 +1124,7 @@ const initReorderColumnsInTable = (
             ...previousTableView,
             tableModel: new TableModel({
                 ...previousTableView.tableModel,
-                columns: nextColumns
+                columnEntries: nextColumns
             })
         });
 
@@ -1206,7 +1206,7 @@ const initCallbackForRemoveColumnsFromTable = (
             findDocumentAndTable(documentResource, documentId, tableId);
 
         const deletingColumnIds = new Set(columnIds);
-        const nextColumns = previousTableView.tableModel.columns
+        const nextColumns = previousTableView.tableModel.columnEntries
             .filter(column => {
                 if (column.modelType !== "single") {
                     return true;
@@ -1232,7 +1232,7 @@ const initCallbackForRemoveColumnsFromTable = (
             ...previousTableView,
             tableModel: new TableModel({
                 ...previousTableView.tableModel,
-                columns: nextColumns
+                columnEntries: nextColumns
             })
         });
 
