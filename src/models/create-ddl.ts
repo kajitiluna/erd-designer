@@ -144,8 +144,10 @@ class DatabaseDdlCreator {
             const tableQuery = `${this.tableQuery(tableModel, schemaModel, tableDefinition.columnQueries, option)};\n`;
             const warningComments = tableDefinition.suppressedUniqueWarnings
                 .map(warning => `-- ${tableModel.physicalName}: UNIQUE constraint is not supported: (${warning.join(", ")})\n`);
+            const structWarningComments = tableDefinition.structColumnWarnings
+                .map(warning => `-- ${warning}\n`);
 
-            return [tableQuery, ...warningComments].join("");
+            return [tableQuery, ...warningComments, ...structWarningComments].join("");
         });
 
         return (queries.length > 0) ? ["/* create tables. */", ...queries, ""] : [];
@@ -177,13 +179,18 @@ class DatabaseDdlCreator {
         const database = erdDocument.getDatabase();
         const columnResults = columnPairs.map(columnPair => {
             const { columnModel, columnShareModel, inChildRelation } = columnPair;
-            return this.columnQuery(columnModel, columnShareModel, inChildRelation, database, option);
+            return this.columnQuery(erdDocument, tableModel, columnModel, columnShareModel, inChildRelation, database, option);
         });
-        const columnQueries = columnResults.map(columnResult => columnResult.query);
+        const columnQueries = columnResults
+            .map(columnResult => columnResult.query)
+            .filter(query => (query != null));
         const columnUniqueWarnings = columnResults
             .map(columnResult => columnResult.suppressedUniqueColumnName)
             .filter(columnName => (columnName != null))
             .map(columnName => [columnName]);
+        const structColumnWarnings = columnResults
+            .map(columnResult => columnResult.structWarning)
+            .filter(structWarning => (structWarning != null));
 
         const primaryKeys = columnPairs
             .filter(columnPair => (columnPair.columnModel.primaryKey === true))
@@ -215,7 +222,11 @@ class DatabaseDdlCreator {
             columnQueries.push(tableModel.definitionExpression);
         }
 
-        return { columnQueries, suppressedUniqueWarnings: [...columnUniqueWarnings, ...tableUniqueWarnings] };
+        return {
+            columnQueries,
+            suppressedUniqueWarnings: [...columnUniqueWarnings, ...tableUniqueWarnings],
+            structColumnWarnings
+        };
     }
 
     private initTableCheckExpression(checkExpression: string, columnPairs: ColumnModelPair[]): string {
@@ -230,10 +241,38 @@ class DatabaseDdlCreator {
     }
 
     private columnQuery(
-        columnModel: ColumnModel, columnShareModel: ColumnShareModel, inChildRelation: boolean,
+        erdDocument: ErdDocument, tableModel: TableModel, columnModel: ColumnModel, columnShareModel: ColumnShareModel,
+        inChildRelation: boolean, database: Database, option: DdlOption
+    ): ColumnQueryResult {
+        const overrideName = overrideColumnName(columnModel, columnShareModel);
+
+        if (columnShareModel.columnType.withStructFields === true) {
+            const structTypeResult = resolveStructColumnTypeQuery(
+                erdDocument, columnShareModel, (value: string) => this.escape(value), new Set()
+            );
+
+            if (structTypeResult.ok === false) {
+                const columnLabel = `${tableModel.physicalName}.${overrideName.physicalName}`;
+                return {
+                    query: null,
+                    suppressedUniqueColumnName: null,
+                    structWarning: `WARNING: column ${columnLabel} skipped (${structTypeResult.reason})`
+                };
+            }
+
+            return this.finalizeColumnQuery(columnModel, columnShareModel, overrideName, structTypeResult.typeQuery, database, option);
+        }
+
+        return this.finalizeColumnQuery(
+            columnModel, columnShareModel, overrideName, columnShareModel.specifiedColumnType(inChildRelation), database, option
+        );
+    }
+
+    private finalizeColumnQuery(
+        columnModel: ColumnModel, columnShareModel: ColumnShareModel, overrideName: OverrideName, typeQuery: string,
         database: Database, option: DdlOption
     ): ColumnQueryResult {
-        const attributes = [columnShareModel.specifiedColumnType(inChildRelation)];
+        const attributes = [typeQuery];
 
         const characterSet = columnShareModel.characterSet(database);
         if (characterSet !== "") {
@@ -257,7 +296,6 @@ class DatabaseDdlCreator {
             attributes.push(this.autoIncrementKeyword);
         }
 
-        const overrideName = overrideColumnName(columnModel, columnShareModel);
         const suppressedUniqueColumnName = (columnModel.unique && (this.supportsUniqueKey === false))
             ? this.escape(overrideName.physicalName) : null;
 
@@ -273,7 +311,7 @@ class DatabaseDdlCreator {
         const query = `${this.escape(overrideName.physicalName)} ` + attributes.join(" ")
         const finalQuery = this.columnQueryWithOption(query, columnShareModel, overrideName, option) + checkExpression;
 
-        return { query: finalQuery, suppressedUniqueColumnName };
+        return { query: finalQuery, suppressedUniqueColumnName, structWarning: null };
     }
 
     private initColumnCheckExpression(columnShare: ColumnShareModel, overrideName: { physicalName: string }) {
@@ -445,9 +483,105 @@ class DatabaseDdlCreator {
 
 type ColumnModelPair = { columnModel: ColumnModel, columnShareModel: ColumnShareModel, inChildRelation: boolean };
 
-type ColumnQueryResult = { query: string, suppressedUniqueColumnName: string | null };
+type ColumnQueryResult = { query: string | null, suppressedUniqueColumnName: string | null, structWarning: string | null };
 
-type TableDefinitionQuery = { columnQueries: string[], suppressedUniqueWarnings: string[][] };
+type TableDefinitionQuery = { columnQueries: string[], suppressedUniqueWarnings: string[][], structColumnWarnings: string[] };
+
+type StructColumnTypeQueryResult = { ok: true, typeQuery: string } | { ok: false, reason: string };
+
+// BigQuery STRUCT カラム (ColumnType.withStructFields) を `STRUCT<field1 TYPE1, field2 TYPE2>` へ再帰展開する。
+// columnShareModel.isArray が true の場合は展開結果に arrayQueryTemplate を適用し `ARRAY<STRUCT<...>>` とする。
+// visitedStructIds は呼び出し元でミューテーションしない (再帰のたびに要素を追加した新しい Set を作って渡す)。
+const resolveStructColumnTypeQuery = (
+    erdDocument: ErdDocument, columnShareModel: ColumnShareModel, escape: (value: string) => string,
+    visitedStructIds: ReadonlySet<string>
+): StructColumnTypeQueryResult => {
+    const structTypeResult = resolveStructTypeQuery(erdDocument, columnShareModel.columnStructId, escape, visitedStructIds);
+    if (structTypeResult.ok === false) {
+        return structTypeResult;
+    }
+
+    const typeQuery = (columnShareModel.isArray === true)
+        ? columnShareModel.columnType.arrayQueryTemplate.replace("[[TYPE]]", structTypeResult.typeQuery)
+        : structTypeResult.typeQuery;
+
+    return { ok: true, typeQuery };
+};
+
+// columnStructId から ColumnStructModel を解決し、`STRUCT<...>` 文字列を組み立てる (isArray は考慮しない)。
+const resolveStructTypeQuery = (
+    erdDocument: ErdDocument, columnStructId: string, escape: (value: string) => string,
+    visitedStructIds: ReadonlySet<string>
+): StructColumnTypeQueryResult => {
+    if (columnStructId === "") {
+        return { ok: false, reason: "columnStructId is not set" };
+    }
+
+    if (visitedStructIds.has(columnStructId)) {
+        throw new Error(`Circular STRUCT reference detected (columnStructId: ${columnStructId})`);
+    }
+
+    const columnStructModel = erdDocument.findColumnStructModel(columnStructId);
+    if (columnStructModel == null) {
+        return { ok: false, reason: `columnStructId ${columnStructId} could not be resolved` };
+    }
+
+    const nextVisitedStructIds = new Set([...visitedStructIds, columnStructId]);
+    const fieldResults = columnStructModel.columnModelIds
+        .map(columnModelId => resolveStructFieldQuery(erdDocument, columnModelId, escape, nextVisitedStructIds));
+
+    const failedField = fieldResults.find(isFailedStructResult);
+    if (failedField != null) {
+        return failedField;
+    }
+
+    const fieldQueries = fieldResults.filter(isSucceededStructResult).map(fieldResult => fieldResult.typeQuery);
+    if (fieldQueries.length === 0) {
+        return {
+            ok: false,
+            reason: `struct ${columnStructModel.structName} (${columnStructModel.columnStructId}) has no fields`
+        };
+    }
+
+    return { ok: true, typeQuery: `STRUCT<${fieldQueries.join(", ")}>` };
+};
+
+const isFailedStructResult = (
+    result: StructColumnTypeQueryResult
+): result is { ok: false, reason: string } => (result.ok === false);
+
+const isSucceededStructResult = (
+    result: StructColumnTypeQueryResult
+): result is { ok: true, typeQuery: string } => (result.ok === true);
+
+// struct のメンバー1件を `<escaped physicalName> <型文字列>` へ変換する。メンバー自身が struct なら再帰展開する。
+const resolveStructFieldQuery = (
+    erdDocument: ErdDocument, columnModelId: string, escape: (value: string) => string,
+    visitedStructIds: ReadonlySet<string>
+): StructColumnTypeQueryResult => {
+    const memberColumnModel = erdDocument.findColumnModel(columnModelId);
+    if (memberColumnModel == null) {
+        return { ok: false, reason: `member column ${columnModelId} could not be resolved` };
+    }
+
+    const memberColumnShareModel = erdDocument.findColumnShareModel(memberColumnModel.columnShareModelId);
+    if (memberColumnShareModel == null) {
+        return { ok: false, reason: `member column ${columnModelId} could not be resolved` };
+    }
+
+    const fieldName = escape(memberColumnModel.physicalName);
+
+    if (memberColumnShareModel.columnType.withStructFields === true) {
+        const memberTypeResult = resolveStructColumnTypeQuery(erdDocument, memberColumnShareModel, escape, visitedStructIds);
+        if (memberTypeResult.ok === false) {
+            return memberTypeResult;
+        }
+
+        return { ok: true, typeQuery: `${fieldName} ${memberTypeResult.typeQuery}` };
+    }
+
+    return { ok: true, typeQuery: `${fieldName} ${memberColumnShareModel.specifiedColumnType()}` };
+};
 
 const primaryKeyQueryForConstraint = (columns: string[]): string => {
     return `PRIMARY KEY (${columns.join(", ")})`;
