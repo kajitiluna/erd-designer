@@ -12,7 +12,8 @@ type ColumnTypeOptions = {
     withAutoIncrement?: boolean,
     foreignColumn?: ColumnType | null,
     defaultValueCandidates?: string[],
-    arrayQueryTemplate?: string
+    arrayQueryTemplate?: string,
+    withStructFields?: boolean
 }
 
 const DEFAULT_ARRAY_QUERY_TEMPLATE = "[[TYPE]][]";
@@ -35,6 +36,7 @@ export default class ColumnType {
     public readonly foreignColumn: ColumnType | null;
     private readonly defaultValueCandidates: string[];
     public readonly arrayQueryTemplate: string;
+    public readonly withStructFields: boolean;
 
     /**
      * コンストラクタ。
@@ -51,13 +53,15 @@ export default class ColumnType {
      * @param foreignColumn 外部キー参照時の型 (null の場合は元の型と同じ)
      * @param defaultValueCandidates デフォルト値候補
      * @param arrayQueryTemplate 配列型のクエリ定義 (`[[TYPE]]` を型文字列に変換する)
+     * @param withStructFields STRUCT のフィールド定義が可能な型か
      */
     constructor({
         id, name, description, baseQuery,
         category = "other", withPrecision = false, withScale = false,
         withUnsigned = false, withAutoIncrement = false,
         foreignColumn = null, defaultValueCandidates = [],
-        arrayQueryTemplate = DEFAULT_ARRAY_QUERY_TEMPLATE
+        arrayQueryTemplate = DEFAULT_ARRAY_QUERY_TEMPLATE,
+        withStructFields = false
     }: ColumnTypeOptions) {
         this.id = id;
         this.name = name;
@@ -71,6 +75,7 @@ export default class ColumnType {
         this.foreignColumn = (foreignColumn != null) ? foreignColumn : null;
         this.defaultValueCandidates = defaultValueCandidates;
         this.arrayQueryTemplate = arrayQueryTemplate;
+        this.withStructFields = withStructFields;
     }
 
     public specifiedType({
@@ -127,7 +132,8 @@ export default class ColumnType {
             ...(this.withAutoIncrement && { withAutoIncrement: this.withAutoIncrement }),
             ...((this.foreignColumn != null) && { foreignColumn: this.foreignColumn.toJSON() }),
             ...((this.defaultValueCandidates.length > 0) && { defaultValueCandidates: this.defaultValueCandidates }),
-            ...((this.arrayQueryTemplate !== DEFAULT_ARRAY_QUERY_TEMPLATE) && { arrayQueryTemplate: this.arrayQueryTemplate })
+            ...((this.arrayQueryTemplate !== DEFAULT_ARRAY_QUERY_TEMPLATE) && { arrayQueryTemplate: this.arrayQueryTemplate }),
+            ...(this.withStructFields && { withStructFields: this.withStructFields })
         };
     }
 
@@ -153,6 +159,7 @@ export default class ColumnType {
             ? (obj.defaultValueCandidates as string[]) : [];
         const arrayQueryTemplate = ("arrayQueryTemplate" in obj)
             ? (obj.arrayQueryTemplate as string) : DEFAULT_ARRAY_QUERY_TEMPLATE;
+        const withStructFields = ("withStructFields" in obj) ? (obj.withStructFields as boolean) : false;
 
         return new ColumnType({
             id: obj.id as number,
@@ -166,7 +173,8 @@ export default class ColumnType {
             withAutoIncrement: withAutoIncrement,
             foreignColumn: foreignColumn,
             defaultValueCandidates: defaultValueCandidates,
-            arrayQueryTemplate: arrayQueryTemplate
+            arrayQueryTemplate: arrayQueryTemplate,
+            withStructFields: withStructFields
         });
     }
 
@@ -187,7 +195,8 @@ export default class ColumnType {
             ) &&
             (this.defaultValueCandidates.length === other.defaultValueCandidates.length) &&
             this.defaultValueCandidates.every((value, index) => (value === other.defaultValueCandidates[index])) &&
-            (this.arrayQueryTemplate === other.arrayQueryTemplate)
+            (this.arrayQueryTemplate === other.arrayQueryTemplate) &&
+            (this.withStructFields === other.withStructFields)
         );
     }
 

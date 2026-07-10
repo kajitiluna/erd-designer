@@ -16,6 +16,7 @@ type ColumnShareModelOptions = {
     characterSet?: string,
     collate?: string,
     optionExpression?: string,
+    columnStructId?: string,
     createdAt?: Date | null
 }
 
@@ -32,6 +33,7 @@ export default class ColumnShareModel {
     public readonly description: string;
     public readonly checkExpression: string;
     public readonly optionExpression: string;
+    public readonly columnStructId: string;
     private readonly characterSetValue: string;
     private readonly collateValue: string;
     private readonly createdAt: Date;
@@ -39,7 +41,8 @@ export default class ColumnShareModel {
     constructor({
         columnShareModelId, physicalName, logicalName,
         columnType, precision = "", scale = "", unsigned = false, isArray = false, description = "",
-        checkExpression = "", characterSet = "", collate = "", optionExpression = "", createdAt = null
+        checkExpression = "", characterSet = "", collate = "", optionExpression = "", columnStructId = "",
+        createdAt = null
     }: ColumnShareModelOptions) {
 
         this.columnShareModelId = columnShareModelId;
@@ -55,6 +58,7 @@ export default class ColumnShareModel {
         this.characterSetValue = characterSet.trim();
         this.collateValue = collate.trim();
         this.optionExpression = optionExpression.trim();
+        this.columnStructId = columnStructId;
         this.createdAt = createdAt ? createdAt : new Date();
     }
 
@@ -103,6 +107,7 @@ export default class ColumnShareModel {
                 && { characterSet: this.characterSetValue }),
             ...((this.collateValue !== "") && (this.columnType.category === "text") && { collate: this.collateValue }),
             ...((this.optionExpression !== "") && { optionExpression: this.optionExpression }),
+            ...((this.columnStructId !== "") && { columnStructId: this.columnStructId }),
             createdAt: this.createdAt
         };
     }
@@ -127,6 +132,7 @@ export default class ColumnShareModel {
             characterSet: ("characterSet" in obj) ? (obj.characterSet as string) : "",
             collate: ("collate" in obj) ? (obj.collate as string) : "",
             optionExpression: ("optionExpression" in obj) ? (obj.optionExpression as string) : "",
+            columnStructId: ("columnStructId" in obj) ? (obj.columnStructId as string) : "",
             createdAt: ("createdAt" in obj) ? toDateTime(obj.createdAt) : new Date()
         });
     }
@@ -146,6 +152,7 @@ export default class ColumnShareModel {
             && (this.characterSetValue === other.characterSetValue)
             && (this.collateValue === other.collateValue)
             && (this.optionExpression === other.optionExpression)
+            && (this.columnStructId === other.columnStructId)
         );
     }
 }
