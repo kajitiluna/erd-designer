@@ -71,15 +71,11 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             return true;
         }
 
-        const columnCount = columnWrapModels.flatMap(columnWrapModel =>
-            (columnWrapModel.modelType === "single")
-                ? [columnWrapModel.columnModel] : columnWrapModel.columnModels)
-            .length;
+        const memberColumnModels = toMemberColumnModels(columnWrapModels);
+        const columnCount = memberColumnModels.length;
 
-        const columnNameSet = new Set<string>(columnWrapModels
-            .flatMap(wrapModel => (wrapModel.modelType === "single")
-                ? [wrapModel.columnModel] : wrapModel.columnModels
-            ).map(columnModel => {
+        const columnNameSet = new Set<string>(memberColumnModels
+            .map(columnModel => {
                 const columnShareModel = columnShareModelStorage.find(columnModel.columnShareModelId);
                 if (columnShareModel == null) {
                     return null;
@@ -100,17 +96,29 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             return;
         }
 
-        const columns: ColumnModelType[] = columnWrapModels.map(wrapModel =>
-            (wrapModel.modelType === "single")
-                ? { modelType: "single", columnModelId: wrapModel.columnModel.columnModelId }
-                : { modelType: "group", columnGroupId: wrapModel.columnGroupModel.columnGroupId }
-        );
+        const columns: ColumnModelType[] = columnWrapModels.map(wrapModel => {
+            if (wrapModel.modelType === "single") {
+                return { modelType: "single", columnModelId: wrapModel.columnModel.columnModelId };
+            }
+            if (wrapModel.modelType === "struct") {
+                return { modelType: "struct", columnStructId: wrapModel.columnStructModel.columnStructId };
+            }
+
+            return { modelType: "group", columnGroupId: wrapModel.columnGroupModel.columnGroupId };
+        });
         const updatingColumnModels = columnWrapModels
             .flatMap(wrapModel => (wrapModel.modelType === "single") ? [wrapModel.columnModel] : []);
         const allColumnModelIds = new Set(columnWrapModels
-            .flatMap(wrapModel => (wrapModel.modelType === "single")
-                ? [wrapModel.columnModel.columnModelId]
-                : wrapModel.columnGroupModel.columnModelIds));
+            .flatMap(wrapModel => {
+                if (wrapModel.modelType === "single") {
+                    return [wrapModel.columnModel.columnModelId];
+                }
+                if (wrapModel.modelType === "struct") {
+                    return [];
+                }
+
+                return wrapModel.columnGroupModel.columnModelIds;
+            }));
 
         const updatedUniqueKeys = TableUniqueKeysModel.filterColumns(
             uniqueKeysModels, column => allColumnModelIds.has(column.columnModelId));
@@ -310,12 +318,24 @@ If a column has an override physical name configured, specify that override name
 </>);
 
 const initColumnWrapModels = (erdDocument: ErdDocument, tableModel: TableModel): ColumnWrapModel[] => {
-    return tableModel.columns.map(column => {
+    return tableModel.columns.flatMap((column): ColumnWrapModel[] => {
         if (column.modelType === "single") {
-            return {
+            return [{
                 modelType: "single",
                 columnModel: erdDocument.findColumnModel(column.columnModelId) as ColumnModel
-            };
+            }];
+        }
+
+        if (column.modelType === "struct") {
+            const columnStructModel = erdDocument.findColumnStructModel(column.columnStructId);
+            if (columnStructModel == null) {
+                return [];
+            }
+
+            return [{
+                modelType: "struct",
+                columnStructModel: columnStructModel
+            }];
         }
 
         const columnGroupModel = erdDocument.findColumnGroupModel(column.columnGroupId) as ColumnGroupModel;
@@ -323,11 +343,29 @@ const initColumnWrapModels = (erdDocument: ErdDocument, tableModel: TableModel):
             .map(columnModelId => erdDocument.findColumnModel(columnModelId))
             .filter((columnModel): columnModel is ColumnModel => (columnModel != null));
 
-        return {
+        return [{
             modelType: "group",
             columnGroupModel: columnGroupModel,
             columnModels: columnModels
-        };
+        }];
+    });
+};
+
+/**
+ * ColumnWrapModel 一覧から、実体を持つ ColumnModel をフラット化して抽出する。
+ * single はそのカラム、group はメンバー全て、struct はメンバーなし(0件)として扱う。
+ * 物理名重複チェックなど、テーブルに実在するカラムのみを対象とする処理で使用する。
+ */
+const toMemberColumnModels = (columnWrapModels: ColumnWrapModel[]): ColumnModel[] => {
+    return columnWrapModels.flatMap(columnWrapModel => {
+        if (columnWrapModel.modelType === "single") {
+            return [columnWrapModel.columnModel];
+        }
+        if (columnWrapModel.modelType === "struct") {
+            return [];
+        }
+
+        return columnWrapModel.columnModels;
     });
 };
 

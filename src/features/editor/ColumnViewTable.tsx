@@ -13,6 +13,7 @@ import PrimaryKeyIcon from "~/components/icons/PrimaryKeyIcon";
 import EdgedIconButton from "~/components/EdgedIconButton";
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
+import ColumnStructModel from "~/models/database/ColumnStructModel";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import { overrideColumnName } from "~/models/database/support";
 import ColumnEditDialog from "~/features/editor/ColumnEditDialog";
@@ -57,6 +58,11 @@ const ColumnViewTable = ({
                 return true;
             }
 
+            if ((wrappedModel.modelType === "struct") && (selectedWrappedModel.modelType === "struct")
+                && (wrappedModel.columnStructModel.columnStructId === selectedWrappedModel.columnStructModel.columnStructId)) {
+                return true;
+            }
+
             return false;
         });
 
@@ -77,15 +83,24 @@ const ColumnViewTable = ({
     };
 
     const initColumnModelRow = (columnWrapModel: ColumnWrapModel, targetIndex: number) => {
-        const cells = (columnWrapModel.modelType === "single")
-            ? doInitSingleColumnRow(columnWrapModel.columnModel)
-            : doInitGroupColumnRow(columnWrapModel.columnGroupModel);
+        let cells;
+        if (columnWrapModel.modelType === "single") {
+            cells = doInitSingleColumnRow(columnWrapModel.columnModel);
+        } else if (columnWrapModel.modelType === "struct") {
+            cells = doInitStructColumnRow(columnWrapModel.columnStructModel);
+        } else {
+            cells = doInitGroupColumnRow(columnWrapModel.columnGroupModel);
+        }
 
         const handleRowClicked = () => {
             setSelectedWrappedModel((selectedWrappedModel !== columnWrapModel) ? columnWrapModel : null);
         };
 
         const handleEditColumn = () => {
+            if (columnWrapModel.modelType === "struct") {
+                return; // struct は表示のみ対応のため、編集ダイアログは開かない
+            }
+
             setSelectedWrappedModel(columnWrapModel);
 
             if (columnWrapModel.modelType === "single") {
@@ -180,6 +195,18 @@ const ColumnViewTable = ({
         </>);
     }
 
+    const doInitStructColumnRow = (columnStructModel: ColumnStructModel) => {
+        return (<>
+            <TableCell align="center"></TableCell>
+            <TableCell align="center"></TableCell>
+            <TableCell>{columnStructModel.physicalName}</TableCell>
+            <TableCell>{columnStructModel.logicalName}</TableCell>
+            <TableCell>{columnStructModel.displayTypeQuery()}</TableCell>
+            <TableCell align="center">{columnStructModel.notNull && <CheckIcon fontSize="small" />}</TableCell>
+            <TableCell align="center"></TableCell>
+        </>);
+    }
+
     const handleAddColumn = () => {
         const columnModel = new ColumnModel({});
         setSelectedWrappedModel({ modelType: "single", columnModel });
@@ -236,7 +263,9 @@ const ColumnViewTable = ({
         const columnWrapModel = columnWrapModels[targetIndex];
         if (columnWrapModel.modelType === "single") {
             return isChildRelation(columnWrapModel.columnModel.columnModelId);
-
+        }
+        if (columnWrapModel.modelType === "struct") {
+            return false; // struct はリレーションに関与しないため、常に削除可能
         }
 
         return columnWrapModel.columnModels

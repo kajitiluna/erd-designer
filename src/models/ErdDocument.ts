@@ -6,6 +6,7 @@ import { Database } from '~/models/database';
 import ColumnGroupModel from '~/models/database/ColumnGroupModel';
 import ColumnModel from '~/models/database/ColumnModel';
 import ColumnShareModel from '~/models/database/ColumnShareModel';
+import ColumnStructModel from '~/models/database/ColumnStructModel';
 import DbSchemaModel from '~/models/database/DbSchemaModel';
 import DisplayStyle from '~/models/database/DisplayStyle';
 import RelationModel from '~/models/database/RelationModel';
@@ -33,12 +34,25 @@ type ErdDocumentOptions = {
     schemaConfig: DbSchemaConfig,
     tableViewModels?: readonly TableViewModel[],
     columnGroupModels?: readonly ColumnGroupModel[],
+    columnStructModels?: readonly ColumnStructModel[],
     columnModels?: readonly ColumnModel[],
     columnShareModels?: readonly ColumnShareModel[],
     relationViewModels?: readonly RelationViewModel[],
     foregroundMemoViewModels?: MemoViewModel[],
     backgroundMemoViewModels?: MemoViewModel[],
     lastUpdatedAt?: Date | null
+};
+
+/**
+ * テーブル上のカラム表示エントリ。single/struct はそのまま 1 件、group はメンバーをフラット化した column エントリ列となる。
+ * ErdTableView・svgExporter・create-specification・ColumnViewTable など表示系の入口として使用する。
+ */
+export type TableDisplayEntry = {
+    entryType: "column",
+    columnModel: ColumnModel
+} | {
+    entryType: "struct",
+    columnStructModel: ColumnStructModel
 };
 
 export default class ErdDocument {
@@ -51,6 +65,7 @@ export default class ErdDocument {
     private readonly tableViewModelIds: readonly string[];
     private readonly tableViewModelMap: Map<string, TableViewModel>;
     private readonly columnGroupModelMap: Map<string, ColumnGroupModel>;
+    private readonly columnStructModelMap: Map<string, ColumnStructModel>;
     private readonly columnModelMap: Map<string, ColumnModel>;
     private readonly relationViewModelStorage: RelationViewModelStorage;
     private readonly memoViewModelStorage: MemoViewModelStorage;
@@ -60,7 +75,7 @@ export default class ErdDocument {
         documentName: string, erdSettingModel: ErdSettingModel,
         databaseSettingModel: DatabaseSettingModel, schemaConfig: DbSchemaConfig,
         tableViewModelIds: readonly string[], tableViewModelMap: Map<string, TableViewModel>,
-        columnGroupModelMap: Map<string, ColumnGroupModel>,
+        columnGroupModelMap: Map<string, ColumnGroupModel>, columnStructModelMap: Map<string, ColumnStructModel>,
         columnModelMap: Map<string, ColumnModel>, columnShareModelStorage: ColumnShareModelStorage,
         relationViewModelStorage: RelationViewModelStorage,
         memoViewModelStorage: MemoViewModelStorage, lastUpdatedAt: Date | null = null
@@ -73,6 +88,7 @@ export default class ErdDocument {
         this.tableViewModelIds = tableViewModelIds;
         this.tableViewModelMap = tableViewModelMap;
         this.columnGroupModelMap = columnGroupModelMap;
+        this.columnStructModelMap = columnStructModelMap;
         this.columnModelMap = columnModelMap;
         this.relationViewModelStorage = relationViewModelStorage;
         this.memoViewModelStorage = memoViewModelStorage;
@@ -81,7 +97,7 @@ export default class ErdDocument {
 
     public static create({
         documentName, erdSettingModel, databaseSettingModel, schemaConfig,
-        tableViewModels = [], columnGroupModels = [], columnModels = [], columnShareModels = [],
+        tableViewModels = [], columnGroupModels = [], columnStructModels = [], columnModels = [], columnShareModels = [],
         relationViewModels = [], foregroundMemoViewModels = [], backgroundMemoViewModels = [],
         lastUpdatedAt = null
     }: ErdDocumentOptions): ErdDocument {
@@ -91,6 +107,7 @@ export default class ErdDocument {
             tableViewModels.map(viewModel => viewModel.tableId),
             new Map(tableViewModels.map(viewModel => [viewModel.tableId, viewModel])),
             new Map(columnGroupModels.map(groupModel => [groupModel.columnGroupId, groupModel])),
+            new Map(columnStructModels.map(structModel => [structModel.columnStructId, structModel])),
             new Map(columnModels.map(columnModel => [columnModel.columnModelId, columnModel])),
             ColumnShareModelStorage.create(columnShareModels),
             new RelationViewModelStorage(relationViewModels),
@@ -101,7 +118,7 @@ export default class ErdDocument {
 
     /**
      * 現在のインスタンスをベースに、指定されたフィールドのみを更新した新しいインスタンスを作成する。
-     * 
+     *
      * @param overrides 更新するフィールドを含むオブジェクト
      * @returns 新しいErdDocumentインスタンス
      */
@@ -113,6 +130,7 @@ export default class ErdDocument {
         tableViewModelIds: readonly string[],
         tableViewModelMap: Map<string, TableViewModel>,
         columnGroupModelMap: Map<string, ColumnGroupModel>,
+        columnStructModelMap: Map<string, ColumnStructModel>,
         columnModelMap: Map<string, ColumnModel>,
         columnShareModelStorage: ColumnShareModelStorage,
         relationViewModelStorage: RelationViewModelStorage,
@@ -127,6 +145,7 @@ export default class ErdDocument {
             overrides.tableViewModelIds ?? this.tableViewModelIds,
             overrides.tableViewModelMap ?? this.tableViewModelMap,
             overrides.columnGroupModelMap ?? this.columnGroupModelMap,
+            overrides.columnStructModelMap ?? this.columnStructModelMap,
             overrides.columnModelMap ?? this.columnModelMap,
             overrides.columnShareModelStorage ?? this.columnShareModelStorage,
             overrides.relationViewModelStorage ?? this.relationViewModelStorage,
@@ -189,16 +208,42 @@ export default class ErdDocument {
         });
     }
 
+    public findColumnStructModel(columnStructId: string): ColumnStructModel | null {
+        const columnStructModel = this.columnStructModelMap.get(columnStructId);
+        return columnStructModel ? columnStructModel : null;
+    }
+
+    public getColumnStructModels(): ColumnStructModel[] {
+        const models = Array.from(this.columnStructModelMap.values());
+
+        return models.sort((firsts, seconde) => {
+            const nameCompared = firsts.physicalName.localeCompare(seconde.physicalName, "en");
+            if (nameCompared !== 0) {
+                return nameCompared;
+            }
+
+            return firsts.columnStructId.localeCompare(seconde.columnStructId, "en");
+        });
+    }
+
     public findColumnModel(columnModelId: string): ColumnModel | null {
         const columnModel = this.columnModelMap.get(columnModelId);
         return columnModel ? columnModel : null;
     }
 
+    /**
+     * テーブルに属する ColumnModel を全て取得する。
+     * struct エントリは PK・FK・UNIQUE・INDEX・検索候補から構造的に除外するため、常に空配列として扱う。
+     */
     public toAllColumnModels(tableModel: TableModel): ColumnModel[] {
         return tableModel.columns
             .flatMap(column => {
                 if (column.modelType === "single") {
                     return [column.columnModelId];
+                }
+
+                if (column.modelType === "struct") {
+                    return [];
                 }
 
                 const columnGroupModel = this.findColumnGroupModel(column.columnGroupId);
@@ -210,6 +255,45 @@ export default class ErdDocument {
             })
             .map(columnModelId => this.findColumnModel(columnModelId))
             .filter(columnModel => columnModel != null);
+    }
+
+    /**
+     * テーブルのカラム一覧を表示用エントリに変換する。
+     * single/struct はそのまま 1 件、group はメンバーをフラット化した column エントリ列として展開する。
+     * 解決不能な参照(削除済みなど)はスキップする。
+     */
+    public toDisplayColumnEntries(tableModel: TableModel): TableDisplayEntry[] {
+        return tableModel.columns.flatMap((column): TableDisplayEntry[] => {
+            if (column.modelType === "single") {
+                const columnModel = this.findColumnModel(column.columnModelId);
+                if (columnModel == null) {
+                    return [];
+                }
+
+                return [{ entryType: "column" as const, columnModel: columnModel }];
+            }
+
+            if (column.modelType === "struct") {
+                const columnStructModel = this.findColumnStructModel(column.columnStructId);
+                if (columnStructModel == null) {
+                    return [];
+                }
+
+                return [{ entryType: "struct" as const, columnStructModel: columnStructModel }];
+            }
+
+            const columnGroupModel = this.findColumnGroupModel(column.columnGroupId);
+            if (columnGroupModel == null) {
+                return [];
+            }
+
+            return columnGroupModel.columnModelIds
+                .map(columnModelId => this.findColumnModel(columnModelId))
+                .filter((columnModel): columnModel is ColumnModel => (columnModel != null))
+                .map(columnModel => {
+                    return { entryType: "column" as const, columnModel: columnModel };
+                });
+        });
     }
 
     public findColumnShareModel(columnShareModelId: string): ColumnShareModel | null {
@@ -339,12 +423,11 @@ export default class ErdDocument {
             nextTableViewMap.set(nextTableViewModel.tableId, nextTableViewModel);
         });
 
+        const previousSingleColumnIds = previousTableView.tableModel.columns
+            .flatMap(column => (column.modelType === "single") ? [column.columnModelId] : []);
+
         const nextColumnMap = new Map(this.columnModelMap);
-        previousTableView.tableModel.columns.forEach(column => {
-            if (column.modelType === "single") {
-                nextColumnMap.delete(column.columnModelId);
-            }
-        });
+        previousSingleColumnIds.forEach(columnModelId => nextColumnMap.delete(columnModelId));
         updatingColumnMap.forEach(columnModel => nextColumnMap.set(columnModel.columnModelId, columnModel));
 
         // 更新時に他で利用されていない columnShareModel を削除する
@@ -357,6 +440,10 @@ export default class ErdDocument {
                     return [column.columnModelId];
                 }
 
+                if (column.modelType === "struct") {
+                    return [];
+                }
+
                 const columnGroup = this.columnGroupModelMap.get(column.columnGroupId) as ColumnGroupModel;
                 return columnGroup.columnModelIds;
             }).map(columnModelId => this.findColumnModel(columnModelId) as ColumnModel)
@@ -367,9 +454,18 @@ export default class ErdDocument {
             ? updatingColumnShareStorage.deleteModels(deletingColumnShareIds)
             : updatingColumnShareStorage.copy();
 
+        // 更新により実際に消失した single カラムについて、struct 側のダングリング参照を除去する
+        const deletedColumnModelIds = new Set(
+            previousSingleColumnIds.filter(columnModelId => (nextColumnMap.has(columnModelId) === false))
+        );
+        const nextColumnStructModelMap = doCleanupColumnStructReferences(
+            this.columnStructModelMap, deletedColumnModelIds
+        );
+
         return this.doUpdate({
             tableViewModelMap: nextTableViewMap,
             columnModelMap: nextColumnMap,
+            columnStructModelMap: nextColumnStructModelMap,
             columnShareModelStorage: nextColumnShareModelStorage,
             relationViewModelStorage: nextRelationViewModelStorage
         });
@@ -499,6 +595,10 @@ export default class ErdDocument {
             .flatMap(column => {
                 if (column.modelType === "single") {
                     return [updatingColumnMap.get(column.columnModelId) as ColumnModel]
+                }
+
+                if (column.modelType === "struct") {
+                    return [];
                 }
 
                 // GroupColumn は参照のみなので、変更前の ErdDocument から取得する
@@ -704,10 +804,11 @@ export default class ErdDocument {
         const nextTableViewModelMap = new Map(this.tableViewModelMap);
         nextTableViewModelMap.delete(deletingTableId);
 
+        const deletingColumnModelIds = deletingTarget.tableModel.columns
+            .flatMap(column => (column.modelType === "single") ? [column.columnModelId] : []);
+
         const nextColumnMap = new Map(this.columnModelMap);
-        deletingTarget.tableModel.columns
-            .flatMap(column => (column.modelType === "single") ? [column.columnModelId] : [])
-            .forEach(columnModelId => nextColumnMap.delete(columnModelId));
+        deletingColumnModelIds.forEach(columnModelId => nextColumnMap.delete(columnModelId));
 
         const existedColumnShareModelIds = new Set(
             Array.from(nextColumnMap.values()).map(
@@ -719,10 +820,15 @@ export default class ErdDocument {
             shareModel => existedColumnShareModelIds.has(shareModel.columnShareModelId)
         );
 
+        const nextColumnStructModelMap = doCleanupColumnStructReferences(
+            this.columnStructModelMap, new Set(deletingColumnModelIds)
+        );
+
         return this.doUpdate({
             tableViewModelIds: nextTableViewModelIds,
             tableViewModelMap: nextTableViewModelMap,
             columnModelMap: nextColumnMap,
+            columnStructModelMap: nextColumnStructModelMap,
             columnShareModelStorage: ColumnShareModelStorage.create(updatingColumnShareModels),
             relationViewModelStorage: this.relationViewModelStorage.deleteFromTableId([deletingTableId])
         });
@@ -760,10 +866,19 @@ export default class ErdDocument {
                 previousModel, updatingModel, updatingColumnModels, preNextColumnModelMap, updatingColumnShareStorage
             );
 
+        const removedMemberColumnModelIds = new Set(
+            (previousModel?.columnModelIds ?? []).filter(columnModelId =>
+                (updatingModel.columnModelIds.includes(columnModelId) === false))
+        );
+        const nextColumnStructModelMap = doCleanupColumnStructReferences(
+            this.columnStructModelMap, removedMemberColumnModelIds
+        );
+
         return this.doUpdate({
             tableViewModelMap: (nextTableViewMap.size > 0)
                 ? new Map([...this.tableViewModelMap, ...nextTableViewMap]) : this.tableViewModelMap,
             columnGroupModelMap: nextColumnGroupModelMap,
+            columnStructModelMap: nextColumnStructModelMap,
             columnModelMap: nextColumnModelMap,
             columnShareModelStorage: updatingColumnShareStorage.copy(),
             relationViewModelStorage: nextRelationViewModelStorage
@@ -933,9 +1048,14 @@ export default class ErdDocument {
         const { nextTableViewModelMap, nextRelationViewModelStorage }
             = this.doUpdateTableViewModelsWithDeletingColumnGroup(previousModel);
 
+        const nextColumnStructModelMap = doCleanupColumnStructReferences(
+            this.columnStructModelMap, new Set(previousModel.columnModelIds), new Set([columnGroupId])
+        );
+
         return this.doUpdate({
             tableViewModelMap: nextTableViewModelMap,
             columnGroupModelMap: nextColumnGroupModelMap,
+            columnStructModelMap: nextColumnStructModelMap,
             columnModelMap: nextColumnModelMap,
             columnShareModelStorage: ColumnShareModelStorage.create(updatingColumnShareModels),
             relationViewModelStorage: nextRelationViewModelStorage
@@ -959,7 +1079,7 @@ export default class ErdDocument {
         // インデクスの更新
         for (const [tableId, tableViewModel] of this.tableViewModelMap.entries()) {
             const nextColumns = tableViewModel.tableModel.columns
-                .filter(column => (column.modelType === "single")
+                .filter(column => (column.modelType !== "group")
                     || (column.columnGroupId !== deletingModel.columnGroupId)
                 );
 
@@ -1049,6 +1169,165 @@ export default class ErdDocument {
             nextTableViewModelMap: hasChanged ? nextTableViewModelMap : this.tableViewModelMap,
             nextRelationViewModelStorage: nextRelationViewModelStorage
         }
+    }
+
+    /**
+     * 指定された ColumnStruct の追加もしくは更新を行う。
+     * struct は PK・リレーション・unique/index に関与しないため、column-group の更新と異なりテーブル側の
+     * インデクス・リレーション更新は発生しない。
+     *
+     * @param updatingModel 更新対象
+     * @param updatingColumnModels 更新カラム (struct の columns 中、single 参照先の ColumnModel)
+     * @returns 操作後のモデル
+     */
+    public updateColumnStruct(
+        updatingModel: ColumnStructModel, updatingColumnModels: ColumnModel[]
+    ): ErdDocument {
+        const previousModel = this.columnStructModelMap.get(updatingModel.columnStructId) || null;
+
+        const nextColumnStructModelMap = new Map(this.columnStructModelMap);
+        nextColumnStructModelMap.set(updatingModel.columnStructId, updatingModel);
+
+        const nextColumnModelMap = new Map(this.columnModelMap);
+        updatingColumnModels.forEach(columnModel => {
+            nextColumnModelMap.set(columnModel.columnModelId, columnModel);
+        });
+
+        // 更新前後の struct.columns 中、single 参照の差分を取り、削除候補メンバーを判定する
+        const previousSingleColumnIds = new Set(toSingleColumnIds(previousModel?.columns ?? []));
+        const nextSingleColumnIds = new Set(toSingleColumnIds(updatingModel.columns));
+        const removingColumnIds = Array.from(previousSingleColumnIds)
+            .filter(columnModelId => (nextSingleColumnIds.has(columnModelId) === false));
+
+        const deletingColumnModelIds = this.filterDeletableColumnModelIds(
+            removingColumnIds, updatingModel.columnStructId
+        );
+
+        deletingColumnModelIds.forEach(columnModelId => nextColumnModelMap.delete(columnModelId));
+
+        const existedColumnShareModelIds = new Set(
+            Array.from(nextColumnModelMap.values()).map(columnModel => columnModel.columnShareModelId)
+        );
+        const currentColumnShareModels = this.columnShareModelStorage.getModels();
+        const updatingColumnShareModels = currentColumnShareModels.filter(
+            shareModel => existedColumnShareModelIds.has(shareModel.columnShareModelId)
+        );
+
+        return this.doUpdate({
+            columnStructModelMap: nextColumnStructModelMap,
+            columnModelMap: nextColumnModelMap,
+            columnShareModelStorage: ColumnShareModelStorage.create(updatingColumnShareModels)
+        });
+    }
+
+    /**
+     * 指定した ColumnStruct を削除する。
+     * 連鎖削除の対象は、他のテーブル・グループ・struct から参照されていないメンバーカラムのみとする。
+     *
+     * @param columnStructId 削除対象の ColumnStruct ID
+     * @returns 操作後のモデル
+     */
+    public deleteColumnStruct(columnStructId: string): ErdDocument {
+        const previousModel = this.columnStructModelMap.get(columnStructId);
+        if (previousModel == null) {
+            return this;
+        }
+
+        const nextColumnStructModelMap = new Map(this.columnStructModelMap);
+        nextColumnStructModelMap.delete(columnStructId);
+
+        const candidateColumnIds = toSingleColumnIds(previousModel.columns);
+        const deletingColumnModelIds = this.filterDeletableColumnModelIds(candidateColumnIds, columnStructId);
+
+        const nextColumnModelMap = new Map(this.columnModelMap);
+        deletingColumnModelIds.forEach(columnModelId => nextColumnModelMap.delete(columnModelId));
+
+        const existedColumnShareModelIds = new Set(
+            Array.from(nextColumnModelMap.values()).map(columnModel => columnModel.columnShareModelId)
+        );
+        const currentColumnShareModels = this.columnShareModelStorage.getModels();
+        const updatingColumnShareModels = currentColumnShareModels.filter(
+            shareModel => existedColumnShareModelIds.has(shareModel.columnShareModelId)
+        );
+
+        // 全テーブルの columns から、当該 struct への参照エントリを除去する。空になったテーブルは削除する。
+        const nextTableViewModelIds = [...this.tableViewModelIds];
+        const nextTableViewModelMap = new Map(this.tableViewModelMap);
+        const deleteTableIds: string[] = [];
+        for (const [tableId, tableViewModel] of this.tableViewModelMap.entries()) {
+            const nextColumns = tableViewModel.tableModel.columns
+                .filter(column => (column.modelType !== "struct") || (column.columnStructId !== columnStructId));
+
+            if (nextColumns.length === tableViewModel.tableModel.columns.length) {
+                continue;
+            }
+
+            if (nextColumns.length === 0) {
+                nextTableViewModelMap.delete(tableId);
+                deleteTableIds.push(tableId);
+                continue;
+            }
+
+            const nextTableViewModel = new TableViewModel({
+                ...tableViewModel,
+                tableModel: new TableModel({ ...tableViewModel.tableModel, columns: nextColumns })
+            });
+            nextTableViewModelMap.set(tableId, nextTableViewModel);
+        }
+        const nextRelationViewModelStorage = (deleteTableIds.length > 0)
+            ? this.relationViewModelStorage.deleteFromTableId(deleteTableIds) : this.relationViewModelStorage;
+        const filteredTableViewModelIds = (deleteTableIds.length > 0)
+            ? nextTableViewModelIds.filter(tableId => (deleteTableIds.includes(tableId) === false))
+            : nextTableViewModelIds;
+
+        // 他 struct の columns からも、当該 struct への参照を除去する
+        const nextColumnStructModelMapAfterCleanup = doCleanupColumnStructReferences(
+            nextColumnStructModelMap, new Set(), new Set(), new Set([columnStructId])
+        );
+
+        return this.doUpdate({
+            tableViewModelIds: filteredTableViewModelIds,
+            tableViewModelMap: nextTableViewModelMap,
+            columnStructModelMap: nextColumnStructModelMapAfterCleanup,
+            columnModelMap: nextColumnModelMap,
+            columnShareModelStorage: ColumnShareModelStorage.create(updatingColumnShareModels),
+            relationViewModelStorage: nextRelationViewModelStorage
+        });
+    }
+
+    /**
+     * 指定した columnModelId 群のうち、削除しても問題ないもの (どのテーブルの columns からも、
+     * どの group の columnModelIds からも、他のどの struct の columns からも参照されていないもの) のみを返す。
+     *
+     * @param candidateColumnIds 削除候補の columnModelId 一覧
+     * @param excludingColumnStructId 判定対象から除外する struct ID (削除・更新対象自身)
+     * @returns 削除して問題ない columnModelId 一覧
+     */
+    private filterDeletableColumnModelIds(
+        candidateColumnIds: readonly string[], excludingColumnStructId: string
+    ): string[] {
+        if (candidateColumnIds.length === 0) {
+            return [];
+        }
+
+        const referencedByTable = new Set(
+            Array.from(this.tableViewModelMap.values())
+                .flatMap(tableViewModel => toSingleColumnIds(tableViewModel.tableModel.columns))
+        );
+        const referencedByGroup = new Set(
+            Array.from(this.columnGroupModelMap.values()).flatMap(groupModel => groupModel.columnModelIds)
+        );
+        const referencedByOtherStruct = new Set(
+            Array.from(this.columnStructModelMap.values())
+                .filter(structModel => (structModel.columnStructId !== excludingColumnStructId))
+                .flatMap(structModel => toSingleColumnIds(structModel.columns))
+        );
+
+        return candidateColumnIds.filter(columnModelId =>
+            (referencedByTable.has(columnModelId) === false)
+            && (referencedByGroup.has(columnModelId) === false)
+            && (referencedByOtherStruct.has(columnModelId) === false)
+        );
     }
 
     /**
@@ -1499,6 +1778,7 @@ export default class ErdDocument {
         const columnGroupModels = Array.from(this.columnGroupModelMap.values())
             .sort((first, second) => first.groupName.localeCompare(second.groupName, "en"))
             .map(model => model.toJSON())
+        const columnStructModels = this.getColumnStructModels().map(model => model.toJSON());
         const columnModels = Array.from(this.columnModelMap.values())
             .sort((first, second) => first.columnModelId.localeCompare(second.columnModelId, "en"))
             .map(model => model.toJSON());
@@ -1510,6 +1790,7 @@ export default class ErdDocument {
             ...((database.supportsSchema) && { schemaConfig: this.schemaConfig.toJSON() }),
             tableViewModels: tableViewModels,
             columnGroupModels: columnGroupModels,
+            ...((columnStructModels.length > 0) && { columnStructModels: columnStructModels }),
             columnModels: columnModels,
             columnShareModels: this.columnShareModelStorage.getModels().map(model => model.toJSON()),
             relationViewModels: this.relationViewModelStorage.getModels().map(model => model.toJSON()),
@@ -1541,6 +1822,8 @@ export default class ErdDocument {
             value => TableViewModel.toObject(value))
         const columnGroupModels = ("columnGroupModels" in obj)
             ? toObjects(obj.columnGroupModels, "columnGroupModels", value => ColumnGroupModel.toObject(value)) : [];
+        const columnStructModels = ("columnStructModels" in obj)
+            ? toObjects(obj.columnStructModels, "columnStructModels", value => ColumnStructModel.toObject(value)) : [];
         const columnModels = toObjects(obj.columnModels, "columnModels",
             value => ColumnModel.toObject(value))
         const columnShareModels = toObjects(obj.columnShareModels, "columnShareModels",
@@ -1559,6 +1842,7 @@ export default class ErdDocument {
             schemaConfig: schemaConfig,
             tableViewModels: tableViewModels,
             columnGroupModels: columnGroupModels,
+            columnStructModels: columnStructModels,
             columnModels: columnModels,
             columnShareModels: columnShareModels,
             relationViewModels: relationViewModels,
@@ -1607,6 +1891,16 @@ export default class ErdDocument {
             }
         }
 
+        if (this.columnStructModelMap.size !== other.columnStructModelMap.size) {
+            return false;
+        }
+        for (const [columnStructId, columnStructModel] of this.columnStructModelMap.entries()) {
+            const otherColumnStructModel = other.columnStructModelMap.get(columnStructId);
+            if ((otherColumnStructModel == null) || (columnStructModel.equals(otherColumnStructModel) === false)) {
+                return false;
+            }
+        }
+
         if (this.columnModelMap.size !== other.columnModelMap.size) {
             return false;
         }
@@ -1650,4 +1944,64 @@ type ImportDdlArgs = {
     columnModels: ColumnModel[],
     columnShareModels: ColumnShareModel[],
     relationViewModels: RelationViewModel[]
+};
+
+/**
+ * ColumnModelType の配列から、single 参照の columnModelId のみを抽出する。
+ *
+ * @param columns 抽出対象のカラムエントリ一覧
+ * @returns single 参照の columnModelId 一覧
+ */
+const toSingleColumnIds = (columns: readonly ColumnModelType[]): string[] => {
+    return columns.flatMap(column => (column.modelType === "single") ? [column.columnModelId] : []);
+};
+
+/**
+ * 全 ColumnStructModel の columns から、ダングリングとなった参照を除去する。
+ * deleteTable・updateTableViewWithColumns でのカラム削除、deleteColumnGroup でのグループ・メンバー削除、
+ * deleteColumnStruct での struct 削除の後処理として呼び出す。
+ *
+ * @param columnStructModelMap 現在の ColumnStructModel マップ
+ * @param deletingColumnModelIds 削除された single 参照の columnModelId 集合
+ * @param deletingColumnGroupIds 削除された group 参照の columnGroupId 集合
+ * @param deletingColumnStructIds 削除された struct 参照の columnStructId 集合 (ネストした struct 参照の除去用)
+ * @returns 更新後の ColumnStructModel マップ (変更がない場合は引数をそのまま返す)
+ */
+const doCleanupColumnStructReferences = (
+    columnStructModelMap: Map<string, ColumnStructModel>,
+    deletingColumnModelIds: ReadonlySet<string> = new Set(),
+    deletingColumnGroupIds: ReadonlySet<string> = new Set(),
+    deletingColumnStructIds: ReadonlySet<string> = new Set()
+): Map<string, ColumnStructModel> => {
+    if ((deletingColumnModelIds.size === 0) && (deletingColumnGroupIds.size === 0) && (deletingColumnStructIds.size === 0)) {
+        return columnStructModelMap;
+    }
+
+    let hasChanged = false;
+    const nextColumnStructModelMap = new Map(columnStructModelMap);
+
+    for (const [columnStructId, columnStructModel] of columnStructModelMap.entries()) {
+        const nextColumns = columnStructModel.columns.filter(column => {
+            if ((column.modelType === "single") && deletingColumnModelIds.has(column.columnModelId)) {
+                return false;
+            }
+            if ((column.modelType === "group") && deletingColumnGroupIds.has(column.columnGroupId)) {
+                return false;
+            }
+            if ((column.modelType === "struct") && deletingColumnStructIds.has(column.columnStructId)) {
+                return false;
+            }
+
+            return true;
+        });
+
+        if (nextColumns.length === columnStructModel.columns.length) {
+            continue;
+        }
+
+        hasChanged = true;
+        nextColumnStructModelMap.set(columnStructId, new ColumnStructModel({ ...columnStructModel, columns: nextColumns }));
+    }
+
+    return hasChanged ? nextColumnStructModelMap : columnStructModelMap;
 };

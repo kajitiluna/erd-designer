@@ -33,9 +33,16 @@ const UniqueKeysGridView = ({
     const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
     const [onEditingModel, setEditingModel] = React.useState<TableUniqueKeysModel | null>(null);
 
-    const columnModels: ColumnModel[] = columnWrapModels.flatMap(model =>
-        (model.modelType === "single") ? [model.columnModel] : model.columnModels
-    );
+    const columnModels: ColumnModel[] = columnWrapModels.flatMap(model => {
+        if (model.modelType === "single") {
+            return [model.columnModel];
+        }
+        if (model.modelType === "struct") {
+            return []; // struct はユニーク制約の候補から除外する
+        }
+
+        return model.columnModels;
+    });
 
     // 各ユニークキーに対する列順序のマッピングを計算
     const uniqueKeysModelWithOrders = React.useMemo(() => {

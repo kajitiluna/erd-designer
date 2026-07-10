@@ -649,6 +649,12 @@ const snowflakeReservedWords = [
     "TABLESAMPLE", "TRIGGER", "TRY_CAST", "VIEW", "WHENEVER"
 ];
 
+const bigqueryReservedWords = [
+    "ASSERT_ROWS_MODIFIED", "DEFINE", "ENUM", "ESCAPE", "EXCLUDE", "GROUPS", "HASH", "IF", "IGNORE",
+    "LOOKUP", "MERGE", "PROTO", "QUALIFY", "RESPECT", "STRUCT", "TABLESAMPLE", "TREAT", "UNBOUNDED",
+    "WINDOW", "WITHIN"
+];
+
 // cSpell:enable
 
 const initComment = (physicalName: string, logicalName: string, description: string, option: DdlOption): string => {
@@ -710,6 +716,50 @@ const columnQueryForSnowflake = (
 
 const indexQueryForSnowflake = (args: IndexQueryArgs): string => {
     return `-- Snowflake: CREATE INDEX is not supported on standard tables: `
+        + `${args.indexName} ON ${args.tableName} (${args.columnQueries.join(", ")})`;
+};
+
+// BigQuery の OPTIONS(description="...") は二重引用符で囲むため、`"` と改行をエスケープする
+const escapeBigQueryOptionDescription = (value: string): string => {
+    return value.replaceAll('"', '\\"').replaceAll("\n", "\\n");
+};
+
+const tableQueryForBigQuery = (query: string, tableModel: TableModel, option: DdlOption) => {
+    const tableComment = initComment(tableModel.physicalName, tableModel.logicalName, tableModel.description, option);
+
+    const tableOptions = [
+        (tableComment !== "") ? `OPTIONS(description="${escapeBigQueryOptionDescription(tableComment)}")` : null,
+        (tableModel.optionExpression !== "") ? `\n${tableModel.optionExpression}` : null
+    ].filter(option => (option != null));
+
+    return (tableOptions.length === 0) ? query : `${query} ${tableOptions.join(", ")}`;
+};
+
+const columnQueryForBigQuery = (
+    query: string, column: ColumnShareModel, overrideName: OverrideName, option: DdlOption
+) => {
+    const columnComment = initComment(overrideName.physicalName, overrideName.logicalName, column.description, option);
+
+    return (columnComment !== "")
+        ? `${query} OPTIONS(description="${escapeBigQueryOptionDescription(columnComment)}")`
+        : query;
+};
+
+const primaryKeyQueryForBigQuery = (columns: string[]): string => {
+    return `PRIMARY KEY (${columns.join(", ")}) NOT ENFORCED`;
+};
+
+const foreignKeyQueryForBigQuery = (args: ForeignKeyQueryArgs): string => {
+    const alterQueries = [
+        `ADD FOREIGN KEY (${args.childColumnNames.join(", ")})`,
+        `REFERENCES ${args.parentTableName} (${args.parentColumnNames.join(", ")}) NOT ENFORCED`
+    ];
+
+    return `ALTER TABLE ${args.childTableName}\n    ${alterQueries.join("\n    ")};\n`;
+};
+
+const indexQueryForBigQuery = (args: IndexQueryArgs): string => {
+    return `-- BigQuery: CREATE INDEX is not supported: `
         + `${args.indexName} ON ${args.tableName} (${args.columnQueries.join(", ")})`;
 };
 
@@ -897,5 +947,18 @@ const exportConfigs: { [key in DatabaseType]: DatabaseDdlCreator } = {
         autoIncrementKeyword: "AUTOINCREMENT",
         reservedWords: [...commonReservedWords, ...snowflakeReservedWords],
         escapeString: (value: string) => `"${value}"` // Snowflake uses double quotes as escape character
+    }),
+
+    "bigquery": new DatabaseDdlCreator({
+        tableQueryWithOption: tableQueryForBigQuery,
+        columnQueryWithOption: columnQueryForBigQuery,
+        indexQuery: indexQueryForBigQuery,
+        primaryKeyQuery: primaryKeyQueryForBigQuery,
+        foreignKeyQuery: foreignKeyQueryForBigQuery,
+        supportsUniqueKey: false,
+        commentQuery: () => [],
+        autoIncrementKeyword: "",
+        reservedWords: [...commonReservedWords, ...bigqueryReservedWords],
+        escapeString: (value: string) => '`' + value + '`' // BigQuery uses backticks as escape character
     })
 };
