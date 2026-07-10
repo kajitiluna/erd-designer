@@ -315,15 +315,63 @@ describe('databases constant', () => {
         expect(snowflake.autoIncrementLabel()).toBe('Autoincrement');
     });
 
+    test('should contain bigquery database configuration', () => {
+        const bigquery = Database.get("bigquery");
+
+        expect(bigquery.databaseType).toBe('bigquery');
+        expect(bigquery.name).toBe('BigQuery');
+        expect(bigquery.uniqueKeySupport).toBeDefined();
+        expect(bigquery.tableIndexSupport).toBeDefined();
+    });
+
+    test('bigquery should have no index options and types', () => {
+        const bigquery = Database.get("bigquery");
+
+        expect(bigquery.tableIndexSupport.indexOptions).toHaveLength(0);
+        expect(bigquery.tableIndexSupport.indexTypes).toHaveLength(0);
+        expect(bigquery.tableIndexSupport.nullsOrder).toBe(false);
+    });
+
+    test('bigquery should not support index (CREATE INDEX unsupported)', () => {
+        const bigquery = Database.get("bigquery");
+        expect(bigquery.tableIndexSupport.supportsIndex).toBe(false);
+    });
+
+    test('bigquery should support schema (dataset is treated as schema)', () => {
+        const bigquery = Database.get("bigquery");
+        expect(bigquery.supportsSchema).toBe(true);
+    });
+
+    test('bigquery should have non-orderable unique key support', () => {
+        const bigquery = Database.get("bigquery");
+        expect(bigquery.uniqueKeySupport.orderable).toBe(false);
+    });
+
+    test('bigquery should not support unique key', () => {
+        const bigquery = Database.get("bigquery");
+        expect(bigquery.uniqueKeySupport.supportsUniqueKey).toBe(false);
+    });
+
+    test('bigquery should support array types', () => {
+        const bigquery = Database.get("bigquery");
+        expect(bigquery.supportsArrayType).toBe(true);
+    });
+
+    test('bigquery should have no auto increment label (no auto-increment equivalent)', () => {
+        const bigquery = Database.get("bigquery");
+        expect(bigquery.autoIncrementLabel()).toBe('');
+    });
+
     test('allDatabaseTypes should return all database types', () => {
         const allTypes = Database.allDatabaseTypes();
 
-        expect(allTypes).toHaveLength(6);
+        expect(allTypes).toHaveLength(7);
         expect(allTypes).toContain('postgres');
         expect(allTypes).toContain('mysql');
         expect(allTypes).toContain('ms_sqlserver');
         expect(allTypes).toContain('mariadb');
         expect(allTypes).toContain('sqlite');
         expect(allTypes).toContain('snowflake');
+        expect(allTypes).toContain('bigquery');
     });
 });

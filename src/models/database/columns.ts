@@ -330,6 +330,33 @@ const databaseColumns: { [key in DatabaseType]: ColumnType[] } = {
         new ColumnType({ id: 2002, name: 'geography', description: '球体地球座標系の地理空間データを格納するデータ型。', baseQuery: 'GEOGRAPHY', category: 'other', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
 
         ColumnType.EMPTY
+    ],
+
+    "bigquery": [
+        new ColumnType({ id: 17, name: 'int64', description: '8バイト符号付き整数。INT/SMALLINT/INTEGER/BIGINT/TINYINT/BYTEINT はエイリアス。', baseQuery: 'INT64', category: 'integer', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false, arrayQueryTemplate: 'ARRAY<[[TYPE]]>' }),
+        new ColumnType({ id: 33, name: 'float64', description: '倍精度浮動小数点数値。FLOAT はエイリアス。', baseQuery: 'FLOAT64', category: 'decimal', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false, arrayQueryTemplate: 'ARRAY<[[TYPE]]>' }),
+        new ColumnType({ id: 36, name: 'numeric', description: '精度38桁・スケール9桁の固定小数点数値。DECIMAL はエイリアス。', baseQuery: 'NUMERIC', category: 'decimal', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false, arrayQueryTemplate: 'ARRAY<[[TYPE]]>' }),
+        new ColumnType({ id: 46, name: 'numeric (p, s)', description: '精度・スケールを指定する固定小数点数値。DECIMAL はエイリアス。精度指定付き DDL の読込は node-sql-parser 非対応。', baseQuery: 'NUMERIC[[PARAM]]', category: 'decimal', withPrecision: true, withScale: true, withUnsigned: false, withAutoIncrement: false, arrayQueryTemplate: 'ARRAY<[[TYPE]]>' }),
+        new ColumnType({ id: 37, name: 'bignumeric', description: '精度76.76桁・スケール38桁の固定小数点数値。BIGDECIMAL はエイリアス。', baseQuery: 'BIGNUMERIC', category: 'decimal', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false, arrayQueryTemplate: 'ARRAY<[[TYPE]]>' }),
+        new ColumnType({ id: 49, name: 'bignumeric (p, s)', description: '精度・スケールを指定する固定小数点数値。BIGDECIMAL はエイリアス。精度指定付き DDL の読込は node-sql-parser 非対応。', baseQuery: 'BIGNUMERIC[[PARAM]]', category: 'decimal', withPrecision: true, withScale: true, withUnsigned: false, withAutoIncrement: false, arrayQueryTemplate: 'ARRAY<[[TYPE]]>' }),
+
+        new ColumnType({ id: 6, name: 'bool', description: '論理値 (真/偽)。BOOLEAN はエイリアス。', baseQuery: 'BOOL', category: 'bit', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false, arrayQueryTemplate: 'ARRAY<[[TYPE]]>' }),
+
+        new ColumnType({ id: 325, name: 'string', description: '可変長文字列 (Unicode)。', baseQuery: 'STRING', category: 'text', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false, arrayQueryTemplate: 'ARRAY<[[TYPE]]>' }),
+        new ColumnType({ id: 312, name: 'string (n)', description: '最大長を指定する可変長文字列 (Unicode)。精度指定付き DDL の読込は node-sql-parser 非対応。', baseQuery: 'STRING[[PARAM]]', category: 'text', withPrecision: true, withScale: false, withUnsigned: false, withAutoIncrement: false, arrayQueryTemplate: 'ARRAY<[[TYPE]]>' }),
+
+        new ColumnType({ id: 367, name: 'bytes', description: '可変長バイナリデータ。', baseQuery: 'BYTES', category: 'bit', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false, arrayQueryTemplate: 'ARRAY<[[TYPE]]>' }),
+        new ColumnType({ id: 5, name: 'bytes (n)', description: '最大長を指定する可変長バイナリデータ。', baseQuery: 'BYTES[[PARAM]]', category: 'bit', withPrecision: true, withScale: false, withUnsigned: false, withAutoIncrement: false, arrayQueryTemplate: 'ARRAY<[[TYPE]]>' }),
+
+        new ColumnType({ id: 101, name: 'date', description: '暦の日付 (年月日)。', baseQuery: 'DATE', category: 'timestamp', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false, arrayQueryTemplate: 'ARRAY<[[TYPE]]>' }),
+        new ColumnType({ id: 111, name: 'datetime', description: 'タイムゾーンなしの日付と時刻。', baseQuery: 'DATETIME', category: 'timestamp', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false, arrayQueryTemplate: 'ARRAY<[[TYPE]]>' }),
+        new ColumnType({ id: 131, name: 'time', description: '時刻。', baseQuery: 'TIME', category: 'timestamp', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false, arrayQueryTemplate: 'ARRAY<[[TYPE]]>' }),
+        new ColumnType({ id: 112, name: 'timestamp', description: 'UTC 基準の絶対時点を表す日付と時刻。', baseQuery: 'TIMESTAMP', category: 'timestamp', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false, arrayQueryTemplate: 'ARRAY<[[TYPE]]>' }),
+
+        new ColumnType({ id: 422, name: 'json', description: 'JSON 形式のデータを格納するデータ型。', baseQuery: 'JSON', category: 'other', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false, arrayQueryTemplate: 'ARRAY<[[TYPE]]>' }),
+        new ColumnType({ id: 2002, name: 'geography', description: '球体地球座標系の地理空間データを格納するデータ型。', baseQuery: 'GEOGRAPHY', category: 'other', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false, arrayQueryTemplate: 'ARRAY<[[TYPE]]>' }),
+
+        ColumnType.EMPTY
     ]
 };
 

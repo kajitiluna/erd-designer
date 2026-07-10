@@ -6,7 +6,8 @@ import { Parser as MsSqlServerParser } from "node-sql-parser/build/transactsql";
 import { Parser as MariaDbParser } from "node-sql-parser/build/mariadb";
 import { Parser as SqliteParser } from "node-sql-parser/build/sqlite";
 import { Parser as SnowflakeParser } from "node-sql-parser/build/snowflake";
-import { Alter, AST, Create, Parser, ValueExpr } from "node-sql-parser";
+import { Parser as BigQueryParser } from "node-sql-parser/build/bigquery";
+import { Alter, AST, Create, DataType, Parser, ValueExpr } from "node-sql-parser";
 
 import {
     Database, DatabaseType, findDatabaseColumns, IndexColumnModel, TableReferenceActionType
@@ -41,6 +42,7 @@ const dispatchInitParser: { [key in DatabaseType]: () => Parser } = {
     "ms_sqlserver": () => new MsSqlServerParser(),
     "sqlite": () => new SqliteParser(),
     "snowflake": () => new SnowflakeParser(),
+    "bigquery": () => new BigQueryParser(),
 };
 
 class DdlLoader {
@@ -307,6 +309,7 @@ const parseOptions: { [key in DatabaseType]: { database: string } } = {
     "ms_sqlserver": { database: "TransactSQL" },
     "sqlite": { database: "Sqlite" },
     "snowflake": { database: "Snowflake" },
+    "bigquery": { database: "BigQuery" },
 };
 
 export type DdlLoadSummary = {
@@ -415,7 +418,12 @@ const loadCreateTableDdl = (query: Create, engine: ParserEngine): ([TableBaseDef
             const [columnDefinition, noSuccessResult] =
                 loadCreateColumnDefinition(createDefinition as CreateColumnDefinition, index, engine);
             if (noSuccessResult != null) {
-                return [null, noSuccessResult];
+                if (noSuccessResult.result === "failure") {
+                    return [null, noSuccessResult];
+                }
+
+                skippedReasons.push(noSuccessResult);
+                continue;
             }
 
             columnBaseDefinitions.push(columnDefinition);
@@ -561,6 +569,49 @@ const doFindTableObj = (query: Create): ([{ db: string | null; table: string }, 
     return [query.table[0], null];
 };
 
+// BigQuery ダイアレクトの ARRAY<T> は `{ dataType: "ARRAY", definition: [{ field_type: { dataType: T } }] }`
+// という汎用の DataType 型に含まれない拡張構造を持つため、内部型を個別に解決する。
+type BigQueryArrayDataType = {
+    dataType: "ARRAY";
+    definition: [{ field_type: { dataType: string } }];
+};
+
+const isBigQueryArrayDataType = (dataType: object): dataType is BigQueryArrayDataType => {
+    if (("dataType" in dataType) === false) {
+        return false;
+    }
+    if (dataType.dataType !== "ARRAY") {
+        return false;
+    }
+    if ((("definition" in dataType) === false) || (Array.isArray(dataType.definition) === false)) {
+        return false;
+    }
+
+    const definition = dataType.definition;
+    return (definition.length === 1)
+        && (typeof definition[0] === "object") && (definition[0] != null)
+        && ("field_type" in definition[0])
+        && (typeof definition[0].field_type === "object") && (definition[0].field_type != null)
+        && ("dataType" in definition[0].field_type)
+        && (typeof definition[0].field_type.dataType === "string");
+};
+
+const doResolveColumnTypeAndArray = (
+    dataType: DataType
+): { columnType: string | null, isArray: boolean } => {
+    if (dataType.dataType === "ARRAY") {
+        if (isBigQueryArrayDataType(dataType) === false) {
+            return { columnType: null, isArray: false };
+        }
+
+        return { columnType: dataType.definition[0].field_type.dataType, isArray: true };
+    }
+
+    return dataType.dataType.endsWith("[]")
+        ? { columnType: dataType.dataType.slice(0, -2), isArray: true }
+        : { columnType: dataType.dataType, isArray: false };
+};
+
 const loadCreateColumnDefinition = (
     createDefinition: CreateColumnDefinition, index: number, engine: ParserEngine
 ): [ColumnBaseDefinition, null] | [null, LoadFailure] => {
@@ -577,9 +628,17 @@ const loadCreateColumnDefinition = (
     }
 
     const dataType = createDefinition.definition;
-    const { columnType, isArray } = dataType.dataType.endsWith("[]")
-        ? { columnType: dataType.dataType.slice(0, -2), isArray: true }
-        : { columnType: dataType.dataType, isArray: false };
+
+    if (dataType.dataType === "STRUCT") {
+        return [null, skip(`Column "${columnName}" has an unsupported STRUCT type at position ${index + 1}. `
+            + "Reading STRUCT columns from DDL is not supported.")];
+    }
+
+    const { columnType, isArray } = doResolveColumnTypeAndArray(dataType);
+    if (columnType == null) {
+        return [null, fail(`Unsupported ARRAY column definition at position ${index + 1}. `
+            + `create_definitions[${index}].definition : ${JSON.stringify(dataType)}`)];
+    }
     const timezone = (dataType.suffix && (dataType.suffix.length === 3)
         && (dataType.suffix[1] === "TIME") && (dataType.suffix[2] === "ZONE"))
         ? ((dataType.suffix[0] === "WITH") ? "with time zone" : "without time zone")
