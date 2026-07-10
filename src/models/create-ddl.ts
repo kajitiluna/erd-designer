@@ -589,6 +589,13 @@ const sqliteReservedWords = [
     "TIES", "TRANSACTION", "TRIGGER", "UNBOUNDED", "VACUUM", "VIEW", "VIRTUAL", "WINDOW", "WITHOUT"
 ];
 
+const snowflakeReservedWords = [
+    "ACCOUNT", "CLUSTER", "COLLATE", "CONNECT", "CONNECTION", "CURRENT_ACCOUNT", "FILE", "GSCLUSTER",
+    "ILIKE", "INCREMENT", "ISSUE", "LOCALTIME", "LOCALTIMESTAMP", "MINUS", "MODIFY", "ORGANIZATION",
+    "QUALIFY", "REGEXP", "RENAME", "REVOKE", "RLIKE", "ROW", "ROWS", "SAMPLE", "SOME", "START",
+    "TABLESAMPLE", "TRIGGER", "TRY_CAST", "VIEW", "WHENEVER"
+];
+
 // cSpell:enable
 
 const initComment = (physicalName: string, logicalName: string, description: string, option: DdlOption): string => {
@@ -627,6 +634,30 @@ const columnQueryForMySql = (
     const columnComment = initComment(overrideName.physicalName, overrideName.logicalName, column.description, option);
 
     return (columnComment !== "") ? `${query} COMMENT '${escapeComment(columnComment)}'` : query;
+};
+
+const tableQueryForSnowflake = (query: string, tableModel: TableModel, option: DdlOption) => {
+    const tableComment = initComment(tableModel.physicalName, tableModel.logicalName, tableModel.description, option);
+
+    const tableOptions = [
+        (tableComment !== "") ? `COMMENT = '${escapeComment(tableComment)}'` : null,
+        (tableModel.optionExpression !== "") ? `\n${tableModel.optionExpression}` : null
+    ].filter(option => (option != null));
+
+    return (tableOptions.length === 0) ? query : `${query} ${tableOptions.join(", ")}`;
+};
+
+const columnQueryForSnowflake = (
+    query: string, column: ColumnShareModel, overrideName: OverrideName, option: DdlOption
+) => {
+    const columnComment = initComment(overrideName.physicalName, overrideName.logicalName, column.description, option);
+
+    return (columnComment !== "") ? `${query} COMMENT '${escapeComment(columnComment)}'` : query;
+};
+
+const indexQueryForSnowflake = (args: IndexQueryArgs): string => {
+    return `-- Snowflake: CREATE INDEX is not supported on standard tables: `
+        + `${args.indexName} ON ${args.tableName} (${args.columnQueries.join(", ")})`;
 };
 
 const commentQueryForPostgres = (
@@ -803,5 +834,15 @@ const exportConfigs: { [key in DatabaseType]: DatabaseDdlCreator } = {
         autoIncrementKeyword: "",  // 全型 withAutoIncrement:false のため実際には出力されない
         reservedWords: [...commonReservedWords, ...sqliteReservedWords],
         escapeString: (value: string) => `"${value}"` // SQLite uses double quotes as escape character
+    }),
+
+    "snowflake": new DatabaseDdlCreator({
+        tableQueryWithOption: tableQueryForSnowflake,
+        columnQueryWithOption: columnQueryForSnowflake,
+        indexQuery: indexQueryForSnowflake,
+        commentQuery: () => [],
+        autoIncrementKeyword: "AUTOINCREMENT",
+        reservedWords: [...commonReservedWords, ...snowflakeReservedWords],
+        escapeString: (value: string) => `"${value}"` // Snowflake uses double quotes as escape character
     })
 };

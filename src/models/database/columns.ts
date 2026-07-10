@@ -298,6 +298,38 @@ const databaseColumns: { [key in DatabaseType]: ColumnType[] } = {
         new ColumnType({ id: 45, name: 'decimal (p, s)', description: '固定小数点数の実用エイリアス。p,sは構文上書けるが無視されNUMERICアフィニティに解決される。', baseQuery: 'DECIMAL[[PARAM]]', category: 'decimal', withPrecision: true, withScale: true, withUnsigned: false, withAutoIncrement: false }),
 
         ColumnType.EMPTY
+    ],
+
+    "snowflake": [
+        new ColumnType({ id: 36, name: 'number', description: '数値型。既定の精度・スケールは (38, 0)。INT/INTEGER/BIGINT 等の整数型はすべて NUMBER(38,0) のシノニムとして扱われる。', baseQuery: 'NUMBER', category: 'decimal', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: true }),
+        new ColumnType({ id: 46, name: 'number (p, s)', description: '精度・スケールを指定する数値型。INT/INTEGER/BIGINT 等は NUMBER(38,0) のシノニムであり、この型で精度・スケールを明示的に指定したものに相当する。', baseQuery: 'NUMBER[[PARAM]]', category: 'decimal', withPrecision: true, withScale: true, withUnsigned: false, withAutoIncrement: true }),
+        new ColumnType({ id: 33, name: 'float', description: '浮動小数点数値。倍精度浮動小数点として格納される。', baseQuery: 'FLOAT', category: 'decimal', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+
+        new ColumnType({ id: 301, name: 'char', description: '固定長文字列 (実際には可変長として格納される)。', baseQuery: 'CHAR', category: 'text', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 311, name: 'char (n)', description: '固定長文字列 (実際には可変長として格納される)。', baseQuery: 'CHAR[[PARAM]]', category: 'text', withPrecision: true, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 302, name: 'varchar', description: '可変長文字列。STRING/TEXT はシノニム。', baseQuery: 'VARCHAR', category: 'text', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 312, name: 'varchar (n)', description: '可変長文字列。STRING/TEXT はシノニム。', baseQuery: 'VARCHAR[[PARAM]]', category: 'text', withPrecision: true, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+
+        new ColumnType({ id: 4, name: 'binary', description: '固定長バイナリデータ。', baseQuery: 'BINARY', category: 'bit', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 3, name: 'binary (n)', description: '固定長バイナリデータ。', baseQuery: 'BINARY[[PARAM]]', category: 'bit', withPrecision: true, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 5, name: 'varbinary (n)', description: '可変長バイナリデータ。BINARY のシノニム。', baseQuery: 'VARBINARY[[PARAM]]', category: 'bit', withPrecision: true, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 6, name: 'boolean', description: '論理値 (真/偽)。', baseQuery: 'BOOLEAN', category: 'bit', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+
+        new ColumnType({ id: 101, name: 'date', description: '暦の日付 (年月日)。', baseQuery: 'DATE', category: 'timestamp', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 131, name: 'time', description: '時刻。既定の精度は秒の小数点以下9桁。', baseQuery: 'TIME', category: 'timestamp', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 141, name: 'time (p)', description: '精度 (秒の小数点以下桁数) を指定する時刻型。', baseQuery: 'TIME[[PARAM]]', category: 'timestamp', withPrecision: true, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 111, name: 'timestamp_ntz', description: 'タイムゾーンなしの日付と時刻。', baseQuery: 'TIMESTAMP_NTZ', category: 'timestamp', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 112, name: 'timestamp_tz', description: 'タイムゾーン付きの日付と時刻。', baseQuery: 'TIMESTAMP_TZ', category: 'timestamp', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 113, name: 'timestamp_ltz', description: 'セッションのタイムゾーンで解釈される日付と時刻。', baseQuery: 'TIMESTAMP_LTZ', category: 'timestamp', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+
+        new ColumnType({ id: 9601, name: 'variant', description: '任意の他のデータ型の値を格納できる半構造化データ型。DDL 読込 (インポート) は node-sql-parser の snowflake ダイアレクトの制約により非対応。', baseQuery: 'VARIANT', category: 'other', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 9602, name: 'object', description: 'キーと値のペアの集合を格納する半構造化データ型。DDL 読込 (インポート) は node-sql-parser の snowflake ダイアレクトの制約により非対応。', baseQuery: 'OBJECT', category: 'other', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 9603, name: 'array', description: '値の配列を格納する半構造化データ型。DDL 読込 (インポート) は node-sql-parser の snowflake ダイアレクトの制約により非対応。', baseQuery: 'ARRAY', category: 'other', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+
+        new ColumnType({ id: 2001, name: 'geometry', description: '平面 (ユークリッド) 座標系の空間データを格納するデータ型。', baseQuery: 'GEOMETRY', category: 'other', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+        new ColumnType({ id: 2002, name: 'geography', description: '球体地球座標系の地理空間データを格納するデータ型。', baseQuery: 'GEOGRAPHY', category: 'other', withPrecision: false, withScale: false, withUnsigned: false, withAutoIncrement: false }),
+
+        ColumnType.EMPTY
     ]
 };
 

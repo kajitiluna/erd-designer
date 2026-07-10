@@ -118,6 +118,23 @@ describe('databases constant', () => {
         expect(sqlite.tableIndexSupport.nullsOrder).toBe(false);
     });
 
+    test('should contain snowflake database configuration', () => {
+        const snowflake = Database.get("snowflake");
+
+        expect(snowflake.databaseType).toBe('snowflake');
+        expect(snowflake.name).toBe('Snowflake');
+        expect(snowflake.uniqueKeySupport).toBeDefined();
+        expect(snowflake.tableIndexSupport).toBeDefined();
+    });
+
+    test('snowflake should have no index options and types', () => {
+        const snowflake = Database.get("snowflake");
+
+        expect(snowflake.tableIndexSupport.indexOptions).toHaveLength(0);
+        expect(snowflake.tableIndexSupport.indexTypes).toHaveLength(0);
+        expect(snowflake.tableIndexSupport.nullsOrder).toBe(false);
+    });
+
     test('postgres should support index', () => {
         const postgres = Database.get("postgres");
         expect(postgres.tableIndexSupport.supportsIndex).toBe(true);
@@ -141,6 +158,11 @@ describe('databases constant', () => {
     test('sqlite should support index', () => {
         const sqlite = Database.get("sqlite");
         expect(sqlite.tableIndexSupport.supportsIndex).toBe(true);
+    });
+
+    test('snowflake should not support index (CREATE INDEX unsupported on standard tables)', () => {
+        const snowflake = Database.get("snowflake");
+        expect(snowflake.tableIndexSupport.supportsIndex).toBe(false);
     });
 
     test('postgres should support schema', () => {
@@ -168,6 +190,11 @@ describe('databases constant', () => {
         expect(sqlite.supportsSchema).toBe(false);
     });
 
+    test('snowflake should support schema', () => {
+        const snowflake = Database.get("snowflake");
+        expect(snowflake.supportsSchema).toBe(true);
+    });
+
     test('postgres should have non-orderable unique key support', () => {
         const postgres = Database.get("postgres");
         expect(postgres.uniqueKeySupport.orderable).toBe(false);
@@ -191,6 +218,11 @@ describe('databases constant', () => {
     test('sqlite should have orderable unique key support', () => {
         const sqlite = Database.get("sqlite");
         expect(sqlite.uniqueKeySupport.orderable).toBe(true);
+    });
+
+    test('snowflake should have non-orderable unique key support', () => {
+        const snowflake = Database.get("snowflake");
+        expect(snowflake.uniqueKeySupport.orderable).toBe(false);
     });
 
     test('postgres should support unique key', () => {
@@ -218,6 +250,11 @@ describe('databases constant', () => {
         expect(sqlite.uniqueKeySupport.supportsUniqueKey).toBe(true);
     });
 
+    test('snowflake should support unique key', () => {
+        const snowflake = Database.get("snowflake");
+        expect(snowflake.uniqueKeySupport.supportsUniqueKey).toBe(true);
+    });
+
     test('postgres should support array types', () => {
         const postgres = Database.get("postgres");
         expect(postgres.supportsArrayType).toBe(true);
@@ -241,6 +278,11 @@ describe('databases constant', () => {
     test('sqlite should not support array types', () => {
         const sqlite = Database.get("sqlite");
         expect(sqlite.supportsArrayType).toBe(false);
+    });
+
+    test('snowflake should not support array types', () => {
+        const snowflake = Database.get("snowflake");
+        expect(snowflake.supportsArrayType).toBe(false);
     });
 
     test('postgres should have no auto increment label', () => {
@@ -268,14 +310,20 @@ describe('databases constant', () => {
         expect(sqlite.autoIncrementLabel()).toBe('');
     });
 
+    test('snowflake should have "Autoincrement" label', () => {
+        const snowflake = Database.get("snowflake");
+        expect(snowflake.autoIncrementLabel()).toBe('Autoincrement');
+    });
+
     test('allDatabaseTypes should return all database types', () => {
         const allTypes = Database.allDatabaseTypes();
 
-        expect(allTypes).toHaveLength(5);
+        expect(allTypes).toHaveLength(6);
         expect(allTypes).toContain('postgres');
         expect(allTypes).toContain('mysql');
         expect(allTypes).toContain('ms_sqlserver');
         expect(allTypes).toContain('mariadb');
         expect(allTypes).toContain('sqlite');
+        expect(allTypes).toContain('snowflake');
     });
 });
