@@ -582,7 +582,7 @@ const initCallbackForAddColumnsToTable = (
 
         const updatingColumnModels = previousTableView.tableModel.columns
             .flatMap(column => {
-                if (column.modelType === "group") {
+                if (column.modelType !== "single") {
                     return [];
                 }
 
@@ -1193,7 +1193,7 @@ const initCallbackForRemoveColumnsFromTable = (
         const deletingColumnIds = new Set(columnIds);
         const nextColumns = previousTableView.tableModel.columns
             .filter(column => {
-                if (column.modelType === "group") {
+                if (column.modelType !== "single") {
                     return true;
                 }
 
@@ -1201,7 +1201,7 @@ const initCallbackForRemoveColumnsFromTable = (
             });
 
         const updatingColumnModels = nextColumns.flatMap(column => {
-            if (column.modelType === "group") {
+            if (column.modelType !== "single") {
                 return [];
             }
 

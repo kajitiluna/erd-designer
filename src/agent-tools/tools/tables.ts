@@ -376,6 +376,7 @@ An object containing detailed information about the specified table:
 - columnDefinitions: An array of column definition references, each containing either:
   - For single columns: uri, columnModelId, and modelType: "single"
   - For column groups: uri, columnGroupId, and modelType: "group"
+  - For struct columns (BigQuery STRUCT type): uri, columnStructId, and modelType: "struct"
 `;
 
 const mcpFindTableResource = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
@@ -1738,6 +1739,14 @@ const toTableColumnDefinitions = (erdBudget: DocumentBudget, tableView: TableVie
                 uri: erdBudget.columnGroupUri(column.columnGroupId),
                 columnGroupId: column.columnGroupId,
                 modelType: "group" as const
+            };
+        }
+
+        if (column.modelType === "struct") {
+            return {
+                uri: erdBudget.columnStructUri(column.columnStructId),
+                columnStructId: column.columnStructId,
+                modelType: "struct" as const
             };
         }
 

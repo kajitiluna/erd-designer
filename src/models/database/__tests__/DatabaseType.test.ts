@@ -11,7 +11,7 @@ describe('Database', () => {
                 'postgres', 'PostgreSQL',
                 uniqueKeySupport, indexSupport,
                 { supportsSchema: true, supportsTableCollate: false, collatePattern: /^.*$/ },
-                { supportArray: true, editableCharacterSet: false, autoIncrementLabel: '' }
+                { supportArray: true, supportStruct: false, editableCharacterSet: false, autoIncrementLabel: '' }
             );
 
             expect(database.databaseType).toBe('postgres');
@@ -360,6 +360,41 @@ describe('databases constant', () => {
     test('bigquery should have no auto increment label (no auto-increment equivalent)', () => {
         const bigquery = Database.get("bigquery");
         expect(bigquery.autoIncrementLabel()).toBe('');
+    });
+
+    test('postgres should not support struct types', () => {
+        const postgres = Database.get("postgres");
+        expect(postgres.supportsStructType).toBe(false);
+    });
+
+    test('mysql should not support struct types', () => {
+        const mysql = Database.get("mysql");
+        expect(mysql.supportsStructType).toBe(false);
+    });
+
+    test('ms_sqlserver should not support struct types', () => {
+        const sqlServer = Database.get("ms_sqlserver");
+        expect(sqlServer.supportsStructType).toBe(false);
+    });
+
+    test('mariadb should not support struct types', () => {
+        const mariadb = Database.get("mariadb");
+        expect(mariadb.supportsStructType).toBe(false);
+    });
+
+    test('sqlite should not support struct types', () => {
+        const sqlite = Database.get("sqlite");
+        expect(sqlite.supportsStructType).toBe(false);
+    });
+
+    test('snowflake should not support struct types', () => {
+        const snowflake = Database.get("snowflake");
+        expect(snowflake.supportsStructType).toBe(false);
+    });
+
+    test('bigquery should support struct types', () => {
+        const bigquery = Database.get("bigquery");
+        expect(bigquery.supportsStructType).toBe(true);
     });
 
     test('allDatabaseTypes should return all database types', () => {

@@ -1,5 +1,6 @@
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import ColumnModel from "~/models/database/ColumnModel";
+import ColumnStructModel from "~/models/database/ColumnStructModel";
 
 export const SELECTED_CELL_COLOR = "rgba(25, 118, 210, 0.22)";
 
@@ -10,6 +11,9 @@ export type ColumnWrapModel = {
     modelType: "group",
     columnGroupModel: ColumnGroupModel,
     columnModels: ColumnModel[]
+} | {
+    modelType: "struct",
+    columnStructModel: ColumnStructModel
 };
 
 const PHYSICAL_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;

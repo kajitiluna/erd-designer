@@ -37,9 +37,16 @@ const IndexGridView = ({
     const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
     const [onEditingModel, setEditingModel] = React.useState<TableIndexModel | null>(null);
 
-    const columnModels: ColumnModel[] = columnWrapModels.flatMap(model =>
-        (model.modelType === "single") ? [model.columnModel] : model.columnModels
-    );
+    const columnModels: ColumnModel[] = columnWrapModels.flatMap(model => {
+        if (model.modelType === "single") {
+            return [model.columnModel];
+        }
+        if (model.modelType === "struct") {
+            return []; // struct はインデックス候補から除外する
+        }
+
+        return model.columnModels;
+    });
 
     // 各インデックスに対する列順序のマッピングを計算
     const indexModelWithOrders = React.useMemo(() => {

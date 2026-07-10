@@ -26,7 +26,51 @@ export type ColumnModelType = {
 } | {
     modelType: "group",
     columnGroupId: string
+} | {
+    modelType: "struct",
+    columnStructId: string
 }
+
+/**
+ * ColumnModelType の配列を永続化用の文字列配列(columnModelIds)に変換する。
+ * single はそのままの id、group は "group:<id>"、struct は "struct:<id>" のプレフィックス付き文字列とする。
+ * TableModel と ColumnStructModel の toJSON で共用する。
+ *
+ * @param columns 変換対象のカラムエントリ一覧
+ * @returns 永続化用の文字列配列
+ */
+export const serializeColumnEntries = (columns: readonly ColumnModelType[]): string[] => {
+    return columns.map(column => {
+        if (column.modelType === "group") {
+            return `group:${column.columnGroupId}`;
+        }
+        if (column.modelType === "struct") {
+            return `struct:${column.columnStructId}`;
+        }
+
+        return column.columnModelId;
+    });
+};
+
+/**
+ * 永続化用の文字列配列(columnModelIds)を ColumnModelType の配列に復元する。
+ * serializeColumnEntries の逆変換。TableModel と ColumnStructModel の toObject で共用する。
+ *
+ * @param columnModelIds 永続化された文字列配列
+ * @returns 復元後のカラムエントリ一覧
+ */
+export const deserializeColumnEntries = (columnModelIds: string[]): ColumnModelType[] => {
+    return columnModelIds.map(id => {
+        if (id.startsWith("group:")) {
+            return { modelType: "group", columnGroupId: id.substring(6) };
+        }
+        if (id.startsWith("struct:")) {
+            return { modelType: "struct", columnStructId: id.substring(7) };
+        }
+
+        return { modelType: "single", columnModelId: id };
+    });
+};
 
 export default class TableModel {
 
@@ -135,6 +179,9 @@ export default class TableModel {
             } else if ((thisColumn.modelType === "group") && (otherColumn.modelType === "group")
                 && (thisColumn.columnGroupId !== otherColumn.columnGroupId)) {
                 return false;
+            } else if ((thisColumn.modelType === "struct") && (otherColumn.modelType === "struct")
+                && (thisColumn.columnStructId !== otherColumn.columnStructId)) {
+                return false;
             }
         }
 
@@ -183,9 +230,7 @@ export default class TableModel {
     }
 
     public toJSON(): Record<string, unknown> {
-        const columnModelIds = this.columns.map(column =>
-            (column.modelType === "group") ? `group:${column.columnGroupId}` : column.columnModelId
-        );
+        const columnModelIds = serializeColumnEntries(this.columns);
 
         return {
             tableModelId: this.tableModelId,
@@ -214,11 +259,7 @@ export default class TableModel {
 
         const schemaId = ("schemaId" in obj) ? obj.schemaId as string : "";
 
-        const columns: ColumnModelType[] = (obj.columnModelIds as string[]).map(id =>
-            id.startsWith("group:")
-                ? { modelType: "group", columnGroupId: id.substring(6) }
-                : { modelType: "single", columnModelId: id }
-        );
+        const columns: ColumnModelType[] = deserializeColumnEntries(obj.columnModelIds as string[]);
 
         const uniqueKeysModels = ("uniqueKeysModels" in obj)
             ? toObjects(obj.uniqueKeysModels, "uniqueKeysModels", value => TableUniqueKeysModel.toObject(value)) : [];
