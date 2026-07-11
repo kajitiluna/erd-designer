@@ -1014,6 +1014,11 @@ REQUEST:
     Can be obtained from the table's columns array.
   - position: The target position to move the column group to (required). Same options as above.
 
+  OPTION 3: Move a column struct entry
+  - columnStructId: The unique identifier of the column struct entry to move (required).
+    Can be obtained from the table's columns array or columnDefinitions array.
+  - position: The target position to move the column struct entry to (required). Same options as above.
+
 IMPORTANT NOTES:
 - Reorder operations are processed in the order they appear in the array.
 - Each operation uses the column list state after all previous operations have been applied.
@@ -1053,8 +1058,12 @@ const reorderColumnsInTableInputSchema = {
         z.object({
             columnGroupId: z.string().describe("The unique identifier of the column group to place at this position."),
             ...positionSchema
-        }).describe("Place an existing column group at this position.")
-    ])).describe("An array defining the new order of columns and column groups in the table.")
+        }).describe("Place an existing column group at this position."),
+        z.object({
+            columnStructId: z.string().describe("The unique identifier of the column struct entry to place at this position."),
+            ...positionSchema
+        }).describe("Place an existing column struct entry at this position.")
+    ])).describe("An array defining the new order of columns, column groups, and column struct entries in the table.")
 };
 
 const initReorderColumnsInTable = (
@@ -1081,8 +1090,14 @@ const initReorderColumnsInTable = (
                 if (currentIndex === -1) {
                     throw initInvalidParams(`Column group to reorder not found: ${reorder.columnGroupId}`);
                 }
+            } else if ("columnStructId" in reorder) {
+                currentIndex = nextColumns.findIndex(column =>
+                    (column.modelType === "struct") && (column.columnStructId === reorder.columnStructId));
+                if (currentIndex === -1) {
+                    throw initInvalidParams(`Column struct entry to reorder not found: ${reorder.columnStructId}`);
+                }
             } else {
-                throw initInvalidParams("Invalid reorder entry: missing columnId or columnGroupId");
+                throw initInvalidParams("Invalid reorder entry: missing columnId, columnGroupId, or columnStructId");
             }
 
             // 移動先のインデックスを計算
