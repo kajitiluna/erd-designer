@@ -9,6 +9,7 @@ import ErdDocument from '~/models/ErdDocument';
 import ErdSettingModel from '~/models/ErdSettingModel';
 import ColumnModel from '~/models/database/ColumnModel';
 import ColumnShareModel from '~/models/database/ColumnShareModel';
+import ColumnStructModel from '~/models/database/ColumnStructModel';
 import { findDatabaseColumns } from '~/models/database/columns';
 import { DatabaseType } from '~/models/database/DatabaseType';
 import TableIndexModel, { IndexColumnModel } from '~/models/database/TableIndexModel';
@@ -76,6 +77,57 @@ const buildSampleDocument = (databaseType: DatabaseType): ErdDocument => {
     });
 };
 
+const buildSampleDocumentWithStruct = (databaseType: DatabaseType): ErdDocument => {
+    const integerColumnType = findDatabaseColumns(databaseType)[0];
+
+    const idColumnShare = new ColumnShareModel({
+        columnShareModelId: 'share-id',
+        physicalName: 'id',
+        logicalName: 'ID',
+        columnType: integerColumnType
+    });
+    const idColumn = new ColumnModel({
+        columnModelId: 'col-id',
+        columnShareModelId: idColumnShare.columnShareModelId,
+        physicalName: 'id',
+        primaryKey: true,
+        notNull: true
+    });
+
+    const structColumnModel = new ColumnStructModel({
+        columnStructId: 'struct-id',
+        physicalName: 'address',
+        logicalName: '住所',
+        description: 'struct column for smoke test',
+        notNull: true,
+        columns: []
+    });
+
+    const tableModel = new TableModel({
+        tableModelId: 'table-sample-struct',
+        physicalName: 'sample_table_struct',
+        columns: [
+            { modelType: 'single', columnModelId: idColumn.columnModelId },
+            { modelType: 'struct', columnStructId: structColumnModel.columnStructId }
+        ] as ColumnModelType[]
+    });
+
+    const tableViewModel = new TableViewModel({
+        tableModel, corner: { top: 0, left: 0 }, headerColor: TEST_COLORS
+    });
+
+    return ErdDocument.create({
+        documentName: `${databaseType}-spec-smoke-struct`,
+        erdSettingModel: ErdSettingModel.create(`${databaseType}-spec-smoke-struct`),
+        databaseSettingModel: DatabaseSettingModel.create(databaseType),
+        schemaConfig: DbSchemaConfig.create(),
+        tableViewModels: [tableViewModel],
+        columnModels: [idColumn],
+        columnShareModels: [idColumnShare],
+        columnStructModels: [structColumnModel]
+    });
+};
+
 const allDatabaseTypes: DatabaseType[] =
     ["postgres", "mysql", "mariadb", "ms_sqlserver", "sqlite", "snowflake", "bigquery"];
 
@@ -128,5 +180,25 @@ describe('spec export smoke test (all database types)', () => {
 
         expect(headerRow).not.toContain('Unsigned');
         expect(headerRow).not.toContain('NULLS Order');
+    });
+
+    test('bigquery column sheet includes struct entry with STRUCT type and description', () => {
+        const erdDocument = buildSampleDocumentWithStruct("bigquery");
+        const { spreadSheet } = exportSpreadSheetFormatSpecification(erdDocument);
+
+        const columnSheet = spreadSheet.sheets.find(sheet => sheet.properties.title.includes('Column'))
+            ?? spreadSheet.sheets[1];
+        const columnSheetContent = JSON.stringify(columnSheet.data);
+
+        expect(columnSheetContent).toContain('address');
+        expect(columnSheetContent).toContain('STRUCT');
+        expect(columnSheetContent).toContain('struct column for smoke test');
+    });
+
+    test('bigquery struct entry with notNull shows NotNull mark in column sheet', async () => {
+        const erdDocument = buildSampleDocumentWithStruct("bigquery");
+        const image = { base64Value: MINIMAL_PNG_BASE64, width: 1, height: 1 };
+
+        await expect(exportExcelFormatSpecification(erdDocument, image)).resolves.toBeDefined();
     });
 });

@@ -1,4 +1,5 @@
 import ErdDocument from "~/models/ErdDocument";
+import ColumnStructModel from "~/models/database/ColumnStructModel";
 import DbSchemaModel from "~/models/database/DbSchemaModel";
 import TableModel from "~/models/database/TableModel";
 import { overrideColumnName } from "~/models/database/support";
@@ -132,8 +133,15 @@ const initExportAllColumnsGenerator = (erdDocument: ErdDocument) => (function*()
 
 const initExportColumnGenerator = (erdDocument: ErdDocument, tableModel: TableModel) => (function*() {
     const schemaModel = erdDocument.findSchema(tableModel.schemaId);
+    const physicalTableName = initTablePhysicalName(tableModel, schemaModel);
 
-    for (const columnModel of erdDocument.toAllColumnModels(tableModel)) {
+    for (const entry of erdDocument.toDisplayColumnEntries(tableModel)) {
+        if (entry.entryType === "struct") {
+            yield initStructColumnSpec(entry.columnStructModel, physicalTableName, tableModel.logicalName);
+            continue;
+        }
+
+        const columnModel = entry.columnModel;
         const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
         if (columnShareModel == null) {
             continue;
@@ -143,7 +151,7 @@ const initExportColumnGenerator = (erdDocument: ErdDocument, tableModel: TableMo
         const parentRelation = erdDocument.findParentRelation(tableModel.tableModelId, columnModel.columnModelId);
 
         yield {
-            physicalTableName: initTablePhysicalName(tableModel, schemaModel),
+            physicalTableName: physicalTableName,
             logicalTableName: tableModel.logicalName,
             physicalColumnName: overrideName.physicalName,
             logicalColumnName: overrideName.logicalName,
@@ -161,6 +169,28 @@ const initExportColumnGenerator = (erdDocument: ErdDocument, tableModel: TableMo
         };
     }
 });
+
+const initStructColumnSpec = (
+    columnStructModel: ColumnStructModel, physicalTableName: string, logicalTableName: string
+) => {
+    return {
+        physicalTableName: physicalTableName,
+        logicalTableName: logicalTableName,
+        physicalColumnName: columnStructModel.physicalName,
+        logicalColumnName: columnStructModel.logicalName,
+        columnType: columnStructModel.displayTypeQuery(),
+        precision: null,
+        scale: null,
+        unsigned: "",
+        primaryKey: "",
+        notNull: columnStructModel.notNull ? "✓" : "",
+        unique: "",
+        autoIncrement: "",
+        defaultValue: "",
+        foreignRelation: null,
+        description: columnStructModel.description,
+    };
+};
 
 const initForeignRelation = (erdDocument: ErdDocument, parentRelation: ParentRelation | null) => {
     if (parentRelation == null) {

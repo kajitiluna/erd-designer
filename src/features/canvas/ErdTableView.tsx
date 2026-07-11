@@ -32,6 +32,7 @@ import LineViewModel from "~/models/LineViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
+import ColumnStructModel from "~/models/database/ColumnStructModel";
 import DisplayStyle from "~/models/database/DisplayStyle";
 import RelationModel from "~/models/database/RelationModel";
 import TableModel from "~/models/database/TableModel";
@@ -63,9 +64,11 @@ const ErdTableView = ({ tableViewModel, visible = true, onEditAction, onDragActi
 
     const tableContentCache = React.useMemo(() => {
         const tableModel = tableViewModel.tableModel;
-        const allColumns = erdDocument.toAllColumnModels(tableModel);
-        const tableRows = (allColumns.length > 0)
-            ? allColumns.map(columnModel => initTableColumn(columnModel, tableModel, erdDocument, selectState))
+        const displayEntries = erdDocument.toDisplayColumnEntries(tableModel);
+        const tableRows = (displayEntries.length > 0)
+            ? displayEntries.map(entry => (entry.entryType === "struct")
+                ? initStructTableColumn(entry.columnStructModel, tableModel, erdDocument)
+                : initTableColumn(entry.columnModel, tableModel, erdDocument, selectState))
             : (<TableRow><TableCell></TableCell></TableRow>);
 
         return (
@@ -194,6 +197,45 @@ const initTableColumn = (columnModel: ColumnModel, tableModel: TableModel, erdDo
             {initTableIndexMarkers(columnModel, tableIndexModels)}
         </TableRow >
     );
+};
+
+const initStructTableColumn = (columnStructModel: ColumnStructModel, tableModel: TableModel, erdDocument: ErdDocument) => {
+    const displayColumnName = erdDocument.getDisplayStyle()
+        .displayName(columnStructModel.physicalName, columnStructModel.logicalName);
+    const displayColumnType = columnStructModel.displayTypeQuery();
+    const displayOption = columnStructModel.notNull ? "(NN)" : "";
+
+    const styleTextCell = {
+        whiteSpace: "nowrap", color: "#000000"
+    };
+    const styleAttributeCell = {
+        whiteSpace: "nowrap", color: "#000000", fontSize: "0.914em"
+    };
+
+    return (
+        <TableRow key={`erd-table-column_${columnStructModel.columnStructId}`}
+            data-column-struct-id={columnStructModel.columnStructId}>
+            <TableCell align="center" sx={STYLE_PRIMARY_CELL} />
+            <TableCell align="center" sx={STYLE_FOREIGN_CELL} />
+
+            <DescriptionTooltip title={columnStructModel.description} placement="top">
+                <TableCell sx={styleTextCell}>{displayColumnName}</TableCell>
+            </DescriptionTooltip>
+
+            <TableCell sx={styleAttributeCell}>{displayColumnType}</TableCell>
+            <TableCell align="center" sx={styleAttributeCell}>{displayOption}</TableCell>
+            {initEmptyMarkerCell(tableModel.uniqueKeysModels)}
+            {initEmptyMarkerCell(tableModel.tableIndexModels)}
+        </TableRow>
+    );
+};
+
+const initEmptyMarkerCell = (markerModels: readonly (TableUniqueKeysModel | TableIndexModel)[]) => {
+    if (markerModels.length === 0) {
+        return (<></>);
+    }
+
+    return (<TableCell sx={STYLE_MARKER_CELL} />);
 };
 
 const initTableColumnFontColor = (columnModel: ColumnModel, inChildRelation: boolean) => {
