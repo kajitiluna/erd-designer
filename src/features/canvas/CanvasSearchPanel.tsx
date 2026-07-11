@@ -561,6 +561,7 @@ const collectColumnMatches = (
     erdDocument: ErdDocument, tableView: TableViewModel, lowerTerm: string
 ): SearchMatch[] => {
     const displayStyle = erdDocument.getDisplayStyle();
+    // TODO struct カラムの検索対応は別スコープ
     const allColumns = erdDocument.toAllColumnModels(tableView.tableModel);
 
     return allColumns.flatMap(column => {
