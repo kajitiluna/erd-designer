@@ -11,3 +11,17 @@ export const inOpenControlPanel = () => {
 
     return (dialogs.length > 0) || (backdrops.length > 0);
 };
+
+/**
+ * テキスト入力可能な要素にフォーカスがあるかを判定する。
+ * canvas 上のショートカットキー操作がテキスト入力を妨げないように制御するために使用する。
+ */
+export const isTextInputFocused = (): boolean => {
+    const activeElement = window.document.activeElement;
+    if (activeElement == null) {
+        return false;
+    }
+
+    const tagName = activeElement.tagName;
+    return (tagName === "INPUT") || (tagName === "TEXTAREA");
+};

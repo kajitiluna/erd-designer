@@ -39,8 +39,6 @@ const CanvasSearchPanel = () => {
     }
 
     const handleKeyDown = (event: React.KeyboardEvent) => {
-        event.nativeEvent.stopImmediatePropagation();
-
         if (event.key === "Escape") {
             event.preventDefault();
             searchAction.closeSearch();

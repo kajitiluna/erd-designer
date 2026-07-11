@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.20260711] - 2026-07-11
+
+### Fixed
+
+- **Keyboard shortcuts interfering with search panel input**:
+
+  Typing in the search panel could trigger canvas keyboard shortcuts (e.g. Delete, arrow keys),
+  making it difficult to edit search text. Canvas shortcuts are now suppressed while a text input field has focus.
+
+
 ## [0.20260707] - 2026-07-07
 
 ### Fixed
