@@ -4,6 +4,7 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CheckIcon from "@mui/icons-material/Check";
+import DataObjectIcon from '@mui/icons-material/DataObject';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
@@ -11,36 +12,46 @@ import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import ForeignKeyIcon from "~/components/icons/ForeignKeyIcon";
 import PrimaryKeyIcon from "~/components/icons/PrimaryKeyIcon";
 import EdgedIconButton from "~/components/EdgedIconButton";
-import ColumnModel from "~/models/database/ColumnModel";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
-import ColumnStructModel from "~/models/database/ColumnStructModel";
+import SimpleColumnModel from "~/models/database/SimpleColumnModel";
+import StructColumnModel from "~/models/database/StructColumnModel";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import { overrideColumnName } from "~/models/database/support";
 import ColumnEditDialog from "~/features/editor/ColumnEditDialog";
 import { ColumnWrapModel, SELECTED_CELL_COLOR } from "~/features/editor/support";
 import ColumnGroupView from "~/features/editor/ColumnGroupView";
+import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
+import StructColumnEditDialog from "~/features/editor/StructColumnEditDialog";
 
 type ColumnViewTableProps = {
     columnWrapModels: ColumnWrapModel[],
     availableColumnGroup: boolean,
+    availableKeyConstraints?: boolean,
+    structNestCount?: number,
     isChildRelation: (columnModelId: string) => boolean,
-    isEditableColumnType: (columnModel: ColumnModel) => boolean,
+    isEditableColumnType: (columnModel: SimpleColumnModel) => boolean,
     onUpdateColumnWrapModels: (updateFunction: ((previous: ColumnWrapModel[]) => ColumnWrapModel[])) => void,
     onUpdateCheckExpression: (updateFunction: ((previous: string) => string)) => void
 };
 
+type ColumnEditModeType = "column" | "add_struct" | "edit_struct" | "add_group" | "edit_group" | "";
+
 const ColumnViewTable = ({
-    columnWrapModels, availableColumnGroup, 
+    columnWrapModels, availableColumnGroup, availableKeyConstraints = true, structNestCount = 0,
     isChildRelation, isEditableColumnType, onUpdateColumnWrapModels, onUpdateCheckExpression
 }: ColumnViewTableProps) => {
 
-    const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
+    const documentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const { columnShareStorage } = React.useContext(ColumnShareModelStorageContext);
 
     const [selectedWrappedModel, setSelectedWrappedModel] = React.useState<ColumnWrapModel | null>(null);
-    const [editMode, setEditMode] = React.useState<"column" | "add_group" | "edit_group" | "">("");
+    const [editMode, setEditMode] = React.useState<ColumnEditModeType>("");
 
     const [draggingStartIndex, setDraggingStartIndex] = React.useState<number | null>(null);
     const [draggingOverIndex, setDraggingOverIndex] = React.useState<number | null>(null);
+
+    const erdDocument = documentsHolder.current();
+    const database = erdDocument.getDatabase();
 
     const selectedIndex: number = (selectedWrappedModel == null) ? -1
         : columnWrapModels.findIndex(wrappedModel => {
@@ -59,7 +70,7 @@ const ColumnViewTable = ({
             }
 
             if ((wrappedModel.modelType === "struct") && (selectedWrappedModel.modelType === "struct")
-                && (wrappedModel.columnStructModel.columnStructId === selectedWrappedModel.columnStructModel.columnStructId)) {
+                && (wrappedModel.columnModel.columnModelId === selectedWrappedModel.columnModel.columnModelId)) {
                 return true;
             }
 
@@ -87,7 +98,7 @@ const ColumnViewTable = ({
         if (columnWrapModel.modelType === "single") {
             cells = doInitSingleColumnRow(columnWrapModel.columnModel);
         } else if (columnWrapModel.modelType === "struct") {
-            cells = doInitStructColumnRow(columnWrapModel.columnStructModel);
+            cells = doInitStructColumnRow(columnWrapModel.columnModel);
         } else {
             cells = doInitGroupColumnRow(columnWrapModel.columnGroupModel);
         }
@@ -97,17 +108,8 @@ const ColumnViewTable = ({
         };
 
         const handleEditColumn = () => {
-            if (columnWrapModel.modelType === "struct") {
-                return; // struct は表示のみ対応のため、編集ダイアログは開かない
-            }
-
             setSelectedWrappedModel(columnWrapModel);
-
-            if (columnWrapModel.modelType === "single") {
-                setEditMode("column");
-            } else {
-                setEditMode("edit_group");
-            }
+            setEditMode(TO_EDIT_MODE[columnWrapModel.modelType]);
         };
 
         // ドラッグ開始の制御
@@ -166,8 +168,25 @@ const ColumnViewTable = ({
         );
     };
 
-    const doInitSingleColumnRow = (columnModel: ColumnModel) => {
-        const columnShareModel = columnShareModelStorage.find(columnModel.columnShareModelId);
+    const columnViewHeader = (
+        <TableHead>
+            <TableRow>
+                <TableCell sx={{ width: "5px", paddingRight: "8px" }} align="center"></TableCell>
+                {availableKeyConstraints && (<>
+                    <TableCell sx={{ width: "10px" }} align="center">PK</TableCell>
+                    <TableCell sx={{ width: "10px" }} align="center">FK</TableCell>
+                </>)}
+                <TableCell>Physical Name</TableCell>
+                <TableCell>Logical Name</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell sx={{ width: "50px" }} align="center">NotNull</TableCell>
+                <TableCell sx={{ width: "50px" }} align="center">Unique</TableCell>
+            </TableRow>
+        </TableHead>
+    );
+
+    const doInitSingleColumnRow = (columnModel: SimpleColumnModel) => {
+        const columnShareModel = columnShareStorage.findColumnShare(columnModel.columnShareModelId);
         if (columnShareModel == null) {
             console.warn(`ColumnShareModel not found for columnModelId: ${columnModel.columnModelId}`);
             return (<></>);
@@ -177,8 +196,10 @@ const ColumnViewTable = ({
         const inChildRelation = isChildRelation(columnModel.columnModelId);
 
         return (<>
-            <TableCell align="center">{columnModel.primaryKey && <PrimaryKeyIcon />}</TableCell>
-            <TableCell align="center">{inChildRelation && <ForeignKeyIcon />}</TableCell>
+            {availableKeyConstraints && (<>
+                <TableCell align="center">{columnModel.primaryKey && <PrimaryKeyIcon />}</TableCell>
+                <TableCell align="center">{inChildRelation && <ForeignKeyIcon />}</TableCell>
+            </>)}
             <TableCell>{overrideName.physicalName}</TableCell>
             <TableCell>{overrideName.logicalName}</TableCell>
             <TableCell>{columnShareModel.specifiedColumnType(inChildRelation)}</TableCell>
@@ -189,28 +210,46 @@ const ColumnViewTable = ({
 
     const doInitGroupColumnRow = (columnGroupModel: ColumnGroupModel) => {
         return (<>
-            <TableCell align="center"></TableCell>
-            <TableCell align="center"></TableCell>
+            {availableKeyConstraints && (<>
+                <TableCell align="center"></TableCell>
+                <TableCell align="center"></TableCell>
+            </>)}
             <TableCell colSpan={5}>{columnGroupModel.groupName}</TableCell>
         </>);
     }
 
-    const doInitStructColumnRow = (columnStructModel: ColumnStructModel) => {
+    const doInitStructColumnRow = (columnModel: StructColumnModel) => {
+        const structShare = columnShareStorage.findStructShare(columnModel.structShareModelId);
+        if (structShare == null) {
+            console.warn(`StructColumnShareModel not found for structColumnModelId: ${columnModel.columnModelId}`);
+            return (<></>);
+        }
+
+        const overrideName = overrideColumnName(columnModel, structShare);
+
         return (<>
-            <TableCell align="center"></TableCell>
-            <TableCell align="center"></TableCell>
-            <TableCell>{columnStructModel.physicalName}</TableCell>
-            <TableCell>{columnStructModel.logicalName}</TableCell>
-            <TableCell>{columnStructModel.displayTypeQuery()}</TableCell>
-            <TableCell align="center">{columnStructModel.notNull && <CheckIcon fontSize="small" />}</TableCell>
+            {availableKeyConstraints && (<>
+                <TableCell align="center"></TableCell>
+                <TableCell align="center"></TableCell>
+            </>)}
+            <TableCell>{overrideName.physicalName}</TableCell>
+            <TableCell>{overrideName.logicalName}</TableCell>
+            <TableCell>{structShare.simpleColumnType()}</TableCell>
+            <TableCell align="center">{columnModel.notNull && <CheckIcon fontSize="small" />}</TableCell>
             <TableCell align="center"></TableCell>
         </>);
     }
 
     const handleAddColumn = () => {
-        const columnModel = new ColumnModel({});
+        const columnModel = new SimpleColumnModel({ columnShareModelId: "" });
         setSelectedWrappedModel({ modelType: "single", columnModel });
         setEditMode("column");
+    };
+
+    const handleAddStructColumn = () => {
+        const columnModel = new StructColumnModel({ structShareModelId: "" });
+        setSelectedWrappedModel({ modelType: "struct", columnModel });
+        setEditMode("add_struct");
     };
 
     const handleAddColumnGroup = () => {
@@ -222,6 +261,12 @@ const ColumnViewTable = ({
             <EdgedIconButton tooltip="Add column" withText onClick={handleAddColumn}>
                 <AddIcon />
             </EdgedIconButton>
+            {database.supportsStructType && (
+                <EdgedIconButton tooltip="Add struct column" withText disabled={structNestCount >= 10}
+                    onClick={handleAddStructColumn}>
+                    <DataObjectIcon />
+                </EdgedIconButton>
+            )}
             {availableColumnGroup && (
                 <EdgedIconButton tooltip="Add group column" withText onClick={handleAddColumnGroup}>
                     <PlaylistAddIcon />
@@ -235,11 +280,7 @@ const ColumnViewTable = ({
             return;
         }
 
-        if (selectedWrappedModel.modelType === "single") {
-            setEditMode("column");
-        } else {
-            setEditMode("edit_group");
-        }
+        setEditMode(TO_EDIT_MODE[selectedWrappedModel.modelType]);
     };
 
     const initHandleShiftColumn = (shift: (1 | -1)) => {
@@ -330,14 +371,14 @@ const ColumnViewTable = ({
         <>
             <TableContainer sx={{ maxHeight: window.innerHeight - 550 }}>
                 <Table stickyHeader size="small" aria-label="column view table" style={{ tableLayout: "fixed" }}>
-                    {COLUMN_VIEW_HEADER}
+                    {columnViewHeader}
                     <TableBody>
                         {(columnWrapModels.length > 0)
                             ? columnWrapModels.map((columnWrapModel: ColumnWrapModel, index: number) =>
                                 initColumnModelRow(columnWrapModel, index))
                             : (
                                 <TableRow>
-                                    <TableCell colSpan={8} align="center" sx={{ p: 2 }}>
+                                    <TableCell colSpan={availableKeyConstraints ? 8 : 6} align="center" sx={{ p: 2 }}>
                                         (No columns)
                                     </TableCell>
                                 </TableRow>
@@ -353,11 +394,21 @@ const ColumnViewTable = ({
                 <ColumnEditDialog
                     isOpen={(editMode === "column") && (selectedWrappedModel?.modelType === "single")}
                     columnModel={selectedWrappedModel.columnModel}
+                    availableKeyConstraints={availableKeyConstraints}
                     isEditableColumnType={isEditableColumnType}
                     onUpdateWrapColumnModels={onUpdateColumnWrapModels}
                     onUpdateCheckExpression={onUpdateCheckExpression}
                     onClose={() => setEditMode("")} />
             )}
+            {((editMode === "add_struct") || (editMode === "edit_struct"))
+                && (selectedWrappedModel?.modelType === "struct") && (
+                    <StructColumnEditDialog
+                        isOpen={((editMode === "add_struct") || (editMode === "edit_struct"))}
+                        structColumn={selectedWrappedModel.columnModel}
+                        structNestCount={structNestCount}
+                        onUpdateWrapColumnModels={onUpdateColumnWrapModels}
+                        onClose={() => setEditMode("")} />
+                )}
             {((editMode === "add_group") || (editMode === "edit_group")) && (
                 <ColumnGroupView
                     isOpen={((editMode === "add_group") || (editMode === "edit_group"))}
@@ -369,20 +420,11 @@ const ColumnViewTable = ({
     );
 };
 
-const COLUMN_VIEW_HEADER = (
-    <TableHead>
-        <TableRow>
-            <TableCell sx={{ width: "5px", paddingRight: "8px" }} align="center"></TableCell>
-            <TableCell sx={{ width: "10px" }} align="center">PK</TableCell>
-            <TableCell sx={{ width: "10px" }} align="center">FK</TableCell>
-            <TableCell>Physical Name</TableCell>
-            <TableCell>Logical Name</TableCell>
-            <TableCell>Type</TableCell>
-            <TableCell sx={{ width: "50px" }} align="center">NotNull</TableCell>
-            <TableCell sx={{ width: "50px" }} align="center">Unique</TableCell>
-        </TableRow>
-    </TableHead>
-);
+const TO_EDIT_MODE: { [key in ColumnWrapModel["modelType"]]: ColumnEditModeType } = {
+    "single": "column",
+    "group": "edit_group",
+    "struct": "edit_struct",
+} as const;
 
 const BASE_ROW_STYLE = {
     height: "43px",

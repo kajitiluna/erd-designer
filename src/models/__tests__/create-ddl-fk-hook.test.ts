@@ -6,12 +6,13 @@ import DatabaseSettingModel from '~/models/DatabaseSettingModel';
 import DbSchemaConfig from '~/models/DbSchemaConfig';
 import ErdDocument from '~/models/ErdDocument';
 import ErdSettingModel from '~/models/ErdSettingModel';
-import ColumnModel from '~/models/database/ColumnModel';
+import ColumnEntry from '~/models/database/ColumnEntry';
+import SimpleColumnModel from '~/models/database/SimpleColumnModel';
 import ColumnShareModel from '~/models/database/ColumnShareModel';
 import { findDatabaseColumns } from '~/models/database/columns';
 import RelationModel from '~/models/database/RelationModel';
 import RelationPair from '~/models/database/RelationPair';
-import TableModel, { ColumnEntry } from '~/models/database/TableModel';
+import TableModel from '~/models/database/TableModel';
 import TableViewModel from '~/models/TableViewModel';
 import RelationViewModel from '~/models/RelationViewModel';
 import LineViewModel from '~/models/LineViewModel';
@@ -52,21 +53,21 @@ const buildFkSampleDocument = (databaseType: DatabaseType, integerTypeName: stri
         columnType: findColumnType(databaseType, integerTypeName)
     });
 
-    const parentIdColumn = new ColumnModel({
+    const parentIdColumn = new SimpleColumnModel({
         columnModelId: 'col-parent-id',
         columnShareModelId: parentIdShare.columnShareModelId,
         physicalName: 'parent_id',
         primaryKey: true,
         notNull: true
     });
-    const childIdColumn = new ColumnModel({
+    const childIdColumn = new SimpleColumnModel({
         columnModelId: 'col-child-id',
         columnShareModelId: childIdShare.columnShareModelId,
         physicalName: 'child_id',
         primaryKey: true,
         notNull: true
     });
-    const childRefColumn = new ColumnModel({
+    const childRefColumn = new SimpleColumnModel({
         columnModelId: 'col-child-ref',
         columnShareModelId: childRefShare.columnShareModelId,
         physicalName: 'ref_parent_id'

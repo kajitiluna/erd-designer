@@ -1,4 +1,7 @@
-import ErdDocument, { ColumnDetailEntry } from "~/models/ErdDocument";
+import ErdDocument from "~/models/ErdDocument";
+import ColumnModel from "~/models/database/ColumnModel";
+import StructColumnModel from "~/models/database/StructColumnModel";
+import StructColumnShareModel from "~/models/database/StructColumnShareModel";
 import DbSchemaModel from "~/models/database/DbSchemaModel";
 import TableModel from "~/models/database/TableModel";
 import { overrideColumnName } from "~/models/database/support";
@@ -134,13 +137,17 @@ const initExportColumnGenerator = (erdDocument: ErdDocument, tableModel: TableMo
     const schemaModel = erdDocument.findSchema(tableModel.schemaId);
     const physicalTableName = initTablePhysicalName(tableModel, schemaModel);
 
-    for (const entry of erdDocument.toColumnDetailEntries(tableModel)) {
-        if (entry.entryType === "struct") {
-            yield initStructColumnSpec(entry, physicalTableName, tableModel.logicalName);
+    for (const columnModel of erdDocument.toAllColumnsWithStruct(tableModel)) {
+        if (columnModel.entityType === "struct") {
+            const structModel = erdDocument.findStructColumnShareModel(columnModel.structShareModelId);
+            if (structModel == null) {
+                continue;
+            }
+
+            yield initStructColumnSpec(columnModel, structModel, physicalTableName, tableModel.logicalName);
             continue;
         }
 
-        const columnModel = entry.columnModel;
         const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
         if (columnShareModel == null) {
             continue;
@@ -170,21 +177,22 @@ const initExportColumnGenerator = (erdDocument: ErdDocument, tableModel: TableMo
 });
 
 const initStructColumnSpec = (
-    entry: ColumnDetailEntry & {entryType: "struct"}, physicalTableName: string, logicalTableName: string
+    columnModel: StructColumnModel, structModel: StructColumnShareModel,
+    physicalTableName: string, logicalTableName: string
 ) => {
-    const structModel = entry.structModel;
+    const overrideName = overrideColumnName(columnModel, structModel);
 
     return {
         physicalTableName: physicalTableName,
         logicalTableName: logicalTableName,
-        physicalColumnName: structModel.physicalName,
-        logicalColumnName: structModel.logicalName,
-        columnType: structModel.displayTypeQuery(),
+        physicalColumnName: overrideName.physicalName,
+        logicalColumnName: overrideName.logicalName,
+        columnType: structModel.simpleColumnType(),
         precision: null,
         scale: null,
         unsigned: "",
         primaryKey: "",
-        notNull: structModel.notNull ? "✓" : "",
+        notNull: columnModel.notNull ? "✓" : "",
         unique: "",
         autoIncrement: "",
         defaultValue: "",
@@ -204,7 +212,7 @@ const initForeignRelation = (erdDocument: ErdDocument, parentRelation: ParentRel
     }
 
     const parentColumn = erdDocument.findColumnModel(parentRelation.columnModelId);
-    if (parentColumn == null) {
+    if ((parentColumn == null) || (ColumnModel.isSimpleColumn(parentColumn) === false)) {
         return null;
     }
     const parentColumnShare = erdDocument.findColumnShareModel(parentColumn.columnShareModelId);
@@ -249,7 +257,7 @@ const initExportUniqueKeysConstraintsGenerator = (
     for (const uniqueKeysModel of tableModel.uniqueKeysModels) {
         const uniqueKeyColumns = uniqueKeysModel.uniqueKeysColumnModels.map(model => {
             const columnModel = erdDocument.findColumnModel(model.columnModelId);
-            if (columnModel == null) {
+            if ((columnModel == null) || (ColumnModel.isSimpleColumn(columnModel) === false)) {
                 return null;
             }
 
@@ -278,7 +286,7 @@ const initExportTableIndexesGenerator = (erdDocument: ErdDocument, tableModel: T
     for (const tableIndex of tableModel.tableIndexModels) {
         const indexedColumns = tableIndex.indexColumnModels.map(model => {
             const columnModel = erdDocument.findColumnModel(model.columnModelId);
-            if (columnModel == null) {
+            if ((columnModel == null) || (ColumnModel.isSimpleColumn(columnModel) === false)) {
                 return null;
             }
 

@@ -6,10 +6,11 @@ import DatabaseSettingModel from '~/models/DatabaseSettingModel';
 import DbSchemaConfig from '~/models/DbSchemaConfig';
 import ErdDocument from '~/models/ErdDocument';
 import ErdSettingModel from '~/models/ErdSettingModel';
-import ColumnModel from '~/models/database/ColumnModel';
+import ColumnEntry from '~/models/database/ColumnEntry';
+import SimpleColumnModel from '~/models/database/SimpleColumnModel';
 import ColumnShareModel from '~/models/database/ColumnShareModel';
 import { findDatabaseColumns } from '~/models/database/columns';
-import TableModel, { ColumnEntry } from '~/models/database/TableModel';
+import TableModel from '~/models/database/TableModel';
 import TableViewModel from '~/models/TableViewModel';
 
 const TEST_COLORS = {
@@ -36,7 +37,7 @@ const buildArrayColumnDocument = (): ErdDocument => {
         isArray: true
     });
 
-    const tagsColumn = new ColumnModel({
+    const tagsColumn = new SimpleColumnModel({
         columnModelId: 'col-tags',
         columnShareModelId: tagsColumnShare.columnShareModelId,
         physicalName: 'tags'

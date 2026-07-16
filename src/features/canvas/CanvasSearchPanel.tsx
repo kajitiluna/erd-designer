@@ -12,11 +12,13 @@ import PortalCanvasContext from "~/context/PortalCanvasContext";
 import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { LocalSettingContext } from "~/context/LocalSettingContext";
 import { inOpenControlPanel } from "~/components/support";
-import ErdDocument, { ColumnDetailEntry } from "~/models/ErdDocument";
+import ErdDocument from "~/models/ErdDocument";
 import PerspectiveModel from "~/models/PerspectiveModel";
 import { overrideColumnName } from "~/models/database/support";
 import TableViewModel from "~/models/TableViewModel";
 import ColumnModel from "~/models/database/ColumnModel";
+import SimpleColumnModel from "~/models/database/SimpleColumnModel";
+import StructColumnModel from "~/models/database/StructColumnModel";
 
 const CanvasSearchPanel = () => {
     const documentsHolder = React.useContext(ErdDocumentsHolderContext);
@@ -528,8 +530,8 @@ const collectTableMatches = (
     const tableNameMatches = doCollectTableMatches(erdDocument, visibleTables, lowerTerm, searchTargets);
     const columnMatches = (searchTargets.onColumn === false) ? []
         : visibleTables.flatMap(tableView => {
-            const columnEntries = erdDocument.toColumnDetailEntries(tableView.tableModel);
-            return collectColumnMatches(erdDocument, tableView, columnEntries, lowerTerm);
+            const allColumns = erdDocument.toAllColumnsWithStruct(tableView.tableModel);
+            return collectColumnMatches(erdDocument, tableView, allColumns, lowerTerm);
         });
 
     return [...tableNameMatches, ...columnMatches];
@@ -562,36 +564,46 @@ const doCollectTableMatches = (
 };
 
 const collectColumnMatches = (
-    erdDocument: ErdDocument, tableView: TableViewModel, columnEntries: ColumnDetailEntry[], lowerTerm: string
+    erdDocument: ErdDocument, tableView: TableViewModel, columns: ColumnModel[], lowerTerm: string
 ): SearchMatch[] => {
-    const displayStyle = erdDocument.getDisplayStyle();
-
-    return columnEntries.flatMap(columnEntry => {
-        if (columnEntry.entryType === "column") {
-            return doCollectSingleColumnMatches(erdDocument, tableView, columnEntry.columnModel, lowerTerm);
+    return columns.flatMap(columnModel => {
+        if (ColumnModel.isSimpleColumn(columnModel)) {
+            return doCollectSingleColumnMatches(erdDocument, tableView, columnModel, lowerTerm);
         }
 
-        const structModel = columnEntry.structModel;
-        const displayStructName = displayStyle.displayName(structModel.physicalName, structModel.logicalName);
-
-        const innerMatches = collectColumnMatches(erdDocument, tableView, columnEntry.entries, lowerTerm);
-        if (displayStructName.toLowerCase().includes(lowerTerm) === false) {
-            return innerMatches;
-        }
-
-        const matchedStruct = {
-            matchType: "onColumn" as const,
-            entityId: tableView.tableId,
-            subEntityId: structModel.columnStructId,
-            position: { x: tableView.corner.left, y: tableView.corner.top },
-        };
-
-        return [matchedStruct, ...innerMatches];
+        return doCollectStructColumnMatches(erdDocument, tableView, columnModel, lowerTerm);
     });
 };
 
+// struct カラムはキャンバス上 1 行表示のため、検索対象は struct カラム行の表示名のみとする
+// (定義内メンバーは描画されないため対象外)
+const doCollectStructColumnMatches = (
+    erdDocument: ErdDocument, tableView: TableViewModel, columnModel: StructColumnModel, lowerTerm: string
+): SearchMatch[] => {
+    const structModel = erdDocument.findStructColumnShareModel(columnModel.structShareModelId);
+    if (structModel == null) {
+        return [];
+    }
+
+    const overrideName = overrideColumnName(columnModel, structModel);
+    const displayStyle = erdDocument.getDisplayStyle();
+    const displayStructName = displayStyle.displayName(overrideName.physicalName, overrideName.logicalName);
+    if (displayStructName.toLowerCase().includes(lowerTerm) === false) {
+        return [];
+    }
+
+    return [
+        {
+            matchType: "onColumn" as const,
+            entityId: tableView.tableId,
+            subEntityId: columnModel.columnModelId,
+            position: { x: tableView.corner.left, y: tableView.corner.top },
+        }
+    ];
+};
+
 const doCollectSingleColumnMatches = (
-    erdDocument: ErdDocument, tableView: TableViewModel, column: ColumnModel, lowerTerm: string
+    erdDocument: ErdDocument, tableView: TableViewModel, column: SimpleColumnModel, lowerTerm: string
 ) => {
     const columnShare = erdDocument.findColumnShareModel(column.columnShareModelId);
     if (columnShare == null) {

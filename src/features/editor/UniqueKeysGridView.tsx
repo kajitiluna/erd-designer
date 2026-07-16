@@ -7,8 +7,8 @@ import {
 
 import BaseGridView from '~/components/BaseGridView';
 import { ColumnShareModelStorageContext } from '~/context/ColumnShareModelStorageContext';
-import ColumnModel from '~/models/database/ColumnModel';
 import ColumnShareModel from '~/models/database/ColumnShareModel';
+import SimpleColumnModel from '~/models/database/SimpleColumnModel';
 import { Database } from '~/models/database/DatabaseType';
 import { SortOrderType } from '~/models/database/ValueType';
 import TableUniqueKeysModel, { UniqueKeysColumnModel } from '~/models/database/TableUniqueKeysModel';
@@ -30,10 +30,10 @@ const UniqueKeysGridView = ({
     isChildRelation, onUpdateTableUniqueKeysModels
 }: UniqueKeysGridViewProps) => {
 
-    const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
+    const { columnShareStorage } = React.useContext(ColumnShareModelStorageContext);
     const [onEditingModel, setEditingModel] = React.useState<TableUniqueKeysModel | null>(null);
 
-    const columnModels: ColumnModel[] = columnWrapModels.flatMap(model => {
+    const columnModels: SimpleColumnModel[] = columnWrapModels.flatMap(model => {
         if (model.modelType === "single") {
             return [model.columnModel];
         }
@@ -60,7 +60,7 @@ const UniqueKeysGridView = ({
 
     // ヘッダ情報
     const { headerTitle, attributeHeaders }
-        = initGridColumnHeaders(columnModels, columnShareModelStorage, isChildRelation);
+        = initGridColumnHeaders(columnModels, columnShareStorage, isChildRelation);
 
     const records = uniqueKeysModelWithOrders.map(uniqueKeysModelWithOrder => {
         const { uniqueKeysModelId, columnIdToOrder } = uniqueKeysModelWithOrder;
@@ -131,7 +131,7 @@ type UniqueKeysEditDialogProps = {
     isOpen: boolean,
     database: Database,
     tableUniqueKeysModel: TableUniqueKeysModel,
-    columnModels: ColumnModel[],
+    columnModels: SimpleColumnModel[],
     isChildRelation: (columnModelId: string) => boolean,
     onUpdateTableUniqueKeysModels: (updateFunction: ((previous: TableUniqueKeysModel[]) => TableUniqueKeysModel[])) => void,
     onClose: () => void
@@ -172,7 +172,7 @@ const UniqueKeysEditDialog = ({
     const handleRenderUniqueKeysColumn = (
         arg: {
             indexedColumn: UniqueKeysModelAttribute,
-            columnModel: ColumnModel,
+            columnModel: SimpleColumnModel,
             columnShareModel: ColumnShareModel
         },
         arrayIndex: number

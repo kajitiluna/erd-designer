@@ -21,12 +21,13 @@ import TableIndexModel, { IndexColumnModel } from "~/models/database/TableIndexM
 import TableModel from "~/models/database/TableModel";
 import TableUniqueKeysModel, { UniqueKeysColumnModel } from "~/models/database/TableUniqueKeysModel";
 import { DragState } from "~/models/DragState";
-import ErdDocument, { ColumnDetailEntry } from "~/models/ErdDocument";
+import ErdDocument from "~/models/ErdDocument";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import { SelectState } from "~/models/SelectState";
 import TableViewModel from "~/models/TableViewModel";
 import ColumnModel from "~/models/database/ColumnModel";
-import ColumnStructModel from "~/models/database/ColumnStructModel";
+import SimpleColumnModel from "~/models/database/SimpleColumnModel";
+import StructColumnShareModel from "~/models/database/StructColumnShareModel";
 
 export const mcpRegisterTable = (documentResource: DocumentResource): McpRegisterConfig => {
     return {
@@ -275,8 +276,8 @@ const doFilterTableViews = (params: TableListFilterParams, erdDocument: ErdDocum
             return false;
         };
 
-        const allEntries = erdDocument.toColumnDetailEntries(tableView.tableModel);
-        const targetEntries = extractToSearchEntries(allEntries);
+        const allColumns = erdDocument.toAllColumnsWithStruct(tableView.tableModel);
+        const targetEntries = extractToSearchEntries(erdDocument, allColumns);
 
         const matchedColumnIds = (columnIds.length === 0)
             || columnIds.every(filtering => targetEntries.some(entry => {
@@ -289,7 +290,8 @@ const doFilterTableViews = (params: TableListFilterParams, erdDocument: ErdDocum
         const matchedColumnPhysical = (columnPhysicalNames.length === 0)
             || targetEntries.some(entry => {
                 if (entry.entryType === "struct") {
-                    return columnPhysicalNames.every(filtering => entry.structModel.physicalName.includes(filtering));
+                    const overrideNames = overrideColumnName(entry.column, entry.structModel);
+                    return columnPhysicalNames.every(filtering => overrideNames.physicalName.includes(filtering));
                 }
 
                 const columnShare = erdDocument.findColumnShareModel(entry.column.columnShareModelId);
@@ -307,7 +309,8 @@ const doFilterTableViews = (params: TableListFilterParams, erdDocument: ErdDocum
         const matchedColumnLogical = (columnLogicalNames.length === 0)
             || targetEntries.some(entry => {
                 if (entry.entryType === "struct") {
-                    return columnLogicalNames.every(filtering => entry.structModel.logicalName.includes(filtering));
+                    const overrideNames = overrideColumnName(entry.column, entry.structModel);
+                    return columnLogicalNames.every(filtering => overrideNames.logicalName.includes(filtering));
                 }
 
                 const columnShare = erdDocument.findColumnShareModel(entry.column.columnShareModelId);
@@ -326,20 +329,25 @@ const doFilterTableViews = (params: TableListFilterParams, erdDocument: ErdDocum
     });
 };
 
-type SearchEntry = { entryType: "column", column: ColumnModel }
-    | { entryType: "struct", structModel: ColumnStructModel };
+type SearchEntry = { entryType: "column", column: SimpleColumnModel }
+    | { entryType: "struct", column: ColumnModel, structModel: StructColumnShareModel };
 
-const extractToSearchEntries = (detailEntries: ColumnDetailEntry[]): SearchEntry[] => {
-    return detailEntries.flatMap((detail): SearchEntry[] => {
-        if (detail.entryType === "column") {
-            const column = detail.columnModel;
-            return [{ entryType: "column", column: column }];
+/**
+ * 表示用 ColumnModel 列を検索用エントリへ変換する。struct バリアントは findStructColumnShareModel で定義を解決し、
+ * 解決できないもの (定義が削除済みなど) はスキップする。
+ */
+const extractToSearchEntries = (erdDocument: ErdDocument, columns: ColumnModel[]): SearchEntry[] => {
+    return columns.flatMap((columnModel): SearchEntry[] => {
+        if (ColumnModel.isStructColumn(columnModel) === false) {
+            return [{ entryType: "column", column: columnModel }];
         }
 
-        const inners = extractToSearchEntries(detail.entries);
+        const structModel = erdDocument.findStructColumnShareModel(columnModel.structShareModelId);
+        if (structModel == null) {
+            return [];
+        }
 
-        const structEntry: SearchEntry = { entryType: "struct", structModel: detail.structModel };
-        return [structEntry, ...inners];
+        return [{ entryType: "struct", column: columnModel, structModel: structModel }];
     });
 };
 
@@ -409,7 +417,8 @@ An object containing detailed information about the specified table:
 - columnDefinitions: An array of column definition references, each containing either:
   - For single columns: uri, columnModelId, and modelType: "single"
   - For column groups: uri, columnGroupId, and modelType: "group"
-  - For struct columns (BigQuery STRUCT type): uri, columnStructId, and modelType: "struct"
+  - For struct columns (BigQuery STRUCT type): uri, structColumnShareModelId, columnId (the wrapper column
+    holding this struct entry), and modelType: "struct"
 `;
 
 const mcpFindTableResource = (documentResource: DocumentResource): McpServerRegisterResourceTemplateArgs => {
@@ -634,8 +643,8 @@ const initCallbackForAddTable = (documentResource: DocumentResource): ToolCallba
             }
         });
 
-        const nextColumnShareStorage = previousDocument.getColumnShareModelStorage().addModel(...columnShares);
-        const nextDocument = previousDocument.updateTableViewWithColumns(addTableView, columnEntries, nextColumnShareStorage);
+        const nextShareStorage = previousDocument.getColumnShareModelStorage().addColumnShare(...columnShares);
+        const nextDocument = previousDocument.updateTableViewWithColumns(addTableView, columnEntries, nextShareStorage);
         documentResource.notify(documentId, nextDocument);
 
         return {
@@ -1780,6 +1789,7 @@ const toTableDetail = (erdBudget: DocumentBudget, tableView: TableViewModel) => 
 };
 
 const toTableColumnDefinitions = (erdBudget: DocumentBudget, tableView: TableViewModel) => {
+    const erdDocument = erdBudget.erdDocument;
     const columnEntries = tableView.tableModel.columnEntries;
 
     return columnEntries.map(columnEntry => {
@@ -1791,10 +1801,12 @@ const toTableColumnDefinitions = (erdBudget: DocumentBudget, tableView: TableVie
             };
         }
 
-        if (columnEntry.modelType === "struct") {
+        const columnModel = erdDocument.findColumnModel(columnEntry.columnModelId);
+        if ((columnModel != null) && (columnModel.entityType === "struct")) {
             return {
-                uri: erdBudget.columnStructUri(columnEntry.columnStructId),
-                columnStructId: columnEntry.columnStructId,
+                uri: erdBudget.structColumnShareUri(columnModel.structShareModelId),
+                structColumnShareModelId: columnModel.structShareModelId,
+                columnId: columnModel.columnModelId,
                 modelType: "struct" as const
             };
         }
@@ -1819,7 +1831,7 @@ type TableColumnEntry = (
         defaultValue: string;
     } | {
         entryType: "struct";
-        columnStructId: string;
+        structColumnShareModelId: string;
         structName: { physical: string; logical: string; };
         isArray: boolean;
     }
@@ -1831,29 +1843,33 @@ type TableColumnEntry = (
 
 const toTableColumns = (erdBudget: DocumentBudget, tableView: TableViewModel): TableColumnEntry[] => {
     const erdDocument = erdBudget.erdDocument;
-    const columnEntries = erdDocument.toColumnDetailEntries(tableView.tableModel);
+    const columnModels = erdDocument.toAllColumnsWithStruct(tableView.tableModel);
 
-    return columnEntries.flatMap((columnEntry): TableColumnEntry[] => {
-        if (columnEntry.entryType === "struct") {
-            const columnStruct = columnEntry.structModel;
+    return columnModels.flatMap((column): TableColumnEntry[] => {
+        if (column.entityType === "struct") {
+            const structColumnShare = erdDocument.findStructColumnShareModel(column.structShareModelId);
+            if (structColumnShare == null) {
+                return [];
+            }
+
+            const overrideNames = overrideColumnName(column, structColumnShare);
 
             return [
                 {
-                    uri: erdBudget.columnStructUri(columnStruct.columnStructId),
+                    uri: erdBudget.structColumnShareUri(structColumnShare.structShareModelId),
                     entryType: "struct",
-                    columnStructId: columnStruct.columnStructId,
+                    structColumnShareModelId: structColumnShare.structShareModelId,
                     structName: {
-                        physical: columnStruct.physicalName,
-                        logical: columnStruct.logicalName
+                        physical: overrideNames.physicalName,
+                        logical: overrideNames.logicalName
                     },
-                    notNull: columnStruct.notNull,
-                    isArray: columnStruct.isArray,
-                    description: columnStruct.description
+                    notNull: column.notNull,
+                    isArray: structColumnShare.isArray,
+                    description: structColumnShare.description
                 }
             ];
         }
 
-        const column = columnEntry.columnModel;
         const shareModel = erdDocument.findColumnShareModel(column.columnShareModelId);
         if (shareModel == null) {
             return [];

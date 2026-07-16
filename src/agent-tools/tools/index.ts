@@ -8,7 +8,7 @@ import { mcpRegisterMemo } from "~/agent-tools/tools/memos";
 import { mcpRegisterPerspective } from "~/agent-tools/tools/perspectives";
 import { mcpRegisterRelation } from "~/agent-tools/tools/relations";
 import { mcpRegisterSchema } from "~/agent-tools/tools/schemas";
-import { mcpRegisterColumnStruct } from "~/agent-tools/tools/struct-types";
+import { mcpRegisterStructColumnShare } from "~/agent-tools/tools/struct-column-shares";
 import { McpRegisterConfig } from "~/agent-tools/tools/support";
 import { mcpRegisterTable } from "~/agent-tools/tools/tables";
 
@@ -35,8 +35,8 @@ export const initToolRegistrations = (documentResource: DocumentResource): McpRe
         mcpRegisterSchema(documentResource),
         // `erd-designer://documents/{documentId}/column_groups`
         mcpRegisterColumnGroup(documentResource),
-        // `erd-designer://documents/{documentId}/column_structs`
-        mcpRegisterColumnStruct(documentResource),
+        // `erd-designer://documents/{documentId}/struct_column_shares`
+        mcpRegisterStructColumnShare(documentResource),
         // `erd-designer://documents/{documentId}/memos`
         mcpRegisterMemo(documentResource),
         // `erd-designer://documents/{documentId}/perspectives`

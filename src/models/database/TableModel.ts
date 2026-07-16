@@ -1,5 +1,6 @@
 import { v4 as uuidV4 } from 'uuid';
 
+import ColumnEntry from '~/models/database/ColumnEntry';
 import TableIndexModel from '~/models/database/TableIndexModel';
 import TableUniqueKeysModel from '~/models/database/TableUniqueKeysModel';
 import { requireProperty, toObjects } from '~/models/util';
@@ -19,11 +20,6 @@ type TableModelOptions = {
     definitionExpression?: string,
     optionExpression?: string
 }
-
-export type ColumnEntry =
-    { modelType: "single", columnModelId: string }
-    | { modelType: "group", columnGroupId: string }
-    | { modelType: "struct", columnStructId: string }
 
 export default class TableModel {
 
@@ -117,25 +113,8 @@ export default class TableModel {
         if (this.schemaId !== other.schemaId) {
             return false;
         }
-        if (this.columnEntries.length !== other.columnEntries.length) {
+        if (ColumnEntry.equalsEntries(this.columnEntries, other.columnEntries) === false) {
             return false;
-        }
-        for (let index = 0; index < this.columnEntries.length; index++) {
-            const thisColumn = this.columnEntries[index];
-            const otherColumn = other.columnEntries[index];
-            if (thisColumn.modelType !== otherColumn.modelType) {
-                return false;
-            }
-            if ((thisColumn.modelType === "single") && (otherColumn.modelType === "single")
-                && (thisColumn.columnModelId !== otherColumn.columnModelId)) {
-                return false;
-            } else if ((thisColumn.modelType === "group") && (otherColumn.modelType === "group")
-                && (thisColumn.columnGroupId !== otherColumn.columnGroupId)) {
-                return false;
-            } else if ((thisColumn.modelType === "struct") && (otherColumn.modelType === "struct")
-                && (thisColumn.columnStructId !== otherColumn.columnStructId)) {
-                return false;
-            }
         }
 
         if (this.uniqueKeysModels.length !== other.uniqueKeysModels.length) {
@@ -183,7 +162,7 @@ export default class TableModel {
     }
 
     public toJSON(): Record<string, unknown> {
-        const columnModelIds = serializeColumnEntries(this.columnEntries);
+        const columnModelIds = ColumnEntry.serializeEntries(this.columnEntries);
 
         return {
             tableModelId: this.tableModelId,
@@ -212,7 +191,7 @@ export default class TableModel {
 
         const schemaId = ("schemaId" in obj) ? obj.schemaId as string : "";
 
-        const columnEntries: ColumnEntry[] = deserializeColumnEntries(obj.columnModelIds as string[]);
+        const columnEntries: ColumnEntry[] = ColumnEntry.deserializeEntries(obj.columnModelIds as string[]);
 
         const uniqueKeysModels = ("uniqueKeysModels" in obj)
             ? toObjects(obj.uniqueKeysModels, "uniqueKeysModels", value => TableUniqueKeysModel.toObject(value)) : [];
@@ -242,46 +221,3 @@ export default class TableModel {
         });
     }
 }
-
-/**
- * ColumnModelType の配列を永続化用の文字列配列(columnModelIds)に変換する。
- * single はそのままの id、group は "group:<id>"、struct は "struct:<id>" のプレフィックス付き文字列とする。
- * TableModel と ColumnStructModel の toJSON で共用する。
- *
- * @param columns 変換対象のカラムエントリ一覧
- * @returns 永続化用の文字列配列
- */
-export const serializeColumnEntries = (columns: readonly ColumnEntry[]): string[] => {
-    return columns.map(column => {
-        if (column.modelType === "group") {
-            return `group:${column.columnGroupId}`;
-        }
-
-        if (column.modelType === "struct") {
-            return `struct:${column.columnStructId}`;
-        }
-
-        return column.columnModelId;
-    });
-};
-
-/**
- * 永続化用の文字列配列(columnModelIds)を ColumnModelType の配列に復元する。
- * serializeColumnEntries の逆変換。TableModel と ColumnStructModel の toObject で共用する。
- *
- * @param columnModelIds 永続化された文字列配列
- * @returns 復元後のカラムエントリ一覧
- */
-export const deserializeColumnEntries = (columnModelIds: string[]): ColumnEntry[] => {
-    return columnModelIds.map(id => {
-        if (id.startsWith("group:")) {
-            return { modelType: "group", columnGroupId: id.substring(6) };
-        }
-
-        if (id.startsWith("struct:")) {
-            return { modelType: "struct", columnStructId: id.substring(7) };
-        }
-
-        return { modelType: "single", columnModelId: id };
-    });
-};

@@ -1,8 +1,11 @@
-import ErdDocument, { ColumnDetailEntry } from "~/models/ErdDocument";
+import ErdDocument from "~/models/ErdDocument";
+import ColumnModel from "~/models/database/ColumnModel";
 import DisplayStyle from "~/models/database/DisplayStyle";
 import TableModel from "~/models/database/TableModel";
 import download from "~/components/file-downloader";
 import { overrideColumnName } from "~/models/database/support";
+import SimpleColumnModel from "~/models/database/SimpleColumnModel";
+import StructColumnModel from "~/models/database/StructColumnModel";
 import { escapeCdata, serializePerspective } from "~/features/export/support";
 
 export const downloadSvg = (erdDocument: ErdDocument, erdCanvas: HTMLElement) => {
@@ -81,6 +84,8 @@ const HEADER_FONT = 13;
 const BORDER_RADIUS = 10;
 const FALLBACK_HEADER_H = 28;
 const FALLBACK_ROW_H = 24;
+// STRUCT のネスト階層 1 レベルあたりのインデント幅(px)。キャンバス表示 (ErdTableView) と揃える。
+const STRUCT_INDENT_WIDTH = 10;
 
 const initTableSvg = (erdDocument: ErdDocument) => {
   const tableViewModels = erdDocument.getTableViewModels();
@@ -88,7 +93,7 @@ const initTableSvg = (erdDocument: ErdDocument) => {
 
   const tableElements = tableViewModels.map(tableView => {
     const tableModel = tableView.tableModel;
-    const columnEntries = erdDocument.toColumnDetailEntries(tableModel);
+    const allColumns = erdDocument.toAllColumnsWithStruct(tableModel);
     const tableName = displayStyle.displayName(tableModel.physicalName, tableModel.logicalName);
 
     const tableDom = document.getElementById(tableView.tableId);
@@ -124,17 +129,17 @@ const initTableSvg = (erdDocument: ErdDocument) => {
       pkColumnWidth, fkColumnWidth, nameColumnWidth, typeColumnWidth
     };
 
-    const { svgText: svgColumns } = columnEntries.reduce((acc, entry) => {
-      const entryId = (entry.entryType === "struct")
-        ? entry.structModel.columnStructId : entry.columnModel.columnModelId;
-      const columnRowHeight = rowHeightById.get(entryId) ?? FALLBACK_ROW_H;
+    const columnRows = expandColumnsWithStruct(erdDocument, allColumns, 0);
+
+    const { svgText: svgColumns } = columnRows.reduce((acc, { columnModel, nestCount }) => {
+      const columnRowHeight = rowHeightById.get(columnModel.columnModelId) ?? FALLBACK_ROW_H;
       const textY = acc.height + columnRowHeight * 0.68;
       const separator = (acc.svgText === "") ? ""
         : `<line x1="1" y1="${acc.height}" x2="${tableWidth - 1}" y2="${acc.height}" stroke="#e0e0e0" stroke-width="0.5"/>`;
 
-      const rowSvgText = (entry.entryType === "struct")
-        ? initStructColumnSvgRow(entry, columnRowContext, textY)
-        : initColumnSvgRow(entry, columnRowContext, textY);
+      const rowSvgText = ColumnModel.isStructColumn(columnModel)
+        ? initStructColumnSvgRow(columnModel, columnRowContext, textY, nestCount)
+        : initColumnSvgRow(columnModel, columnRowContext, textY, nestCount);
       if (rowSvgText == null) {
         return acc;
       }
@@ -176,13 +181,13 @@ const initTableSvg = (erdDocument: ErdDocument) => {
   }, { svgTables: [] as string[], location: INIT_LOCATION });
 };
 
-// 描画された <tr> の実高さを、カラム/struct の ID をキーに引けるようにする。
-// columnEntries の配列位置と実際の <tr> 数は、共有モデル欠損などで描画がスキップされた行がある場合にずれるため、
+// 描画された <tr> の実高さを、カラムの ID をキーに引けるようにする。
+// columnModelsWithStruct の配列位置と実際の <tr> 数は、共有モデル欠損などで描画がスキップされた行がある場合にずれるため、
 // 配列位置ではなく ID で対応付ける。
 const initRowHeightById = (tableTrDom: NodeListOf<HTMLTableRowElement>): Map<string, number> => {
   const rowHeightEntries = Array.from(tableTrDom)
     .map((rowDom): readonly [string, number] | null => {
-      const rowId = rowDom.getAttribute("data-column-id") ?? rowDom.getAttribute("data-column-struct-id");
+      const rowId = rowDom.getAttribute("data-column-id");
       return (rowId != null) ? [rowId, rowDom.offsetHeight] : null;
     })
     .filter((rowHeightEntry): rowHeightEntry is readonly [string, number] => (rowHeightEntry != null));
@@ -190,28 +195,58 @@ const initRowHeightById = (tableTrDom: NodeListOf<HTMLTableRowElement>): Map<str
   return new Map(rowHeightEntries);
 };
 
-const initStructColumnSvgRow = (
-  entry: Extract<ColumnDetailEntry, { entryType: "struct" }>, context: ColumnRowContext, textY: number
-) => {
-  const { displayStyle, pkColumnWidth, fkColumnWidth, nameColumnWidth, typeColumnWidth } = context;
-  const columnStructModel = entry.structModel;
+type ColumnRowEntry = { columnModel: ColumnModel, nestCount: number };
 
-  const columnName = displayStyle.displayName(columnStructModel.physicalName, columnStructModel.logicalName);
-  const columnType = columnStructModel.displayTypeQuery();
+// ErdTableView と同じ順序で STRUCT の内部カラムを描画行として平坦化する。
+// 共有モデル欠損の struct は行自体は残す(描画関数側で null を返しスキップされる)。
+const expandColumnsWithStruct = (
+  erdDocument: ErdDocument, columnModels: ColumnModel[], nestCount: number
+): ColumnRowEntry[] => {
+  return columnModels.flatMap(columnModel => {
+    const currentRow = { columnModel, nestCount };
+    if (ColumnModel.isSimpleColumn(columnModel)) {
+      return [currentRow];
+    }
+
+    const structShare = erdDocument.findStructColumnShareModel(columnModel.structShareModelId);
+    if (structShare == null) {
+      return [currentRow];
+    }
+
+    const innerColumns = erdDocument.toAllColumnsWithStruct(structShare);
+    const innerRows = expandColumnsWithStruct(erdDocument, innerColumns, nestCount + 1);
+    return [currentRow, ...innerRows];
+  });
+};
+
+const initStructColumnSvgRow = (
+  columnModel: StructColumnModel, context: ColumnRowContext, textY: number, nestCount: number
+) => {
+  const { erdDocument, displayStyle, pkColumnWidth, fkColumnWidth, nameColumnWidth, typeColumnWidth } = context;
+
+  const structColumnShareModel = erdDocument.findStructColumnShareModel(columnModel.structShareModelId);
+  if (structColumnShareModel == null) {
+    return null;
+  }
+
+  const overrideName = overrideColumnName(columnModel, structColumnShareModel);
+  const columnName = displayStyle.displayName(overrideName.physicalName, overrideName.logicalName);
+  const columnType = structColumnShareModel.simpleColumnType();
+  const indentWidth = nestCount * STRUCT_INDENT_WIDTH;
 
   let xOffset = COL_PAD;
   xOffset += pkColumnWidth;
   xOffset += fkColumnWidth;
 
-  const nameEl = `<text x="${xOffset}" y="${textY}" fill="#333" font-size="${FONT_SIZE}" ` +
+  const nameEl = `<text x="${xOffset + indentWidth}" y="${textY}" fill="#333" font-size="${FONT_SIZE}" ` +
     `font-family="sans-serif">${escapeSvg(columnName)}</text>`;
   xOffset += nameColumnWidth;
 
-  const typeEl = `<text x="${xOffset}" y="${textY}" fill="#666" font-size="11" ` +
+  const typeEl = `<text x="${xOffset + indentWidth}" y="${textY}" fill="#666" font-size="11" ` +
     `font-family="sans-serif">${escapeSvg(columnType)}</text>`;
   xOffset += typeColumnWidth;
 
-  const optEl = (columnStructModel.notNull === false) ? ""
+  const optEl = (columnModel.notNull === false) ? ""
     : `<text x="${xOffset}" y="${textY}" fill="#888" font-size="11" font-family="sans-serif">NN</text>`;
 
   return nameEl + typeEl + optEl;
@@ -230,12 +265,11 @@ type ColumnRowContext = {
 };
 
 const initColumnSvgRow = (
-  entry: Extract<ColumnDetailEntry, { entryType: "column" }>, context: ColumnRowContext, textY: number
+  columnModel: SimpleColumnModel, context: ColumnRowContext, textY: number, nestCount: number
 ) => {
   const {
     erdDocument, displayStyle, tableModel, fkColumnIds, pkColumnWidth, fkColumnWidth, nameColumnWidth, typeColumnWidth
   } = context;
-  const columnModel = entry.columnModel;
 
   const shareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
   if (shareModel == null) {
@@ -246,6 +280,7 @@ const initColumnSvgRow = (
   const columnName = displayStyle.displayName(physicalName, logicalName);
   const inRelation = erdDocument.inChildRelation(tableModel.tableModelId, columnModel.columnModelId);
   const columnType = shareModel.specifiedColumnType(inRelation);
+  const indentWidth = nestCount * STRUCT_INDENT_WIDTH;
 
   let xOffset = COL_PAD;
   const pkIcon = (columnModel.primaryKey === false) ? ""
@@ -259,11 +294,11 @@ const initColumnSvgRow = (
   const nameColor = columnModel.primaryKey ? "#90292F" : (
     (fkColumnIds.has(columnModel.columnModelId) ? "#212490" : "#333")
   );
-  const nameEl = `<text x="${xOffset}" y="${textY}" fill="${nameColor}" font-size="${FONT_SIZE}" ` +
+  const nameEl = `<text x="${xOffset + indentWidth}" y="${textY}" fill="${nameColor}" font-size="${FONT_SIZE}" ` +
     `font-family="sans-serif">${escapeSvg(columnName)}</text>`;
   xOffset += nameColumnWidth;
 
-  const typeEl = `<text x="${xOffset}" y="${textY}" fill="#666" font-size="11" ` +
+  const typeEl = `<text x="${xOffset + indentWidth}" y="${textY}" fill="#666" font-size="11" ` +
     `font-family="sans-serif">${escapeSvg(columnType)}</text>`;
   xOffset += typeColumnWidth;
 

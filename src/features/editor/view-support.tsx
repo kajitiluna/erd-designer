@@ -1,17 +1,25 @@
-import { Box, Stack, TextField } from "@mui/material";
+import React from "react";
+import {
+    Accordion, AccordionDetails, AccordionSummary, Box, IconButton, Stack, TextField, Tooltip, Typography
+} from "@mui/material";
+import ClearIcon from '@mui/icons-material/Clear';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined';
 
 import { GRID_CELL_STYLE } from "~/components/constant";
 import ForeignKeyIcon from "~/components/icons/ForeignKeyIcon";
 import PrimaryKeyIcon from "~/components/icons/PrimaryKeyIcon";
-import { initHandleChangePattern, initHandleChangePhysicalName } from "~/features/editor/support";
+import {
+    initHandleChangePattern, initHandleChangePhysicalName, initHandleEnterKeyDown
+} from "~/features/editor/support";
 import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import { Database } from "~/models/database";
-import ColumnModel from "~/models/database/ColumnModel";
 import ColumnType from "~/models/database/ColumnType";
+import SimpleColumnModel from "~/models/database/SimpleColumnModel";
 import { overrideColumnName } from "~/models/database/support";
 
 export const initGridColumnHeaders = (
-    columnModels: ColumnModel[], columnShareModelStorage: ColumnShareModelStorage,
+    columnModels: SimpleColumnModel[], columnShareModelStorage: ColumnShareModelStorage,
     isChildRelation: (columnModelId: string) => boolean
 ) => {
     // ヘッダータイトル
@@ -24,7 +32,7 @@ export const initGridColumnHeaders = (
         </Stack>
     );
     const attributeHeaders = columnModels.map(columnModel => {
-        const columnShareModel = columnShareModelStorage.find(columnModel.columnShareModelId);
+        const columnShareModel = columnShareModelStorage.findColumnShare(columnModel.columnShareModelId);
         if (columnShareModel == null) {
             console.warn(`ColumnShareModel not found for columnModelId: ${columnModel.columnModelId}`);
             return {
@@ -79,6 +87,70 @@ const initGridColumnTitleStyle = (width: number, withBackgroundColor: boolean = 
         backgroundColor: withBackgroundColor ? "action.hover" : ""
     };
 };
+
+type OverrideNamePanelProps = {
+    physicalName: string,
+    logicalName: string,
+    onCompleted: (overriddenName: { physical: string, logical: string }) => void
+};
+
+export const useOverrideNamePanel = ({ physicalName, logicalName, onCompleted }: OverrideNamePanelProps) => {
+    const [overriddenPhysicalName, setOverriddenPhysicalName] = React.useState<string>(physicalName);
+    const [overriddenLogicalName, setOverriddenLogicalName] = React.useState<string>(logicalName);
+
+    const initClearButton = (value: string, setValue: (value: string) => void) => {
+        return value == "" ? {} : {
+            input: {
+                endAdornment: <IconButton size="small" onClick={() => setValue("")}>
+                    <ClearIcon />
+                </IconButton>
+            }
+        }
+    };
+
+    const overriddenName = {
+        physical: overriddenPhysicalName,
+        logical: overriddenLogicalName
+    };
+
+    const handleEnterDown = initHandleEnterKeyDown(
+        () => onCompleted(overriddenName)
+    );
+
+    const overriddenPanel = (
+        <Accordion disableGutters defaultExpanded={(overriddenPhysicalName != "") || (overriddenLogicalName != "")}>
+            <AccordionSummary id="override-names-header"
+                aria-controls="override-names-content" expandIcon={<ExpandMoreIcon />}>
+                <Stack direction="row" spacing={2} sx={{ alignItems: "center", width: "100%" }}>
+                    <Typography variant="body2">Override Names (optional)</Typography>
+                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+                        <Tooltip placement="right" arrow title={messageForOverrideNames}>
+                            <HelpOutlineOutlinedIcon fontSize="small" />
+                        </Tooltip>
+                    </Box>
+                </Stack>
+            </AccordionSummary>
+            <AccordionDetails>
+                <Stack direction="row" spacing={1}>
+                    <TextField label="Physical Name" fullWidth variant="outlined" size="small"
+                        slotProps={initClearButton(overriddenPhysicalName, setOverriddenPhysicalName)}
+                        value={overriddenPhysicalName} onKeyDown={handleEnterDown}
+                        onChange={initHandleChangePhysicalName(setOverriddenPhysicalName)} />
+                    <TextField label="Logical Name" fullWidth variant="outlined" size="small"
+                        slotProps={initClearButton(overriddenLogicalName, setOverriddenLogicalName)}
+                        value={overriddenLogicalName} onKeyDown={handleEnterDown}
+                        onChange={event => setOverriddenLogicalName(event.target.value)} />
+                </Stack>
+            </AccordionDetails>
+        </Accordion>
+    );
+
+    return { overriddenPanel, overriddenName };
+};
+
+const messageForOverrideNames =
+    "Allows you to override physical or logical names defined in the column model for this specific column." +
+    " This is useful when you want to customize names individually while maintaining shared column definitions.";
 
 export type ExtraOption = {
     characterSet: string,

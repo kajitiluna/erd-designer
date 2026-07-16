@@ -2,6 +2,7 @@ import { v4 as uuidV4 } from 'uuid';
 import {
     ReadResourceTemplateCallback, ResourceTemplate, ToolCallback
 } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import z from "zod";
 
 import { DocumentResource } from "~/agent-tools/DocumentResource";
@@ -17,6 +18,8 @@ import ColumnShareModel from "~/models/database/ColumnShareModel";
 import ErdDocument from "~/models/ErdDocument";
 import { overrideColumnName } from '~/models/database/support';
 import DocumentBudget, { uriTemplates } from '~/agent-tools/DocumentBudget';
+import SimpleColumnModel from "~/models/database/SimpleColumnModel";
+import StructColumnModel from "~/models/database/StructColumnModel";
 import TableViewModel from '~/models/TableViewModel';
 import TableModel from '~/models/database/TableModel';
 
@@ -346,7 +349,7 @@ const doFilterColumnShares = (params: ColumnShareFilterParams, erdDocument: ErdD
 
     const storage = erdDocument.getColumnShareModelStorage();
 
-    return storage.getModels().filter(columnShare => {
+    return storage.getColumnShareModels().filter(columnShare => {
         const matchesColumnType = (columnTypeIds.length === 0)
             || columnTypeIds.some(typeId => (columnShare.columnType.id.toString() === typeId));
         if (matchesColumnType === false) {
@@ -602,7 +605,8 @@ const initCallbackForAddColumnsToTable = (
             })
         });
 
-        const nextColumnShareStorage = previousDocument.getColumnShareModelStorage().addModel(...addingColumnShares);
+        const nextColumnShareStorage = previousDocument.getColumnShareModelStorage()
+            .addColumnShare(...addingColumnShares);
         const nextDocument = previousDocument.updateTableViewWithColumns(
             updatingTable, updatingColumnModels, nextColumnShareStorage
         );
@@ -737,6 +741,10 @@ const initCallbackForUpdatingColumn = (
             throw initResourceNotFound(url);
         }
 
+        if (ColumnModel.isStructColumn(previousColumn)) {
+            return updateStructColumn(documentResource, documentId, erdBudget, previousColumn, updatingColumn);
+        }
+
         const previousColumnShare = previousDocument.findColumnShareModel(previousColumn.columnShareModelId) as ColumnShareModel;
 
         const addingColumnShares = [];
@@ -766,7 +774,7 @@ const initCallbackForUpdatingColumn = (
             );
         }
 
-        const nextColumn = new ColumnModel({
+        const nextColumn = new SimpleColumnModel({
             columnModelId: previousColumn.columnModelId,
             columnShareModelId: nextColumnShareId,
             physicalName: (updatingColumn.overrideName?.physical !== undefined)
@@ -799,6 +807,54 @@ const initCallbackForUpdatingColumn = (
                 }
             ]
         };
+    };
+};
+
+type UpdatingColumnInput = z.infer<typeof updateColumnInputSchema.column>;
+
+/**
+ * struct バリアントの ColumnModel を更新する。
+ * struct カラムは columnShare を持たないため、physicalName / logicalName / notNull のみ更新を許可する。
+ * columnShare 系パラメータ (columnShareId, columnShare, primaryKey, unique, autoIncrement, defaultValue) が
+ * 指定された場合は invalid params エラーを返す。
+ */
+const updateStructColumn = async (
+    documentResource: DocumentResource, documentId: string, erdBudget: DocumentBudget,
+    previousColumn: StructColumnModel, updatingColumn: UpdatingColumnInput
+): Promise<CallToolResult> => {
+    const forbiddenKeys = [
+        "columnShareId", "columnShare", "primaryKey", "unique", "autoIncrement", "defaultValue"
+    ];
+    const specifiedForbiddenKey = forbiddenKeys.find(forbiddenKey =>
+        ((updatingColumn as Record<string, unknown>)[forbiddenKey] !== undefined));
+    if (specifiedForbiddenKey != null) {
+        throw initInvalidParams(
+            `Struct column does not support updating column-share properties : ${specifiedForbiddenKey}`
+        );
+    }
+
+    const nextColumn = new StructColumnModel({
+        ...previousColumn,
+        physicalName: (updatingColumn.overrideName?.physical !== undefined)
+            ? updatingColumn.overrideName.physical : previousColumn.physicalName,
+        logicalName: (updatingColumn.overrideName?.logical !== undefined)
+            ? updatingColumn.overrideName.logical : previousColumn.logicalName,
+        notNull: (updatingColumn.notNull !== undefined) ? updatingColumn.notNull : previousColumn.notNull
+    });
+
+    const previousDocument = findDocument(documentResource, documentId).erdDocument;
+    const nextDocument = previousDocument.updateColumnModels([nextColumn], []);
+    documentResource.notify(documentId, nextDocument);
+
+    return {
+        content: [
+            {
+                type: "resource_link",
+                uri: erdBudget.columnUri(nextColumn.columnModelId),
+                name: (nextColumn.physicalName !== "") ? nextColumn.physicalName : nextColumn.columnModelId,
+                mimeType: "application/json"
+            }
+        ]
     };
 };
 
@@ -1014,10 +1070,10 @@ REQUEST:
     Can be obtained from the table's columns array.
   - position: The target position to move the column group to (required). Same options as above.
 
-  OPTION 3: Move a column struct entry
-  - columnStructId: The unique identifier of the column struct entry to move (required).
+  OPTION 3: Move a struct column share entry
+  - structColumnShareModelId: The unique identifier of the struct column share entry to move (required).
     Can be obtained from the table's columns array or columnDefinitions array.
-  - position: The target position to move the column struct entry to (required). Same options as above.
+  - position: The target position to move the struct column share entry to (required). Same options as above.
 
 IMPORTANT NOTES:
 - Reorder operations are processed in the order they appear in the array.
@@ -1060,10 +1116,10 @@ const reorderColumnsInTableInputSchema = {
             ...positionSchema
         }).describe("Place an existing column group at this position."),
         z.object({
-            columnStructId: z.string().describe("The unique identifier of the column struct entry to place at this position."),
+            structColumnShareModelId: z.string().describe("The unique identifier of the struct column share entry to place at this position."),
             ...positionSchema
-        }).describe("Place an existing column struct entry at this position.")
-    ])).describe("An array defining the new order of columns, column groups, and column struct entries in the table.")
+        }).describe("Place an existing struct column share entry at this position.")
+    ])).describe("An array defining the new order of columns, column groups, and struct column share entries in the table.")
 };
 
 const initReorderColumnsInTable = (
@@ -1090,14 +1146,20 @@ const initReorderColumnsInTable = (
                 if (currentIndex === -1) {
                     throw initInvalidParams(`Column group to reorder not found: ${reorder.columnGroupId}`);
                 }
-            } else if ("columnStructId" in reorder) {
-                currentIndex = nextColumns.findIndex(column =>
-                    (column.modelType === "struct") && (column.columnStructId === reorder.columnStructId));
+            } else if ("structColumnShareModelId" in reorder) {
+                currentIndex = nextColumns.findIndex(column => {
+                    if (column.modelType !== "single") {
+                        return false;
+                    }
+                    const columnModel = previousDocument.findColumnModel(column.columnModelId);
+                    return (columnModel != null) && (columnModel.entityType === "struct")
+                        && (columnModel.structShareModelId === reorder.structColumnShareModelId);
+                });
                 if (currentIndex === -1) {
-                    throw initInvalidParams(`Column struct entry to reorder not found: ${reorder.columnStructId}`);
+                    throw initInvalidParams(`Struct column share entry to reorder not found: ${reorder.structColumnShareModelId}`);
                 }
             } else {
-                throw initInvalidParams("Invalid reorder entry: missing columnId, columnGroupId, or columnStructId");
+                throw initInvalidParams("Invalid reorder entry: missing columnId, columnGroupId, or structColumnShareModelId");
             }
 
             // 移動先のインデックスを計算
@@ -1300,7 +1362,7 @@ const buildColumnPair = (
         );
     }
 
-    const column = new ColumnModel({
+    const column = new SimpleColumnModel({
         columnShareModelId: columnShare.columnShareModelId,
         physicalName: addingColumn.overrideName?.physical || "",
         logicalName: addingColumn.overrideName?.logical || "",
@@ -1381,7 +1443,32 @@ const buildColumnShare = (
     });
 };
 
+const toStructColumnDetail = (erdBudget: DocumentBudget, column: StructColumnModel) => {
+    const erdDocument = erdBudget.erdDocument;
+    const structModel = erdDocument.findStructColumnShareModel(column.structShareModelId);
+    const overrideNames = (structModel != null)
+        ? overrideColumnName(column, structModel)
+        : { physicalName: column.physicalName, logicalName: column.logicalName };
+
+    return {
+        uri: erdBudget.columnUri(column.columnModelId),
+        columnId: column.columnModelId,
+        entityType: "struct" as const,
+        structColumnShare: {
+            uri: erdBudget.structColumnShareUri(column.structShareModelId),
+            structColumnShareModelId: column.structShareModelId
+        },
+        physicalName: overrideNames.physicalName,
+        logicalName: overrideNames.logicalName,
+        notNull: column.notNull
+    };
+};
+
 const toColumnDetail = (erdBudget: DocumentBudget, column: ColumnModel) => {
+    if (column.entityType === "struct") {
+        return toStructColumnDetail(erdBudget, column);
+    }
+
     const overrideName = ((column.physicalName !== "") || (column.logicalName !== ""))
         ? {
             ...((column.physicalName !== "") && { physical: column.physicalName }),

@@ -1,9 +1,13 @@
 import React from "react";
+
 import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
+import ColumnModelStorage from "~/models/ColumnModelStorage";
 
 type ColumnShareModelContextProps = {
-    columnShareModelStorage: ColumnShareModelStorage,
-    updateStorage: (storage: ColumnShareModelStorage) => void
+    columnShareStorage: ColumnShareModelStorage,
+    updateShareStorage: (storage: ColumnShareModelStorage) => void,
+    columnStorage: ColumnModelStorage,
+    updateColumnStorage: (updateFunction: (previous: ColumnModelStorage) => ColumnModelStorage) => void
 };
 
 export const ColumnShareModelStorageContext

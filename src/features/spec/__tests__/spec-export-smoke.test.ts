@@ -7,13 +7,15 @@ import DatabaseSettingModel from '~/models/DatabaseSettingModel';
 import DbSchemaConfig from '~/models/DbSchemaConfig';
 import ErdDocument from '~/models/ErdDocument';
 import ErdSettingModel from '~/models/ErdSettingModel';
-import ColumnModel from '~/models/database/ColumnModel';
+import ColumnEntry from '~/models/database/ColumnEntry';
+import SimpleColumnModel from '~/models/database/SimpleColumnModel';
+import StructColumnModel from '~/models/database/StructColumnModel';
 import ColumnShareModel from '~/models/database/ColumnShareModel';
-import ColumnStructModel from '~/models/database/ColumnStructModel';
+import StructColumnShareModel from '~/models/database/StructColumnShareModel';
 import { findDatabaseColumns } from '~/models/database/columns';
 import { DatabaseType } from '~/models/database/DatabaseType';
 import TableIndexModel, { IndexColumnModel } from '~/models/database/TableIndexModel';
-import TableModel, { ColumnEntry } from '~/models/database/TableModel';
+import TableModel from '~/models/database/TableModel';
 import TableUniqueKeysModel, { UniqueKeysColumnModel } from '~/models/database/TableUniqueKeysModel';
 import TableViewModel from '~/models/TableViewModel';
 
@@ -34,7 +36,7 @@ const buildSampleDocument = (databaseType: DatabaseType): ErdDocument => {
         logicalName: 'ID',
         columnType: integerColumnType
     });
-    const idColumn = new ColumnModel({
+    const idColumn = new SimpleColumnModel({
         columnModelId: 'col-id',
         columnShareModelId: idColumnShare.columnShareModelId,
         physicalName: 'id',
@@ -86,7 +88,7 @@ const buildSampleDocumentWithStruct = (databaseType: DatabaseType): ErdDocument 
         logicalName: 'ID',
         columnType: integerColumnType
     });
-    const idColumn = new ColumnModel({
+    const idColumn = new SimpleColumnModel({
         columnModelId: 'col-id',
         columnShareModelId: idColumnShare.columnShareModelId,
         physicalName: 'id',
@@ -94,13 +96,17 @@ const buildSampleDocumentWithStruct = (databaseType: DatabaseType): ErdDocument 
         notNull: true
     });
 
-    const structColumnModel = new ColumnStructModel({
-        columnStructId: 'struct-id',
+    const structColumnModel = new StructColumnShareModel({
+        structShareModelId: 'struct-id',
         physicalName: 'address',
         logicalName: '住所',
         description: 'struct column for smoke test',
-        notNull: true,
         columnEntries: []
+    });
+    const structWrapperColumn = new StructColumnModel({
+        columnModelId: 'col-struct-wrapper',
+        notNull: true,
+        structShareModelId: structColumnModel.structShareModelId
     });
 
     const tableModel = new TableModel({
@@ -108,7 +114,7 @@ const buildSampleDocumentWithStruct = (databaseType: DatabaseType): ErdDocument 
         physicalName: 'sample_table_struct',
         columnEntries: [
             { modelType: 'single', columnModelId: idColumn.columnModelId },
-            { modelType: 'struct', columnStructId: structColumnModel.columnStructId }
+            { modelType: 'single', columnModelId: structWrapperColumn.columnModelId }
         ] as ColumnEntry[]
     });
 
@@ -122,9 +128,9 @@ const buildSampleDocumentWithStruct = (databaseType: DatabaseType): ErdDocument 
         databaseSettingModel: DatabaseSettingModel.create(databaseType),
         schemaConfig: DbSchemaConfig.create(),
         tableViewModels: [tableViewModel],
-        columnModels: [idColumn],
+        columnModels: [idColumn, structWrapperColumn],
         columnShareModels: [idColumnShare],
-        columnStructModels: [structColumnModel]
+        structShareModels: [structColumnModel]
     });
 };
 

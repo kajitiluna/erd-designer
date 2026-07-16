@@ -1,19 +1,26 @@
+import ColumnModelStorage from "~/models/ColumnModelStorage";
+import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import ColumnModel from "~/models/database/ColumnModel";
-import ColumnStructModel from "~/models/database/ColumnStructModel";
+import SimpleColumnModel from "~/models/database/SimpleColumnModel";
+import StructColumnModel from "~/models/database/StructColumnModel";
+import StructColumnShareModel from "~/models/database/StructColumnShareModel";
+import { overrideColumnName } from "~/models/database/support";
+import TableModel from "~/models/database/TableModel";
+import ErdDocument from "~/models/ErdDocument";
 
 export const SELECTED_CELL_COLOR = "rgba(25, 118, 210, 0.22)";
 
 export type ColumnWrapModel = {
     modelType: "single",
-    columnModel: ColumnModel
+    columnModel: SimpleColumnModel
 } | {
     modelType: "group",
     columnGroupModel: ColumnGroupModel,
-    columnModels: ColumnModel[]
+    columnModels: SimpleColumnModel[]
 } | {
     modelType: "struct",
-    columnStructModel: ColumnStructModel
+    columnModel: StructColumnModel
 };
 
 const PHYSICAL_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
@@ -114,4 +121,181 @@ export const initHandleCloseDialog = (onClose: () => void) => {
 
         onClose();
     }
+};
+
+const emptyColumnStorage = ColumnModelStorage.create();
+
+/**
+ * カラムエントリを ColumnWrapModel 列に解決する。
+ * extraColumnModelMap は、struct 編集セッション中に追加・更新されたがまだ ErdDocument へ
+ * コミットされていないメンバー ColumnModel を解決するためのフォールバックとして用いる
+ * (テーブル編集完了まで document を直接更新しないため、erdDocument 側にはまだ存在しない)。
+ */
+export const toColumnWrapModels = (
+    erdDocument: ErdDocument, columnContainer: TableModel | StructColumnShareModel,
+    columnStorage: ColumnModelStorage = emptyColumnStorage
+): ColumnWrapModel[] => {
+    return columnContainer.columnEntries.flatMap((column): ColumnWrapModel[] => {
+        if (column.modelType === "single") {
+            const columnModel = columnStorage.findColumn(column.columnModelId) ??
+                erdDocument.findColumnModel(column.columnModelId);
+            if (columnModel == null) {
+                return [];
+            }
+
+            if (ColumnModel.isStructColumn(columnModel)) {
+                return [{ modelType: "struct", columnModel: columnModel }];
+            }
+
+            return [{ modelType: "single", columnModel: columnModel }];
+        }
+
+        const columnGroupModel = erdDocument.findColumnGroupModel(column.columnGroupId) as ColumnGroupModel;
+        const columnModels = columnGroupModel.columnModelIds
+            .map(columnModelId => erdDocument.findColumnModel(columnModelId))
+            .filter((columnModel): columnModel is SimpleColumnModel =>
+                (columnModel != null) && ColumnModel.isSimpleColumn(columnModel));
+
+        return [{
+            modelType: "group",
+            columnGroupModel: columnGroupModel,
+            columnModels: columnModels
+        }];
+    });
+};
+
+export const validateNameColumnWraps = (
+    columnWrapModels: ColumnWrapModel[], erdDocument: ErdDocument, columnShareStorage: ColumnShareModelStorage
+) => {
+    if (columnWrapModels.length === 0) {
+        return true;
+    }
+
+    // 同一名のカラムが存在する場合は NG 扱いとする。
+    const existedColumnNames = new Set<string>();
+
+    const validateSimpleColumn = (column: SimpleColumnModel) => {
+        const columnShare = columnShareStorage.findColumnShare(column.columnShareModelId);
+        if (columnShare == null) {
+            return false;
+        }
+
+        const overrideName = overrideColumnName(column, columnShare);
+        if (existedColumnNames.has(overrideName.physicalName)) {
+            return false;
+        }
+
+        existedColumnNames.add(overrideName.physicalName);
+        return true;
+    };
+
+    const validateStructColumn = (column: StructColumnModel) => {
+        const structShare = columnShareStorage.findStructShare(column.structShareModelId);
+        if (structShare == null) {
+            return false;
+        }
+
+        const overrideName = overrideColumnName(column, structShare);
+        if (existedColumnNames.has(overrideName.physicalName)) {
+            return false;
+        }
+
+        existedColumnNames.add(overrideName.physicalName);
+        return true;
+    };
+
+    for (const columnWrap of columnWrapModels) {
+        if (columnWrap.modelType === "single") {
+            const isValid = validateSimpleColumn(columnWrap.columnModel);
+            if (isValid === false) {
+                return false;
+            }
+
+            continue;
+        }
+
+        if (columnWrap.modelType === "struct") {
+            const isValid = validateStructColumn(columnWrap.columnModel);
+            if (isValid === false) {
+                return false;
+            }
+
+            continue;
+        }
+
+        for (const columnId of columnWrap.columnGroupModel.columnModelIds) {
+            const column = erdDocument.findColumnModel(columnId);
+            if (column == null) {
+                return false;
+            }
+
+            if (ColumnModel.isSimpleColumn(column)) {
+                const isValid = validateSimpleColumn(column);
+                if (isValid === false) {
+                    return false;
+                }
+
+                continue;
+            }
+
+            const isValid = validateStructColumn(column);
+            if (isValid === false) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+};
+
+export const initializeValidateNonRecursive = (
+    erdDocument: ErdDocument, columnShareStorage: ColumnShareModelStorage, columnStorage: ColumnModelStorage
+) => {
+    const existsStructShareIds = new Set<string>();
+
+    const validateStruct = (structShareId: string): boolean => {
+        if (existsStructShareIds.has(structShareId)) {
+            return false;
+        }
+
+        const structShare = columnShareStorage.findStructShare(structShareId);
+        if (structShare == null) {
+            return false;
+        }
+
+        existsStructShareIds.add(structShareId);
+
+        const subStructShareIds = structShare.columnEntries.flatMap(entry => {
+            if (entry.modelType === "single") {
+                return [entry.columnModelId];
+            }
+
+            const columnGroup = erdDocument.findColumnGroupModel(entry.columnGroupId);
+            if (columnGroup == null) {
+                return [];
+            }
+
+            return columnGroup.columnModelIds;
+        }).flatMap(columnId => {
+            const columnModel = columnStorage.findColumn(columnId) || erdDocument.findColumnModel(columnId);
+            if ((columnModel == null) || (ColumnModel.isStructColumn(columnModel) === false)) {
+                return [];
+            }
+
+            return [columnModel.structShareModelId];
+        });
+
+        return subStructShareIds.every(subStructSharedId => validateStruct(subStructSharedId));
+    };
+
+    const validateNonRecursive = (columnWrapModels: ColumnWrapModel[]) => {
+        const structColumns = columnWrapModels.filter(columnWrap => (columnWrap.modelType === "struct"));
+        if (structColumns.length === 0) {
+            return true;
+        }
+
+        return structColumns.every(structColumn => validateStruct(structColumn.columnModel.structShareModelId));
+    };
+
+    return validateNonRecursive;
 };

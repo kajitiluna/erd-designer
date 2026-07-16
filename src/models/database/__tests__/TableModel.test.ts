@@ -1,4 +1,5 @@
-import TableModel, { ColumnEntry } from '../TableModel';
+import TableModel from '../TableModel';
+import ColumnEntry from '../ColumnEntry';
 import TableIndexModel from '../TableIndexModel';
 import { IndexColumnModel } from '../TableIndexModel';
 import TableUniqueKeysModel, { UniqueKeysColumnModel } from '../TableUniqueKeysModel';
@@ -352,41 +353,6 @@ describe('TableModel', () => {
             expect(model1.equals(model2)).toBe(false);
         });
 
-        test('should return true for identical struct column entries', () => {
-            const model1 = new TableModel({
-                tableModelId: 'test-id',
-                columnEntries: [{ modelType: 'struct', columnStructId: 'struct1' }] as ColumnEntry[]
-            });
-            const model2 = new TableModel({
-                tableModelId: 'test-id',
-                columnEntries: [{ modelType: 'struct', columnStructId: 'struct1' }] as ColumnEntry[]
-            });
-
-            expect(model1.equals(model2)).toBe(true);
-        });
-
-        test('should return false for different struct column ids', () => {
-            const model1 = new TableModel({
-                columnEntries: [{ modelType: 'struct', columnStructId: 'struct1' }] as ColumnEntry[]
-            });
-            const model2 = new TableModel({
-                columnEntries: [{ modelType: 'struct', columnStructId: 'struct2' }] as ColumnEntry[]
-            });
-
-            expect(model1.equals(model2)).toBe(false);
-        });
-
-        test('should return false for different column model types (single vs struct)', () => {
-            const model1 = new TableModel({
-                columnEntries: [{ modelType: 'single', columnModelId: 'col1' }] as ColumnEntry[]
-            });
-            const model2 = new TableModel({
-                columnEntries: [{ modelType: 'struct', columnStructId: 'col1' }] as ColumnEntry[]
-            });
-
-            expect(model1.equals(model2)).toBe(false);
-        });
-
         test('should return false for different number of unique keys models', () => {
             const uniqueKeysColumnModel = new UniqueKeysColumnModel({
                 columnModelId: 'col1',
@@ -631,20 +597,6 @@ describe('TableModel', () => {
             expect(json.columnModelIds).toEqual(['col1', 'group:group1', 'col2']);
         });
 
-        test('should handle struct columns in columnModelIds (mixed with single/group)', () => {
-            const model = new TableModel({
-                columnEntries: [
-                    { modelType: 'single', columnModelId: 'col1' },
-                    { modelType: 'group', columnGroupId: 'group1' },
-                    { modelType: 'struct', columnStructId: 'struct1' }
-                ] as ColumnEntry[]
-            });
-
-            const json = model.toJSON();
-
-            expect(json.columnModelIds).toEqual(['col1', 'group:group1', 'struct:struct1']);
-        });
-
         test('should omit empty uniqueKeysModels and tableIndexModels from JSON', () => {
             const model = new TableModel({
                 tableModelId: 'test-id',
@@ -792,23 +744,6 @@ describe('TableModel', () => {
                 { modelType: 'group', columnGroupId: 'group1' },
                 { modelType: 'single', columnModelId: 'col2' },
                 { modelType: 'group', columnGroupId: 'group2' }
-            ]);
-        });
-
-        test('should parse struct column ids correctly (mixed with single/group)', () => {
-            const jsonData = {
-                tableModelId: 'test-id',
-                physicalName: 'test_table',
-                logicalName: 'Test Table',
-                columnModelIds: ['col1', 'group:group1', 'struct:struct1']
-            };
-
-            const model = TableModel.toObject(jsonData);
-
-            expect(model.columnEntries).toEqual([
-                { modelType: 'single', columnModelId: 'col1' },
-                { modelType: 'group', columnGroupId: 'group1' },
-                { modelType: 'struct', columnStructId: 'struct1' }
             ]);
         });
 
@@ -1035,24 +970,6 @@ describe('TableModel', () => {
                 tableModelId: 'test-id',
                 physicalName: 'test_table',
                 logicalName: 'Test Table'
-            });
-
-            const json = original.toJSON();
-            const deserialized = TableModel.toObject(json);
-
-            expect(original.equals(deserialized)).toBe(true);
-        });
-
-        test('should maintain equality after serialization and deserialization with struct columns', () => {
-            const original = new TableModel({
-                tableModelId: 'test-id',
-                physicalName: 'test_table',
-                logicalName: 'Test Table',
-                columnEntries: [
-                    { modelType: 'single', columnModelId: 'col1' },
-                    { modelType: 'group', columnGroupId: 'group1' },
-                    { modelType: 'struct', columnStructId: 'struct1' }
-                ] as ColumnEntry[]
             });
 
             const json = original.toJSON();

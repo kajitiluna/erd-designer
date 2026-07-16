@@ -11,6 +11,7 @@ import {
 } from "~/agent-tools/tools/support";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import ColumnModel from "~/models/database/ColumnModel";
+import SimpleColumnModel from "~/models/database/SimpleColumnModel";
 import ErdDocument from "~/models/ErdDocument";
 
 export const mcpRegisterColumnGroup = (documentResource: DocumentResource): McpRegisterConfig => {
@@ -470,7 +471,8 @@ const toColumnGroupSummary = (erdBudget: DocumentBudget, group: ColumnGroupModel
 const toColumnGroupDetail = (erdBudget: DocumentBudget, group: ColumnGroupModel, erdDocument: ErdDocument) => {
     const columns = group.columnModelIds.flatMap(columnModelId => {
         const column = erdDocument.findColumnModel(columnModelId);
-        if (column == null) {
+        // column group は simple カラムのみを対象とする。struct 混入は解決不能な参照と同様にスキップする。
+        if ((column == null) || (ColumnModel.isSimpleColumn(column) === false)) {
             return [];
         }
 
@@ -486,7 +488,7 @@ const toColumnGroupDetail = (erdBudget: DocumentBudget, group: ColumnGroupModel,
     };
 };
 
-const toColumnInGroup = (erdBudget: DocumentBudget, column: ColumnModel) => {
+const toColumnInGroup = (erdBudget: DocumentBudget, column: SimpleColumnModel) => {
     const overrideName = ((column.physicalName !== "") || (column.logicalName !== ""))
         ? {
             ...((column.physicalName !== "") && { physical: column.physicalName }),

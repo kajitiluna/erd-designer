@@ -27,13 +27,15 @@ import { handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/s
 import TableViewModel from "~/models/TableViewModel";
 import ColorValue from "~/models/ColorValue";
 import { EditModeType } from "~/models/EditMode";
-import ErdDocument, { ColumnDetailEntry } from "~/models/ErdDocument";
+import ErdDocument from "~/models/ErdDocument";
 import LineViewModel from "~/models/LineViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
 import DisplayStyle from "~/models/database/DisplayStyle";
 import RelationModel from "~/models/database/RelationModel";
+import SimpleColumnModel from "~/models/database/SimpleColumnModel";
+import StructColumnModel from "~/models/database/StructColumnModel";
 import TableModel from "~/models/database/TableModel";
 import TableIndexModel from "~/models/database/TableIndexModel";
 import TableUniqueKeysModel from "~/models/database/TableUniqueKeysModel";
@@ -63,25 +65,23 @@ const ErdTableView = ({ tableViewModel, visible = true, onEditAction, onDragActi
 
     const tableContentCache = React.useMemo(() => {
         const tableModel = tableViewModel.tableModel;
-        const columnEntries = erdDocument.toColumnDetailEntries(tableModel);
-        const tableRows = (columnEntries.length > 0)
-            ? columnEntries.map(entry => initTableColumn(entry, tableModel, erdDocument, selectState))
+        const allColumns = erdDocument.toAllColumnsWithStruct(tableModel);
+        const tableRows = (allColumns.length > 0)
+            ? allColumns.flatMap(columnModel => initTableColumn(columnModel, tableModel, erdDocument, selectState))
             : (<TableRow><TableCell></TableCell></TableRow>);
 
-        return (
-            <>
-                <DescriptionTooltip title={tableModel.description} placement="top-end">
-                    <Box sx={HEADER_STYLE}>{initDisplayTableName(erdDocument, tableModel)}</Box>
-                </DescriptionTooltip>
-                <Box sx={BODY_STYLE}>
-                    <TableContainer>
-                        <Table size="small">
-                            <TableBody sx={{ fontSize: "0.875em" }}>{tableRows}</TableBody>
-                        </Table>
-                    </TableContainer>
-                </Box>
-            </>
-        );
+        return (<>
+            <DescriptionTooltip title={tableModel.description} placement="top-end">
+                <Box sx={HEADER_STYLE}>{initDisplayTableName(erdDocument, tableModel)}</Box>
+            </DescriptionTooltip>
+            <Box sx={BODY_STYLE}>
+                <TableContainer>
+                    <Table size="small">
+                        <TableBody sx={{ fontSize: "0.875em" }}>{tableRows}</TableBody>
+                    </Table>
+                </TableContainer>
+            </Box>
+        </>);
     }, [
         erdDocument.lastUpdatedAt,
         // リレーション選択時に外部制約があるカラムの背景色を変更するので、それに対する検証
@@ -146,17 +146,20 @@ const BODY_STYLE = {
 };
 
 const initTableColumn = (
-    detailEntry: ColumnDetailEntry, tableModel: TableModel, erdDocument: ErdDocument, selectState: SelectState
-) => {
-    if ((detailEntry.entryType === "column")) {
-        return initTableSingleColumn(detailEntry.columnModel, tableModel, erdDocument, selectState);
+    columnModel: ColumnModel, tableModel: TableModel, erdDocument: ErdDocument, selectState: SelectState,
+    nestCount: number = 0
+): React.JSX.Element[] => {
+    if (ColumnModel.isSimpleColumn(columnModel)) {
+        const singleRow = initTableSingleColumn(columnModel, nestCount, tableModel, erdDocument, selectState);
+        return [singleRow];
     }
 
-    return initTableStructColumn(detailEntry, tableModel, erdDocument);
+    return initTableStructColumn(columnModel, nestCount, tableModel, erdDocument, selectState);
 };
 
 const initTableSingleColumn = (
-    columnModel: ColumnModel, tableModel: TableModel, erdDocument: ErdDocument, selectState: SelectState
+    columnModel: SimpleColumnModel, nestCount: number,
+    tableModel: TableModel, erdDocument: ErdDocument, selectState: SelectState
 ) => {
     const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
     if (columnShareModel == null) {
@@ -179,6 +182,7 @@ const initTableSingleColumn = (
     const styleRow = selectedRelationColumn ? { backgroundColor: "rgba(73, 76, 218, 0.12)" } : {};
     const styleTextCell = { whiteSpace: "nowrap", color: fontColor };
     const styleAttributeCell = { whiteSpace: "nowrap", color: fontColor, fontSize: "0.914em" };
+    const indentStyle = { marginLeft: `${nestCount * STRUCT_INDENT_WIDTH}px` };
 
     return (
         <TableRow key={`erd-table-column_${columnModel.columnModelId}`}
@@ -191,10 +195,14 @@ const initTableSingleColumn = (
             </TableCell>
 
             <DescriptionTooltip title={columnShareModel.description} placement="top">
-                <TableCell sx={styleTextCell}>{displayColumnName}</TableCell>
+                <TableCell sx={styleTextCell}>
+                    <span style={indentStyle}>{displayColumnName}</span>
+                </TableCell>
             </DescriptionTooltip>
 
-            <TableCell sx={styleAttributeCell}>{displayColumnType}</TableCell>
+            <TableCell sx={styleAttributeCell}>
+                <span style={indentStyle}>{displayColumnType}</span>
+            </TableCell>
             <TableCell align="center" sx={styleAttributeCell}>{displayOption}</TableCell>
             {initUniqueKeysMarkers(columnModel, uniqueKeysModels)}
             {initTableIndexMarkers(columnModel, tableIndexModels)}
@@ -203,33 +211,69 @@ const initTableSingleColumn = (
 };
 
 const initTableStructColumn = (
-    entry: ColumnDetailEntry & { entryType: "struct" }, tableModel: TableModel, erdDocument: ErdDocument
-) => {
-    const structModel = entry.structModel;
+    structColumn: StructColumnModel, nestCount: number,
+    tableModel: TableModel, erdDocument: ErdDocument, selectState: SelectState
+): React.JSX.Element[] => {
+    const structShare = erdDocument.findStructColumnShareModel(structColumn.structShareModelId);
+    if (structShare == null) {
+        console.warn(`structColumnShareModel is not existed. structColumnShareModelId = ${structColumn.structShareModelId}`)
+        return [];
+    }
 
-    const columnName = erdDocument.getDisplayStyle().displayName(structModel.physicalName, structModel.logicalName);
-    const displayColumnType = structModel.displayTypeQuery();
-    const displayOption = structModel.notNull ? "(NN)" : "";
+    const overrideName = overrideColumnName(structColumn, structShare);
+    const columnName = erdDocument.getDisplayStyle().displayName(overrideName.physicalName, overrideName.logicalName);
+    const displayColumnType = structShare.simpleColumnType();
+    const displayOption = structColumn.notNull ? "(NN)" : "";
+
+    const innerRows = structShare.columnEntries.flatMap(entry => {
+        if (entry.modelType === "single") {
+            const column = erdDocument.findColumnModel(entry.columnModelId);
+            if (column == null) {
+                return [];
+            }
+
+            return initTableColumn(column, tableModel, erdDocument, selectState, nestCount + 1);
+        }
+
+        const columnGroup = erdDocument.findColumnGroupModel(entry.columnGroupId);
+        if (columnGroup == null) {
+            return [];
+        }
+
+        const innerColumns = columnGroup.columnModelIds
+            .map(columnId => erdDocument.findColumnModel(columnId))
+            .filter(column => (column != null))
+            .flatMap(column => initTableColumn(column, tableModel, erdDocument, selectState, nestCount + 1));
+
+        return innerColumns;
+    });
 
     const styleTextCell = { whiteSpace: "nowrap", color: "#000000" };
     const styleAttributeCell = { whiteSpace: "nowrap", color: "#000000", fontSize: "0.914em" };
+    const indentStyle = { marginLeft: `${nestCount * STRUCT_INDENT_WIDTH}px` };
 
-    return (
-        <TableRow key={`erd-table-column_${structModel.columnStructId}`}
-            data-column-struct-id={structModel.columnStructId}>
+    const structRow = (
+        <TableRow key={`erd-table-column_${structColumn.columnModelId}`}
+            data-column-id={structColumn.columnModelId}>
             <TableCell align="center" sx={STYLE_PRIMARY_CELL} />
             <TableCell align="center" sx={STYLE_FOREIGN_CELL} />
 
-            <DescriptionTooltip title={structModel.description} placement="top">
-                <TableCell sx={styleTextCell}>{columnName}</TableCell>
+            <DescriptionTooltip title={structShare.description} placement="top">
+                <TableCell sx={styleTextCell}>
+                    <span style={indentStyle}>{columnName}</span>
+                </TableCell>
             </DescriptionTooltip>
 
-            <TableCell sx={styleAttributeCell}>{displayColumnType}</TableCell>
+            <TableCell sx={styleAttributeCell}>
+                <span style={indentStyle}>{displayColumnType}</span>
+            </TableCell>
             <TableCell align="center" sx={styleAttributeCell}>{displayOption}</TableCell>
             {initEmptyMarkerCell(tableModel.uniqueKeysModels)}
             {initEmptyMarkerCell(tableModel.tableIndexModels)}
         </TableRow>
     );
+
+    return [structRow, ...innerRows];
 };
 
 const initEmptyMarkerCell = (markerModels: readonly (TableUniqueKeysModel | TableIndexModel)[]) => {
@@ -240,7 +284,7 @@ const initEmptyMarkerCell = (markerModels: readonly (TableUniqueKeysModel | Tabl
     return (<TableCell sx={STYLE_MARKER_CELL} />);
 };
 
-const initTableColumnFontColor = (columnModel: ColumnModel, inChildRelation: boolean) => {
+const initTableColumnFontColor = (columnModel: SimpleColumnModel, inChildRelation: boolean) => {
     if (columnModel.primaryKey && inChildRelation) {
         return KeyColor.primaryAndForeign;
     }
@@ -277,7 +321,7 @@ const initDisplayColumnName = (columnModel: ColumnModel, shareModel: ColumnShare
     return displayStyle.displayName(overrideName.physicalName, overrideName.logicalName);
 }
 
-const initDisplayOption = (columnModel: ColumnModel): string => {
+const initDisplayOption = (columnModel: SimpleColumnModel): string => {
     const columnOptions = [];
     if (columnModel.unique) {
         columnOptions.push("U");
@@ -377,6 +421,9 @@ const STYLE_MARKER_GRID = {
     whiteSpace: "nowrap", paddingLeft: "6px", paddingRight: "6px"
 };
 const STYLE_MARKER_MARGIN = { margin: "2.8px" };
+
+// STRUCT のネスト階層を視覚化する 1 レベルあたりのインデント幅(px)。nestCount=0 で 0=インデント無し。
+const STRUCT_INDENT_WIDTH = 10;
 
 // 自己関連を作成する制御にあたり、１つ目のテーブル選択時に自己関連を作成しないように制御するための状態
 type SelfSelectableMode = "none" | "start_selecting" | "self_selectable";

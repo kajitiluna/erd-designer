@@ -17,8 +17,10 @@ import { TableIndexOption, TableIndexType } from "~/models/database/TableIndexSu
 import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
 import ColumnModel from '~/models/database/ColumnModel';
+import ColumnEntry from '~/models/database/ColumnEntry';
+import SimpleColumnModel from '~/models/database/SimpleColumnModel';
 import TableIndexModel from '~/models/database/TableIndexModel';
-import TableModel, { ColumnEntry } from '~/models/database/TableModel';
+import TableModel from '~/models/database/TableModel';
 import RelationPair from '~/models/database/RelationPair';
 import RelationModel from '~/models/database/RelationModel';
 import { NullsOrderType, SortOrderType } from '~/models/database/ValueType';
@@ -1302,7 +1304,7 @@ class ColumnTypeResolver {
 
     private static initMapping(columnModelShareStorage: ColumnShareModelStorage) {
         const columnNameToColumnShare = new Map<string, ColumnShareModel[]>();
-        for (const columnShare of columnModelShareStorage.getModels()) {
+        for (const columnShare of columnModelShareStorage.getColumnShareModels()) {
             const models = columnNameToColumnShare.get(columnShare.physicalName);
             if (models == null) {
                 columnNameToColumnShare.set(columnShare.physicalName, [columnShare]);
@@ -1488,7 +1490,7 @@ const doInitTableModels = (database: Database, tableDefinitions: DdlTableDefinit
             const columnShareModel = columnDefinition.columnShareModel;
 
             columnShareModels.push(columnShareModel);
-            const columnModel = new ColumnModel({
+            const columnModel = new SimpleColumnModel({
                 columnShareModelId: columnShareModel.columnShareModelId,
                 primaryKey: columnDefinition.primaryKey,
                 notNull: columnDefinition.notNull,

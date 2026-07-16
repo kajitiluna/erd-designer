@@ -6,10 +6,11 @@ import DatabaseSettingModel from '~/models/DatabaseSettingModel';
 import DbSchemaConfig from '~/models/DbSchemaConfig';
 import ErdDocument from '~/models/ErdDocument';
 import ErdSettingModel from '~/models/ErdSettingModel';
-import ColumnModel from '~/models/database/ColumnModel';
+import ColumnEntry from '~/models/database/ColumnEntry';
+import SimpleColumnModel from '~/models/database/SimpleColumnModel';
 import ColumnShareModel from '~/models/database/ColumnShareModel';
 import { findDatabaseColumns } from '~/models/database/columns';
-import TableModel, { ColumnEntry } from '~/models/database/TableModel';
+import TableModel from '~/models/database/TableModel';
 import TableUniqueKeysModel, { UniqueKeysColumnModel } from '~/models/database/TableUniqueKeysModel';
 import TableViewModel from '~/models/TableViewModel';
 import { DatabaseType } from '~/models/database/DatabaseType';
@@ -68,23 +69,23 @@ const buildPkUniqueSampleDocument = (
         precision: '255'
     });
 
-    const idAColumn = new ColumnModel({
+    const idAColumn = new SimpleColumnModel({
         columnModelId: 'col-id-a', columnShareModelId: idAShare.columnShareModelId,
         physicalName: 'id_a', primaryKey: true, notNull: true
     });
-    const idBColumn = new ColumnModel({
+    const idBColumn = new SimpleColumnModel({
         columnModelId: 'col-id-b', columnShareModelId: idBShare.columnShareModelId,
         physicalName: 'id_b', primaryKey: true, notNull: true
     });
-    const emailColumn = new ColumnModel({
+    const emailColumn = new SimpleColumnModel({
         columnModelId: 'col-email', columnShareModelId: emailShare.columnShareModelId,
         physicalName: 'email', unique: true
     });
-    const codeColumn = new ColumnModel({
+    const codeColumn = new SimpleColumnModel({
         columnModelId: 'col-code', columnShareModelId: codeShare.columnShareModelId,
         physicalName: 'code'
     });
-    const nameColumn = new ColumnModel({
+    const nameColumn = new SimpleColumnModel({
         columnModelId: 'col-name', columnShareModelId: nameShare.columnShareModelId,
         physicalName: 'name'
     });

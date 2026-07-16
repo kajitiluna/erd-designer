@@ -12,7 +12,7 @@ import RelationPair from "~/models/database/RelationPair";
 import TableModel from "~/models/database/TableModel";
 import ErdDocument from "~/models/ErdDocument";
 import RelationViewModel from "~/models/RelationViewModel";
-import ColumnModel from "~/models/database/ColumnModel";
+import SimpleColumnModel from "~/models/database/SimpleColumnModel";
 import { initHandleChangePhysicalName, initHandleCloseDialog, initHandleEnterKeyDown } from '~/features/editor/support';
 import { overrideColumnName } from '~/models/database/support';
 import LabelViewModel from '~/models/LabelViewModel';
@@ -32,7 +32,7 @@ const RelationEditView = ({
     const erdDocument: ErdDocument = documentsHolder.current();
 
     const relationModel: RelationModel = relationViewModel.relationModel;
-    const parentPrimaryColumns: ColumnModel[] = erdDocument.toAllColumnsExceptStruct(parentTableModel)
+    const parentPrimaryColumns: SimpleColumnModel[] = erdDocument.toAllColumnsExceptStruct(parentTableModel)
         .filter(columnModel => columnModel.primaryKey);
 
     const [relationName, setRelationName] = React.useState<string>(relationModel.relationName);
@@ -167,7 +167,7 @@ type RelationReferencesPanelProps = {
     erdDocument: ErdDocument,
     parentTableModel: TableModel,
     childTableModel: TableModel,
-    parentPrimaryColumns: ColumnModel[],
+    parentPrimaryColumns: SimpleColumnModel[],
     relationPairs: RelationPair[],
     updateRelationPairs: (updateFunction: (previous: RelationPair[]) => RelationPair[]) => void
 };
@@ -190,7 +190,7 @@ const RelationReferencesPanel = ({
         })
         .filter(pair => (pair != null));
 
-    const initRelationRow = (primaryColumn: ColumnModel, targetIndex: number) => {
+    const initRelationRow = (primaryColumn: SimpleColumnModel, targetIndex: number) => {
         const parentColumnShareModel = erdDocument.findColumnShareModel(primaryColumn.columnShareModelId)
         if (parentColumnShareModel == null) {
             return (<></>);

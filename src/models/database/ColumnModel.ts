@@ -1,101 +1,38 @@
-import { v4 as uuidV4 } from 'uuid';
+import SimpleColumnModel from "~/models/database/SimpleColumnModel";
+import StructColumnModel from "~/models/database/StructColumnModel";
 
-import { requireProperty } from "~/models/util";
+type ColumnModel = SimpleColumnModel | StructColumnModel;
 
-type ColumnModelOptions = {
-    columnModelId?: string,
-    columnShareModelId?: string,
-    physicalName?: string,
-    logicalName?: string,
-    primaryKey?: boolean,
-    notNull?: boolean,
-    unique?: boolean,
-    autoIncrement?: boolean,
-    defaultValue?: string
-}
+// type エイリアス(union)は静的メソッドを持てないため、同名の const を companion object として併置する。
+// variant を保持したまま比較する呼び出し元に静的比較を提供する。
+const ColumnModel = {
 
-export default class ColumnModel {
+    isSimpleColumn(columnModel: ColumnModel): columnModel is SimpleColumnModel {
+        return columnModel.entityType === "simple";
+    },
 
-    public readonly columnModelId: string;
-    public readonly columnShareModelId: string;
-    public readonly physicalName: string;
-    public readonly logicalName: string;
-    public readonly primaryKey: boolean;
-    public readonly notNull: boolean;
-    public readonly unique: boolean;
-    public readonly autoIncrement: boolean;
-    public readonly defaultValue: string;
+    isStructColumn(columnModel: ColumnModel): columnModel is StructColumnModel {
+        return columnModel.entityType === "struct";
+    },
 
-    constructor({
-        columnModelId = "",
-        columnShareModelId = "",
-        physicalName = "",
-        logicalName = "",
-        primaryKey = false,
-        notNull = false,
-        unique = false,
-        autoIncrement = false,
-        defaultValue = ""
-    }: ColumnModelOptions) {
-        this.columnModelId = columnModelId ? columnModelId : uuidV4();
-        this.columnShareModelId = columnShareModelId;
-        this.physicalName = physicalName.trim();
-        this.logicalName = logicalName.trim();
-        this.primaryKey = primaryKey;
-        this.notNull = notNull;
-        this.unique = unique;
-        this.autoIncrement = autoIncrement;
-        this.defaultValue = defaultValue.trim();
+    equals(first: ColumnModel, second: ColumnModel): boolean {
+        if (ColumnModel.isSimpleColumn(first) && ColumnModel.isSimpleColumn(second)) {
+            return first.equals(second);
+        }
+        if (ColumnModel.isStructColumn(first) && ColumnModel.isStructColumn(second)) {
+            return first.equals(second);
+        }
+        return false;
+    },
+
+    toObject(obj: object): ColumnModel {
+        const entityType = ("entityType" in obj) ? obj.entityType as string : "simple";
+        if (entityType === "struct") {
+            return StructColumnModel.toObject(obj);
+        }
+
+        return SimpleColumnModel.toObject(obj);
     }
+} as const;
 
-    public toJSON(): Record<string, unknown> {
-        return {
-            columnModelId: this.columnModelId,
-            columnShareModelId: this.columnShareModelId,
-            ...((this.physicalName !== "") && { physicalName: this.physicalName }),
-            ...((this.logicalName !== "") && { logicalName: this.logicalName }),
-            ...(this.primaryKey && { primaryKey: this.primaryKey }),
-            ...(this.notNull && { notNull: this.notNull }),
-            ...(this.unique && { unique: this.unique }),
-            ...(this.autoIncrement && { autoIncrement: this.autoIncrement }),
-            ...((this.defaultValue !== "") && { defaultValue: this.defaultValue })
-        };
-    }
-
-    public static toObject(obj: object): ColumnModel {
-        requireProperty(obj, "columnModelId");
-        requireProperty(obj, "columnShareModelId");
-
-        const physicalName = ("physicalName" in obj) ? obj.physicalName as string : "";
-        const logicalName = ("logicalName" in obj) ? obj.logicalName as string : "";
-        const primaryKey = ("primaryKey" in obj) ? obj.primaryKey as boolean : false;
-        const notNull = ("notNull" in obj) ? obj.notNull as boolean : false;
-        const unique = ("unique" in obj) ? obj.unique as boolean : false;
-        const autoIncrement = ("autoIncrement" in obj) ? obj.autoIncrement as boolean : false;
-        const defaultValue = ("defaultValue" in obj) ? obj.defaultValue as string : "";
-
-        return new ColumnModel({
-            columnModelId: obj.columnModelId as string,
-            columnShareModelId: obj.columnShareModelId as string,
-            physicalName: physicalName,
-            logicalName: logicalName,
-            primaryKey: primaryKey,
-            notNull: notNull,
-            unique: unique,
-            autoIncrement: autoIncrement,
-            defaultValue: defaultValue
-        });
-    }
-
-    public equals(other: ColumnModel): boolean {
-        return (this.columnModelId === other.columnModelId)
-            && (this.columnShareModelId === other.columnShareModelId)
-            && (this.physicalName === other.physicalName)
-            && (this.logicalName === other.logicalName)
-            && (this.primaryKey === other.primaryKey)
-            && (this.notNull === other.notNull)
-            && (this.unique === other.unique)
-            && (this.autoIncrement === other.autoIncrement)
-            && (this.defaultValue === other.defaultValue);
-    }
-}
+export default ColumnModel;

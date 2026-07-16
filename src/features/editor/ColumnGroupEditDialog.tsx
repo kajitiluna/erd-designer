@@ -3,11 +3,13 @@ import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Sta
 
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
+import ColumnModel from "~/models/database/ColumnModel";
 import ErdDocument from "~/models/ErdDocument";
+import SimpleColumnModel from "~/models/database/SimpleColumnModel";
 import { ColumnWrapModel, initHandleCloseDialog, initHandleEnterKeyDown } from "~/features/editor/support";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
-import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import ColumnViewTable from "~/features/editor/ColumnViewTable";
+import ColumnModelStorage from "~/models/ColumnModelStorage";
 
 type ColumnGroupEditDialogProps = {
     isOpen: boolean,
@@ -19,7 +21,8 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const erdDocument: ErdDocument = documentsHolder.current();
 
-    const [columnShareModelStorage, setColumnShareModelStorage] = React.useState(erdDocument.getColumnShareModelStorage());
+    const [columnShareStorage, setColumnShareStorage] = React.useState(erdDocument.getColumnShareModelStorage());
+    const [columnStorage, setColumnStorage] = React.useState<ColumnModelStorage>(ColumnModelStorage.create());
 
     const [groupName, setGroupName] = React.useState<string>(columnGroup.groupName);
     const [columnWrapModels, setColumnWrapModels] = React.useState<ColumnWrapModel[]>(
@@ -47,7 +50,7 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
         const loggingMessage = "Update Column Group. " +
             JSON.stringify({ before: columnGroup, after: updatingColumnGroup });
         documentsHolder.updateColumnGroup(
-            updatingColumnGroup, updatingColumnModels, columnShareModelStorage, loggingMessage
+            updatingColumnGroup, updatingColumnModels, columnShareStorage, loggingMessage
         );
 
         onClose();
@@ -57,8 +60,8 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
 
     return (
         <ColumnShareModelStorageContext.Provider value={{
-            columnShareModelStorage: columnShareModelStorage,
-            updateStorage: (updating: ColumnShareModelStorage) => setColumnShareModelStorage(updating)
+            columnShareStorage: columnShareStorage, updateShareStorage: setColumnShareStorage,
+            columnStorage: columnStorage, updateColumnStorage: setColumnStorage
         }}>
             <Dialog fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
                 open={isOpen} onClose={initHandleCloseDialog(onClose)}>
@@ -93,9 +96,10 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
 const initColumnWrapModels = (erdDocument: ErdDocument, columnGroup: ColumnGroupModel): ColumnWrapModel[] => {
     return columnGroup.columnModelIds
         .map(columnModelId => erdDocument.findColumnModel(columnModelId))
-        .filter(columnModel => (columnModel != null))
+        .filter((columnModel): columnModel is SimpleColumnModel =>
+            (columnModel != null) && ColumnModel.isSimpleColumn(columnModel))
         .map(columnModel => {
-            return { modelType: "single", columnModel: columnModel };
+            return { modelType: "single" as const, columnModel: columnModel };
         });
 };
 

@@ -1,13 +1,15 @@
 import { Database, DatabaseType } from "~/models/database";
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
-import ColumnStructModel from "~/models/database/ColumnStructModel";
+import SimpleColumnModel from "~/models/database/SimpleColumnModel";
+import StructColumnModel from "~/models/database/StructColumnModel";
+import StructColumnShareModel from "~/models/database/StructColumnShareModel";
 import DbSchemaModel from "~/models/database/DbSchemaModel";
 import RelationModel from "~/models/database/RelationModel";
 import { overrideColumnName } from "~/models/database/support";
 import TableModel from "~/models/database/TableModel";
 import TableUniqueKeysModel from "~/models/database/TableUniqueKeysModel";
-import ErdDocument, { ColumnDetailEntry } from "~/models/ErdDocument";
+import ErdDocument from "~/models/ErdDocument";
 import { DdlCommentStyle } from "~/models/ExportDdlSettingModel";
 import TableViewModel from "~/models/TableViewModel";
 
@@ -53,7 +55,9 @@ type ForeignKeyQueryArgs = {
 type DatabaseDdlCreatorArgs = {
     tableQueryWithOption: (query: string, tableModel: TableModel, option: DdlOption) => string,
     columnQueryWithOption?: (query: string, columnShare: ColumnShareModel, overrideName: OverrideName, option: DdlOption) => string,
-    structColumnQueryWithOption?: (query: string, structModel: ColumnStructModel, option: DdlOption) => string,
+    structColumnQueryWithOption?: (
+        query: string, structModel: StructColumnShareModel, overrideName: OverrideName, option: DdlOption
+    ) => string,
     indexQuery: (args: IndexQueryArgs) => string,
     foreignKeyQuery?: (args: ForeignKeyQueryArgs) => string,
     primaryKeyQuery?: (columns: string[]) => string,
@@ -72,7 +76,7 @@ class DatabaseDdlCreator {
         query: string, columnShare: ColumnShareModel, overrideName: OverrideName, option: DdlOption
     ) => string;
     private readonly structColumnQueryWithOption: (
-        query: string, structModel: ColumnStructModel, option: DdlOption
+        query: string, structModel: StructColumnShareModel, overrideName: OverrideName, option: DdlOption
     ) => string;
     private readonly indexQuery: (args: IndexQueryArgs) => string;
     private readonly foreignKeyQuery: (args: ForeignKeyQueryArgs) => string;
@@ -177,11 +181,11 @@ class DatabaseDdlCreator {
             return { columnModel, columnShareModel, inChildRelation };
         });
 
-        // カラム行の生成は tableModel.columns のエントリ順(single/group/struct)で走査する。
-        const columnEntries = erdDocument.toColumnDetailEntries(tableModel);
-        const columnQueries = columnEntries.map(entry => {
-            return this.columnEntryQuery(erdDocument, tableModel, entry, database, option);
-        });
+        // カラム行の生成は tableModel.columns のエントリ順(single/group)で走査する。
+        const allColumns = erdDocument.toAllColumnsWithStruct(tableModel);
+        const columnQueries = allColumns
+            .map(columnModel => this.columnEntryQuery(erdDocument, tableModel, columnModel, database, option))
+            .filter((columnQuery): columnQuery is string => (columnQuery != null));
 
         const primaryKeys = columnPairs
             .filter(columnPair => (columnPair.columnModel.primaryKey === true))
@@ -213,14 +217,13 @@ class DatabaseDdlCreator {
     }
 
     private columnEntryQuery(
-        erdDocument: ErdDocument, tableModel: TableModel, entry: ColumnDetailEntry,
+        erdDocument: ErdDocument, tableModel: TableModel, columnModel: ColumnModel,
         database: Database, option: DdlOption
-    ) {
-        if (entry.entryType === "struct") {
-            return this.structColumnQuery(erdDocument, entry, option);
+    ): string | null {
+        if (ColumnModel.isStructColumn(columnModel)) {
+            return this.structColumnQuery(erdDocument, columnModel, option);
         }
 
-        const columnModel = entry.columnModel;
         const columnShare = erdDocument.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
         const inChildRelation = erdDocument.inChildRelation(tableModel.tableModelId, columnModel.columnModelId);
 
@@ -228,15 +231,22 @@ class DatabaseDdlCreator {
     }
 
     private structColumnQuery(
-        erdDocument: ErdDocument, entry: ColumnDetailEntry & { entryType: "struct" }, option: DdlOption
-    ) {
-        const structQuery = resolveStructQuery(erdDocument, entry, (value: string) => this.escape(value))
+        erdDocument: ErdDocument, columnModel: StructColumnModel, option: DdlOption
+    ): string | null {
+        const structModel = erdDocument.findStructColumnShareModel(columnModel.structShareModelId);
+        if (structModel == null) {
+            return null;
+        }
 
-        const structModel = entry.structModel
-        const notNullSuffix = (structModel.notNull === true) ? " NOT NULL" : "";
+        const structQuery = resolveStructQuery(
+            erdDocument, columnModel, structModel, new Set(), (value: string) => this.escape(value)
+        );
+
+        const notNullSuffix = (columnModel.notNull === true) ? " NOT NULL" : "";
         const baseQuery = `${structQuery}${notNullSuffix}`;
+        const overrideName = overrideColumnName(columnModel, structModel);
 
-        return this.structColumnQueryWithOption(baseQuery, structModel, option);
+        return this.structColumnQueryWithOption(baseQuery, structModel, overrideName, option);
     }
 
     private initTableCheckExpression(checkExpression: string, columnPairs: ColumnModelPair[]): string {
@@ -251,7 +261,7 @@ class DatabaseDdlCreator {
     }
 
     private columnQuery(
-        columnModel: ColumnModel, columnShareModel: ColumnShareModel, inChildRelation: boolean,
+        columnModel: SimpleColumnModel, columnShareModel: ColumnShareModel, inChildRelation: boolean,
         database: Database, option: DdlOption
     ) {
         const attributes = [columnShareModel.specifiedColumnType(inChildRelation)];
@@ -349,7 +359,8 @@ class DatabaseDdlCreator {
 
             return tableModel.tableIndexModels.map(indexModel => {
                 const columnQueries = indexModel.indexColumnModels.map(indexColumn => {
-                    const columnModel = erdDocument.findColumnModel(indexColumn.columnModelId) as ColumnModel;
+                    // INDEX は simple カラムに限定されるため、構造上 struct が混入することはない
+                    const columnModel = erdDocument.findColumnModel(indexColumn.columnModelId) as SimpleColumnModel;
                     const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
 
                     const overrideName = overrideColumnName(columnModel, columnShareModel);
@@ -393,10 +404,11 @@ class DatabaseDdlCreator {
             const parentSchema = erdDocument.findSchema(parentTableModel.schemaId);
 
             const pairColumnNames = relationModel.relationPairs.map(relationPair => {
-                const childColumnModel = erdDocument.findColumnModel(relationPair.childColumnModelId) as ColumnModel;
+                // FK の親子カラムは PK 由来の simple カラムに限定される
+                const childColumnModel = erdDocument.findColumnModel(relationPair.childColumnModelId) as SimpleColumnModel;
                 const childColumnShareModel = erdDocument.findColumnShareModel(childColumnModel.columnShareModelId) as ColumnShareModel;
 
-                const parentColumnModel = erdDocument.findColumnModel(relationPair.parentColumnModelId) as ColumnModel;
+                const parentColumnModel = erdDocument.findColumnModel(relationPair.parentColumnModelId) as SimpleColumnModel;
                 const parentColumnShareModel = (parentColumnModel.columnShareModelId === childColumnModel.columnShareModelId)
                     ? childColumnShareModel : erdDocument.findColumnShareModel(parentColumnModel.columnShareModelId) as ColumnShareModel;
 
@@ -458,25 +470,51 @@ const foreignKeyQueryForAlter = (args: ForeignKeyQueryArgs): string => {
     return `ALTER TABLE ${args.childTableName}\n    ${alterQueries.join("\n    ")};\n`;
 };
 
+/**
+ * struct バリアントの ColumnModel と struct 定義から、フィールド定義を含む STRUCT<...> クエリを再帰的に構築する。
+ * フィールド名・カラム名は ColumnModel 側の名前を優先する (overrideColumnName)。
+ * ネストした struct はメンバーの struct バリアント ColumnModel を経由して再帰する。
+ * 解決不能な参照はスキップし、循環参照を検出した場合は例外を送出する。
+ */
 const resolveStructQuery = (
-    erdDocument: ErdDocument, detail: ColumnDetailEntry & { entryType: "struct" }, escape: (value: string) => string
-) => {
-    const columnQueries = detail.entries.map(innerEntry => {
-        if (innerEntry.entryType === "column") {
-            return doResolveSingleFieldQuery(erdDocument, innerEntry.columnModel, escape);
+    erdDocument: ErdDocument, structColumn: StructColumnModel, structShare: StructColumnShareModel,
+    visitedStructIds: ReadonlySet<string>, escape: (value: string) => string
+): string => {
+    if (visitedStructIds.has(structShare.structShareModelId)) {
+        throw new Error(`Struct is recursive definition. structColumnShareModelId=${structShare.structShareModelId}`);
+    }
+
+    const innerVisitedIds = new Set(visitedStructIds);
+    innerVisitedIds.add(structShare.structShareModelId);
+
+    const fieldQueries = erdDocument.toAllColumnsWithStruct(structShare)
+        .map(memberColumn => resolveStructFieldQuery(erdDocument, memberColumn, innerVisitedIds, escape))
+        .filter((fieldQuery): fieldQuery is string => (fieldQuery != null));
+
+    const typeQuery = buildStructTypeQuery(fieldQueries, structShare.isArray);
+    const overrideName = overrideColumnName(structColumn, structShare);
+
+    return `${escape(overrideName.physicalName)} ${typeQuery}`;
+};
+
+const resolveStructFieldQuery = (
+    erdDocument: ErdDocument, columnModel: ColumnModel,
+    visitedStructIds: ReadonlySet<string>, escape: (value: string) => string
+): string | null => {
+    if (columnModel.entityType === "struct") {
+        const structModel = erdDocument.findStructColumnShareModel(columnModel.structShareModelId);
+        if (structModel == null) {
+            return null;
         }
 
-        return resolveStructQuery(erdDocument, innerEntry, escape);
-    }).filter(columnQuery => (columnQuery != null))
+        return resolveStructQuery(erdDocument, columnModel, structModel, visitedStructIds, escape);
+    }
 
-    const structModel = detail.structModel
-    const typeQuery = buildStructTypeQuery(columnQueries, structModel.isArray);
-
-    return `${escape(structModel.physicalName)} ${typeQuery}`;
+    return doResolveSingleFieldQuery(erdDocument, columnModel, escape);
 };
 
 const doResolveSingleFieldQuery = (
-    erdDocument: ErdDocument, columnModel: ColumnModel, escape: (value: string) => string
+    erdDocument: ErdDocument, columnModel: SimpleColumnModel, escape: (value: string) => string
 ): string | null => {
     const columnShare = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
     if (columnShare == null) {
@@ -741,8 +779,10 @@ const columnQueryForBigQuery = (
     return (comment !== "") ? `${query} OPTIONS(description="${escapeBigQueryOptionDescription(comment)}")` : query;
 };
 
-const structColumnQueryForBigQuery = (query: string, structModel: ColumnStructModel, option: DdlOption) => {
-    const comment = initComment(structModel.physicalName, structModel.logicalName, structModel.description, option);
+const structColumnQueryForBigQuery = (
+    query: string, structModel: StructColumnShareModel, overrideName: OverrideName, option: DdlOption
+) => {
+    const comment = initComment(overrideName.physicalName, overrideName.logicalName, structModel.description, option);
     return (comment !== "") ? `${query} OPTIONS(description="${escapeBigQueryOptionDescription(comment)}")` : query;
 };
 
@@ -764,6 +804,7 @@ const foreignKeyQueryForBigQuery = (args: ForeignKeyQueryArgs): string => {
     return `ALTER TABLE ${args.childTableName}\n    ${alterQueries.join("\n    ")};\n`;
 };
 
+// TODO
 const indexQueryForBigQuery = (args: IndexQueryArgs): string => {
     return `-- BigQuery: CREATE INDEX is not supported: `
         + `${args.indexName} ON ${args.tableName} (${args.columnQueries.join(", ")})`;
@@ -828,7 +869,7 @@ const commentQueryForPostgres = (
 };
 
 const initColumnCommentQueryForPostgres = (
-    columnModel: ColumnModel, tableName: string, erdDocument: ErdDocument, option: DdlOption,
+    columnModel: SimpleColumnModel, tableName: string, erdDocument: ErdDocument, option: DdlOption,
     escape: (value: string) => string
 ) => {
     const columnShare = erdDocument.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
@@ -882,7 +923,7 @@ const commentQueryForSqlite = (
 };
 
 const initColumnCommentQueryForSqlite = (
-    columnModel: ColumnModel, tableName: string, erdDocument: ErdDocument, option: DdlOption,
+    columnModel: SimpleColumnModel, tableName: string, erdDocument: ErdDocument, option: DdlOption,
     escape: (value: string) => string
 ): string | null => {
     const columnShare = erdDocument.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;

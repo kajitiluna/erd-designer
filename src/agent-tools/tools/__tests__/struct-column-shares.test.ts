@@ -5,7 +5,7 @@ vi.mock('vscode', () => ({}));
 
 import { DocumentResource } from '~/agent-tools/DocumentResource';
 import DocumentBudget from '~/agent-tools/DocumentBudget';
-import { mcpRegisterColumnStruct } from '~/agent-tools/tools/struct-types';
+import { mcpRegisterStructColumnShare } from '~/agent-tools/tools/struct-column-shares';
 import { mcpRegisterColumn } from '~/agent-tools/tools/columns';
 import { mcpRegisterTable } from '~/agent-tools/tools/tables';
 import ColorValue from '~/models/ColorValue';
@@ -13,7 +13,9 @@ import DatabaseSettingModel from '~/models/DatabaseSettingModel';
 import DbSchemaConfig from '~/models/DbSchemaConfig';
 import ColumnModel from '~/models/database/ColumnModel';
 import ColumnShareModel from '~/models/database/ColumnShareModel';
-import ColumnStructModel from '~/models/database/ColumnStructModel';
+import SimpleColumnModel from '~/models/database/SimpleColumnModel';
+import StructColumnModel from '~/models/database/StructColumnModel';
+import StructColumnShareModel from '~/models/database/StructColumnShareModel';
 import TableModel from '~/models/database/TableModel';
 import ErdDocument from '~/models/ErdDocument';
 import ErdSettingModel from '~/models/ErdSettingModel';
@@ -39,13 +41,13 @@ const createColumnPair = (physicalName: string, columnTypeId: number = INT64_COL
         logicalName: physicalName,
         columnType: DatabaseSettingModel.create('bigquery').findColumnType(columnTypeId)!
     });
-    const column = new ColumnModel({ columnShareModelId: columnShare.columnShareModelId });
+    const column = new SimpleColumnModel({ columnShareModelId: columnShare.columnShareModelId });
     return { column, columnShare };
 };
 
 type DocumentFixtureOptions = {
     databaseType?: 'bigquery' | 'postgres';
-    columnStructModels?: ColumnStructModel[];
+    structColumnShareModels?: StructColumnShareModel[];
     extraColumns?: ColumnModel[];
     extraColumnShares?: ColumnShareModel[];
     tableColumns?: TableModel['columnEntries'];
@@ -91,7 +93,7 @@ const createTestDocument = (options: DocumentFixtureOptions = {}): {
         tableViewModels: [tableView],
         columnModels: [column1, column2, ...(options.extraColumns ?? [])],
         columnShareModels: [columnShare1, columnShare2, ...(options.extraColumnShares ?? [])],
-        columnStructModels: options.columnStructModels ?? [],
+        structShareModels: options.structColumnShareModels ?? [],
     });
 
     return { erdDocument, tableView, column1, column2 };
@@ -116,7 +118,7 @@ const createMockDocumentResource = (getBudget: () => DocumentBudget) => {
 type ToolCallback = (args: Record<string, unknown>) => Promise<unknown>;
 
 const getStructToolCallback = (documentResource: DocumentResource, toolName: string): ToolCallback => {
-    const config = mcpRegisterColumnStruct(documentResource);
+    const config = mcpRegisterStructColumnShare(documentResource);
     const toolEntry = config.tools.find(tool => tool[0] === toolName);
     if (!toolEntry) throw new Error(`Tool "${toolName}" not found`);
     return toolEntry[2] as ToolCallback;
@@ -149,7 +151,7 @@ const extractStructuredContent = (result: unknown): LooseResponse => {
 
 // ---- テスト ----
 
-describe('struct-types MCP tools', () => {
+describe('struct-column-shares MCP tools', () => {
     let erdDocument: ErdDocument;
     let budget: DocumentBudget;
     let documentResource: DocumentResource;
@@ -173,75 +175,75 @@ describe('struct-types MCP tools', () => {
         });
     });
 
-    describe('create-column-struct / list / find / update / delete (CRUD)', () => {
-        test('create-column-struct でカラム参照から struct を作成できる', async () => {
-            const callback = getStructToolCallback(documentResource, 'create-column-struct');
+    describe('create-struct-column-share / list / find / update / delete (CRUD)', () => {
+        test('create-struct-column-share でカラム参照から struct を作成できる', async () => {
+            const callback = getStructToolCallback(documentResource, 'create-struct-column-share');
 
             const result = await callback({
                 documentId: TEST_DOC_ID,
-                columnStruct: {
+                structColumnShare: {
                     columnName: { physical: 'address' },
                     columns: [{ columnId: column1.columnModelId }, { columnId: column2.columnModelId }]
                 }
             });
 
             const response = extractStructuredContent(result);
-            expect(response.columnStructId).toBeDefined();
+            expect(response.structColumnShareModelId).toBeDefined();
             expect(response.columnName.physical).toBe('address');
             expect(response.columns).toHaveLength(2);
             expect(response.columns[0]).toEqual(expect.objectContaining({
                 modelType: 'single', columnId: column1.columnModelId
             }));
 
-            const created = erdDocument.findColumnStructModel(response.columnStructId);
+            const created = erdDocument.findStructColumnShareModel(response.structColumnShareModelId);
             expect(created).not.toBeNull();
         });
 
-        test('list-column-structs で作成済み struct が一覧取得できる', async () => {
-            const structModel = new ColumnStructModel({
+        test('list-struct-column-shares で作成済み struct が一覧取得できる', async () => {
+            const structModel = new StructColumnShareModel({
                 physicalName: 'address',
                 columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
-            const fixture = createTestDocument({ column1, column2, columnStructModels: [structModel] });
+            const fixture = createTestDocument({ column1, column2, structColumnShareModels: [structModel] });
             refreshBudget(fixture.erdDocument);
 
-            const callback = getStructToolCallback(documentResource, 'list-column-structs');
+            const callback = getStructToolCallback(documentResource, 'list-struct-column-shares');
             const result = await callback({ documentId: TEST_DOC_ID });
             const response = extractStructuredContent(result);
 
             expect(response.items).toHaveLength(1);
-            expect(response.items[0].columnStructId).toBe(structModel.columnStructId);
+            expect(response.items[0].structColumnShareModelId).toBe(structModel.structShareModelId);
         });
 
-        test('find-column-struct で詳細1件を取得できる', async () => {
-            const structModel = new ColumnStructModel({
+        test('find-struct-column-share で詳細1件を取得できる', async () => {
+            const structModel = new StructColumnShareModel({
                 physicalName: 'address',
                 columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
-            const fixture = createTestDocument({ column1, column2, columnStructModels: [structModel] });
+            const fixture = createTestDocument({ column1, column2, structColumnShareModels: [structModel] });
             refreshBudget(fixture.erdDocument);
 
-            const callback = getStructToolCallback(documentResource, 'find-column-struct');
-            const result = await callback({ documentId: TEST_DOC_ID, columnStructId: structModel.columnStructId });
+            const callback = getStructToolCallback(documentResource, 'find-struct-column-share');
+            const result = await callback({ documentId: TEST_DOC_ID, structColumnShareModelId: structModel.structShareModelId });
             const response = extractStructuredContent(result);
 
-            expect(response.columnStructId).toBe(structModel.columnStructId);
+            expect(response.structColumnShareModelId).toBe(structModel.structShareModelId);
             expect(response.columnName.physical).toBe('address');
         });
 
-        test('update-column-struct で部分更新ができる', async () => {
-            const structModel = new ColumnStructModel({
+        test('update-struct-column-share で部分更新ができる', async () => {
+            const structModel = new StructColumnShareModel({
                 physicalName: 'address',
                 columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
-            const fixture = createTestDocument({ column1, column2, columnStructModels: [structModel] });
+            const fixture = createTestDocument({ column1, column2, structColumnShareModels: [structModel] });
             refreshBudget(fixture.erdDocument);
 
-            const callback = getStructToolCallback(documentResource, 'update-column-struct');
+            const callback = getStructToolCallback(documentResource, 'update-struct-column-share');
             const result = await callback({
                 documentId: TEST_DOC_ID,
-                columnStructId: structModel.columnStructId,
-                columnStruct: { isArray: true }
+                structColumnShareModelId: structModel.structShareModelId,
+                structColumnShare: { isArray: true }
             });
             const response = extractStructuredContent(result);
 
@@ -249,30 +251,70 @@ describe('struct-types MCP tools', () => {
             expect(response.columnName.physical).toBe('address'); // 未指定フィールドは維持される
         });
 
-        test('delete-column-struct で struct を削除できる', async () => {
-            const structModel = new ColumnStructModel({
+        test('delete-struct-column-share で struct を削除できる', async () => {
+            const structModel = new StructColumnShareModel({
                 physicalName: 'address',
                 columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
-            const fixture = createTestDocument({ column1, column2, columnStructModels: [structModel] });
+            const fixture = createTestDocument({ column1, column2, structColumnShareModels: [structModel] });
             refreshBudget(fixture.erdDocument);
 
-            const callback = getStructToolCallback(documentResource, 'delete-column-struct');
-            const result = await callback({ documentId: TEST_DOC_ID, columnStructId: structModel.columnStructId });
+            const callback = getStructToolCallback(documentResource, 'delete-struct-column-share');
+            const result = await callback({ documentId: TEST_DOC_ID, structColumnShareModelId: structModel.structShareModelId });
             const response = extractStructuredContent(result);
 
             expect(response.success).toBe(true);
-            expect(erdDocument.findColumnStructModel(structModel.columnStructId)).toBeNull();
+            expect(erdDocument.findStructColumnShareModel(structModel.structShareModelId)).toBeNull();
+        });
+
+        test('create-struct-column-share でネスト struct (structColumnShareModelId ref) を作成できる', async () => {
+            const innerStruct = new StructColumnShareModel({
+                physicalName: 'inner',
+                columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
+            });
+            const fixture = createTestDocument({ column1, column2, structColumnShareModels: [innerStruct] });
+            refreshBudget(fixture.erdDocument);
+
+            const callback = getStructToolCallback(documentResource, 'create-struct-column-share');
+            const result = await callback({
+                documentId: TEST_DOC_ID,
+                structColumnShare: {
+                    columnName: { physical: 'outer' },
+                    columns: [
+                        { columnId: column2.columnModelId },
+                        { structColumnShareModelId: innerStruct.structShareModelId }
+                    ]
+                }
+            });
+
+            const response = extractStructuredContent(result);
+            expect(response.columns).toHaveLength(2);
+
+            const nestedEntry = response.columns.find(
+                (entry: { modelType: string }) => (entry.modelType === 'struct')
+            );
+            expect(nestedEntry).toBeDefined();
+            expect(nestedEntry.structColumnShareModelId).toBe(innerStruct.structShareModelId);
+
+            // ネストメンバーはラッパー ColumnModel (single エントリ) として生成されている
+            const outerStruct = erdDocument.findStructColumnShareModel(response.structColumnShareModelId)!;
+            const wrapperEntry = outerStruct.columnEntries.find(entry =>
+                (entry.modelType === 'single') && (entry.columnModelId === nestedEntry.columnId));
+            expect(wrapperEntry).toBeDefined();
+            const wrapperColumn = erdDocument.findColumnModel(nestedEntry.columnId);
+            expect(wrapperColumn?.entityType).toBe('struct');
+            expect((wrapperColumn != null) && ColumnModel.isStructColumn(wrapperColumn) && wrapperColumn.structShareModelId)
+                .toBe(innerStruct.structShareModelId);
         });
     });
 
     describe('バリデーション', () => {
         test('存在しない columnId を参照すると invalid params エラー', async () => {
-            const callback = getStructToolCallback(documentResource, 'create-column-struct');
+            const callback = getStructToolCallback(documentResource, 'create-struct-column-share');
 
             await expect(callback({
                 documentId: TEST_DOC_ID,
-                columnStruct: {
+                structColumnShare: {
                     columnName: { physical: 'address' },
                     columns: [{ columnId: 'not-exist-column-id' }]
                 }
@@ -283,11 +325,11 @@ describe('struct-types MCP tools', () => {
             const fixture = createTestDocument({ databaseType: 'postgres' });
             refreshBudget(fixture.erdDocument);
 
-            const callback = getStructToolCallback(documentResource, 'create-column-struct');
+            const callback = getStructToolCallback(documentResource, 'create-struct-column-share');
 
             await expect(callback({
                 documentId: TEST_DOC_ID,
-                columnStruct: {
+                structColumnShare: {
                     columnName: { physical: 'address' },
                     columns: [{ columnId: fixture.column1.columnModelId }]
                 }
@@ -296,166 +338,192 @@ describe('struct-types MCP tools', () => {
 
         test('自己参照の循環はエラーになる', async () => {
             // struct A を作成後、update で A 自身を members に含めようとする
-            const structA = new ColumnStructModel({
+            const structA = new StructColumnShareModel({
                 physicalName: 'struct_a',
                 columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
-            const fixture = createTestDocument({ column1, column2, columnStructModels: [structA] });
+            const fixture = createTestDocument({ column1, column2, structColumnShareModels: [structA] });
             refreshBudget(fixture.erdDocument);
 
-            const callback = getStructToolCallback(documentResource, 'update-column-struct');
+            const callback = getStructToolCallback(documentResource, 'update-struct-column-share');
 
             await expect(callback({
                 documentId: TEST_DOC_ID,
-                columnStructId: structA.columnStructId,
-                columnStruct: {
-                    columns: [{ columnStructId: structA.columnStructId }]
+                structColumnShareModelId: structA.structShareModelId,
+                structColumnShare: {
+                    columns: [{ structColumnShareModelId: structA.structShareModelId }]
                 }
             })).rejects.toThrow(/Circular struct reference/);
         });
 
         test('A→B→A の間接循環はエラーになる', async () => {
-            const structB = new ColumnStructModel({
+            const structB = new StructColumnShareModel({
                 physicalName: 'struct_b',
                 columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
-            const structA = new ColumnStructModel({
+            const wrapperForB = new StructColumnModel({ structShareModelId: structB.structShareModelId });
+            const structA = new StructColumnShareModel({
                 physicalName: 'struct_a',
-                columnEntries: [{ modelType: 'struct', columnStructId: structB.columnStructId }]
+                columnEntries: [{ modelType: 'single', columnModelId: wrapperForB.columnModelId }]
             });
-            const fixture = createTestDocument({ column1, column2, columnStructModels: [structA, structB] });
+            const fixture = createTestDocument({
+                column1, column2,
+                structColumnShareModels: [structA, structB],
+                extraColumns: [wrapperForB]
+            });
             refreshBudget(fixture.erdDocument);
 
-            const callback = getStructToolCallback(documentResource, 'update-column-struct');
+            const callback = getStructToolCallback(documentResource, 'update-struct-column-share');
 
             // structB の members に structA を追加 → A -> B -> A の循環
             await expect(callback({
                 documentId: TEST_DOC_ID,
-                columnStructId: structB.columnStructId,
-                columnStruct: {
+                structColumnShareModelId: structB.structShareModelId,
+                structColumnShare: {
                     columns: [
                         { columnId: column1.columnModelId },
-                        { columnStructId: structA.columnStructId }
+                        { structColumnShareModelId: structA.structShareModelId }
                     ]
                 }
             })).rejects.toThrow(/Circular struct reference/);
         });
     });
 
-    describe('add-column-struct-to-table / remove-column-struct-from-table', () => {
-        test('add-column-struct-to-table でテーブルに struct エントリを追加できる (position 指定)', async () => {
-            const structModel = new ColumnStructModel({
+    describe('add-struct-column-to-table / remove-struct-column-from-table', () => {
+        test('add-struct-column-to-table でテーブルに struct エントリを追加できる (position 指定)', async () => {
+            const structModel = new StructColumnShareModel({
                 physicalName: 'address',
                 columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
-            const fixture = createTestDocument({ column1, column2, columnStructModels: [structModel] });
+            const fixture = createTestDocument({ column1, column2, structColumnShareModels: [structModel] });
             refreshBudget(fixture.erdDocument);
 
-            const callback = getStructToolCallback(documentResource, 'add-column-struct-to-table');
+            const callback = getStructToolCallback(documentResource, 'add-struct-column-to-table');
             await callback({
                 documentId: TEST_DOC_ID,
                 tableId: TEST_TABLE_ID,
-                columnStructId: structModel.columnStructId,
+                structColumnShareModelId: structModel.structShareModelId,
                 position: { type: 'start' }
             });
 
             const updatedTable = erdDocument.findTableViewModel(TEST_TABLE_ID)!;
-            expect(updatedTable.tableModel.columnEntries[0]).toEqual({
-                modelType: 'struct', columnStructId: structModel.columnStructId
-            });
+            const firstEntry = updatedTable.tableModel.columnEntries[0];
+            expect(firstEntry.modelType).toBe('single');
+            const wrapperColumn = (firstEntry.modelType === 'single')
+                ? erdDocument.findColumnModel(firstEntry.columnModelId) : null;
+            expect(wrapperColumn).not.toBeNull();
+            expect(wrapperColumn!.entityType).toBe('struct');
+            expect(ColumnModel.isStructColumn(wrapperColumn!) && wrapperColumn!.structShareModelId)
+                .toBe(structModel.structShareModelId);
         });
 
-        test('add-column-struct-to-table で before 指定 (columnId anchor) が機能する', async () => {
-            const structModel = new ColumnStructModel({
+        test('add-struct-column-to-table で before 指定 (columnId anchor) が機能する', async () => {
+            const structModel = new StructColumnShareModel({
                 physicalName: 'address',
                 columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
-            const fixture = createTestDocument({ column1, column2, columnStructModels: [structModel] });
+            const fixture = createTestDocument({ column1, column2, structColumnShareModels: [structModel] });
             refreshBudget(fixture.erdDocument);
 
-            const callback = getStructToolCallback(documentResource, 'add-column-struct-to-table');
+            const callback = getStructToolCallback(documentResource, 'add-struct-column-to-table');
             await callback({
                 documentId: TEST_DOC_ID,
                 tableId: TEST_TABLE_ID,
-                columnStructId: structModel.columnStructId,
+                structColumnShareModelId: structModel.structShareModelId,
                 position: { type: 'before', columnId: column2.columnModelId }
             });
 
             const updatedTable = erdDocument.findTableViewModel(TEST_TABLE_ID)!;
             const columns = updatedTable.tableModel.columnEntries;
-            const structIndex = columns.findIndex(column => (column.modelType === 'struct'));
+            const structIndex = columns.findIndex(column => {
+                if (column.modelType !== 'single') {
+                    return false;
+                }
+                const columnModel = erdDocument.findColumnModel(column.columnModelId);
+                return (columnModel != null) && (columnModel.entityType === 'struct');
+            });
             const column2Index = columns.findIndex(column =>
                 (column.modelType === 'single') && (column.columnModelId === column2.columnModelId));
             expect(column2Index).toBe(structIndex + 1);
         });
 
         test('同一テーブルへの重複追加はエラーになる', async () => {
-            const structModel = new ColumnStructModel({
+            const structModel = new StructColumnShareModel({
                 physicalName: 'address',
                 columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
+            const wrapperColumn = new StructColumnModel({ structShareModelId: structModel.structShareModelId });
             const fixture = createTestDocument({
                 column1, column2,
-                columnStructModels: [structModel],
+                structColumnShareModels: [structModel],
+                extraColumns: [wrapperColumn],
                 tableColumns: [
-                    { modelType: 'struct', columnStructId: structModel.columnStructId },
+                    { modelType: 'single', columnModelId: wrapperColumn.columnModelId },
                     { modelType: 'single', columnModelId: column2.columnModelId },
                 ]
             });
             refreshBudget(fixture.erdDocument);
 
-            const callback = getStructToolCallback(documentResource, 'add-column-struct-to-table');
+            const callback = getStructToolCallback(documentResource, 'add-struct-column-to-table');
 
             await expect(callback({
                 documentId: TEST_DOC_ID,
                 tableId: TEST_TABLE_ID,
-                columnStructId: structModel.columnStructId,
+                structColumnShareModelId: structModel.structShareModelId,
                 position: { type: 'end' }
             })).rejects.toThrow();
         });
 
-        test('remove-column-struct-from-table でテーブルから struct エントリを除去できる (struct 自体は残る)', async () => {
-            const structModel = new ColumnStructModel({
+        test('remove-struct-column-from-table でテーブルから struct エントリを除去できる (struct 自体は残る)', async () => {
+            const structModel = new StructColumnShareModel({
                 physicalName: 'address',
                 columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
+            const wrapperColumn = new StructColumnModel({ structShareModelId: structModel.structShareModelId });
             const fixture = createTestDocument({
                 column1, column2,
-                columnStructModels: [structModel],
+                structColumnShareModels: [structModel],
+                extraColumns: [wrapperColumn],
                 tableColumns: [
-                    { modelType: 'struct', columnStructId: structModel.columnStructId },
+                    { modelType: 'single', columnModelId: wrapperColumn.columnModelId },
                     { modelType: 'single', columnModelId: column2.columnModelId },
                 ]
             });
             refreshBudget(fixture.erdDocument);
 
-            const callback = getStructToolCallback(documentResource, 'remove-column-struct-from-table');
+            const callback = getStructToolCallback(documentResource, 'remove-struct-column-from-table');
             await callback({
                 documentId: TEST_DOC_ID,
                 tableId: TEST_TABLE_ID,
-                columnStructId: structModel.columnStructId
+                structColumnShareModelId: structModel.structShareModelId
             });
 
             const updatedTable = erdDocument.findTableViewModel(TEST_TABLE_ID)!;
-            expect(updatedTable.tableModel.columnEntries.some(column => (column.modelType === 'struct'))).toBe(false);
+            expect(updatedTable.tableModel.columnEntries.some(column =>
+                (column.modelType === 'single') && (column.columnModelId === wrapperColumn.columnModelId)
+            )).toBe(false);
+            // ラッパー ColumnModel 自体も自動削除される
+            expect(erdDocument.findColumnModel(wrapperColumn.columnModelId)).toBeNull();
             // struct モデル自体は残っている
-            expect(erdDocument.findColumnStructModel(structModel.columnStructId)).not.toBeNull();
+            expect(erdDocument.findStructColumnShareModel(structModel.structShareModelId)).not.toBeNull();
         });
     });
 
     describe('reorder-columns-in-table (struct 対応)', () => {
         test('struct エントリを移動できる', async () => {
-            const structModel = new ColumnStructModel({
+            const structModel = new StructColumnShareModel({
                 physicalName: 'address',
                 columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
+            const wrapperColumn = new StructColumnModel({ structShareModelId: structModel.structShareModelId });
             const fixture = createTestDocument({
                 column1, column2,
-                columnStructModels: [structModel],
+                structColumnShareModels: [structModel],
+                extraColumns: [wrapperColumn],
                 tableColumns: [
                     { modelType: 'single', columnModelId: column1.columnModelId },
                     { modelType: 'single', columnModelId: column2.columnModelId },
-                    { modelType: 'struct', columnStructId: structModel.columnStructId },
+                    { modelType: 'single', columnModelId: wrapperColumn.columnModelId },
                 ],
             });
             refreshBudget(fixture.erdDocument);
@@ -465,29 +533,31 @@ describe('struct-types MCP tools', () => {
                 documentId: TEST_DOC_ID,
                 tableId: TEST_TABLE_ID,
                 reorders: [
-                    { columnStructId: structModel.columnStructId, position: { type: 'start' } }
+                    { structColumnShareModelId: structModel.structShareModelId, position: { type: 'start' } }
                 ]
             });
 
             const updatedTable = erdDocument.findTableViewModel(TEST_TABLE_ID)!;
             expect(updatedTable.tableModel.columnEntries[0]).toEqual({
-                modelType: 'struct', columnStructId: structModel.columnStructId
+                modelType: 'single', columnModelId: wrapperColumn.columnModelId
             });
         });
     });
 
     describe('find-table columnDefinitions', () => {
         test('struct エントリが columnDefinitions に含まれる', async () => {
-            const structModel = new ColumnStructModel({
+            const structModel = new StructColumnShareModel({
                 physicalName: 'address',
                 columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
             });
+            const wrapperColumn = new StructColumnModel({ structShareModelId: structModel.structShareModelId });
             const fixture = createTestDocument({
                 column1, column2,
-                columnStructModels: [structModel],
+                structColumnShareModels: [structModel],
+                extraColumns: [wrapperColumn],
                 tableColumns: [
                     { modelType: 'single', columnModelId: column1.columnModelId },
-                    { modelType: 'struct', columnStructId: structModel.columnStructId },
+                    { modelType: 'single', columnModelId: wrapperColumn.columnModelId },
                 ]
             });
             refreshBudget(fixture.erdDocument);
@@ -500,7 +570,7 @@ describe('struct-types MCP tools', () => {
                 (definition: { modelType: string }) => (definition.modelType === 'struct')
             );
             expect(structDefinition).toBeDefined();
-            expect(structDefinition.columnStructId).toBe(structModel.columnStructId);
+            expect(structDefinition.structColumnShareModelId).toBe(structModel.structShareModelId);
         });
     });
 });

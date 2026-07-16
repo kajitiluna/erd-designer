@@ -8,10 +8,11 @@ import DatabaseSettingModel from '~/models/DatabaseSettingModel';
 import DbSchemaConfig from '~/models/DbSchemaConfig';
 import ErdDocument from '~/models/ErdDocument';
 import ErdSettingModel from '~/models/ErdSettingModel';
-import ColumnModel from '~/models/database/ColumnModel';
+import ColumnEntry from '~/models/database/ColumnEntry';
+import SimpleColumnModel from '~/models/database/SimpleColumnModel';
 import ColumnShareModel from '~/models/database/ColumnShareModel';
 import { findDatabaseColumns } from '~/models/database/columns';
-import TableModel, { ColumnEntry } from '~/models/database/TableModel';
+import TableModel from '~/models/database/TableModel';
 import TableIndexModel, { IndexColumnModel } from '~/models/database/TableIndexModel';
 import TableUniqueKeysModel, { UniqueKeysColumnModel } from '~/models/database/TableUniqueKeysModel';
 import TableViewModel from '~/models/TableViewModel';
@@ -66,7 +67,7 @@ const buildMariaDbSampleDocument = (): ErdDocument => {
         columnType: findColumnType('mariadb', 'uuid')
     });
 
-    const idColumn = new ColumnModel({
+    const idColumn = new SimpleColumnModel({
         columnModelId: 'col-id',
         columnShareModelId: idColumnShare.columnShareModelId,
         physicalName: 'id',
@@ -74,19 +75,19 @@ const buildMariaDbSampleDocument = (): ErdDocument => {
         notNull: true,
         autoIncrement: true
     });
-    const nameColumn = new ColumnModel({
+    const nameColumn = new SimpleColumnModel({
         columnModelId: 'col-name',
         columnShareModelId: nameColumnShare.columnShareModelId,
         physicalName: 'name',
         notNull: true,
         unique: true
     });
-    const priceColumn = new ColumnModel({
+    const priceColumn = new SimpleColumnModel({
         columnModelId: 'col-price',
         columnShareModelId: priceColumnShare.columnShareModelId,
         physicalName: 'price'
     });
-    const externalIdColumn = new ColumnModel({
+    const externalIdColumn = new SimpleColumnModel({
         columnModelId: 'col-external-id',
         columnShareModelId: externalIdColumnShare.columnShareModelId,
         physicalName: 'external_id'
@@ -184,7 +185,7 @@ const buildSqliteSampleDocument = (): ErdDocument => {
         columnType: findColumnType('sqlite', 'boolean')
     });
 
-    const idColumn = new ColumnModel({
+    const idColumn = new SimpleColumnModel({
         columnModelId: 'col-id',
         columnShareModelId: idColumnShare.columnShareModelId,
         physicalName: 'id',
@@ -192,24 +193,24 @@ const buildSqliteSampleDocument = (): ErdDocument => {
         notNull: true,
         autoIncrement: true // withAutoIncrement:false のため AUTOINCREMENT は出力されないことを確認する
     });
-    const nameColumn = new ColumnModel({
+    const nameColumn = new SimpleColumnModel({
         columnModelId: 'col-name',
         columnShareModelId: nameColumnShare.columnShareModelId,
         physicalName: 'name',
         notNull: true
     });
-    const priceColumn = new ColumnModel({
+    const priceColumn = new SimpleColumnModel({
         columnModelId: 'col-price',
         columnShareModelId: priceColumnShare.columnShareModelId,
         physicalName: 'price'
     });
-    const orderColumn = new ColumnModel({
+    const orderColumn = new SimpleColumnModel({
         columnModelId: 'col-order',
         columnShareModelId: orderColumnShare.columnShareModelId,
         physicalName: 'order',
         notNull: true
     });
-    const isActiveColumn = new ColumnModel({
+    const isActiveColumn = new SimpleColumnModel({
         columnModelId: 'col-is-active',
         columnShareModelId: isActiveColumnShare.columnShareModelId,
         physicalName: 'is_active'
@@ -391,14 +392,14 @@ describe('create-ddl / ddl-loader roundtrip (SQLite)', () => {
             columnType: findColumnType('sqlite', 'integer')
         });
 
-        const parentIdColumn = new ColumnModel({
+        const parentIdColumn = new SimpleColumnModel({
             columnModelId: 'col-fk-parent-id',
             columnShareModelId: parentIdShare.columnShareModelId,
             physicalName: 'id',
             primaryKey: true,
             notNull: true
         });
-        const childRefColumn = new ColumnModel({
+        const childRefColumn = new SimpleColumnModel({
             columnModelId: 'col-fk-child-ref',
             columnShareModelId: childRefShare.columnShareModelId,
             physicalName: 'parent_id'
@@ -595,7 +596,7 @@ const buildSnowflakeSampleDocument = (): ErdDocument => {
         columnType: findColumnType('snowflake', 'variant')
     });
 
-    const idColumn = new ColumnModel({
+    const idColumn = new SimpleColumnModel({
         columnModelId: 'col-id',
         columnShareModelId: idColumnShare.columnShareModelId,
         physicalName: 'id',
@@ -603,23 +604,23 @@ const buildSnowflakeSampleDocument = (): ErdDocument => {
         notNull: true,
         autoIncrement: true
     });
-    const nameColumn = new ColumnModel({
+    const nameColumn = new SimpleColumnModel({
         columnModelId: 'col-name',
         columnShareModelId: nameColumnShare.columnShareModelId,
         physicalName: 'name',
         notNull: true
     });
-    const priceColumn = new ColumnModel({
+    const priceColumn = new SimpleColumnModel({
         columnModelId: 'col-price',
         columnShareModelId: priceColumnShare.columnShareModelId,
         physicalName: 'price'
     });
-    const createdAtColumn = new ColumnModel({
+    const createdAtColumn = new SimpleColumnModel({
         columnModelId: 'col-created-at',
         columnShareModelId: createdAtColumnShare.columnShareModelId,
         physicalName: 'created_at'
     });
-    const payloadColumn = new ColumnModel({
+    const payloadColumn = new SimpleColumnModel({
         columnModelId: 'col-payload',
         columnShareModelId: payloadColumnShare.columnShareModelId,
         physicalName: 'payload'
@@ -699,20 +700,20 @@ const buildSnowflakeRoundtripDocument = (): ErdDocument => {
         scale: '2'
     });
 
-    const idColumn = new ColumnModel({
+    const idColumn = new SimpleColumnModel({
         columnModelId: 'col-id',
         columnShareModelId: idColumnShare.columnShareModelId,
         physicalName: 'id',
         primaryKey: true,
         notNull: true
     });
-    const nameColumn = new ColumnModel({
+    const nameColumn = new SimpleColumnModel({
         columnModelId: 'col-name',
         columnShareModelId: nameColumnShare.columnShareModelId,
         physicalName: 'name',
         notNull: true
     });
-    const priceColumn = new ColumnModel({
+    const priceColumn = new SimpleColumnModel({
         columnModelId: 'col-price',
         columnShareModelId: priceColumnShare.columnShareModelId,
         physicalName: 'price'
@@ -844,14 +845,14 @@ describe('create-ddl / ddl-loader roundtrip (Snowflake)', () => {
             columnType: findColumnType('snowflake', 'number')
         });
 
-        const parentIdColumn = new ColumnModel({
+        const parentIdColumn = new SimpleColumnModel({
             columnModelId: 'col-fk-parent-id',
             columnShareModelId: parentIdShare.columnShareModelId,
             physicalName: 'id',
             primaryKey: true,
             notNull: true
         });
-        const childRefColumn = new ColumnModel({
+        const childRefColumn = new SimpleColumnModel({
             columnModelId: 'col-fk-child-ref',
             columnShareModelId: childRefShare.columnShareModelId,
             physicalName: 'parent_id'
@@ -989,26 +990,26 @@ const buildBigQuerySampleDocument = (): ErdDocument => {
         isArray: true
     });
 
-    const idColumn = new ColumnModel({
+    const idColumn = new SimpleColumnModel({
         columnModelId: 'col-id',
         columnShareModelId: idColumnShare.columnShareModelId,
         physicalName: 'id',
         primaryKey: true,
         notNull: true
     });
-    const nameColumn = new ColumnModel({
+    const nameColumn = new SimpleColumnModel({
         columnModelId: 'col-name',
         columnShareModelId: nameColumnShare.columnShareModelId,
         physicalName: 'name',
         notNull: true,
         unique: true
     });
-    const priceColumn = new ColumnModel({
+    const priceColumn = new SimpleColumnModel({
         columnModelId: 'col-price',
         columnShareModelId: priceColumnShare.columnShareModelId,
         physicalName: 'price'
     });
-    const tagsColumn = new ColumnModel({
+    const tagsColumn = new SimpleColumnModel({
         columnModelId: 'col-tags',
         columnShareModelId: tagsColumnShare.columnShareModelId,
         physicalName: 'tags'
@@ -1091,22 +1092,22 @@ const buildBigQueryRoundtripDocument = (): ErdDocument => {
         isArray: true
     });
 
-    const idColumn = new ColumnModel({
+    const idColumn = new SimpleColumnModel({
         columnModelId: 'col-id',
         columnShareModelId: idColumnShare.columnShareModelId,
         physicalName: 'id'
     });
-    const nameColumn = new ColumnModel({
+    const nameColumn = new SimpleColumnModel({
         columnModelId: 'col-name',
         columnShareModelId: nameColumnShare.columnShareModelId,
         physicalName: 'name'
     });
-    const activeColumn = new ColumnModel({
+    const activeColumn = new SimpleColumnModel({
         columnModelId: 'col-active',
         columnShareModelId: activeColumnShare.columnShareModelId,
         physicalName: 'active'
     });
-    const tagsColumn = new ColumnModel({
+    const tagsColumn = new SimpleColumnModel({
         columnModelId: 'col-tags',
         columnShareModelId: tagsColumnShare.columnShareModelId,
         physicalName: 'tags'
@@ -1191,14 +1192,14 @@ describe('create-ddl / ddl-loader roundtrip (BigQuery)', () => {
             columnType: findColumnType('bigquery', 'int64')
         });
 
-        const parentIdColumn = new ColumnModel({
+        const parentIdColumn = new SimpleColumnModel({
             columnModelId: 'col-fk-parent-id',
             columnShareModelId: parentIdShare.columnShareModelId,
             physicalName: 'id',
             primaryKey: true,
             notNull: true
         });
-        const childRefColumn = new ColumnModel({
+        const childRefColumn = new SimpleColumnModel({
             columnModelId: 'col-fk-child-ref',
             columnShareModelId: childRefShare.columnShareModelId,
             physicalName: 'parent_id'
