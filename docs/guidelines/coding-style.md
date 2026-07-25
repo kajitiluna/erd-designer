@@ -192,3 +192,39 @@ storage.deleteUnreferencedModels(referencedShareIds, existingColumnIds, existing
 ```
 
 Not enforced by ESLint — manual review rule.
+
+## 14. Define in call order — callers above callees
+
+A definition must come after the first definition that references it. Entry points (exported / public API) go at the top, internal helpers below, so the file reads top-down in execution order.
+
+Class methods obey the same rule. Never group all public methods first and all private ones after: put a private method directly below the public method that calls it.
+
+```ts
+// NG — helper above its caller
+const buildHeader = (table: TableModel): string => { /* ... */ };
+export const createDdl = (document: ErdDocument): string => { return buildHeader(table); };
+
+// OK
+export const createDdl = (document: ErdDocument): string => { return buildHeader(table); };
+const buildHeader = (table: TableModel): string => { /* ... */ };
+```
+
+```ts
+// NG — public block, then private block
+class DdlCreator {
+    public create() { return this.tableQuery(); }
+    public createIndex() { /* ... */ }
+    private tableQuery() { /* ... */ }
+}
+
+// OK — the private method sits under the caller that needs it
+class DdlCreator {
+    public create() { return this.tableQuery(); }
+    private tableQuery() { /* ... */ }
+    public createIndex() { /* ... */ }
+}
+```
+
+Exception: only when the order is impossible — a value evaluated at module load (`const CONFIG = buildConfig();`) or anything else that would break compilation (TDZ).
+
+Not enforced by ESLint — manual review rule.

@@ -31,12 +31,13 @@ type StructColumnEditDialogProps = {
     isOpen: boolean;
     structColumn: StructColumnModel;
     structNestCount: number;
+    ancestorStructShareIds: readonly string[];
     onUpdateWrapColumnModels: (updateFunction: (previous: ColumnWrapModel[]) => ColumnWrapModel[]) => void;
     onClose: () => void;
 };
 
 const StructColumnEditDialog = ({
-    isOpen, structColumn, structNestCount, onUpdateWrapColumnModels, onClose
+    isOpen, structColumn, structNestCount, ancestorStructShareIds, onUpdateWrapColumnModels, onClose
 }: StructColumnEditDialogProps) => {
     const documentsHolder = React.useContext(ErdDocumentsHolderContext);
 
@@ -57,13 +58,19 @@ const StructColumnEditDialog = ({
     const [description, setDescription] = React.useState<string>(structShare ? structShare.description : "");
 
     const validateNonRecursive = initializeValidateNonRecursive(erdDocument, columnShareStorage, columnStorage);
+
+    // 自身を祖先に含める。配下の struct が同じ share を再び参照すれば、それが再帰の定義そのもの。
+    // share 未確定 (新規作成中) は参照されようがないため除外する。
+    const ancestorStructShareIdsWithSelf = (structShareId.length === 0)
+        ? ancestorStructShareIds : [...ancestorStructShareIds, structShareId];
+
     const validStruct = (columnWraps: ColumnWrapModel[]) => {
         const isValidName = validateNameColumnWraps(columnWraps, erdDocument, columnShareStorage);
         if (isValidName === false) {
             return false;
         }
 
-        return validateNonRecursive(columnWraps)
+        return validateNonRecursive(columnWraps, ancestorStructShareIdsWithSelf)
     };
 
     const validatedValue = (physicalName.length > 0) && (logicalName.length > 0)
@@ -189,6 +196,7 @@ const StructColumnEditDialog = ({
                 {structShareNamePanel}
                 <Box sx={{ width: "100%", display: "flex", flexDirection: "column", paddingTop: 2, paddingBottom: 2 }}>
                     <ColumnViewTable columnWrapModels={columnWrapModels} structNestCount={structNestCount + 1}
+                        ancestorStructShareIds={ancestorStructShareIdsWithSelf}
                         availableColumnGroup={true} availableKeyConstraints={false}
                         isChildRelation={() => false} isEditableColumnType={() => true}
                         onUpdateColumnWrapModels={setColumnWrapModels} onUpdateCheckExpression={() => { }} />

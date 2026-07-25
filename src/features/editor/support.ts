@@ -251,11 +251,17 @@ export const validateNameColumnWraps = (
 export const initializeValidateNonRecursive = (
     erdDocument: ErdDocument, columnShareStorage: ColumnShareModelStorage, columnStorage: ColumnModelStorage
 ) => {
-    const existsStructShareIds = new Set<string>();
+    const nonRecursiveStructShareIds = new Set<string>();
 
-    const validateStruct = (structShareId: string): boolean => {
-        if (existsStructShareIds.has(structShareId)) {
+    // ancestorStructShareIds は自身に至る祖先チェーンのみを表す。兄弟位置での同一 struct 共有は再帰ではないため、
+    // 走査の復路で祖先から外れるよう階層ごとに新しい Set を作る。
+    const validateStruct = (structShareId: string, ancestorStructShareIds: ReadonlySet<string>): boolean => {
+        if (ancestorStructShareIds.has(structShareId)) {
             return false;
+        }
+
+        if (nonRecursiveStructShareIds.has(structShareId)) {
+            return true;
         }
 
         const structShare = columnShareStorage.findStructShare(structShareId);
@@ -263,39 +269,59 @@ export const initializeValidateNonRecursive = (
             return false;
         }
 
-        existsStructShareIds.add(structShareId);
+        const subStructShareIds = collectSubStructShareIds(structShare, erdDocument, columnStorage);
+        if (subStructShareIds.length === 0) {
+            nonRecursiveStructShareIds.add(structShareId);
+            return true;
+        }
 
-        const subStructShareIds = structShare.columnEntries.flatMap(entry => {
-            if (entry.modelType === "single") {
-                return [entry.columnModelId];
-            }
+        const nextAncestorIds = new Set([...ancestorStructShareIds, structShareId]);
+        const isValid = subStructShareIds.every(subStructShareId => validateStruct(subStructShareId, nextAncestorIds));
+        if (isValid === false) {
+            return false;
+        }
 
-            const columnGroup = erdDocument.findColumnGroupModel(entry.columnGroupId);
-            if (columnGroup == null) {
-                return [];
-            }
-
-            return columnGroup.columnModelIds;
-        }).flatMap(columnId => {
-            const columnModel = columnStorage.findColumn(columnId) || erdDocument.findColumnModel(columnId);
-            if ((columnModel == null) || (ColumnModel.isStructColumn(columnModel) === false)) {
-                return [];
-            }
-
-            return [columnModel.structShareModelId];
-        });
-
-        return subStructShareIds.every(subStructSharedId => validateStruct(subStructSharedId));
+        nonRecursiveStructShareIds.add(structShareId);
+        return true;
     };
 
-    const validateNonRecursive = (columnWrapModels: ColumnWrapModel[]) => {
-        const structColumns = columnWrapModels.filter(columnWrap => (columnWrap.modelType === "struct"));
+    const validateNonRecursive = (columnWraps: ColumnWrapModel[], ownerStructShareIds: readonly string[] = []) => {
+        const structColumns = columnWraps.filter(columnWrap => (columnWrap.modelType === "struct"));
         if (structColumns.length === 0) {
             return true;
         }
 
-        return structColumns.every(structColumn => validateStruct(structColumn.columnModel.structShareModelId));
+        const ancestorStructShareIds = new Set(ownerStructShareIds);
+        return structColumns.every(structColumn => {
+            return validateStruct(structColumn.columnModel.structShareModelId, ancestorStructShareIds);
+        });
     };
 
     return validateNonRecursive;
+};
+
+const collectSubStructShareIds = (
+    structShare: StructColumnShareModel, erdDocument: ErdDocument, columnStorage: ColumnModelStorage
+): string[] => {
+    const columnIds = structShare.columnEntries.flatMap(entry => {
+        if (entry.modelType === "single") {
+            return [entry.columnModelId];
+        }
+
+        const columnGroup = erdDocument.findColumnGroupModel(entry.columnGroupId);
+        if (columnGroup == null) {
+            return [];
+        }
+
+        return columnGroup.columnModelIds;
+    });
+
+    return columnIds.flatMap(columnId => {
+        const columnModel = columnStorage.findColumn(columnId) ?? erdDocument.findColumnModel(columnId);
+        if ((columnModel == null) || (ColumnModel.isStructColumn(columnModel) === false)) {
+            return [];
+        }
+
+        return [columnModel.structShareModelId];
+    });
 };

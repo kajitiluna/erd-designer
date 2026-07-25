@@ -147,18 +147,18 @@ const BODY_STYLE = {
 
 const initTableColumn = (
     columnModel: ColumnModel, tableModel: TableModel, erdDocument: ErdDocument, selectState: SelectState,
-    nestCount: number = 0
+    nestCount: number = 0, prefix: string = ""
 ): React.JSX.Element[] => {
     if (ColumnModel.isSimpleColumn(columnModel)) {
-        const singleRow = initTableSingleColumn(columnModel, nestCount, tableModel, erdDocument, selectState);
+        const singleRow = initTableSingleColumn(columnModel, nestCount, prefix, tableModel, erdDocument, selectState);
         return [singleRow];
     }
 
-    return initTableStructColumn(columnModel, nestCount, tableModel, erdDocument, selectState);
+    return initTableStructColumn(columnModel, nestCount, prefix, tableModel, erdDocument, selectState);
 };
 
 const initTableSingleColumn = (
-    columnModel: SimpleColumnModel, nestCount: number,
+    columnModel: SimpleColumnModel, nestCount: number, prefix: string,
     tableModel: TableModel, erdDocument: ErdDocument, selectState: SelectState
 ) => {
     const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
@@ -185,7 +185,7 @@ const initTableSingleColumn = (
     const indentStyle = { marginLeft: `${nestCount * STRUCT_INDENT_WIDTH}px` };
 
     return (
-        <TableRow key={`erd-table-column_${columnModel.columnModelId}`}
+        <TableRow key={`erd-table-column_${prefix}${columnModel.columnModelId}`}
             data-column-id={columnModel.columnModelId} sx={styleRow}>
             <TableCell align="center" sx={STYLE_PRIMARY_CELL} >
                 {columnModel.primaryKey && <PrimaryKeyIcon />}
@@ -211,7 +211,7 @@ const initTableSingleColumn = (
 };
 
 const initTableStructColumn = (
-    structColumn: StructColumnModel, nestCount: number,
+    structColumn: StructColumnModel, nestCount: number, prefix: string,
     tableModel: TableModel, erdDocument: ErdDocument, selectState: SelectState
 ): React.JSX.Element[] => {
     const structShare = erdDocument.findStructColumnShareModel(structColumn.structShareModelId);
@@ -232,7 +232,8 @@ const initTableStructColumn = (
                 return [];
             }
 
-            return initTableColumn(column, tableModel, erdDocument, selectState, nestCount + 1);
+            const nextPrefix = `${prefix}${entry.columnModelId}_`
+            return initTableColumn(column, tableModel, erdDocument, selectState, nestCount + 1, nextPrefix);
         }
 
         const columnGroup = erdDocument.findColumnGroupModel(entry.columnGroupId);
@@ -240,10 +241,11 @@ const initTableStructColumn = (
             return [];
         }
 
+        const nextPrefix = `${prefix}${entry.columnGroupId}_`
         const innerColumns = columnGroup.columnModelIds
             .map(columnId => erdDocument.findColumnModel(columnId))
             .filter(column => (column != null))
-            .flatMap(column => initTableColumn(column, tableModel, erdDocument, selectState, nestCount + 1));
+            .flatMap(column => initTableColumn(column, tableModel, erdDocument, selectState, nestCount + 1, nextPrefix));
 
         return innerColumns;
     });
@@ -253,7 +255,7 @@ const initTableStructColumn = (
     const indentStyle = { marginLeft: `${nestCount * STRUCT_INDENT_WIDTH}px` };
 
     const structRow = (
-        <TableRow key={`erd-table-column_${structColumn.columnModelId}`}
+        <TableRow key={`erd-table-column_${prefix}${structColumn.columnModelId}`}
             data-column-id={structColumn.columnModelId}>
             <TableCell align="center" sx={STYLE_PRIMARY_CELL} />
             <TableCell align="center" sx={STYLE_FOREIGN_CELL} />

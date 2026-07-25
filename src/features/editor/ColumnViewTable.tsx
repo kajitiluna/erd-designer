@@ -28,6 +28,7 @@ type ColumnViewTableProps = {
     availableColumnGroup: boolean,
     availableKeyConstraints?: boolean,
     structNestCount?: number,
+    ancestorStructShareIds?: readonly string[],
     isChildRelation: (columnModelId: string) => boolean,
     isEditableColumnType: (columnModel: SimpleColumnModel) => boolean,
     onUpdateColumnWrapModels: (updateFunction: ((previous: ColumnWrapModel[]) => ColumnWrapModel[])) => void,
@@ -38,6 +39,7 @@ type ColumnEditModeType = "column" | "add_struct" | "edit_struct" | "add_group" 
 
 const ColumnViewTable = ({
     columnWrapModels, availableColumnGroup, availableKeyConstraints = true, structNestCount = 0,
+    ancestorStructShareIds = [],
     isChildRelation, isEditableColumnType, onUpdateColumnWrapModels, onUpdateCheckExpression
 }: ColumnViewTableProps) => {
 
@@ -406,6 +408,7 @@ const ColumnViewTable = ({
                         isOpen={((editMode === "add_struct") || (editMode === "edit_struct"))}
                         structColumn={selectedWrappedModel.columnModel}
                         structNestCount={structNestCount}
+                        ancestorStructShareIds={ancestorStructShareIds}
                         onUpdateWrapColumnModels={onUpdateColumnWrapModels}
                         onClose={() => setEditMode("")} />
                 )}

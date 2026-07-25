@@ -4,8 +4,7 @@ import { ImageContent } from "~/context/ExportSpecificationContext";
 import createSpecification from "~/features/spec/create-specification";
 import {
     ColumnListSpecGenerator, TableIndexSpec, TableListSpecGenerator,
-    TableDetailSpec, TableDetailSpecGenerator,
-    UniqueKeyConstraintSpec
+    TableDetailSpec, TableDetailSpecGenerator, UniqueKeyConstraintSpec
 } from "~/features/spec/spec-util";
 import { DatabaseType } from "~/models/database";
 import ErdDocument from "~/models/ErdDocument";

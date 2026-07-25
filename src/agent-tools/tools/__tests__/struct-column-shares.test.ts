@@ -573,4 +573,153 @@ describe('struct-column-shares MCP tools', () => {
             expect(structDefinition.structColumnShareModelId).toBe(structModel.structShareModelId);
         });
     });
+
+    describe('find-table / list-tables columns (struct 展開)', () => {
+        test('find-table では struct エントリに typeExpression と fields (メンバの型) が展開される', async () => {
+            const memberPair1 = createColumnPair('field_one');
+            const memberPair2 = createColumnPair('field_two', STRING_COLUMN_TYPE_ID);
+            const structModel = new StructColumnShareModel({
+                physicalName: 'address',
+                columnEntries: [
+                    { modelType: 'single', columnModelId: memberPair1.column.columnModelId },
+                    { modelType: 'single', columnModelId: memberPair2.column.columnModelId },
+                ]
+            });
+            const wrapperColumn = new StructColumnModel({ structShareModelId: structModel.structShareModelId });
+            const fixture = createTestDocument({
+                structColumnShareModels: [structModel],
+                extraColumns: [wrapperColumn, memberPair1.column, memberPair2.column],
+                extraColumnShares: [memberPair1.columnShare, memberPair2.columnShare],
+                tableColumns: [{ modelType: 'single', columnModelId: wrapperColumn.columnModelId }]
+            });
+            refreshBudget(fixture.erdDocument);
+
+            const callback = getTableToolCallback(documentResource, 'find-table');
+            const result = await callback({ documentId: TEST_DOC_ID, tableId: TEST_TABLE_ID });
+            const response = extractStructuredContent(result);
+
+            const structEntry = response.columns.find((entry: { entryType: string }) => (entry.entryType === 'struct'));
+            expect(structEntry).toBeDefined();
+            expect(structEntry.structColumnShareModelId).toBe(structModel.structShareModelId);
+            expect(structEntry.typeExpression).toBe('STRUCT<field_one INT64, field_two STRING>');
+            expect(structEntry.fields).toEqual([
+                expect.objectContaining({
+                    entryType: 'column', columnModelId: memberPair1.column.columnModelId, typeExpression: 'INT64'
+                }),
+                expect.objectContaining({
+                    entryType: 'column', columnModelId: memberPair2.column.columnModelId, typeExpression: 'STRING'
+                }),
+            ]);
+        });
+
+        test('find-table ではネストした struct が fields 内に再帰的に展開される', async () => {
+            const memberPair1 = createColumnPair('field_one');
+            const innerStruct = new StructColumnShareModel({
+                physicalName: 'inner',
+                columnEntries: [{ modelType: 'single', columnModelId: memberPair1.column.columnModelId }]
+            });
+            const innerWrapperColumn = new StructColumnModel({ structShareModelId: innerStruct.structShareModelId });
+            const outerStruct = new StructColumnShareModel({
+                physicalName: 'outer',
+                columnEntries: [{ modelType: 'single', columnModelId: innerWrapperColumn.columnModelId }]
+            });
+            const outerWrapperColumn = new StructColumnModel({ structShareModelId: outerStruct.structShareModelId });
+            const fixture = createTestDocument({
+                structColumnShareModels: [innerStruct, outerStruct],
+                extraColumns: [innerWrapperColumn, outerWrapperColumn, memberPair1.column],
+                extraColumnShares: [memberPair1.columnShare],
+                tableColumns: [{ modelType: 'single', columnModelId: outerWrapperColumn.columnModelId }]
+            });
+            refreshBudget(fixture.erdDocument);
+
+            const callback = getTableToolCallback(documentResource, 'find-table');
+            const result = await callback({ documentId: TEST_DOC_ID, tableId: TEST_TABLE_ID });
+            const response = extractStructuredContent(result);
+
+            const outerEntry = response.columns.find((entry: { entryType: string }) => (entry.entryType === 'struct'));
+            expect(outerEntry.typeExpression).toBe('STRUCT<inner STRUCT<field_one INT64>>');
+            expect(outerEntry.fields).toHaveLength(1);
+
+            const nestedFieldEntry = outerEntry.fields[0];
+            expect(nestedFieldEntry.entryType).toBe('struct');
+            expect(nestedFieldEntry.structColumnShareModelId).toBe(innerStruct.structShareModelId);
+            expect(nestedFieldEntry.fields).toEqual([
+                expect.objectContaining({
+                    entryType: 'column', columnModelId: memberPair1.column.columnModelId, typeExpression: 'INT64'
+                })
+            ]);
+        });
+
+        test('list-tables では struct エントリに typeExpression / fields を含まない', async () => {
+            const memberPair1 = createColumnPair('field_one');
+            const structModel = new StructColumnShareModel({
+                physicalName: 'address',
+                columnEntries: [{ modelType: 'single', columnModelId: memberPair1.column.columnModelId }]
+            });
+            const wrapperColumn = new StructColumnModel({ structShareModelId: structModel.structShareModelId });
+            const fixture = createTestDocument({
+                structColumnShareModels: [structModel],
+                extraColumns: [wrapperColumn, memberPair1.column],
+                extraColumnShares: [memberPair1.columnShare],
+                tableColumns: [{ modelType: 'single', columnModelId: wrapperColumn.columnModelId }]
+            });
+            refreshBudget(fixture.erdDocument);
+
+            const callback = getTableToolCallback(documentResource, 'list-tables');
+            const result = await callback({ documentId: TEST_DOC_ID });
+            const response = extractStructuredContent(result);
+
+            const structEntry = response.items[0].columns.find(
+                (entry: { entryType: string }) => (entry.entryType === 'struct')
+            );
+            expect(structEntry).toBeDefined();
+            expect(structEntry.typeExpression).toBeUndefined();
+            expect(structEntry.fields).toBeUndefined();
+        });
+
+        test('循環参照した struct は例外にならず typeExpression に recursive マーカーが入り fields で打ち切られる', async () => {
+            const structA = new StructColumnShareModel({ physicalName: 'a' });
+            const structB = new StructColumnShareModel({ physicalName: 'b' });
+            const wrapperToA = new StructColumnModel({ structShareModelId: structA.structShareModelId });
+            const wrapperToB = new StructColumnModel({ structShareModelId: structB.structShareModelId });
+
+            const circularStructA = new StructColumnShareModel({
+                structShareModelId: structA.structShareModelId,
+                physicalName: 'a',
+                columnEntries: [{ modelType: 'single', columnModelId: wrapperToB.columnModelId }]
+            });
+            const circularStructB = new StructColumnShareModel({
+                structShareModelId: structB.structShareModelId,
+                physicalName: 'b',
+                columnEntries: [{ modelType: 'single', columnModelId: wrapperToA.columnModelId }]
+            });
+
+            const tableWrapperColumn = new StructColumnModel({ structShareModelId: structA.structShareModelId });
+            const fixture = createTestDocument({
+                structColumnShareModels: [circularStructA, circularStructB],
+                extraColumns: [wrapperToA, wrapperToB, tableWrapperColumn],
+                tableColumns: [{ modelType: 'single', columnModelId: tableWrapperColumn.columnModelId }]
+            });
+            refreshBudget(fixture.erdDocument);
+
+            const callback = getTableToolCallback(documentResource, 'find-table');
+
+            // 循環参照があっても例外を投げず、find-table 全体としては正常応答する
+            const result = await callback({ documentId: TEST_DOC_ID, tableId: TEST_TABLE_ID });
+            const response = extractStructuredContent(result);
+
+            const structEntry = response.columns.find((entry: { entryType: string }) => (entry.entryType === 'struct'));
+            expect(structEntry.typeExpression).toContain('!recursive:');
+
+            // fields を辿ると有限段で fields: [] に到達する (無限ループしない)
+            let currentEntry = structEntry;
+            let depth = 0;
+            while ((currentEntry.fields.length > 0) && (depth < 10)) {
+                currentEntry = currentEntry.fields[0];
+                depth += 1;
+            }
+            expect(currentEntry.fields).toEqual([]);
+            expect(depth).toBeLessThan(10);
+        });
+    });
 });

@@ -1,6 +1,4 @@
-import {
-    ReadResourceTemplateCallback, ResourceTemplate, ToolCallback
-} from "@modelcontextprotocol/sdk/server/mcp.js";
+import { ReadResourceTemplateCallback, ResourceTemplate, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { v4 as uuidV4 } from 'uuid';
 import z from "zod";
 
@@ -27,7 +25,9 @@ import { SelectState } from "~/models/SelectState";
 import TableViewModel from "~/models/TableViewModel";
 import ColumnModel from "~/models/database/ColumnModel";
 import SimpleColumnModel from "~/models/database/SimpleColumnModel";
+import StructColumnModel from "~/models/database/StructColumnModel";
 import StructColumnShareModel from "~/models/database/StructColumnShareModel";
+import { buildStructTypeExpression } from "~/models/struct-type-expression";
 
 export const mcpRegisterTable = (documentResource: DocumentResource): McpRegisterConfig => {
     return {
@@ -106,17 +106,14 @@ An array of table objects, each containing:
   - position: Object with x and y coordinates of the table on the ERD canvas.
   - size: Object with width and height of the table (may be null if not yet rendered).
   - color: Object with background and foreground colors in hex format.
-- columns: An array of column objects, each containing:
-  - uri: The unique URI of the column.
-  - columnModelId: The unique identifier of the column.
-  - columnName: Object with physical and logical names.
-  - columnType: The data type of the column.
-  - primaryKey: Boolean indicating if this is a primary key.
-  - notNull: Boolean indicating if this column is NOT NULL.
-  - unique: Boolean indicating if this column has a unique constraint.
-  - autoIncrement: Boolean indicating auto-increment (only present for supported types).
-  - defaultValue: The default value for the column.
-  - description: A brief description of the column.
+- columns: An array of column objects, each containing either:
+  - For a regular column (entryType: "column"): uri, columnModelId, columnName (physical/logical),
+    typeExpression, primaryKey, notNull, unique, autoIncrement (only present for supported types),
+    defaultValue, description.
+  - For a struct column (entryType: "struct", BigQuery STRUCT type): uri, structColumnShareModelId,
+    structName (physical/logical), isArray, notNull, description. The internal fields are NOT included
+    here; call 'find-table' for the full type expression and field list, or 'find-struct-column-share'
+    for the struct definition itself.
 - uniqueConstraints: An array of unique constraint objects, each containing:
   - uniqueKeysModelId: The unique identifier of the constraint.
   - uniqueKeysName: The name of the unique constraint.
@@ -378,17 +375,18 @@ An object containing detailed information about the specified table:
   - position: Object with x and y coordinates of the table on the ERD canvas.
   - size: Object with width and height of the table (may be null if not yet rendered).
   - color: Object with background and foreground colors in hex format.
-- columns: An array of column objects, each containing:
-  - uri: The unique URI of the column.
-  - columnModelId: The unique identifier of the column.
-  - columnName: Object with physical and logical names.
-  - columnType: The data type of the column.
-  - primaryKey: Boolean indicating if this is a primary key.
-  - notNull: Boolean indicating if this column is NOT NULL.
-  - unique: Boolean indicating if this column has a unique constraint.
-  - autoIncrement: Boolean indicating auto-increment (only present for supported types).
-  - defaultValue: The default value for the column.
-  - description: A brief description of the column.
+- columns: An array of column objects, each containing either:
+  - For a regular column (entryType: "column"): uri, columnModelId, columnName (physical/logical),
+    typeExpression, primaryKey, notNull, unique, autoIncrement (only present for supported types),
+    defaultValue, description.
+  - For a struct column (entryType: "struct", BigQuery STRUCT type): uri, structColumnShareModelId,
+    structName (physical/logical), isArray, notNull, description, plus:
+    - typeExpression: The fully expanded type, e.g. "ARRAY<STRUCT<zip STRING, geo STRUCT<lat FLOAT64>>>".
+      A struct that recursively references itself has the offending point replaced with
+      "STRUCT<!recursive:{structColumnShareModelId}>" instead of failing the whole request.
+    - fields: An array of the struct's members, recursively expanded with the same shape as this columns
+      array (entryType "column" or nested "struct", each also carrying its own typeExpression / fields).
+      A struct that recursively references itself has fields: [] at the point of recursion.
 - uniqueConstraints: An array of unique constraint objects, each containing:
   - uniqueKeysModelId: The unique identifier of the constraint.
   - uniqueKeysName: The name of the unique constraint.
@@ -1747,8 +1745,12 @@ export const toTableSummary = (erdBudget: DocumentBudget, tableView: TableViewMo
     };
 };
 
-const toTableSummaryWithColumns = (erdBudget: DocumentBudget, tableView: TableViewModel) => {
-    const tableColumns = toTableColumns(erdBudget, tableView);
+type StructExpansion = "omit" | "expand";
+
+const toTableSummaryWithColumns = (
+    erdBudget: DocumentBudget, tableView: TableViewModel, structExpansion: StructExpansion = "omit"
+) => {
+    const tableColumns = toTableColumns(erdBudget, tableView, structExpansion);
 
     const columnMapping = new Map(tableColumns.flatMap(entry => {
         if (entry.entryType === "struct") {
@@ -1775,8 +1777,7 @@ const toTableSummaryWithColumns = (erdBudget: DocumentBudget, tableView: TableVi
 
 const toTableDetail = (erdBudget: DocumentBudget, tableView: TableViewModel) => {
     const erdDocument = erdBudget.erdDocument;
-    // TODO テーブルの詳細取得なので、ここでは struct のカラムも必要。
-    const tableWithColumns = toTableSummaryWithColumns(erdBudget, tableView);
+    const tableWithColumns = toTableSummaryWithColumns(erdBudget, tableView, "expand");
     const { parentRelations, childRelations } = erdDocument.findRelatedRelations(tableView.tableId);
     const columnDefinitions = toTableColumnDefinitions(erdBudget, tableView);
 
@@ -1819,6 +1820,34 @@ const toTableColumnDefinitions = (erdBudget: DocumentBudget, tableView: TableVie
     });
 };
 
+// struct のフィールド名・型式はエージェント向けレスポンス上のものであり、DDL のエスケープ規則は適用しない。
+const structResponseTypeOptions = {
+    escape: (value: string) => value,
+    onRecursiveStruct: (structShare: StructColumnShareModel) => {
+        return `STRUCT<!recursive:${structShare.structShareModelId}>`;
+    }
+};
+
+type StructFieldEntry = (
+    {
+        entryType: "column";
+        columnModelId: string;
+        columnName: { physical: string; logical: string; };
+        typeExpression: string;
+    } | {
+        entryType: "struct";
+        structColumnShareModelId: string;
+        structName: { physical: string; logical: string; };
+        isArray: boolean;
+        typeExpression: string;
+        fields: StructFieldEntry[];
+    }
+) & {
+    uri: string;
+    notNull: boolean;
+    description: string;
+};
+
 type TableColumnEntry = (
     {
         entryType: "column";
@@ -1834,6 +1863,9 @@ type TableColumnEntry = (
         structColumnShareModelId: string;
         structName: { physical: string; logical: string; };
         isArray: boolean;
+        // 一覧では struct 内部を返さないため未定義。詳細取得 (structExpansion: "expand") のみ展開する。
+        typeExpression?: string | undefined;
+        fields?: StructFieldEntry[] | undefined;
     }
 ) & {
     uri: string;
@@ -1841,33 +1873,15 @@ type TableColumnEntry = (
     description: string;
 };
 
-const toTableColumns = (erdBudget: DocumentBudget, tableView: TableViewModel): TableColumnEntry[] => {
+const toTableColumns = (
+    erdBudget: DocumentBudget, tableView: TableViewModel, structExpansion: StructExpansion
+): TableColumnEntry[] => {
     const erdDocument = erdBudget.erdDocument;
     const columnModels = erdDocument.toAllColumnsWithStruct(tableView.tableModel);
 
     return columnModels.flatMap((column): TableColumnEntry[] => {
         if (column.entityType === "struct") {
-            const structColumnShare = erdDocument.findStructColumnShareModel(column.structShareModelId);
-            if (structColumnShare == null) {
-                return [];
-            }
-
-            const overrideNames = overrideColumnName(column, structColumnShare);
-
-            return [
-                {
-                    uri: erdBudget.structColumnShareUri(structColumnShare.structShareModelId),
-                    entryType: "struct",
-                    structColumnShareModelId: structColumnShare.structShareModelId,
-                    structName: {
-                        physical: overrideNames.physicalName,
-                        logical: overrideNames.logicalName
-                    },
-                    notNull: column.notNull,
-                    isArray: structColumnShare.isArray,
-                    description: structColumnShare.description
-                }
-            ];
+            return toStructColumnEntry(erdBudget, column, structExpansion);
         }
 
         const shareModel = erdDocument.findColumnShareModel(column.columnShareModelId);
@@ -1898,6 +1912,125 @@ const toTableColumns = (erdBudget: DocumentBudget, tableView: TableViewModel): T
             }
         ];
     });
+};
+
+const toStructColumnEntry = (
+    erdBudget: DocumentBudget, column: StructColumnModel, structExpansion: StructExpansion
+): TableColumnEntry[] => {
+    const erdDocument = erdBudget.erdDocument;
+    const structColumnShare = erdDocument.findStructColumnShareModel(column.structShareModelId);
+    if (structColumnShare == null) {
+        return [];
+    }
+
+    const overrideNames = overrideColumnName(column, structColumnShare);
+    const expansion = toStructExpansionFields(erdBudget, structColumnShare, structExpansion);
+
+    return [
+        {
+            uri: erdBudget.structColumnShareUri(structColumnShare.structShareModelId),
+            entryType: "struct",
+            structColumnShareModelId: structColumnShare.structShareModelId,
+            structName: {
+                physical: overrideNames.physicalName,
+                logical: overrideNames.logicalName
+            },
+            notNull: column.notNull,
+            isArray: structColumnShare.isArray,
+            description: structColumnShare.description,
+            ...expansion
+        }
+    ];
+};
+
+const toStructExpansionFields = (
+    erdBudget: DocumentBudget, structColumnShare: StructColumnShareModel, structExpansion: StructExpansion
+): { typeExpression?: string | undefined; fields?: StructFieldEntry[] | undefined; } => {
+    if (structExpansion === "omit") {
+        return {};
+    }
+
+    const erdDocument = erdBudget.erdDocument;
+    const typeExpression = buildStructTypeExpression(erdDocument, structColumnShare, structResponseTypeOptions);
+    const fields = toStructFieldEntries(erdBudget, structColumnShare, new Set());
+
+    return { typeExpression, fields };
+};
+
+const toStructFieldEntries = (
+    erdBudget: DocumentBudget, structColumnShare: StructColumnShareModel, visitedStructIds: ReadonlySet<string>
+): StructFieldEntry[] => {
+    const erdDocument = erdBudget.erdDocument;
+    const innerVisitedIds = new Set(visitedStructIds);
+    innerVisitedIds.add(structColumnShare.structShareModelId);
+
+    const memberColumns = erdDocument.toAllColumnsWithStruct(structColumnShare);
+
+    return memberColumns.flatMap((memberColumn): StructFieldEntry[] => {
+        if (memberColumn.entityType === "struct") {
+            return toNestedStructFieldEntry(erdBudget, memberColumn, innerVisitedIds);
+        }
+
+        return toSimpleStructFieldEntry(erdBudget, memberColumn);
+    });
+};
+
+const toNestedStructFieldEntry = (
+    erdBudget: DocumentBudget, memberColumn: StructColumnModel, visitedStructIds: ReadonlySet<string>
+): StructFieldEntry[] => {
+    const erdDocument = erdBudget.erdDocument;
+    const nestedStructShare = erdDocument.findStructColumnShareModel(memberColumn.structShareModelId);
+    if (nestedStructShare == null) {
+        return [];
+    }
+
+    const overrideNames = overrideColumnName(memberColumn, nestedStructShare);
+    const typeExpression = buildStructTypeExpression(erdDocument, nestedStructShare, structResponseTypeOptions);
+    const fields = visitedStructIds.has(nestedStructShare.structShareModelId)
+        ? []
+        : toStructFieldEntries(erdBudget, nestedStructShare, visitedStructIds);
+
+    return [
+        {
+            uri: erdBudget.structColumnShareUri(nestedStructShare.structShareModelId),
+            entryType: "struct",
+            structColumnShareModelId: nestedStructShare.structShareModelId,
+            structName: {
+                physical: overrideNames.physicalName,
+                logical: overrideNames.logicalName
+            },
+            isArray: nestedStructShare.isArray,
+            typeExpression: typeExpression,
+            fields: fields,
+            notNull: memberColumn.notNull,
+            description: nestedStructShare.description
+        }
+    ];
+};
+
+const toSimpleStructFieldEntry = (erdBudget: DocumentBudget, memberColumn: SimpleColumnModel): StructFieldEntry[] => {
+    const erdDocument = erdBudget.erdDocument;
+    const columnShare = erdDocument.findColumnShareModel(memberColumn.columnShareModelId);
+    if (columnShare == null) {
+        return [];
+    }
+
+    const overrideName = overrideColumnName(memberColumn, columnShare);
+
+    return [
+        {
+            uri: erdBudget.columnUri(memberColumn.columnModelId),
+            entryType: "column",
+            columnModelId: memberColumn.columnModelId,
+            columnName: {
+                physical: overrideName.physicalName,
+                logical: overrideName.logicalName
+            },
+            typeExpression: columnShare.specifiedColumnType(),
+            notNull: memberColumn.notNull,
+            description: columnShare.description
+        }
+    ];
 };
 
 const toTableUniqueConstraints = (tableView: TableViewModel, columnMapping: Map<string, TableColumn>) => {

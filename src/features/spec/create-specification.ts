@@ -5,6 +5,8 @@ import StructColumnShareModel from "~/models/database/StructColumnShareModel";
 import DbSchemaModel from "~/models/database/DbSchemaModel";
 import TableModel from "~/models/database/TableModel";
 import { overrideColumnName } from "~/models/database/support";
+import ColumnEntry from "~/models/database/ColumnEntry";
+import { ColumnListSpecGenerator, TableDetailSpecGenerator, TableListSpecGenerator } from "~/features/spec/spec-util";
 
 const createSpecification = (erdDocument: ErdDocument) => {
 
@@ -104,7 +106,9 @@ const initTablePhysicalName = (tableModel: TableModel, schemaModel: DbSchemaMode
  * @param erdDocument 
  * @returns 
  */
-const initExportAllTablesGenerator = (erdDocument: ErdDocument) => (function*() {
+const initExportAllTablesGenerator = (
+    erdDocument: ErdDocument
+): (() => TableListSpecGenerator) => (function* () {
     const tableViews = sortTableViews(erdDocument);
     for (const tableView of tableViews) {
         const tableModel = tableView.tableModel;
@@ -124,7 +128,9 @@ const initExportAllTablesGenerator = (erdDocument: ErdDocument) => (function*() 
  * @param erdDocument 
  * @returns 
  */
-const initExportAllColumnsGenerator = (erdDocument: ErdDocument) => (function*() {
+const initExportAllColumnsGenerator = (
+    erdDocument: ErdDocument
+): (() => ColumnListSpecGenerator) => (function* () {
     const tableViews = sortTableViews(erdDocument);
     for (const tableView of tableViews) {
         const exportColumns = initExportColumnGenerator(erdDocument, tableView.tableModel)
@@ -133,71 +139,114 @@ const initExportAllColumnsGenerator = (erdDocument: ErdDocument) => (function*()
     }
 });
 
-const initExportColumnGenerator = (erdDocument: ErdDocument, tableModel: TableModel) => (function*() {
+const initExportColumnGenerator = (
+    erdDocument: ErdDocument, tableModel: TableModel
+): (() => ColumnListSpecGenerator) => (function* () {
     const schemaModel = erdDocument.findSchema(tableModel.schemaId);
-    const physicalTableName = initTablePhysicalName(tableModel, schemaModel);
+    const tableName = {
+        physicalTableName: initTablePhysicalName(tableModel, schemaModel),
+        logicalTableName: tableModel.logicalName
+    };
 
     for (const columnModel of erdDocument.toAllColumnsWithStruct(tableModel)) {
-        if (columnModel.entityType === "struct") {
-            const structModel = erdDocument.findStructColumnShareModel(columnModel.structShareModelId);
-            if (structModel == null) {
-                continue;
-            }
-
-            yield initStructColumnSpec(columnModel, structModel, physicalTableName, tableModel.logicalName);
-            continue;
-        }
-
-        const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
-        if (columnShareModel == null) {
-            continue;
-        }
-
-        const overrideName = overrideColumnName(columnModel, columnShareModel);
-        const parentRelation = erdDocument.findParentRelation(tableModel.tableModelId, columnModel.columnModelId);
-
-        yield {
-            physicalTableName: physicalTableName,
-            logicalTableName: tableModel.logicalName,
-            physicalColumnName: overrideName.physicalName,
-            logicalColumnName: overrideName.logicalName,
-            columnType: columnShareModel.columnType.name,
-            precision: columnShareModel.precision ? Number(columnShareModel.precision) : null,
-            scale: columnShareModel.scale ? Number(columnShareModel.scale) : null,
-            unsigned: columnShareModel.unsigned ? "✓" : "",
-            primaryKey: columnModel.primaryKey ? "✓" : "",
-            notNull: columnModel.notNull ? "✓" : "",
-            unique: columnModel.unique ? "✓" : "",
-            autoIncrement: columnModel.autoIncrement ? "✓" : "",
-            defaultValue: columnModel.defaultValue,
-            foreignRelation: initForeignRelation(erdDocument, parentRelation),
-            description: columnShareModel.description,
-        };
+        const columnSpec = initColumnSpec(erdDocument, tableModel, columnModel, tableName);
+        yield* columnSpec();
     }
 });
 
-const initStructColumnSpec = (
-    columnModel: StructColumnModel, structModel: StructColumnShareModel,
-    physicalTableName: string, logicalTableName: string
-) => {
-    const overrideName = overrideColumnName(columnModel, structModel);
+const initColumnSpec = (
+    erdDocument: ErdDocument, tableModel: TableModel, columnModel: ColumnModel,
+    tableName: { physicalTableName: string, logicalTableName: string },
+    columnNamePrefix: { physical: string, logical: string } = { physical: "", logical: "" }
+): (() => ColumnListSpecGenerator) => (function* () {
 
+    if (columnModel.entityType === "struct") {
+        const structShare = erdDocument.findStructColumnShareModel(columnModel.structShareModelId);
+        if (structShare == null) {
+            return;
+        }
+
+        const columnName = overrideColumnName(columnModel, structShare);
+        yield initStructColumnSpec(columnModel, structShare, tableName, columnName, columnNamePrefix);
+
+        const subColumnPrefix = {
+            physical: `${columnNamePrefix.physical}${columnName.physicalName}.`,
+            logical: `${columnNamePrefix.logical}${columnName.logicalName}.`
+        };
+
+        for (const columnEntry of structShare.columnEntries) {
+            const subColumns = toColumnModelIds(erdDocument, columnEntry)
+                .map(subColumnId => erdDocument.findColumnModel(subColumnId))
+                .filter(subColumn => (subColumn != null))
+
+            for (const subColumn of subColumns) {
+                const subColumnSpec = initColumnSpec(erdDocument, tableModel, subColumn, tableName, subColumnPrefix);
+                yield* subColumnSpec();
+            }
+        }
+
+        return;
+    }
+
+    const columnShare = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
+    if (columnShare == null) {
+        return;
+    }
+
+    const overrideName = overrideColumnName(columnModel, columnShare);
+    const parentRelation = erdDocument.findParentRelation(tableModel.tableModelId, columnModel.columnModelId);
+
+    yield {
+        ...tableName,
+        physicalColumnName: columnNamePrefix.physical + overrideName.physicalName,
+        logicalColumnName: columnNamePrefix.logical + overrideName.logicalName,
+        columnType: columnShare.columnType.name,
+        precision: columnShare.precision ? Number(columnShare.precision) : null,
+        scale: columnShare.scale ? Number(columnShare.scale) : null,
+        unsigned: columnShare.unsigned ? "✓" : "",
+        primaryKey: columnModel.primaryKey ? "✓" : "",
+        notNull: columnModel.notNull ? "✓" : "",
+        unique: columnModel.unique ? "✓" : "",
+        autoIncrement: columnModel.autoIncrement ? "✓" : "",
+        defaultValue: columnModel.defaultValue,
+        foreignRelation: initForeignRelation(erdDocument, parentRelation),
+        description: columnShare.description,
+    };
+});
+
+const toColumnModelIds = (erdDocument: ErdDocument, columnEntry: ColumnEntry) => {
+    if (columnEntry.modelType === "single") {
+        return [columnEntry.columnModelId];
+    }
+
+    const columnGroup = erdDocument.findColumnGroupModel(columnEntry.columnGroupId);
+    if (columnGroup == null) {
+        return [];
+    }
+
+    return columnGroup.columnModelIds;
+};
+
+const initStructColumnSpec = (
+    columnStruct: StructColumnModel, structShare: StructColumnShareModel,
+    tableName: { physicalTableName: string, logicalTableName: string },
+    columnName: { physicalName: string, logicalName: string }, columnNamePrefix: { physical: string, logical: string }
+) => {
     return {
-        physicalTableName: physicalTableName,
-        logicalTableName: logicalTableName,
-        physicalColumnName: overrideName.physicalName,
-        logicalColumnName: overrideName.logicalName,
-        columnType: structModel.simpleColumnType(),
+        ...tableName,
+        physicalColumnName: columnNamePrefix.physical + columnName.physicalName,
+        logicalColumnName: columnNamePrefix.logical + columnName.logicalName,
+        columnType: structShare.simpleColumnType(),
         precision: null,
         scale: null,
         unsigned: "",
         primaryKey: "",
-        notNull: columnModel.notNull ? "✓" : "",
+        notNull: columnStruct.notNull ? "✓" : "",
         unique: "",
         autoIncrement: "",
         defaultValue: "",
         foreignRelation: null,
-        description: structModel.description,
+        description: structShare.description,
     };
 };
 
@@ -230,7 +279,9 @@ const initForeignRelation = (erdDocument: ErdDocument, parentRelation: ParentRel
  * @param erdDocument 
  * @returns 
  */
-const initExportTableSpecsGenerator = (erdDocument: ErdDocument) => (function*() {
+const initExportTableSpecsGenerator = (
+    erdDocument: ErdDocument
+):(() => TableDetailSpecGenerator) => (function* () {
     const tableViews = sortTableViews(erdDocument);
     for (const tableView of tableViews) {
         const tableModel = tableView.tableModel;
@@ -253,7 +304,7 @@ const initExportTableSpecsGenerator = (erdDocument: ErdDocument) => (function*()
 
 const initExportUniqueKeysConstraintsGenerator = (
     erdDocument: ErdDocument, tableModel: TableModel
-) => (function*() {
+) => (function* () {
     for (const uniqueKeysModel of tableModel.uniqueKeysModels) {
         const uniqueKeyColumns = uniqueKeysModel.uniqueKeysColumnModels.map(model => {
             const columnModel = erdDocument.findColumnModel(model.columnModelId);
@@ -282,7 +333,7 @@ const initExportUniqueKeysConstraintsGenerator = (
     }
 })
 
-const initExportTableIndexesGenerator = (erdDocument: ErdDocument, tableModel: TableModel) => (function*() {
+const initExportTableIndexesGenerator = (erdDocument: ErdDocument, tableModel: TableModel) => (function* () {
     for (const tableIndex of tableModel.tableIndexModels) {
         const indexedColumns = tableIndex.indexColumnModels.map(model => {
             const columnModel = erdDocument.findColumnModel(model.columnModelId);

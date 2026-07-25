@@ -11,6 +11,7 @@ import TableModel from "~/models/database/TableModel";
 import TableUniqueKeysModel from "~/models/database/TableUniqueKeysModel";
 import ErdDocument from "~/models/ErdDocument";
 import { DdlCommentStyle } from "~/models/ExportDdlSettingModel";
+import { buildStructTypeExpression } from "~/models/struct-type-expression";
 import TableViewModel from "~/models/TableViewModel";
 
 type DdlOption = {
@@ -238,13 +239,13 @@ class DatabaseDdlCreator {
             return null;
         }
 
-        const structQuery = resolveStructQuery(
-            erdDocument, columnModel, structModel, new Set(), (value: string) => this.escape(value)
+        const typeExpression = buildStructTypeExpression(
+            erdDocument, structModel, { escape: (value: string) => this.escape(value) }
         );
+        const overrideName = overrideColumnName(columnModel, structModel);
 
         const notNullSuffix = (columnModel.notNull === true) ? " NOT NULL" : "";
-        const baseQuery = `${structQuery}${notNullSuffix}`;
-        const overrideName = overrideColumnName(columnModel, structModel);
+        const baseQuery = `${this.escape(overrideName.physicalName)} ${typeExpression}${notNullSuffix}`;
 
         return this.structColumnQueryWithOption(baseQuery, structModel, overrideName, option);
     }
@@ -468,66 +469,6 @@ const foreignKeyQueryForAlter = (args: ForeignKeyQueryArgs): string => {
     ];
 
     return `ALTER TABLE ${args.childTableName}\n    ${alterQueries.join("\n    ")};\n`;
-};
-
-/**
- * struct バリアントの ColumnModel と struct 定義から、フィールド定義を含む STRUCT<...> クエリを再帰的に構築する。
- * フィールド名・カラム名は ColumnModel 側の名前を優先する (overrideColumnName)。
- * ネストした struct はメンバーの struct バリアント ColumnModel を経由して再帰する。
- * 解決不能な参照はスキップし、循環参照を検出した場合は例外を送出する。
- */
-const resolveStructQuery = (
-    erdDocument: ErdDocument, structColumn: StructColumnModel, structShare: StructColumnShareModel,
-    visitedStructIds: ReadonlySet<string>, escape: (value: string) => string
-): string => {
-    if (visitedStructIds.has(structShare.structShareModelId)) {
-        throw new Error(`Struct is recursive definition. structColumnShareModelId=${structShare.structShareModelId}`);
-    }
-
-    const innerVisitedIds = new Set(visitedStructIds);
-    innerVisitedIds.add(structShare.structShareModelId);
-
-    const fieldQueries = erdDocument.toAllColumnsWithStruct(structShare)
-        .map(memberColumn => resolveStructFieldQuery(erdDocument, memberColumn, innerVisitedIds, escape))
-        .filter((fieldQuery): fieldQuery is string => (fieldQuery != null));
-
-    const typeQuery = buildStructTypeQuery(fieldQueries, structShare.isArray);
-    const overrideName = overrideColumnName(structColumn, structShare);
-
-    return `${escape(overrideName.physicalName)} ${typeQuery}`;
-};
-
-const resolveStructFieldQuery = (
-    erdDocument: ErdDocument, columnModel: ColumnModel,
-    visitedStructIds: ReadonlySet<string>, escape: (value: string) => string
-): string | null => {
-    if (columnModel.entityType === "struct") {
-        const structModel = erdDocument.findStructColumnShareModel(columnModel.structShareModelId);
-        if (structModel == null) {
-            return null;
-        }
-
-        return resolveStructQuery(erdDocument, columnModel, structModel, visitedStructIds, escape);
-    }
-
-    return doResolveSingleFieldQuery(erdDocument, columnModel, escape);
-};
-
-const doResolveSingleFieldQuery = (
-    erdDocument: ErdDocument, columnModel: SimpleColumnModel, escape: (value: string) => string
-): string | null => {
-    const columnShare = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
-    if (columnShare == null) {
-        return null;
-    }
-
-    const overrideName = overrideColumnName(columnModel, columnShare);
-    return `${escape(overrideName.physicalName)} ${columnShare.specifiedColumnType()}`;
-};
-
-const buildStructTypeQuery = (fieldQueries: string[], isArray: boolean): string => {
-    const structQuery = `STRUCT<${fieldQueries.join(", ")}>`;
-    return isArray ? `ARRAY<${structQuery}>` : structQuery;
 };
 
 // cSpell:disable
@@ -804,7 +745,6 @@ const foreignKeyQueryForBigQuery = (args: ForeignKeyQueryArgs): string => {
     return `ALTER TABLE ${args.childTableName}\n    ${alterQueries.join("\n    ")};\n`;
 };
 
-// TODO
 const indexQueryForBigQuery = (args: IndexQueryArgs): string => {
     return `-- BigQuery: CREATE INDEX is not supported: `
         + `${args.indexName} ON ${args.tableName} (${args.columnQueries.join(", ")})`;
