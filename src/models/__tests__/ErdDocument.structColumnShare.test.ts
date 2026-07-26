@@ -193,7 +193,22 @@ describe('ErdDocument struct column share integration', () => {
     });
 
     describe('updateStructColumnShare', () => {
-        test('should add a new struct model without affecting unrelated columns', () => {
+        test('should add a new struct model when referenced from the table', () => {
+            const wrapperColumn = initStructWrapper('wrapper-1', 'struct-1');
+            const tableModel = new TableModel({
+                tableModelId: 'table-1',
+                physicalName: 'users',
+                columnEntries: [{ modelType: 'single', columnModelId: 'wrapper-1' }]
+            });
+            const document = initDocument({ tableModels: [tableModel] });
+
+            const newStruct = new StructColumnShareModel({ structShareModelId: 'struct-1', physicalName: 'address' });
+            const nextDocument = document.updateStructColumnShare([newStruct], [wrapperColumn]);
+
+            expect(nextDocument.findStructColumnShareModel('struct-1')).not.toBeNull();
+        });
+
+        test('should not persist a new struct model that nothing references', () => {
             const tableModel = new TableModel({
                 tableModelId: 'table-1',
                 physicalName: 'users',
@@ -202,9 +217,9 @@ describe('ErdDocument struct column share integration', () => {
             const document = initDocument({ tableModels: [tableModel] });
 
             const newStruct = new StructColumnShareModel({ structShareModelId: 'struct-1', physicalName: 'address' });
-            const nextDocument = document.updateStructColumnShare(newStruct);
+            const nextDocument = document.updateStructColumnShare([newStruct]);
 
-            expect(nextDocument.findStructColumnShareModel('struct-1')).not.toBeNull();
+            expect(nextDocument.findStructColumnShareModel('struct-1')).toBeNull();
         });
 
         test('should delete removed member column when not referenced elsewhere', () => {
@@ -228,7 +243,7 @@ describe('ErdDocument struct column share integration', () => {
             const updatedStruct = new StructColumnShareModel({
                 structShareModelId: 'struct-1', physicalName: 'address', columnEntries: []
             });
-            const nextDocument = document.updateStructColumnShare(updatedStruct);
+            const nextDocument = document.updateStructColumnShare([updatedStruct]);
 
             expect(nextDocument.findColumnModel('member-1')).toBeNull();
         });
@@ -259,7 +274,7 @@ describe('ErdDocument struct column share integration', () => {
             const updatedStruct = new StructColumnShareModel({
                 structShareModelId: 'struct-1', physicalName: 'address', columnEntries: []
             });
-            const nextDocument = document.updateStructColumnShare(updatedStruct);
+            const nextDocument = document.updateStructColumnShare([updatedStruct]);
 
             expect(nextDocument.findColumnModel('member-1')).not.toBeNull();
         });
@@ -292,7 +307,7 @@ describe('ErdDocument struct column share integration', () => {
             const updatedStruct = new StructColumnShareModel({
                 structShareModelId: 'struct-1', physicalName: 'address', columnEntries: []
             });
-            const nextDocument = document.updateStructColumnShare(updatedStruct);
+            const nextDocument = document.updateStructColumnShare([updatedStruct]);
 
             expect(nextDocument.findColumnModel('member-1')).not.toBeNull();
         });
@@ -326,7 +341,7 @@ describe('ErdDocument struct column share integration', () => {
             const updatedStructA = new StructColumnShareModel({
                 structShareModelId: 'struct-a', physicalName: 'address', columnEntries: []
             });
-            const nextDocument = document.updateStructColumnShare(updatedStructA);
+            const nextDocument = document.updateStructColumnShare([updatedStructA]);
 
             expect(nextDocument.findColumnModel('member-1')).not.toBeNull();
         });
@@ -690,6 +705,125 @@ describe('ErdDocument struct column share integration', () => {
                 { modelType: 'single', columnModelId: 'member-1' }
             ]);
             expect(nextDocument.findColumnModel('member-1')).not.toBeNull();
+        });
+    });
+
+    describe('struct share reachability GC (removing a struct column from a table)', () => {
+        test('should remove the struct share and its members once the table no longer references it', () => {
+            const memberColumn = new SimpleColumnModel({ columnModelId: 'member-1', columnShareModelId: '' });
+            const wrapperColumn = initStructWrapper('wrapper-1', 'struct-1');
+            const structModel = new StructColumnShareModel({
+                structShareModelId: 'struct-1', physicalName: 'address',
+                columnEntries: [{ modelType: 'single', columnModelId: 'member-1' }]
+            });
+            const otherColumn = new SimpleColumnModel({ columnModelId: 'other-col', columnShareModelId: '' });
+            const tableModel = new TableModel({
+                tableModelId: 'table-1',
+                physicalName: 'users',
+                columnEntries: [
+                    { modelType: 'single', columnModelId: 'other-col' },
+                    { modelType: 'single', columnModelId: 'wrapper-1' }
+                ]
+            });
+            const document = initDocument({
+                tableModels: [tableModel],
+                structColumnShareModels: [structModel],
+                columnModels: [memberColumn, wrapperColumn, otherColumn]
+            });
+
+            // TableEditView が行うのと同じ更新: struct カラムをテーブルの columnEntries から外す
+            const nextTableModel = new TableModel({
+                ...tableModel,
+                columnEntries: [{ modelType: 'single', columnModelId: 'other-col' }]
+            });
+            const nextTableView = new TableViewModel({
+                tableModel: nextTableModel, corner: { top: 0, left: 0 }, headerColor: HEADER_COLOR
+            });
+
+            const nextDocument = document.updateTableViewWithColumns(nextTableView, [otherColumn]);
+
+            expect(nextDocument.findStructColumnShareModel('struct-1')).toBeNull();
+            expect(nextDocument.findColumnModel('wrapper-1')).toBeNull();
+            expect(nextDocument.findColumnModel('member-1')).toBeNull();
+        });
+
+        test('should keep the struct share when another table still references it', () => {
+            const memberColumn = new SimpleColumnModel({ columnModelId: 'member-1', columnShareModelId: '' });
+            const wrapperColumn = initStructWrapper('wrapper-1', 'struct-1');
+            const structModel = new StructColumnShareModel({
+                structShareModelId: 'struct-1', physicalName: 'address',
+                columnEntries: [{ modelType: 'single', columnModelId: 'member-1' }]
+            });
+            const editedTable = new TableModel({
+                tableModelId: 'table-1',
+                physicalName: 'users',
+                columnEntries: [{ modelType: 'single', columnModelId: 'wrapper-1' }]
+            });
+            const otherTable = new TableModel({
+                tableModelId: 'table-2',
+                physicalName: 'other',
+                columnEntries: [{ modelType: 'single', columnModelId: 'wrapper-1' }]
+            });
+            const document = initDocument({
+                tableModels: [editedTable, otherTable],
+                structColumnShareModels: [structModel],
+                columnModels: [memberColumn, wrapperColumn]
+            });
+
+            const nextTableModel = new TableModel({ ...editedTable, columnEntries: [] });
+            const nextTableView = new TableViewModel({
+                tableModel: nextTableModel, corner: { top: 0, left: 0 }, headerColor: HEADER_COLOR
+            });
+
+            const nextDocument = document.updateTableViewWithColumns(nextTableView, []);
+
+            expect(nextDocument.findStructColumnShareModel('struct-1')).not.toBeNull();
+            expect(nextDocument.findColumnModel('wrapper-1')).not.toBeNull();
+        });
+
+        test('should cascade-remove a nested struct chain (outer -> inner) once unreferenced', () => {
+            const memberColumn = new SimpleColumnModel({ columnModelId: 'member-1', columnShareModelId: '' });
+            const innerWrapper = initStructWrapper('wrapper-inner', 'struct-inner');
+            const outerWrapper = initStructWrapper('wrapper-outer', 'struct-outer');
+            const innerStruct = new StructColumnShareModel({
+                structShareModelId: 'struct-inner', physicalName: 'inner',
+                columnEntries: [{ modelType: 'single', columnModelId: 'member-1' }]
+            });
+            const outerStruct = new StructColumnShareModel({
+                structShareModelId: 'struct-outer', physicalName: 'outer',
+                columnEntries: [{ modelType: 'single', columnModelId: 'wrapper-inner' }]
+            });
+            const otherColumn = new SimpleColumnModel({ columnModelId: 'other-col', columnShareModelId: '' });
+            const tableModel = new TableModel({
+                tableModelId: 'table-1',
+                physicalName: 'users',
+                columnEntries: [
+                    { modelType: 'single', columnModelId: 'other-col' },
+                    { modelType: 'single', columnModelId: 'wrapper-outer' }
+                ]
+            });
+            const document = initDocument({
+                tableModels: [tableModel],
+                structColumnShareModels: [innerStruct, outerStruct],
+                columnModels: [memberColumn, innerWrapper, outerWrapper, otherColumn]
+            });
+
+            const nextTableModel = new TableModel({
+                ...tableModel,
+                columnEntries: [{ modelType: 'single', columnModelId: 'other-col' }]
+            });
+            const nextTableView = new TableViewModel({
+                tableModel: nextTableModel, corner: { top: 0, left: 0 }, headerColor: HEADER_COLOR
+            });
+
+            const nextDocument = document.updateTableViewWithColumns(nextTableView, [otherColumn]);
+
+            // 連鎖: outer が消える -> inner への参照が消える -> inner が消える -> member-1 への参照が消える -> member-1 が消える
+            expect(nextDocument.findStructColumnShareModel('struct-outer')).toBeNull();
+            expect(nextDocument.findStructColumnShareModel('struct-inner')).toBeNull();
+            expect(nextDocument.findColumnModel('wrapper-outer')).toBeNull();
+            expect(nextDocument.findColumnModel('wrapper-inner')).toBeNull();
+            expect(nextDocument.findColumnModel('member-1')).toBeNull();
         });
     });
 

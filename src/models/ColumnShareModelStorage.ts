@@ -130,26 +130,29 @@ export default class ColumnShareModelStorage {
 
     /**
      * 渡された ID 群に整合する要素だけを残す。
-     * ColumnShareModel は referencedColumnShareIds に無いものが取り除かれ、
-     * StructColumnShareModel の columnEntries からは existing~ に無い参照エントリが取り除かれる。
-     * StructColumnShareModel 自体は本操作の対象外 (明示的な削除操作 deleteStructShare でのみ削除される)。
+     * 参照されない ColumnShareModel / StructColumnShareModel は取り除かれ、
+     * 残存 StructColumnShareModel の columnEntries からは existing~ に無い参照エントリが取り除かれる。
      *
      * @param referencedColumnShareIds 残存カラムが参照している columnShareModelId 一覧
+     * @param referencedStructShareIds 残存カラムが参照している structShareModelId 一覧
      * @param existingColumnModelIds 現存する columnModelId 一覧
      * @param existingColumnGroupIds 現存する columnGroupId 一覧
      * @returns 更新後の ColumnShareModelStorage (変更がない場合は自身を返す)
      */
     public retain(
-        referencedColumnShareIds: readonly string[],
+        referencedColumnShareIds: ReadonlySet<string>,
+        referencedStructShareIds: ReadonlySet<string>,
         existingColumnModelIds: ReadonlySet<string>,
         existingColumnGroupIds: ReadonlySet<string>
     ): ColumnShareModelStorage {
-        const referencedColumnShareIdSet = new Set(referencedColumnShareIds);
         const unreferencedColumnShareIds = Array.from(this.columnShareModelMap.keys())
-            .filter(columnShareId => (referencedColumnShareIdSet.has(columnShareId) === false));
+            .filter(columnShareId => (referencedColumnShareIds.has(columnShareId) === false));
+        const unreferencedStructShareIds = Array.from(this.structShareModelMap.keys())
+            .filter(structShareId => (referencedStructShareIds.has(structShareId) === false));
 
-        const afterShareDeleted = this.deleteColumnShare(unreferencedColumnShareIds);
-        return afterShareDeleted.deleteDanglingColumnEntries(existingColumnModelIds, existingColumnGroupIds);
+        return this.deleteColumnShare(unreferencedColumnShareIds)
+            .deleteStructShare(unreferencedStructShareIds)
+            .deleteDanglingColumnEntries(existingColumnModelIds, existingColumnGroupIds);
     }
 
     private deleteColumnShare(columnShareIds: string[]): ColumnShareModelStorage {

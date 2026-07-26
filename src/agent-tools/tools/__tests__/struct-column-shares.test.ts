@@ -184,7 +184,8 @@ describe('struct-column-shares MCP tools', () => {
                 structColumnShare: {
                     columnName: { physical: 'address' },
                     columns: [{ columnId: column1.columnModelId }, { columnId: column2.columnModelId }]
-                }
+                },
+                attachTo: { tableId: TEST_TABLE_ID, position: { type: 'end' } }
             });
 
             const response = extractStructuredContent(result);
@@ -197,6 +198,18 @@ describe('struct-column-shares MCP tools', () => {
 
             const created = erdDocument.findStructColumnShareModel(response.structColumnShareModelId);
             expect(created).not.toBeNull();
+
+            // attachTo で指定したテーブルの columnEntries にラッパーが追加されている
+            const updatedTable = erdDocument.findTableViewModel(TEST_TABLE_ID)!;
+            const wrapperEntry = updatedTable.tableModel.columnEntries.find(column => {
+                if (column.modelType !== 'single') {
+                    return false;
+                }
+                const columnModel = erdDocument.findColumnModel(column.columnModelId);
+                return (columnModel != null) && (columnModel.entityType === 'struct')
+                    && (columnModel.structShareModelId === response.structColumnShareModelId);
+            });
+            expect(wrapperEntry).toBeDefined();
         });
 
         test('list-struct-column-shares で作成済み struct が一覧取得できる', async () => {
@@ -284,7 +297,8 @@ describe('struct-column-shares MCP tools', () => {
                         { columnId: column2.columnModelId },
                         { structColumnShareModelId: innerStruct.structShareModelId }
                     ]
-                }
+                },
+                attachTo: { tableId: TEST_TABLE_ID, position: { type: 'end' } }
             });
 
             const response = extractStructuredContent(result);
@@ -305,6 +319,50 @@ describe('struct-column-shares MCP tools', () => {
             expect(wrapperColumn?.entityType).toBe('struct');
             expect((wrapperColumn != null) && ColumnModel.isStructColumn(wrapperColumn) && wrapperColumn.structShareModelId)
                 .toBe(innerStruct.structShareModelId);
+        });
+
+        test('create-struct-column-share を attachTo(parentStructColumnShareModelId) で作成できる', async () => {
+            const parentStruct = new StructColumnShareModel({
+                physicalName: 'parent',
+                columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
+            });
+            const wrapperForParent = new StructColumnModel({ structShareModelId: parentStruct.structShareModelId });
+            const fixture = createTestDocument({
+                column1, column2,
+                structColumnShareModels: [parentStruct],
+                extraColumns: [wrapperForParent],
+                tableColumns: [
+                    { modelType: 'single', columnModelId: column1.columnModelId },
+                    { modelType: 'single', columnModelId: column2.columnModelId },
+                    { modelType: 'single', columnModelId: wrapperForParent.columnModelId },
+                ]
+            });
+            refreshBudget(fixture.erdDocument);
+
+            const callback = getStructToolCallback(documentResource, 'create-struct-column-share');
+            const result = await callback({
+                documentId: TEST_DOC_ID,
+                structColumnShare: {
+                    columnName: { physical: 'inner' },
+                    columns: [{ columnId: column2.columnModelId }]
+                },
+                attachTo: { parentStructColumnShareModelId: parentStruct.structShareModelId }
+            });
+
+            const response = extractStructuredContent(result);
+            expect(erdDocument.findStructColumnShareModel(response.structColumnShareModelId)).not.toBeNull();
+
+            // 親 struct の columnEntries に新規 struct へのラッパーが追加されている
+            const updatedParent = erdDocument.findStructColumnShareModel(parentStruct.structShareModelId)!;
+            const wrapperEntry = updatedParent.columnEntries.find(entry => {
+                if (entry.modelType !== 'single') {
+                    return false;
+                }
+                const columnModel = erdDocument.findColumnModel(entry.columnModelId);
+                return (columnModel != null) && (columnModel.entityType === 'struct')
+                    && (columnModel.structShareModelId === response.structColumnShareModelId);
+            });
+            expect(wrapperEntry).toBeDefined();
         });
     });
 
@@ -386,6 +444,42 @@ describe('struct-column-shares MCP tools', () => {
                     ]
                 }
             })).rejects.toThrow(/Circular struct reference/);
+        });
+
+        test('create-struct-column-share を attachTo(parent) で作成し、親自身を members に含めると循環はエラーになる', async () => {
+            // attachNewStructToParent が作る「親 -> 新規 struct」の辺(outerWrapperColumn)を
+            // 循環検証に渡さないと、新規 struct の members に親への参照を含めた際の
+            // 親 ⇄ 新規 struct の循環が検出をすり抜けて永続化されてしまう。
+            const parentStruct = new StructColumnShareModel({
+                physicalName: 'parent',
+                columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
+            });
+            const wrapperForParent = new StructColumnModel({ structShareModelId: parentStruct.structShareModelId });
+            const fixture = createTestDocument({
+                column1, column2,
+                structColumnShareModels: [parentStruct],
+                extraColumns: [wrapperForParent],
+                tableColumns: [
+                    { modelType: 'single', columnModelId: column1.columnModelId },
+                    { modelType: 'single', columnModelId: column2.columnModelId },
+                    { modelType: 'single', columnModelId: wrapperForParent.columnModelId },
+                ]
+            });
+            refreshBudget(fixture.erdDocument);
+
+            const callback = getStructToolCallback(documentResource, 'create-struct-column-share');
+
+            await expect(callback({
+                documentId: TEST_DOC_ID,
+                structColumnShare: {
+                    columnName: { physical: 'inner' },
+                    columns: [{ structColumnShareModelId: parentStruct.structShareModelId }]
+                },
+                attachTo: { parentStructColumnShareModelId: parentStruct.structShareModelId }
+            })).rejects.toThrow(/Circular struct reference/);
+
+            // 循環がエラーになった以上、新規 struct はドキュメントに永続化されていない
+            expect(erdDocument.findStructColumnShareModel(parentStruct.structShareModelId)).not.toBeNull();
         });
     });
 
@@ -474,7 +568,7 @@ describe('struct-column-shares MCP tools', () => {
             })).rejects.toThrow();
         });
 
-        test('remove-struct-column-from-table でテーブルから struct エントリを除去できる (struct 自体は残る)', async () => {
+        test('remove-struct-column-from-table でテーブルから struct エントリを除去できる (どこからも参照されない struct は掃除される)', async () => {
             const structModel = new StructColumnShareModel({
                 physicalName: 'address',
                 columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
@@ -504,7 +598,45 @@ describe('struct-column-shares MCP tools', () => {
             )).toBe(false);
             // ラッパー ColumnModel 自体も自動削除される
             expect(erdDocument.findColumnModel(wrapperColumn.columnModelId)).toBeNull();
-            // struct モデル自体は残っている
+            // どこからも参照されなくなった struct モデル自体も掃除される
+            expect(erdDocument.findStructColumnShareModel(structModel.structShareModelId)).toBeNull();
+        });
+
+        test('remove-struct-column-from-table で除去しても、他テーブルが参照していれば struct は残る', async () => {
+            const structModel = new StructColumnShareModel({
+                physicalName: 'address',
+                columnEntries: [{ modelType: 'single', columnModelId: column1.columnModelId }]
+            });
+            const wrapperColumnInTargetTable = new StructColumnModel({ structShareModelId: structModel.structShareModelId });
+            const wrapperColumnInOtherTable = new StructColumnModel({ structShareModelId: structModel.structShareModelId });
+            const otherTableModel = new TableModel({
+                tableModelId: 'other-table-id',
+                physicalName: 'other_table',
+                columnEntries: [{ modelType: 'single', columnModelId: wrapperColumnInOtherTable.columnModelId }]
+            });
+            const otherTableView = new TableViewModel({
+                tableModel: otherTableModel, corner: { top: 0, left: 0 }, headerColor: testColors
+            });
+            const fixture = createTestDocument({
+                column1, column2,
+                structColumnShareModels: [structModel],
+                extraColumns: [wrapperColumnInTargetTable, wrapperColumnInOtherTable],
+                tableColumns: [
+                    { modelType: 'single', columnModelId: wrapperColumnInTargetTable.columnModelId },
+                    { modelType: 'single', columnModelId: column2.columnModelId },
+                ]
+            });
+            const erdDocumentWithOtherTable =
+                fixture.erdDocument.updateTableViewWithColumns(otherTableView, [wrapperColumnInOtherTable]);
+            refreshBudget(erdDocumentWithOtherTable);
+
+            const callback = getStructToolCallback(documentResource, 'remove-struct-column-from-table');
+            await callback({
+                documentId: TEST_DOC_ID,
+                tableId: TEST_TABLE_ID,
+                structColumnShareModelId: structModel.structShareModelId
+            });
+
             expect(erdDocument.findStructColumnShareModel(structModel.structShareModelId)).not.toBeNull();
         });
     });

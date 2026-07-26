@@ -48,6 +48,14 @@ const columnEntryRefSchema = z.union([
         .describe("Reference an existing (nested) struct column share by its structColumnShareModelId.")
 ]);
 
+// create-struct-column-share の attachTo(tableId) と add-struct-column-to-table の両方の入力スキーマに
+// モジュールロード時にスプレッドされるため、ここで定義する。
+const structPositionSchema = initPositionSchema("column", z.union([
+    z.object({ columnId: z.string().describe("The column ID to add the new struct near.") }),
+    z.object({ columnGroupId: z.string().describe("The column group ID to add the new struct near.") }),
+    z.object({ structColumnShareModelId: z.string().describe("The struct column share ID to add the new struct near.") })
+]));
+
 const responseStructColumnShareDetail = `\
 - uri: The unique URI of the struct column share (format: erd-designer://documents/{documentId}/struct_column_shares/{structColumnShareModelId}).
 - structColumnShareModelId: The unique identifier of the struct column share (auto-generated UUID).
@@ -221,6 +229,8 @@ const descriptionCreateStructColumnShare = `\
 Creates a new struct column share in a specified ERD document.
 Struct column shares represent BigQuery STRUCT (or ARRAY<STRUCT>) type columns.
 Only supported for databases with supportsStructType (currently BigQuery).
+A struct column share that nothing references is not persisted, so attachTo is required to specify
+where the new struct is referenced from immediately upon creation.
 
 REQUEST:
 - documentId: ${DESCRIPTION_DOCUMENT_ID}
@@ -234,6 +244,10 @@ REQUEST:
     - { columnGroupId: string }: Reference an existing column group.
     - { structColumnShareModelId: string }: Reference an existing (nested) struct column share.
   - description: (optional) A brief description of the struct column share.
+- attachTo: Where the new struct is referenced from immediately (required), one of:
+  - { tableId: string, position: ... }: Add the new struct as a table column entry.
+    position accepts the same values as 'add-struct-column-to-table'.
+  - { parentStructColumnShareModelId: string }: Add the new struct as a nested member of an existing struct.
 
 RESPONSE:
 The created struct column share object (same format as struct column share detail resource).
@@ -264,13 +278,19 @@ const createStructColumnShareInputSchema = {
         columns: z.array(columnEntryRefSchema).min(1, "At least one member must be specified.")
             .describe("The member references (columns, column groups, or nested struct column shares) of this struct."),
         description: z.string().optional().describe("A brief description of the struct column share.")
-    }).strict().describe("The struct column share information.")
+    }).strict().describe("The struct column share information."),
+    attachTo: z.union([
+        z.object({ tableId: z.string(), ...structPositionSchema }).strict()
+            .describe("Attach the new struct to a table's column list."),
+        z.object({ parentStructColumnShareModelId: z.string() }).strict()
+            .describe("Attach the new struct as a nested member of an existing struct column share.")
+    ]).describe("Where the new struct is referenced from. A struct that nothing references is not persisted.")
 };
 
 const initCallbackForCreateStructColumnShare = (
     documentResource: DocumentResource
 ): ToolCallback<typeof createStructColumnShareInputSchema> => {
-    return async ({ documentId, structColumnShare: structInput }) => {
+    return async ({ documentId, structColumnShare: structInput, attachTo }) => {
         const { erdBudget, erdDocument: previousDocument } = findDocument(documentResource, documentId);
         validateSupportsStructType(previousDocument);
 
@@ -285,15 +305,122 @@ const initCallbackForCreateStructColumnShare = (
             description: structInput.description ?? ""
         });
 
-        validateNoStructCycle(previousDocument, newStruct, addingWrapperColumns);
-
-        const nextDocument = previousDocument.updateStructColumnShare(newStruct, addingWrapperColumns);
+        const nextDocument = ("tableId" in attachTo)
+            ? attachNewStructToTable(erdBudget, previousDocument, newStruct, addingWrapperColumns, attachTo)
+            : attachNewStructToParent(previousDocument, newStruct, addingWrapperColumns, attachTo.parentStructColumnShareModelId);
         documentResource.notify(documentId, nextDocument);
 
         const response = toStructColumnShareDetail(erdBudget, nextDocument, newStruct);
 
         return initToolJsonResponse(response);
     };
+};
+
+type AttachToTable = Extract<z.infer<typeof createStructColumnShareInputSchema.attachTo>, { tableId: string }>;
+
+const attachNewStructToTable = (
+    erdBudget: DocumentBudget, previousDocument: ErdDocument, newStruct: StructColumnShareModel,
+    addingWrapperColumns: readonly StructColumnModel[], attachTo: AttachToTable
+): ErdDocument => {
+    validateNoStructCycle(previousDocument, [newStruct], addingWrapperColumns);
+
+    const previousTableView = previousDocument.findTableViewModel(attachTo.tableId);
+    if (previousTableView == null) {
+        const url = new URL(erdBudget.tableUri(attachTo.tableId));
+        throw initResourceNotFound(url);
+    }
+
+    const outerWrapperColumn = new StructColumnModel({ structShareModelId: newStruct.structShareModelId });
+    const updatingTable = insertStructWrapperIntoTable(previousDocument, previousTableView, outerWrapperColumn, attachTo.position);
+
+    const nextShareStorage = previousDocument.getColumnShareModelStorage().addStructShare(newStruct);
+
+    // 新規 struct・そのラッパー・テーブルへの参照追加は、生存判定のため同一トランザクションで行う
+    return previousDocument.updateTableViewWithColumns(
+        updatingTable, [...addingWrapperColumns, outerWrapperColumn], nextShareStorage
+    );
+};
+
+/**
+ * テーブルの columnEntries に struct ラッパー ColumnModel の single エントリを position の位置へ挿入する。
+ * add-struct-column-to-table (既存 struct を追加) と create-struct-column-share の attachTo(tableId)
+ * (新規 struct を追加) の両方が、この「挿入位置算出 + columnEntries 再構築」を共有する。
+ */
+const insertStructWrapperIntoTable = (
+    erdDocument: ErdDocument, previousTableView: TableViewModel,
+    wrapperColumn: StructColumnModel, position: StructPositionType
+): TableViewModel => {
+    const previousColumns = previousTableView.tableModel.columnEntries;
+    const nextColumns = [...previousColumns];
+    const addIndex = calculateStructTargetIndex(erdDocument, nextColumns, position);
+    nextColumns.splice(addIndex, 0, { modelType: "single" as const, columnModelId: wrapperColumn.columnModelId });
+
+    return new TableViewModel({
+        ...previousTableView,
+        tableModel: new TableModel({
+            ...previousTableView.tableModel,
+            columnEntries: nextColumns
+        })
+    });
+};
+
+type StructPositionType = Parameters<
+    typeof calculateIndexFromPosition<"columnId" | "columnGroupId" | "structColumnShareModelId">
+>[0];
+
+const calculateStructTargetIndex = (
+    erdDocument: ErdDocument, columns: readonly ColumnEntry[], position: StructPositionType
+): number => {
+    if ("columnId" in position) {
+        const columnIdToIndex = (columnId: string) => columns
+            .findIndex(column => (column.modelType === "single") && (column.columnModelId === columnId));
+        return calculateIndexFromPosition(position, "columnId", columnIdToIndex, columns.length);
+    }
+
+    if ("columnGroupId" in position) {
+        const columnGroupIdToIndex = (columnGroupId: string) => columns
+            .findIndex(column => (column.modelType === "group") && (column.columnGroupId === columnGroupId));
+        return calculateIndexFromPosition(position, "columnGroupId", columnGroupIdToIndex, columns.length);
+    }
+
+    if ("structColumnShareModelId" in position) {
+        const structColumnShareModelIdToIndex = (structColumnShareModelId: string) => columns
+            .findIndex(column => {
+                if (column.modelType !== "single") {
+                    return false;
+                }
+                const columnModel = erdDocument.findColumnModel(column.columnModelId);
+                return (columnModel != null) && (columnModel.entityType === "struct")
+                    && (columnModel.structShareModelId === structColumnShareModelId);
+            });
+        return calculateIndexFromPosition(position, "structColumnShareModelId", structColumnShareModelIdToIndex, columns.length);
+    }
+
+    return calculateIndexFromPosition(position, "columnId", () => null, columns.length);
+};
+
+const attachNewStructToParent = (
+    previousDocument: ErdDocument, newStruct: StructColumnShareModel,
+    addingWrapperColumns: readonly StructColumnModel[], parentStructColumnShareModelId: string
+): ErdDocument => {
+    const parentStruct = previousDocument.findStructColumnShareModel(parentStructColumnShareModelId);
+    if (parentStruct == null) {
+        throw initInvalidParams(`Struct column share not found: ${parentStructColumnShareModelId}`);
+    }
+
+    const outerWrapperColumn = new StructColumnModel({ structShareModelId: newStruct.structShareModelId });
+    const nextParentStruct = new StructColumnShareModel({
+        ...parentStruct,
+        columnEntries: [...parentStruct.columnEntries, { modelType: "single" as const, columnModelId: outerWrapperColumn.columnModelId }]
+    });
+
+    // 親 struct から新規 struct への辺は outerWrapperColumn 経由でしか解決できないため、
+    // 循環検証と永続化には同一のラッパー群を渡す。
+    const nextWrapperColumns = [...addingWrapperColumns, outerWrapperColumn];
+    validateNoStructCycle(previousDocument, [newStruct, nextParentStruct], nextWrapperColumns);
+
+    // 新規 struct・親 struct の更新・両者を繋ぐラッパーは、生存判定のため同一トランザクションで行う
+    return previousDocument.updateStructColumnShare([newStruct, nextParentStruct], nextWrapperColumns);
 };
 
 // ==================== update-struct-column-share ====================
@@ -368,9 +495,9 @@ const initCallbackForUpdateStructColumnShare = (
             description: structInput.description ?? previousStruct.description
         });
 
-        validateNoStructCycle(previousDocument, nextStruct, memberEntries.addingWrapperColumns);
+        validateNoStructCycle(previousDocument, [nextStruct], memberEntries.addingWrapperColumns);
 
-        const nextDocument = previousDocument.updateStructColumnShare(nextStruct, memberEntries.addingWrapperColumns);
+        const nextDocument = previousDocument.updateStructColumnShare([nextStruct], memberEntries.addingWrapperColumns);
         documentResource.notify(documentId, nextDocument);
 
         const response = toStructColumnShareDetail(erdBudget, nextDocument, nextStruct);
@@ -430,16 +557,6 @@ const initCallbackForDeleteStructColumnShare = (
 };
 
 // ==================== add-struct-column-to-table ====================
-
-const structPositionSchema = initPositionSchema("column", z.union([
-    z.object({ columnId: z.string().describe("The column ID to add the new struct near.") }),
-    z.object({ columnGroupId: z.string().describe("The column group ID to add the new struct near.") }),
-    z.object({ structColumnShareModelId: z.string().describe("The struct column share ID to add the new struct near.") })
-]));
-
-type StructPositionType = Parameters<
-    typeof calculateIndexFromPosition<"columnId" | "columnGroupId" | "structColumnShareModelId">
->[0];
 
 const descriptionAddStructColumnShareToTable = `\
 Adds an existing struct column share entry to a table's column list in a specified ERD document.
@@ -520,19 +637,7 @@ const initCallbackForAddStructColumnShareToTable = (
         }
 
         const wrapperColumn = new StructColumnModel({ structShareModelId: structColumnShareModelId });
-
-        const nextColumns = [...previousColumns];
-        const addIndex = calculateStructTargetIndex(previousDocument, nextColumns, position as StructPositionType);
-
-        nextColumns.splice(addIndex, 0, { modelType: "single" as const, columnModelId: wrapperColumn.columnModelId });
-
-        const updatingTable = new TableViewModel({
-            ...previousTableView,
-            tableModel: new TableModel({
-                ...previousTableView.tableModel,
-                columnEntries: nextColumns
-            })
-        });
+        const updatingTable = insertStructWrapperIntoTable(previousDocument, previousTableView, wrapperColumn, position);
 
         // ラッパー ColumnModel の追加とテーブルへの参照追加は、生存判定のため同一トランザクションで行う
         const nextDocument = previousDocument.updateTableViewWithColumns(updatingTable, [wrapperColumn]);
@@ -551,42 +656,12 @@ const initCallbackForAddStructColumnShareToTable = (
     };
 };
 
-const calculateStructTargetIndex = (
-    erdDocument: ErdDocument, columns: readonly ColumnEntry[], position: StructPositionType
-): number => {
-    if ("columnId" in position) {
-        const columnIdToIndex = (columnId: string) => columns
-            .findIndex(column => (column.modelType === "single") && (column.columnModelId === columnId));
-        return calculateIndexFromPosition(position, "columnId", columnIdToIndex, columns.length);
-    }
-
-    if ("columnGroupId" in position) {
-        const columnGroupIdToIndex = (columnGroupId: string) => columns
-            .findIndex(column => (column.modelType === "group") && (column.columnGroupId === columnGroupId));
-        return calculateIndexFromPosition(position, "columnGroupId", columnGroupIdToIndex, columns.length);
-    }
-
-    if ("structColumnShareModelId" in position) {
-        const structColumnShareModelIdToIndex = (structColumnShareModelId: string) => columns
-            .findIndex(column => {
-                if (column.modelType !== "single") {
-                    return false;
-                }
-                const columnModel = erdDocument.findColumnModel(column.columnModelId);
-                return (columnModel != null) && (columnModel.entityType === "struct")
-                    && (columnModel.structShareModelId === structColumnShareModelId);
-            });
-        return calculateIndexFromPosition(position, "structColumnShareModelId", structColumnShareModelIdToIndex, columns.length);
-    }
-
-    return calculateIndexFromPosition(position, "columnId", () => null, columns.length);
-};
-
 // ==================== remove-struct-column-from-table ====================
 
 const descriptionRemoveStructColumnShareFromTable = `\
 Removes a struct column share entry from a table's column list in a specified ERD document.
-The struct column share model itself is not deleted and can be reused or re-added later.
+The struct column share model itself remains only if still referenced elsewhere (another table,
+column group, or parent struct); otherwise it is cleaned up along with its unreferenced members.
 
 REQUEST:
 - documentId: ${DESCRIPTION_DOCUMENT_ID}
@@ -740,39 +815,45 @@ const buildStructMemberEntries = (
 };
 
 /**
- * updatingStruct を適用した場合に、struct 参照の循環 (自己参照・間接循環) が生じないかを検証する。
+ * updatingStructs を適用した場合に、struct 参照の循環 (自己参照・間接循環) が生じないかを検証する。
  * ネスト深さの妥当性チェックは行わない。
  *
- * @param erdDocument 現在のドキュメント (updatingStruct 適用前)
- * @param updatingStruct 検証対象の struct (作成・更新後の状態)
+ * @param erdDocument 現在のドキュメント (updatingStructs 適用前)
+ * @param updatingStructs 検証対象の struct 群 (作成・更新後の状態)
  */
 const validateNoStructCycle = (
-    erdDocument: ErdDocument, updatingStruct: StructColumnShareModel, addingWrapperColumns: readonly StructColumnModel[]
+    erdDocument: ErdDocument, updatingStructs: readonly StructColumnShareModel[],
+    addingWrapperColumns: readonly StructColumnModel[]
 ): void => {
-    const structId = findStructCycle(erdDocument, updatingStruct, addingWrapperColumns);
+    const structId = findStructCycle(erdDocument, updatingStructs, addingWrapperColumns);
     if (structId != null) {
         throw initInvalidParams(`Circular struct reference detected involving structColumnShareModelId: ${structId}`);
     }
 };
 
 /**
- * updatingStruct を起点に、struct 参照を DFS で辿り循環を検出する。
+ * updatingStructs の各要素を起点に、struct 参照を DFS で辿り循環を検出する。
  * struct メンバーは single エントリの ColumnModel を解決 (適用前のためドキュメント + 今回生成ラッパー群の両方から解決)
  * し、struct バリアントなら参照先 struct を辿る。group エントリはメンバー columnModelId を解決して同様に辿る。
+ * updatingStructs を配列で受けるのは、新規 struct とそれを参照する親 struct の更新のように、複数の struct を
+ * 同一トランザクションで検証する必要がある場合があるため。
  *
- * @param erdDocument 現在のドキュメント (updatingStruct 適用前)
- * @param updatingStruct 検証対象の struct (作成・更新後の状態)
+ * @param erdDocument 現在のドキュメント (updatingStructs 適用前)
+ * @param updatingStructs 検証対象の struct 群 (作成・更新後の状態)
  * @param addingWrapperColumns 今回新規生成したラッパー ColumnModel 群
- * @returns 循環を構成する structColumnShareModelId (updatingStruct 自身の ID を含む)。循環がなければ null
+ * @returns 循環を構成する structColumnShareModelId。循環がなければ null
  */
 const findStructCycle = (
-    erdDocument: ErdDocument, updatingStruct: StructColumnShareModel, addingWrapperColumns: readonly StructColumnModel[]
+    erdDocument: ErdDocument, updatingStructs: readonly StructColumnShareModel[],
+    addingWrapperColumns: readonly StructColumnModel[]
 ): string | null => {
     const visiting = new Set<string>();
     const addingWrapperMap = new Map(addingWrapperColumns.map(column => [column.columnModelId, column]));
+    const updatingStructMap = new Map(updatingStructs.map(struct => [struct.structShareModelId, struct]));
 
     const resolveStruct = (structColumnShareModelId: string): StructColumnShareModel | null => {
-        if (structColumnShareModelId === updatingStruct.structShareModelId) {
+        const updatingStruct = updatingStructMap.get(structColumnShareModelId);
+        if (updatingStruct != null) {
             return updatingStruct;
         }
         return erdDocument.findStructColumnShareModel(structColumnShareModelId);
@@ -824,7 +905,7 @@ const findStructCycle = (
         return hasCycle;
     };
 
-    return visit(updatingStruct.structShareModelId) ? updatingStruct.structShareModelId : null;
+    return updatingStructs.map(struct => struct.structShareModelId).find(structId => visit(structId)) ?? null;
 };
 
 const doFindDocumentAndStructColumnShare = (

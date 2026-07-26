@@ -29,6 +29,12 @@ import RelationViewModelStorage from '~/models/RelationViewModelStorage';
 import TableViewModel from '~/models/TableViewModel';
 import { requireProperty, toDateTime, toObjects } from '~/models/util';
 
+type ReachableModelIds = {
+    columnModelIds: Set<string>,
+    columnShareModelIds: Set<string>,
+    structShareModelIds: Set<string>
+};
+
 type ErdDocumentOptions = {
     documentName: string,
     erdSettingModel: ErdSettingModel,
@@ -131,13 +137,17 @@ export default class ErdDocument {
         const baseColumnModelMap = overrides.columnModelMap ?? this.columnModelMap;
         const baseShareStorage = overrides.columnShareModelStorage ?? this.columnShareStorage;
 
-        const nextColumnModelMap = hasShareRelatedChange
-            ? this.doPruneUnreferencedColumnModels(
-                baseColumnModelMap, nextTableViewModelMap, nextColumnGroupModelMap, baseShareStorage
-            ) : baseColumnModelMap;
-        const nextColumnShareStorage = this.doRetainShareModels(
-            hasShareRelatedChange, nextColumnModelMap, nextColumnGroupModelMap, baseShareStorage
-        );
+        const reachableModelIds = hasShareRelatedChange
+            ? this.doCollectReachableModelIds(
+                nextTableViewModelMap, nextColumnGroupModelMap, baseColumnModelMap, baseShareStorage
+            ) : null;
+        const nextColumnModelMap = (reachableModelIds == null) ? baseColumnModelMap
+            : this.doRetainColumnModels(baseColumnModelMap, reachableModelIds.columnModelIds);
+        const nextColumnShareStorage = (reachableModelIds == null) ? baseShareStorage
+            : baseShareStorage.retain(
+                reachableModelIds.columnShareModelIds, reachableModelIds.structShareModelIds,
+                new Set(nextColumnModelMap.keys()), new Set(nextColumnGroupModelMap.keys())
+            );
 
         return new ErdDocument(
             overrides.documentName ?? this.documentName,
@@ -155,61 +165,71 @@ export default class ErdDocument {
         );
     }
 
-    // ColumnModel の生存判定を、全更新経路が共通で通る doUpdate に集約するための追随処理。
-    // どのテーブル・カラムグループ・struct 定義からも single 参照されない ColumnModel を取り除く。
-    // 個々の更新操作は「自分が触った参照を外す」だけでよく、他コンテナからの参照有無を意識しない。
-    private doPruneUnreferencedColumnModels(
-        baseColumnModelMap: Map<string, ColumnModel>,
+    // テーブルとカラムグループを根に、single 参照と struct 定義を推移的に辿って生存モデルを確定する。
+    // ColumnGroupModel は明示削除でのみ消える管理対象のため、常に根として扱う。
+    // ワークリスト走査により、struct 削除に伴うメンバー・共有定義の連鎖的な孤立が一度の走査で収束する。
+    private doCollectReachableModelIds(
         nextTableViewModelMap: Map<string, TableViewModel>,
         nextColumnGroupModelMap: Map<string, ColumnGroupModel>,
+        baseColumnModelMap: Map<string, ColumnModel>,
         baseShareStorage: ColumnShareModelStorage
+    ): ReachableModelIds {
+        const rootColumnIdsFromTable = Array.from(nextTableViewModelMap.values())
+            .flatMap(tableViewModel => toSingleColumnIds(tableViewModel.tableModel.columnEntries));
+        const rootColumnIdsFromGroup = Array.from(nextColumnGroupModelMap.values())
+            .flatMap(groupModel => groupModel.columnModelIds);
+
+        const columnModelIds = new Set<string>();
+        const columnShareModelIds = new Set<string>();
+        const structShareModelIds = new Set<string>();
+        const pendingColumnModelIds = [...rootColumnIdsFromTable, ...rootColumnIdsFromGroup];
+
+        while (pendingColumnModelIds.length > 0) {
+            const columnModelId = pendingColumnModelIds.pop();
+            if ((columnModelId == null) || columnModelIds.has(columnModelId)) {
+                continue;
+            }
+            columnModelIds.add(columnModelId);
+
+            const columnModel = baseColumnModelMap.get(columnModelId);
+            if (columnModel == null) {
+                continue;
+            }
+            if (ColumnModel.isSimpleColumn(columnModel)) {
+                columnShareModelIds.add(columnModel.columnShareModelId);
+                continue;
+            }
+
+            const structShareModelId = columnModel.structShareModelId;
+            if (structShareModelIds.has(structShareModelId)) {
+                continue;
+            }
+            structShareModelIds.add(structShareModelId);
+
+            const structShareModel = baseShareStorage.findStructShare(structShareModelId);
+            if (structShareModel == null) {
+                continue;
+            }
+            pendingColumnModelIds.push(...toSingleColumnIds(structShareModel.columnEntries));
+        }
+
+        return { columnModelIds, columnShareModelIds, structShareModelIds };
+    }
+
+    private doRetainColumnModels(
+        baseColumnModelMap: Map<string, ColumnModel>, reachableColumnModelIds: ReadonlySet<string>
     ): Map<string, ColumnModel> {
-        const referencedByTable = new Set(
-            Array.from(nextTableViewModelMap.values())
-                .flatMap(tableViewModel => toSingleColumnIds(tableViewModel.tableModel.columnEntries))
-        );
-        const referencedByGroup = new Set(
-            Array.from(nextColumnGroupModelMap.values()).flatMap(groupModel => groupModel.columnModelIds)
-        );
-        const referencedByStruct = new Set(
-            baseShareStorage.getStructShareModels().flatMap(structModel => toSingleColumnIds(structModel.columnEntries))
-        );
+        const unreachableColumnModelIds = Array.from(baseColumnModelMap.keys())
+            .filter(columnModelId => (reachableColumnModelIds.has(columnModelId) === false));
 
-        const unreferencedColumnIds = Array.from(baseColumnModelMap.keys()).filter(columnModelId =>
-            (referencedByTable.has(columnModelId) === false)
-            && (referencedByGroup.has(columnModelId) === false)
-            && (referencedByStruct.has(columnModelId) === false)
-        );
-
-        if (unreferencedColumnIds.length === 0) {
+        if (unreachableColumnModelIds.length === 0) {
             return baseColumnModelMap;
         }
 
-        const prunedColumnModelMap = new Map(baseColumnModelMap);
-        unreferencedColumnIds.forEach(columnModelId => prunedColumnModelMap.delete(columnModelId));
+        const retainedColumnModelMap = new Map(baseColumnModelMap);
+        unreachableColumnModelIds.forEach(columnModelId => retainedColumnModelMap.delete(columnModelId));
 
-        return prunedColumnModelMap;
-    }
-
-    // 参照整合の維持を、全更新経路が共通で通る doUpdate に集約するための追随処理。
-    // 個々の更新操作は共有モデル側の整合を意識しない。
-    private doRetainShareModels(
-        hasShareRelatedChange: boolean,
-        nextColumnModelMap: Map<string, ColumnModel>,
-        nextColumnGroupModelMap: Map<string, ColumnGroupModel>,
-        baseShareStorage: ColumnShareModelStorage
-    ): ColumnShareModelStorage {
-        if (hasShareRelatedChange === false) {
-            return baseShareStorage;
-        }
-
-        const referencedColumnShareIds = Array.from(nextColumnModelMap.values())
-            .filter(ColumnModel.isSimpleColumn)
-            .map(columnModel => columnModel.columnShareModelId);
-        const existingColumnModelIds = new Set(nextColumnModelMap.keys());
-        const existingColumnGroupIds = new Set(nextColumnGroupModelMap.keys());
-
-        return baseShareStorage.retain(referencedColumnShareIds, existingColumnModelIds, existingColumnGroupIds);
+        return retainedColumnModelMap;
     }
 
     public getDatabase(): Database {
@@ -1102,23 +1122,24 @@ export default class ErdDocument {
     }
 
     /**
-     * 指定された StructColumnShare の追加もしくは更新を行う。
+     * 指定された StructColumnShare 群の追加もしくは更新を行う。
      * struct は PK・リレーション・unique/index に関与しないため、column-group の更新と異なりテーブル側の
      * インデクス・リレーション更新は発生しない。
      * 既存メンバーカラム自体の追加・更新は本メソッドの対象外(別途カラム操作 API を用いる)。
-     * addingWrapperColumns は、updatingModel が新規に参照するネスト struct のラッパー ColumnModel など、
-     * この更新と不可分な新規列を同一 doUpdate 内で反映するための引数。生存判定は参照有無で行われるため、
-     * ColumnModel の追加と、それを参照する struct 定義の更新は同一トランザクションで行う必要がある。
+     * updatingModels を配列で受けるのは、新規 struct の作成とそれを参照する親 struct の更新のように、
+     * 複数の struct 定義を同一トランザクションで反映する必要がある場合があるため(生存判定は参照有無で行われる)。
+     * addingWrapperColumns は、updatingModels が新規に参照するネスト struct のラッパー ColumnModel など、
+     * この更新と不可分な新規列を同一 doUpdate 内で反映するための引数。
      *
-     * @param updatingModel 更新対象
+     * @param updatingModels 更新対象の struct 群
      * @param addingWrapperColumns この更新に伴い新規に追加する ColumnModel (未指定なら追加なし)
      * @returns 操作後のモデル
      */
     public updateStructColumnShare(
-        updatingModel: StructColumnShareModel, addingWrapperColumns: readonly ColumnModel[] = []
+        updatingModels: readonly StructColumnShareModel[], addingWrapperColumns: readonly ColumnModel[] = []
     ): ErdDocument {
         // struct から外れたメンバーの生存判定は doUpdate に集約されており、他所から参照されていれば残る。
-        const nextColumnShareModelStorage = this.columnShareStorage.addStructShare(updatingModel);
+        const nextColumnShareModelStorage = this.columnShareStorage.addStructShare(...updatingModels);
 
         if (addingWrapperColumns.length === 0) {
             return this.doUpdate({
