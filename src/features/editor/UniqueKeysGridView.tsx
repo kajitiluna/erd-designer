@@ -7,6 +7,7 @@ import {
 
 import BaseGridView from '~/components/BaseGridView';
 import { ColumnShareModelStorageContext } from '~/context/ColumnShareModelStorageContext';
+import ColumnModel from '~/models/database/ColumnModel';
 import ColumnShareModel from '~/models/database/ColumnShareModel';
 import SimpleColumnModel from '~/models/database/SimpleColumnModel';
 import { Database } from '~/models/database/DatabaseType';
@@ -22,7 +23,9 @@ type UniqueKeysGridViewProps = {
     columnWrapModels: ColumnWrapModel[],
     tableUniqueKeysModels: TableUniqueKeysModel[],
     isChildRelation: (columnModelId: string) => boolean,
-    onUpdateTableUniqueKeysModels: (updateFunction: ((previous: TableUniqueKeysModel[]) => TableUniqueKeysModel[])) => void
+    onUpdateTableUniqueKeysModels: (
+        updateFunction: (previous: TableUniqueKeysModel[]) => TableUniqueKeysModel[]
+    ) => void
 };
 
 const UniqueKeysGridView = ({
@@ -37,11 +40,14 @@ const UniqueKeysGridView = ({
         if (model.modelType === "single") {
             return [model.columnModel];
         }
+
+        // struct はユニーク制約の候補から除外する
         if (model.modelType === "struct") {
-            return []; // struct はユニーク制約の候補から除外する
+            return [];
         }
 
-        return model.columnModels;
+        // group 内の struct も除外する
+        return model.columnModels.filter(ColumnModel.isSimpleColumn);
     });
 
     // 各ユニークキーに対する列順序のマッピングを計算

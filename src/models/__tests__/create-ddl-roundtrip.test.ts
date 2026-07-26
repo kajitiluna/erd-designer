@@ -795,6 +795,46 @@ describe('create-ddl / ddl-loader roundtrip (Snowflake)', () => {
         expect(ddl).not.toContain('COMMENT ON');
     });
 
+    test('renders a single-quoted COLLATE literal for Snowflake text columns', () => {
+        const nameColumnShare = new ColumnShareModel({
+            columnShareModelId: 'share-collate-name',
+            physicalName: 'name',
+            logicalName: 'Name',
+            columnType: findColumnType('snowflake', 'varchar (n)'),
+            precision: '100',
+            collate: 'en-ci'
+        });
+        const nameColumn = new SimpleColumnModel({
+            columnModelId: 'col-collate-name',
+            columnShareModelId: nameColumnShare.columnShareModelId,
+            physicalName: 'name'
+        });
+        const tableModel = new TableModel({
+            tableModelId: 'table-collate',
+            physicalName: 'people',
+            columnEntries: [{ modelType: 'single', columnModelId: nameColumn.columnModelId }] as ColumnEntry[]
+        });
+        const tableViewModel = new TableViewModel({
+            tableModel, corner: { top: 0, left: 0 }, headerColor: TEST_COLORS
+        });
+        const erdDocument = ErdDocument.create({
+            documentName: 'snowflake-collate',
+            erdSettingModel: ErdSettingModel.create('snowflake-collate'),
+            databaseSettingModel: DatabaseSettingModel.create('snowflake'),
+            schemaConfig: DbSchemaConfig.create(),
+            tableViewModels: [tableViewModel],
+            columnModels: [nameColumn],
+            columnShareModels: [nameColumnShare]
+        });
+
+        const ddl = createDdl(erdDocument, {
+            withTable: true, withIndex: false, withForeignKey: false, withSchema: false,
+            withComment: false, commentStyle: "logical_name", commentSeparator: " : "
+        });
+
+        expect(ddl).toContain("COLLATE 'en-ci'");
+    });
+
     test('reloads the generated DDL back into equivalent column definitions', () => {
         const sourceDocument = buildSnowflakeRoundtripDocument();
         const ddl = createDdl(sourceDocument, {
@@ -1176,6 +1216,85 @@ describe('create-ddl / ddl-loader roundtrip (BigQuery)', () => {
         // インデックスは CREATE INDEX 構文自体が存在しないため警告コメントのみ出力される
         expect(ddl).toContain('-- BigQuery: CREATE INDEX is not supported: idx_sample_price');
         expect(ddl).not.toMatch(/^\s*CREATE INDEX/m);
+    });
+
+    test('escapes a backslash before quotes in OPTIONS(description=...) so the string literal stays valid', () => {
+        const pathColumnShare = new ColumnShareModel({
+            columnShareModelId: 'share-backslash-path',
+            physicalName: 'path',
+            logicalName: 'path',
+            columnType: findColumnType('bigquery', 'string'),
+            description: 'See C:\\new\\path'
+        });
+        const pathColumn = new SimpleColumnModel({
+            columnModelId: 'col-backslash-path',
+            columnShareModelId: pathColumnShare.columnShareModelId,
+            physicalName: 'path'
+        });
+        const tableModel = new TableModel({
+            tableModelId: 'table-backslash',
+            physicalName: 'files',
+            columnEntries: [{ modelType: 'single', columnModelId: pathColumn.columnModelId }] as ColumnEntry[]
+        });
+        const tableViewModel = new TableViewModel({
+            tableModel, corner: { top: 0, left: 0 }, headerColor: TEST_COLORS
+        });
+        const erdDocument = ErdDocument.create({
+            documentName: 'bigquery-backslash',
+            erdSettingModel: ErdSettingModel.create('bigquery-backslash'),
+            databaseSettingModel: DatabaseSettingModel.create('bigquery'),
+            schemaConfig: DbSchemaConfig.create(),
+            tableViewModels: [tableViewModel],
+            columnModels: [pathColumn],
+            columnShareModels: [pathColumnShare]
+        });
+
+        const ddl = createDdl(erdDocument, {
+            withTable: true, withIndex: false, withForeignKey: false, withSchema: false,
+            withComment: true, commentStyle: "with_description", commentSeparator: " : "
+        });
+
+        // \ が \" より先にエスケープされないと、末尾の \ が閉じ引用符を巻き込み文字列が閉じない
+        expect(ddl).toContain('OPTIONS(description="path : See C:\\\\new\\\\path")');
+    });
+
+    test('renders a single-quoted COLLATE literal for BigQuery text columns', () => {
+        const nameColumnShare = new ColumnShareModel({
+            columnShareModelId: 'share-collate-name',
+            physicalName: 'name',
+            logicalName: 'Name',
+            columnType: findColumnType('bigquery', 'string'),
+            collate: 'und:ci'
+        });
+        const nameColumn = new SimpleColumnModel({
+            columnModelId: 'col-collate-name',
+            columnShareModelId: nameColumnShare.columnShareModelId,
+            physicalName: 'name'
+        });
+        const tableModel = new TableModel({
+            tableModelId: 'table-collate',
+            physicalName: 'people',
+            columnEntries: [{ modelType: 'single', columnModelId: nameColumn.columnModelId }] as ColumnEntry[]
+        });
+        const tableViewModel = new TableViewModel({
+            tableModel, corner: { top: 0, left: 0 }, headerColor: TEST_COLORS
+        });
+        const erdDocument = ErdDocument.create({
+            documentName: 'bigquery-collate',
+            erdSettingModel: ErdSettingModel.create('bigquery-collate'),
+            databaseSettingModel: DatabaseSettingModel.create('bigquery'),
+            schemaConfig: DbSchemaConfig.create(),
+            tableViewModels: [tableViewModel],
+            columnModels: [nameColumn],
+            columnShareModels: [nameColumnShare]
+        });
+
+        const ddl = createDdl(erdDocument, {
+            withTable: true, withIndex: false, withForeignKey: false, withSchema: false,
+            withComment: false, commentStyle: "logical_name", commentSeparator: " : "
+        });
+
+        expect(ddl).toContain("COLLATE 'und:ci'");
     });
 
     test('outputs the foreign key as ALTER TABLE with NOT ENFORCED and no ON UPDATE/DELETE clauses', () => {

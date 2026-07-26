@@ -453,7 +453,7 @@ describe('ErdDocument struct column share integration', () => {
     });
 
     describe('deleteColumnGroup should also clean struct references', () => {
-        test('should remove group reference and cascaded member references from struct columns', () => {
+        test('should remove only the group reference, keeping a member still directly referenced by the struct', () => {
             const groupMemberColumn = new SimpleColumnModel({ columnModelId: 'group-member', columnShareModelId: '' });
             const wrapperColumn = initStructWrapper('wrapper-1', 'struct-1');
             const groupModel = new ColumnGroupModel({
@@ -483,14 +483,19 @@ describe('ErdDocument struct column share integration', () => {
 
             const nextDocument = document.deleteColumnGroup('group-1');
 
+            // group-member はグループ削除後も struct 自身の single エントリから直接参照されているため生存する。
+            // 削除されたグループへの参照エントリのみが取り除かれる。
             const survivedStruct = nextDocument.findStructColumnShareModel('struct-1');
             expect(survivedStruct).not.toBeNull();
-            expect(survivedStruct?.columnEntries).toEqual([]);
+            expect(survivedStruct?.columnEntries).toEqual([
+                { modelType: 'single', columnModelId: 'group-member' }
+            ]);
+            expect(nextDocument.findColumnModel('group-member')).not.toBeNull();
         });
     });
 
     describe('updateColumnGroup should also clean struct references', () => {
-        test('should remove struct references to members dropped from the group', () => {
+        test('a member dropped from the group keeps its struct reference when still directly referenced there', () => {
             const keptMemberColumn = new SimpleColumnModel({ columnModelId: 'kept-member', columnShareModelId: '' });
             const removedMemberColumn = new SimpleColumnModel({ columnModelId: 'removed-member', columnShareModelId: '' });
             const wrapperColumn = initStructWrapper('wrapper-1', 'struct-1');
@@ -528,16 +533,64 @@ describe('ErdDocument struct column share integration', () => {
                 shrunkGroupModel, [keptMemberColumn], shareStorage
             );
 
+            // removed-member はグループから外れても、struct 自身の single エントリが変更されていないため生存する。
+            // グループ編集は struct 定義そのものに影響しない。
             const survivedStruct = nextDocument.findStructColumnShareModel('struct-1');
             expect(survivedStruct).not.toBeNull();
             expect(survivedStruct?.columnEntries).toEqual([
-                { modelType: 'single', columnModelId: 'kept-member' }
+                { modelType: 'single', columnModelId: 'kept-member' },
+                { modelType: 'single', columnModelId: 'removed-member' }
+            ]);
+            expect(nextDocument.findColumnModel('removed-member')).not.toBeNull();
+        });
+
+        test('should accept a struct wrapper column as a direct group member', () => {
+            const memberColumn = new SimpleColumnModel({ columnModelId: 'member-1', columnShareModelId: '' });
+            const structModel = new StructColumnShareModel({
+                structShareModelId: 'struct-1', physicalName: 'address',
+                columnEntries: [{ modelType: 'single', columnModelId: 'member-1' }]
+            });
+            const wrapperColumn = initStructWrapper('wrapper-1', 'struct-1');
+            const groupModel = new ColumnGroupModel({
+                columnGroupId: 'group-1', groupName: 'shared', columnModelIds: []
+            });
+            const tableModel = new TableModel({
+                tableModelId: 'table-1',
+                physicalName: 'users',
+                columnEntries: [{ modelType: 'group', columnGroupId: 'group-1' }]
+            });
+            const document = initDocument({
+                tableModels: [tableModel],
+                columnGroupModels: [groupModel],
+                structColumnShareModels: [structModel],
+                columnModels: [memberColumn, wrapperColumn]
+            });
+
+            const updatingGroupModel = new ColumnGroupModel({
+                ...groupModel, columnModelIds: ['wrapper-1']
+            });
+            const shareStorage = document.getColumnShareModelStorage();
+            const nextDocument = document.updateColumnGroup(
+                updatingGroupModel, [wrapperColumn], shareStorage
+            );
+
+            const survivedGroup = nextDocument.findColumnGroupModel('group-1');
+            expect(survivedGroup?.columnModelIds).toEqual(['wrapper-1']);
+
+            const survivedWrapper = nextDocument.findColumnModel('wrapper-1');
+            expect(survivedWrapper).not.toBeNull();
+            expect(survivedWrapper?.entityType).toBe('struct');
+
+            // struct 自体はグループ経由でも参照が保たれ、ダングリング掃除の対象にならない
+            const survivedStruct = nextDocument.findStructColumnShareModel('struct-1');
+            expect(survivedStruct?.columnEntries).toEqual([
+                { modelType: 'single', columnModelId: 'member-1' }
             ]);
         });
     });
 
     describe('dangling reference cleanup on column deletion', () => {
-        test('updateTableViewWithColumns should clean struct references when a single column is removed', () => {
+        test('updateTableViewWithColumns keeps a column and its struct reference when the column is still a struct member', () => {
             const memberColumn = new SimpleColumnModel({ columnModelId: 'member-1', columnShareModelId: '' });
             const wrapperColumn = initStructWrapper('wrapper-1', 'struct-1');
             const structModel = new StructColumnShareModel({
@@ -570,12 +623,42 @@ describe('ErdDocument struct column share integration', () => {
 
             const nextDocument = document.updateTableViewWithColumns(nextTableView, [wrapperColumn]);
 
+            // member-1 はテーブルから外れても struct-1 の single エントリから直接参照されているため生存する。
+            // 以前はテーブルの旧エントリを無条件に削除しており、共有カラムが無警告で消えるバグがあった。
             const survivedStruct = nextDocument.findStructColumnShareModel('struct-1');
             expect(survivedStruct).not.toBeNull();
-            expect(survivedStruct?.columnEntries).toEqual([]);
+            expect(survivedStruct?.columnEntries).toEqual([
+                { modelType: 'single', columnModelId: 'member-1' }
+            ]);
+            expect(nextDocument.findColumnModel('member-1')).not.toBeNull();
         });
 
-        test('deleteTable should clean struct references to columns owned by the deleted table', () => {
+        test('updateTableViewWithColumns prunes a column with no remaining reference anywhere', () => {
+            const memberColumn = new SimpleColumnModel({ columnModelId: 'member-1', columnShareModelId: '' });
+            const tableModel = new TableModel({
+                tableModelId: 'table-1',
+                physicalName: 'users',
+                columnEntries: [{ modelType: 'single', columnModelId: 'member-1' }]
+            });
+            const document = initDocument({
+                tableModels: [tableModel],
+                columnModels: [memberColumn]
+            });
+
+            const nextTableModel = new TableModel({ ...tableModel, columnEntries: [] });
+            const nextTableView = new TableViewModel({
+                tableModel: nextTableModel,
+                corner: { top: 0, left: 0 },
+                headerColor: HEADER_COLOR
+            });
+
+            const nextDocument = document.updateTableViewWithColumns(nextTableView, []);
+
+            // 他のどこからも参照されない場合は、これまでどおり取り除かれる。
+            expect(nextDocument.findColumnModel('member-1')).toBeNull();
+        });
+
+        test('deleteTable keeps a column and its struct reference when the column is still a struct member', () => {
             const memberColumn = new SimpleColumnModel({ columnModelId: 'member-1', columnShareModelId: '' });
             const wrapperColumn = initStructWrapper('wrapper-1', 'struct-1');
             const structModel = new StructColumnShareModel({
@@ -600,9 +683,13 @@ describe('ErdDocument struct column share integration', () => {
 
             const nextDocument = document.deleteTable('table-owner');
 
+            // member-1 は所有テーブルが削除されても struct-1 から直接参照されているため生存する。
             const survivedStruct = nextDocument.findStructColumnShareModel('struct-1');
             expect(survivedStruct).not.toBeNull();
-            expect(survivedStruct?.columnEntries).toEqual([]);
+            expect(survivedStruct?.columnEntries).toEqual([
+                { modelType: 'single', columnModelId: 'member-1' }
+            ]);
+            expect(nextDocument.findColumnModel('member-1')).not.toBeNull();
         });
     });
 

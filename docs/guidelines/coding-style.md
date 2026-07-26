@@ -188,7 +188,7 @@ A method that repairs or re-synchronises internal data (cleanup / prune of dangl
 storage.deleteColumnShare(orphanedIds).cleanupDanglingStructReferences(columnIds);
 
 // OK — common update path passes facts; the storage decides internally
-storage.deleteUnreferencedModels(referencedShareIds, existingColumnIds, existingGroupIds);
+storage.retain(referencedShareIds, existingColumnIds, existingGroupIds);
 ```
 
 Not enforced by ESLint — manual review rule.
@@ -226,5 +226,20 @@ class DdlCreator {
 ```
 
 Exception: only when the order is impossible — a value evaluated at module load (`const CONFIG = buildConfig();`) or anything else that would break compilation (TDZ).
+
+Not enforced by ESLint — manual review rule.
+
+## 15. Public method names state what the caller wants, not how the class decides
+
+A public name that encodes the internal strategy (`deleteUnreferencedXxx`, `cleanupDanglingXxx`, `pruneOrphanedXxx`) forces callers to work out which method matches their situation — that is internal detail leaking through the API. Name the caller's intent; keep strategy words for private members.
+
+```ts
+// NG — the name publishes the deletion strategy
+storage.deleteUnreferencedModels(referencedShareIds, existingColumnIds, existingGroupIds);
+
+// OK — explicit target, or "keep what still matches"
+storage.deleteStructShare(structShareModelIds);
+storage.retain(referencedColumnShareIds, existingColumnModelIds, existingColumnGroupIds);
+```
 
 Not enforced by ESLint — manual review rule.

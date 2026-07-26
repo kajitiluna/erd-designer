@@ -125,14 +125,14 @@ const databases: { [key in DatabaseType]: Database } = {
         "bigquery", "BigQuery",
         new TableUniqueKeySupport({ orderable: false, supportsUniqueKey: false }),
         new TableIndexSupport({ indexOptions: [], indexTypes: [], supportsIndex: false }),
-        { supportsSchema: true, supportsTableCollate: false, collatePattern: /^[a-zA-Z][a-zA-Z0-9_.-]*$/ } as const,
+        { supportsSchema: true, supportsTableCollate: false, collatePattern: /^[a-zA-Z][a-zA-Z0-9_.:-]*$/ } as const,
         { autoIncrementLabel: "", editableCharacterSet: false, supportArray: true, supportStruct: true } as const
     ),
     "snowflake": new Database(
         "snowflake", "Snowflake",
         new TableUniqueKeySupport({ orderable: false }),
         new TableIndexSupport({ indexOptions: [], indexTypes: [], supportsIndex: false }),
-        { supportsSchema: true, supportsTableCollate: false, collatePattern: /^[a-zA-Z][a-zA-Z0-9_.-]*$/ } as const,
+        { supportsSchema: true, supportsTableCollate: false, collatePattern: /^[a-zA-Z][a-zA-Z0-9_.:-]*$/ } as const,
         { autoIncrementLabel: "Autoincrement", editableCharacterSet: false, supportArray: false, supportStruct: false } as const
     ),
 };

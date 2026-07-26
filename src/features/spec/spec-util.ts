@@ -1,5 +1,22 @@
+import { DatabaseType } from "~/models/database";
 import { TableIndexType } from "~/models/database/TableIndexSupport";
 import { SortOrderType } from "~/models/database/ValueType";
+
+// 仕様書の自動採番列ヘッダ。ColumnEditDialog が使う Database.autoIncrementLabel() は
+// DB ごとの正式名称 (例: "Generated Always As Identity") で、Excel / スプレッドシートの
+// 列幅に収まらず帳票の見た目を壊すため、仕様書では Identity / Increment の 2 語に固定する。
+// Identity と呼ぶのは MS SQL Server のみ。空文字は自動採番機能を持たない DB を表し、列自体を出力しない。
+export const autoIncrementLabel = (databaseType: DatabaseType): string => {
+    if (databaseType === "ms_sqlserver") {
+        return "Identity";
+    }
+
+    if ((databaseType === "sqlite") || (databaseType === "bigquery")) {
+        return "";
+    }
+
+    return "Increment";
+};
 
 export type TableListSpecGenerator = Generator<TableListSpec, void, unknown>
 type TableListSpec = {

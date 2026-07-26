@@ -55,9 +55,11 @@ type ForeignKeyQueryArgs = {
 
 type DatabaseDdlCreatorArgs = {
     tableQueryWithOption: (query: string, tableModel: TableModel, option: DdlOption) => string,
-    columnQueryWithOption?: (query: string, columnShare: ColumnShareModel, overrideName: OverrideName, option: DdlOption) => string,
+    columnQueryWithOption?: (
+        query: string, columnShare: ColumnShareModel, overrideName: OverrideName, option: DdlOption
+    ) => string,
     structColumnQueryWithOption?: (
-        query: string, structModel: StructColumnShareModel, overrideName: OverrideName, option: DdlOption
+        query: string, structShare: StructColumnShareModel, overrideName: OverrideName, option: DdlOption
     ) => string,
     indexQuery: (args: IndexQueryArgs) => string,
     foreignKeyQuery?: (args: ForeignKeyQueryArgs) => string,
@@ -73,40 +75,45 @@ type DatabaseDdlCreatorArgs = {
 class DatabaseDdlCreator {
 
     private readonly tableQueryWithOption: (query: string, tableModel: TableModel, option: DdlOption) => string;
+
     private readonly columnQueryWithOption: (
         query: string, columnShare: ColumnShareModel, overrideName: OverrideName, option: DdlOption
     ) => string;
+
     private readonly structColumnQueryWithOption: (
-        query: string, structModel: StructColumnShareModel, overrideName: OverrideName, option: DdlOption
+        query: string, structShare: StructColumnShareModel, overrideName: OverrideName, option: DdlOption
     ) => string;
-    private readonly indexQuery: (args: IndexQueryArgs) => string;
-    private readonly foreignKeyQuery: (args: ForeignKeyQueryArgs) => string;
+
     private readonly primaryKeyQuery: (columns: string[]) => string;
     private readonly supportsUniqueKey: boolean;
+    private readonly autoIncrementKeyword: string;
+    private readonly indexQuery: (args: IndexQueryArgs) => string;
+    private readonly foreignKeyQuery: (args: ForeignKeyQueryArgs) => string;
+
     private readonly commentQuery: (
         erdDocument: ErdDocument, option: DdlOption, escape: (value: string) => string
     ) => string[];
-    private readonly autoIncrementKeyword: string;
+
     private readonly reservedWords: Set<string>;
     private readonly escapeString: (value: string) => string;
     private readonly escapeCollate: ((value: string) => string);
 
     constructor({
         tableQueryWithOption, columnQueryWithOption = (query: string) => query,
-        structColumnQueryWithOption = (query: string) => query, indexQuery,
-        foreignKeyQuery = foreignKeyQueryForAlter, primaryKeyQuery = primaryKeyQueryForConstraint,
-        supportsUniqueKey = true, commentQuery,
-        autoIncrementKeyword, reservedWords, escapeString, escapeCollate = (value: string) => value
+        structColumnQueryWithOption = (query: string) => query,
+        primaryKeyQuery = primaryKeyQueryForConstraint,
+        supportsUniqueKey = true, autoIncrementKeyword, indexQuery, foreignKeyQuery = foreignKeyQueryForAlter,
+        commentQuery, reservedWords, escapeString, escapeCollate = (value: string) => value
     }: DatabaseDdlCreatorArgs) {
         this.tableQueryWithOption = tableQueryWithOption;
         this.columnQueryWithOption = columnQueryWithOption;
         this.structColumnQueryWithOption = structColumnQueryWithOption;
-        this.indexQuery = indexQuery;
-        this.foreignKeyQuery = foreignKeyQuery;
         this.primaryKeyQuery = primaryKeyQuery;
         this.supportsUniqueKey = supportsUniqueKey;
-        this.commentQuery = commentQuery;
         this.autoIncrementKeyword = autoIncrementKeyword;
+        this.indexQuery = indexQuery;
+        this.foreignKeyQuery = foreignKeyQuery;
+        this.commentQuery = commentQuery;
         this.reservedWords = new Set(reservedWords);
         this.escapeString = escapeString;
         this.escapeCollate = escapeCollate;
@@ -695,9 +702,11 @@ const tableQueryForMySql = (query: string, tableModel: TableModel, option: DdlOp
 };
 
 const columnQueryForMySql = (
-    query: string, column: ColumnShareModel, overrideName: OverrideName, option: DdlOption
+    query: string, columnShare: ColumnShareModel, overrideName: OverrideName, option: DdlOption
 ) => {
-    const columnComment = initComment(overrideName.physicalName, overrideName.logicalName, column.description, option);
+    const columnComment = initComment(
+        overrideName.physicalName, overrideName.logicalName, columnShare.description, option
+    );
 
     return (columnComment !== "") ? `${query} COMMENT '${escapeComment(columnComment)}'` : query;
 };
@@ -714,22 +723,29 @@ const tableQueryForBigQuery = (query: string, tableModel: TableModel, option: Dd
 };
 
 const columnQueryForBigQuery = (
-    query: string, column: ColumnShareModel, overrideName: OverrideName, option: DdlOption
+    query: string, columnShare: ColumnShareModel, overrideName: OverrideName, option: DdlOption
 ) => {
-    const comment = initComment(overrideName.physicalName, overrideName.logicalName, column.description, option);
-    return (comment !== "") ? `${query} OPTIONS(description="${escapeBigQueryOptionDescription(comment)}")` : query;
+    return initBigQueryDescriptionOption(query, columnShare.description, overrideName, option);
 };
 
 const structColumnQueryForBigQuery = (
-    query: string, structModel: StructColumnShareModel, overrideName: OverrideName, option: DdlOption
+    query: string, structShare: StructColumnShareModel, overrideName: OverrideName, option: DdlOption
 ) => {
-    const comment = initComment(overrideName.physicalName, overrideName.logicalName, structModel.description, option);
+    return initBigQueryDescriptionOption(query, structShare.description, overrideName, option);
+};
+
+// simple 行と struct 行でコメント出典モデルは異なるが、BigQuery の OPTIONS 句の組み立ては共通。
+const initBigQueryDescriptionOption = (
+    query: string, description: string, overrideName: OverrideName, option: DdlOption
+) => {
+    const comment = initComment(overrideName.physicalName, overrideName.logicalName, description, option);
     return (comment !== "") ? `${query} OPTIONS(description="${escapeBigQueryOptionDescription(comment)}")` : query;
 };
 
-// BigQuery の OPTIONS(description="...") は二重引用符で囲むため、`"` と改行をエスケープする
+// BigQuery の OPTIONS(description="...") は二重引用符で囲むため、\ と " と改行をエスケープする。
+// \ は他のエスケープを二重適用しないよう最初に置換する。
 const escapeBigQueryOptionDescription = (value: string): string => {
-    return value.replaceAll('"', '\\"').replaceAll("\n", "\\n");
+    return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("\n", "\\n");
 };
 
 const primaryKeyQueryForBigQuery = (columns: string[]): string => {
@@ -762,9 +778,11 @@ const tableQueryForSnowflake = (query: string, tableModel: TableModel, option: D
 };
 
 const columnQueryForSnowflake = (
-    query: string, column: ColumnShareModel, overrideName: OverrideName, option: DdlOption
+    query: string, columnShare: ColumnShareModel, overrideName: OverrideName, option: DdlOption
 ) => {
-    const columnComment = initComment(overrideName.physicalName, overrideName.logicalName, column.description, option);
+    const columnComment = initComment(
+        overrideName.physicalName, overrideName.logicalName, columnShare.description, option
+    );
 
     return (columnComment !== "") ? `${query} COMMENT '${escapeComment(columnComment)}'` : query;
 };
@@ -826,6 +844,11 @@ const initColumnCommentQueryForPostgres = (
 
 const escapeComment = (comment: string) => {
     return comment.replaceAll("'", '"');
+};
+
+// BigQuery / Snowflake の COLLATE は単一引用符の文字列リテラルを要求する (例: COLLATE 'und:ci')
+const escapeCollateWithSingleQuote = (collate: string): string => {
+    return `'${collate.replaceAll("'", "''")}'`;
 };
 
 const commentQueryForSqlite = (
@@ -961,7 +984,8 @@ const exportConfigs: { [key in DatabaseType]: DatabaseDdlCreator } = {
         commentQuery: () => [],
         autoIncrementKeyword: "",
         reservedWords: [...commonReservedWords, ...bigqueryReservedWords],
-        escapeString: (value: string) => '`' + value + '`' // BigQuery uses backticks as escape character
+        escapeString: (value: string) => '`' + value + '`', // BigQuery uses backticks as escape character
+        escapeCollate: escapeCollateWithSingleQuote
     }),
 
     "snowflake": new DatabaseDdlCreator({
@@ -971,6 +995,7 @@ const exportConfigs: { [key in DatabaseType]: DatabaseDdlCreator } = {
         commentQuery: () => [],
         autoIncrementKeyword: "AUTOINCREMENT",
         reservedWords: [...commonReservedWords, ...snowflakeReservedWords],
-        escapeString: (value: string) => `"${value}"` // Snowflake uses double quotes as escape character
+        escapeString: (value: string) => `"${value}"`, // Snowflake uses double quotes as escape character
+        escapeCollate: escapeCollateWithSingleQuote
     })
 };

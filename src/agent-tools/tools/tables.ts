@@ -9,7 +9,8 @@ import { toRelationSummary } from "~/agent-tools/tools/relations";
 import {
     colorValueSchema, DESCRIPTION_DOCUMENT_ID, McpRegisterConfig, McpServerRegisterResourceTemplateArgs,
     McpServerRegisterToolArgs, findDocument, findDocumentAndTable, initInvalidParams, initResourceNotFound,
-    initResourceResponse, initToolJsonResponse, searchParameters, validatePhysicalName
+    initResourceResponse, initToolJsonResponse, searchParameters, validatePhysicalName,
+    validateSupportsIndex, validateSupportsUniqueKey
 } from "~/agent-tools/tools/support";
 import { toNextOrthogonalLines } from "~/features/canvas/support";
 import ColorValue from "~/models/ColorValue";
@@ -1147,6 +1148,7 @@ const initCallbackForAddUniqueConstraint = (
     return async ({ documentId, tableId, uniqueConstraints }) => {
         const { erdBudget, erdDocument: previousDocument, tableView: previousTableView } =
             findDocumentAndTable(documentResource, documentId, tableId);
+        validateSupportsUniqueKey(previousDocument);
 
         const previousTable = previousTableView.tableModel;
         const nextUniqueKeysModels = [...previousTable.uniqueKeysModels];
@@ -1439,6 +1441,7 @@ const initCallbackForAddTableIndex = (
     return async ({ documentId, tableId, tableIndexes }) => {
         const { erdBudget, erdDocument: previousDocument, tableView: previousTableView } =
             findDocumentAndTable(documentResource, documentId, tableId);
+        validateSupportsIndex(previousDocument);
 
         const previousTable = previousTableView.tableModel;
         const nextTableIndexModels = [...previousTable.tableIndexModels];

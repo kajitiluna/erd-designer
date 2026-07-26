@@ -80,6 +80,7 @@ const ColumnGroupView = ({ isOpen, viewMode, onSelect = () => { }, onClose }: Co
         </>);
     };
 
+    // 削除確認ダイアログを閉じる (削除を実行せず選択は維持する)
     const handleCloseDialog = () => reset();
     const handleDeleteGroup = () => {
         if (selectedItem == null) {
@@ -126,7 +127,7 @@ const ColumnGroupView = ({ isOpen, viewMode, onSelect = () => { }, onClose }: Co
             <ColumnGroupEditDialog
                 isOpen={editMode != null}
                 columnGroup={selectedItem}
-                onClose={handleCloseDialog} />
+                onClose={() => reset(true)} />
         )}
         {deleteDialog}
     </>);

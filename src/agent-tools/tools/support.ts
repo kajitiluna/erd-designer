@@ -6,6 +6,7 @@ import z, { ZodRawShape } from "zod";
 
 import { DocumentResource } from "~/agent-tools/DocumentResource";
 import { uriTemplates } from "~/agent-tools/DocumentBudget";
+import ErdDocument from "~/models/ErdDocument";
 
 export const McpErrorCode = {
     ResourceNotFound: -32002,
@@ -191,6 +192,20 @@ export const initToolJsonResponse = (response: object | unknown[]) => {
 };
 
 export const initInvalidParams = (message: string) => new McpError(McpErrorCode.InvalidParams, message);
+
+export const validateSupportsIndex = (erdDocument: ErdDocument): void => {
+    const database = erdDocument.getDatabase();
+    if (database.tableIndexSupport.supportsIndex === false) {
+        throw initInvalidParams(`Index is not supported by the database : ${database.name}`);
+    }
+};
+
+export const validateSupportsUniqueKey = (erdDocument: ErdDocument): void => {
+    const database = erdDocument.getDatabase();
+    if (database.uniqueKeySupport.supportsUniqueKey === false) {
+        throw initInvalidParams(`Unique key is not supported by the database : ${database.name}`);
+    }
+};
 
 const PHYSICAL_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 

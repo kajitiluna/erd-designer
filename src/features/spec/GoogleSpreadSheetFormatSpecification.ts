@@ -1,8 +1,9 @@
 import createSpecification from "~/features/spec/create-specification";
 import {
-    ColumnListSpecGenerator, TableDetailSpec, TableIndexSpec, TableListSpecGenerator, UniqueKeyConstraintSpec
+    autoIncrementLabel, ColumnListSpecGenerator, TableDetailSpec, TableIndexSpec, TableListSpecGenerator,
+    UniqueKeyConstraintSpec
 } from "~/features/spec/spec-util";
-import { DatabaseType } from "~/models/database";
+import { Database, DatabaseType } from "~/models/database";
 import ErdDocument from "~/models/ErdDocument";
 
 const exportSpreadSheetFormatSpecification = (erdDocument: ErdDocument) => {
@@ -90,14 +91,14 @@ const initColumnHeader = (databaseType: DatabaseType, withTableInfo: boolean = t
         { title: "Unsigned", key: "unsigned", horizontalAlignment: "CENTER", width: 60 }
     ] : [];
 
+    const incrementLabel = autoIncrementLabel(databaseType);
     const header3 = [
         { title: "PK", key: "primaryKey", horizontalAlignment: "CENTER", width: 35 },
         { title: "NotNull", key: "notNull", horizontalAlignment: "CENTER", width: 50 },
         { title: "Unique", key: "unique", horizontalAlignment: "CENTER", width: 50 },
-        {
-            title: isMySqlCompatible ? "Increment" : "Identity",
-            key: "autoIncrement", horizontalAlignment: "CENTER", width: 55
-        },
+        ...((incrementLabel !== "") ? [{
+            title: incrementLabel, key: "autoIncrement", horizontalAlignment: "CENTER", width: 55
+        }] : []),
         { title: "Default", key: "defaultValue", width: 75 },
         { title: "Foreign Key", key: "foreignRelation", width: 120 },
         { title: "Description", key: "description", wrapText: true, width: 350 },
@@ -207,12 +208,13 @@ const createTableSpecSheet = (databaseType: DatabaseType, tableSpec: TableDetail
 const initUniqueKeyConstraintContent = (
     startRow: number, databaseType: DatabaseType, uniqueKeySpec: UniqueKeyConstraintSpec
 ) => {
-    const subHeaders = (databaseType === "postgres")
-        ? [{ title: "ColumnName (physical)", key: "physicalName" }]
-        : [
+    const showsSortOrder = Database.get(databaseType).uniqueKeySupport.orderable;
+    const subHeaders = showsSortOrder
+        ? [
             { title: "ColumnName (physical)", key: "physicalName" },
             { title: "Sort Order", key: "sortOrder" }
-        ];
+        ]
+        : [{ title: "ColumnName (physical)", key: "physicalName" }];
 
     const records = [
         { title: "ConstraintName", value: uniqueKeySpec.constraintName },
@@ -240,7 +242,7 @@ const initUniqueKeyConstraintContent = (
             startColumnIndex: 0, endColumnIndex: 1
         },
     ].concat(
-        (databaseType !== "postgres") ? [] : [
+        showsSortOrder ? [] : [
             { startRowIndex: startRow + 2, endRowIndex: startRow + 3, startColumnIndex: 1, endColumnIndex },
             ...uniqueKeySpec.uniqueKeyColumns.map((_, index) => {
                 return {

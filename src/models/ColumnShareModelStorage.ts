@@ -29,7 +29,7 @@ export default class ColumnShareModelStorage {
         return new ColumnShareModelStorage(columnMapping, structMapping);
     }
 
-    getColumnShareModels(): ColumnShareModel[] {
+    public getColumnShareModels(): ColumnShareModel[] {
         return Array.from(this.columnShareModelMap.values())
             .sort((first, second) => {
                 const physicalNameResult = first.physicalName.localeCompare(second.physicalName, "en");
@@ -49,7 +49,7 @@ export default class ColumnShareModelStorage {
             });
     }
 
-    findColumnShare(columnShareModelId: string): ColumnShareModel | null {
+    public findColumnShare(columnShareModelId: string): ColumnShareModel | null {
         if (columnShareModelId === "") {
             return null;
         }
@@ -62,7 +62,7 @@ export default class ColumnShareModelStorage {
         return model;
     }
 
-    addColumnShare(...columnShareModels: ColumnShareModel[]): ColumnShareModelStorage {
+    public addColumnShare(...columnShareModels: ColumnShareModel[]): ColumnShareModelStorage {
         if (columnShareModels.length === 0) {
             return this;
         }
@@ -74,20 +74,7 @@ export default class ColumnShareModelStorage {
         return new ColumnShareModelStorage(nextShareModelMap, this.structShareModelMap);
     }
 
-    private deleteColumnShare(columnShareModelIds: string[]): ColumnShareModelStorage {
-        if (columnShareModelIds.length === 0) {
-            return this;
-        }
-
-        const nextShareModelMap = new Map(this.columnShareModelMap);
-        columnShareModelIds.forEach(
-            columnShareModelId => nextShareModelMap.delete(columnShareModelId)
-        );
-
-        return new ColumnShareModelStorage(nextShareModelMap, this.structShareModelMap);
-    }
-
-    getStructShareModels(): StructColumnShareModel[] {
+    public getStructShareModels(): StructColumnShareModel[] {
         if (this.structShareModelMap.size === 0) {
             return [];
         }
@@ -103,7 +90,7 @@ export default class ColumnShareModelStorage {
             });
     }
 
-    findStructShare(structShareModelId: string): StructColumnShareModel | null {
+    public findStructShare(structShareModelId: string): StructColumnShareModel | null {
         if (structShareModelId === "") {
             return null;
         }
@@ -116,7 +103,7 @@ export default class ColumnShareModelStorage {
         return model;
     }
 
-    addStructShare(...structShareModels: StructColumnShareModel[]): ColumnShareModelStorage {
+    public addStructShare(...structShareModels: StructColumnShareModel[]): ColumnShareModelStorage {
         if (structShareModels.length === 0) {
             return this;
         }
@@ -128,7 +115,7 @@ export default class ColumnShareModelStorage {
         return new ColumnShareModelStorage(this.columnShareModelMap, nextStructShareModelMap);
     }
 
-    deleteStructShare(structShareModelIds: string[]): ColumnShareModelStorage {
+    public deleteStructShare(structShareModelIds: string[]): ColumnShareModelStorage {
         if (structShareModelIds.length === 0) {
             return this;
         }
@@ -142,40 +129,48 @@ export default class ColumnShareModelStorage {
     }
 
     /**
-     * ドキュメント側で存在・参照が失われたモデルへの追随削除を行う。
-     * どの simple カラムからも参照されない ColumnShareModel を削除し、全 StructColumnShareModel
-     * の columnEntries から現存しないカラム・カラムグループへの参照エントリを除去する。
-     * 判定材料 (残存カラムの参照・現存 ID) はドキュメント側が所有する事実のため引数で受け、
-     * どのモデルを削除するかの判断は本クラス内部で完結する。
-     * StructColumnShareModel 自体は明示的な削除操作 (deleteStructShare) でのみ削除され、対象外。
+     * 渡された ID 群に整合する要素だけを残す。
+     * ColumnShareModel は referencedColumnShareIds に無いものが取り除かれ、
+     * StructColumnShareModel の columnEntries からは existing~ に無い参照エントリが取り除かれる。
+     * StructColumnShareModel 自体は本操作の対象外 (明示的な削除操作 deleteStructShare でのみ削除される)。
      *
      * @param referencedColumnShareIds 残存カラムが参照している columnShareModelId 一覧
      * @param existingColumnModelIds 現存する columnModelId 一覧
      * @param existingColumnGroupIds 現存する columnGroupId 一覧
      * @returns 更新後の ColumnShareModelStorage (変更がない場合は自身を返す)
      */
-    deleteUnreferencedModels(
+    public retain(
         referencedColumnShareIds: readonly string[],
-        existingColumnModelIds: readonly string[],
-        existingColumnGroupIds: readonly string[]
+        existingColumnModelIds: ReadonlySet<string>,
+        existingColumnGroupIds: ReadonlySet<string>
     ): ColumnShareModelStorage {
-        const referencedShareIdSet = new Set(referencedColumnShareIds);
-        const unreferencedShareIds = Array.from(this.columnShareModelMap.keys())
-            .filter(columnShareModelId => (referencedShareIdSet.has(columnShareModelId) === false));
+        const referencedColumnShareIdSet = new Set(referencedColumnShareIds);
+        const unreferencedColumnShareIds = Array.from(this.columnShareModelMap.keys())
+            .filter(columnShareId => (referencedColumnShareIdSet.has(columnShareId) === false));
 
-        const afterShareDeleted = this.deleteColumnShare(unreferencedShareIds);
+        const afterShareDeleted = this.deleteColumnShare(unreferencedColumnShareIds);
         return afterShareDeleted.deleteDanglingColumnEntries(existingColumnModelIds, existingColumnGroupIds);
+    }
+
+    private deleteColumnShare(columnShareIds: string[]): ColumnShareModelStorage {
+        if (columnShareIds.length === 0) {
+            return this;
+        }
+
+        const nextShareModelMap = new Map(this.columnShareModelMap);
+        columnShareIds.forEach(
+            columnShareModelId => nextShareModelMap.delete(columnShareModelId)
+        );
+
+        return new ColumnShareModelStorage(nextShareModelMap, this.structShareModelMap);
     }
 
     // 全 StructColumnShareModel の columnEntries から、現存しないカラム・カラムグループへの
     // 参照エントリを除去する。single/group 両参照の判定は同種の1走査のため統合している。
     // ネストした struct 参照はラッパー ColumnModel への single 参照のため columnModelId 側で判定される。
     private deleteDanglingColumnEntries(
-        existingColumnModelIds: readonly string[],
-        existingColumnGroupIds: readonly string[]
+        existingColumnIdSet: ReadonlySet<string>, existingGroupIdSet: ReadonlySet<string>
     ): ColumnShareModelStorage {
-        const existingColumnIdSet = new Set(existingColumnModelIds);
-        const existingGroupIdSet = new Set(existingColumnGroupIds);
 
         let hasChanged = false;
         const nextStructShareModelMap = new Map(this.structShareModelMap);
@@ -202,7 +197,7 @@ export default class ColumnShareModelStorage {
         return hasChanged ? new ColumnShareModelStorage(this.columnShareModelMap, nextStructShareModelMap) : this;
     }
 
-    copy(): ColumnShareModelStorage {
+    public copy(): ColumnShareModelStorage {
         return new ColumnShareModelStorage(new Map(this.columnShareModelMap), new Map(this.structShareModelMap));
     }
 

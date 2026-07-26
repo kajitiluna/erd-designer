@@ -1,3 +1,4 @@
+import { expandColumnRows } from "~/models/column-row-expansion";
 import ErdDocument from "~/models/ErdDocument";
 import ColumnModel from "~/models/database/ColumnModel";
 import DisplayStyle from "~/models/database/DisplayStyle";
@@ -129,10 +130,10 @@ const initTableSvg = (erdDocument: ErdDocument) => {
       pkColumnWidth, fkColumnWidth, nameColumnWidth, typeColumnWidth
     };
 
-    const columnRows = expandColumnsWithStruct(erdDocument, allColumns, 0);
+    const columnRows = expandColumnRows(erdDocument, allColumns);
 
-    const { svgText: svgColumns } = columnRows.reduce((acc, { columnModel, nestCount }) => {
-      const columnRowHeight = rowHeightById.get(columnModel.columnModelId) ?? FALLBACK_ROW_H;
+    const { svgText: svgColumns } = columnRows.reduce((acc, { columnModel, rowId, nestCount }) => {
+      const columnRowHeight = rowHeightById.get(rowId) ?? FALLBACK_ROW_H;
       const textY = acc.height + columnRowHeight * 0.68;
       const separator = (acc.svgText === "") ? ""
         : `<line x1="1" y1="${acc.height}" x2="${tableWidth - 1}" y2="${acc.height}" stroke="#e0e0e0" stroke-width="0.5"/>`;
@@ -181,9 +182,9 @@ const initTableSvg = (erdDocument: ErdDocument) => {
   }, { svgTables: [] as string[], location: INIT_LOCATION });
 };
 
-// 描画された <tr> の実高さを、カラムの ID をキーに引けるようにする。
-// columnModelsWithStruct の配列位置と実際の <tr> 数は、共有モデル欠損などで描画がスキップされた行がある場合にずれるため、
-// 配列位置ではなく ID で対応付ける。
+// 描画された <tr> の実高さを、行の rowId をキーに引けるようにする。
+// columnRows の配列位置と実際の <tr> 数は、共有モデル欠損などで描画がスキップされた行がある場合にずれるため、
+// 配列位置ではなく rowId で対応付ける。
 const initRowHeightById = (tableTrDom: NodeListOf<HTMLTableRowElement>): Map<string, number> => {
   const rowHeightEntries = Array.from(tableTrDom)
     .map((rowDom): readonly [string, number] | null => {
@@ -193,30 +194,6 @@ const initRowHeightById = (tableTrDom: NodeListOf<HTMLTableRowElement>): Map<str
     .filter((rowHeightEntry): rowHeightEntry is readonly [string, number] => (rowHeightEntry != null));
 
   return new Map(rowHeightEntries);
-};
-
-type ColumnRowEntry = { columnModel: ColumnModel, nestCount: number };
-
-// ErdTableView と同じ順序で STRUCT の内部カラムを描画行として平坦化する。
-// 共有モデル欠損の struct は行自体は残す(描画関数側で null を返しスキップされる)。
-const expandColumnsWithStruct = (
-  erdDocument: ErdDocument, columnModels: ColumnModel[], nestCount: number
-): ColumnRowEntry[] => {
-  return columnModels.flatMap(columnModel => {
-    const currentRow = { columnModel, nestCount };
-    if (ColumnModel.isSimpleColumn(columnModel)) {
-      return [currentRow];
-    }
-
-    const structShare = erdDocument.findStructColumnShareModel(columnModel.structShareModelId);
-    if (structShare == null) {
-      return [currentRow];
-    }
-
-    const innerColumns = erdDocument.toAllColumnsWithStruct(structShare);
-    const innerRows = expandColumnsWithStruct(erdDocument, innerColumns, nestCount + 1);
-    return [currentRow, ...innerRows];
-  });
 };
 
 const initStructColumnSvgRow = (

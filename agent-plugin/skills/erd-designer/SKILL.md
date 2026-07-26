@@ -71,5 +71,9 @@ IDs cross-reference between these arrays, which is why manual edits are unsafe.
 
 - Files stored in Google Drive can be edited locally through Google Drive for Desktop:
   point `--file` at the synced local path.
+  The Google Drive app does not detect external changes, so tell the user to close the
+  ERD Designer tab before you edit, and to reopen the file afterwards. Editing while the
+  tab is open makes the app's next save fail with a conflict, and recovering from it
+  discards the user's unsaved work in the app.
 - The browser app (IndexedDB) is not reachable from the CLI; export the `.erd` file first,
   edit it, then import it back.

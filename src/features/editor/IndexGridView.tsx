@@ -6,6 +6,7 @@ import {
     TableCell, TextField
 } from "@mui/material";
 
+import ColumnModel from "~/models/database/ColumnModel";
 import SimpleColumnModel from "~/models/database/SimpleColumnModel";
 import TableIndexModel, { IndexColumnModel } from "~/models/database/TableIndexModel";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
@@ -41,11 +42,14 @@ const IndexGridView = ({
         if (model.modelType === "single") {
             return [model.columnModel];
         }
+
+        // struct はインデックス候補から除外する
         if (model.modelType === "struct") {
-            return []; // struct はインデックス候補から除外する
+            return [];
         }
 
-        return model.columnModels;
+        // group 内の struct も除外する
+        return model.columnModels.filter(ColumnModel.isSimpleColumn);
     });
 
     // 各インデックスに対する列順序のマッピングを計算

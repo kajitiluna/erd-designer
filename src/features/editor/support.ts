@@ -17,7 +17,7 @@ export type ColumnWrapModel = {
 } | {
     modelType: "group",
     columnGroupModel: ColumnGroupModel,
-    columnModels: SimpleColumnModel[]
+    columnModels: ColumnModel[]
 } | {
     modelType: "struct",
     columnModel: StructColumnModel
@@ -150,15 +150,14 @@ export const toColumnWrapModels = (
             return [{ modelType: "single", columnModel: columnModel }];
         }
 
-        const columnGroupModel = erdDocument.findColumnGroupModel(column.columnGroupId) as ColumnGroupModel;
-        const columnModels = columnGroupModel.columnModelIds
+        const columnGroup = erdDocument.findColumnGroupModel(column.columnGroupId) as ColumnGroupModel;
+        const columnModels = columnGroup.columnModelIds
             .map(columnModelId => erdDocument.findColumnModel(columnModelId))
-            .filter((columnModel): columnModel is SimpleColumnModel =>
-                (columnModel != null) && ColumnModel.isSimpleColumn(columnModel));
+            .filter(columnModel => (columnModel != null));
 
         return [{
             modelType: "group",
-            columnGroupModel: columnGroupModel,
+            columnGroupModel: columnGroup,
             columnModels: columnModels
         }];
     });

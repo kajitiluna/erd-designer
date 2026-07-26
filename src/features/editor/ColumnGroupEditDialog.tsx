@@ -5,7 +5,6 @@ import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocu
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import ColumnModel from "~/models/database/ColumnModel";
 import ErdDocument from "~/models/ErdDocument";
-import SimpleColumnModel from "~/models/database/SimpleColumnModel";
 import { ColumnWrapModel, initHandleCloseDialog, initHandleEnterKeyDown } from "~/features/editor/support";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import ColumnViewTable from "~/features/editor/ColumnViewTable";
@@ -37,9 +36,13 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
             return;
         }
 
-        const updatingColumnModels = columnWrapModels
-            .filter(wrapModel => (wrapModel.modelType === "single"))
-            .map(wrapModel => wrapModel.columnModel);
+        const updatingColumnModels = columnWrapModels.flatMap(wrapModel => {
+            if (wrapModel.modelType === "group") {
+                return [];
+            }
+
+            return [wrapModel.columnModel];
+        });
         const updatingColumnGroup = new ColumnGroupModel({
             columnGroupId: columnGroup.columnGroupId,
             groupName: groupName,
@@ -47,10 +50,14 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
             description: description
         });
 
+        // struct 編集セッション中に蓄積されたメンバー ColumnModel を合流させる。
+        // 同一 id が両方にある場合はグループ直下の最新編集 (updatingColumnModels) を優先する。
+        const mergedUpdatingColumns = [...columnStorage.getColumnModels(), ...updatingColumnModels];
+
         const loggingMessage = "Update Column Group. " +
             JSON.stringify({ before: columnGroup, after: updatingColumnGroup });
         documentsHolder.updateColumnGroup(
-            updatingColumnGroup, updatingColumnModels, columnShareStorage, loggingMessage
+            updatingColumnGroup, mergedUpdatingColumns, columnShareStorage, loggingMessage
         );
 
         onClose();
@@ -96,10 +103,11 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
 const initColumnWrapModels = (erdDocument: ErdDocument, columnGroup: ColumnGroupModel): ColumnWrapModel[] => {
     return columnGroup.columnModelIds
         .map(columnModelId => erdDocument.findColumnModel(columnModelId))
-        .filter((columnModel): columnModel is SimpleColumnModel =>
-            (columnModel != null) && ColumnModel.isSimpleColumn(columnModel))
+        .filter(columnModel => (columnModel != null))
         .map(columnModel => {
-            return { modelType: "single" as const, columnModel: columnModel };
+            return ColumnModel.isStructColumn(columnModel)
+                ? { modelType: "struct", columnModel: columnModel }
+                : { modelType: "single", columnModel: columnModel };
         });
 };
 

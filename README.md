@@ -41,7 +41,7 @@ Inspired by [ERMaster](https://ermaster.sourceforge.net/index.html), built for t
 | **Storage** | Local (IndexedDB) | Google Drive | Local file system (.erd) |
 | **Spec export** | Excel | Google Spreadsheet | Excel |
 | **Team sharing** | — | View sharing via Drive | Git version control |
-| **Agent plugin (CLI)** | — | Via [Google Drive for Desktop](https://www.google.com/drive/download/) | Supported |
+| **Agent plugin (CLI)** | — | Limited — [see note](#ai-agent-integration-agent-plugin) | Supported |
 | **MCP / AI** | — | — | Supported |
 
 ## Screenshots
@@ -115,8 +115,16 @@ The plugin ships a skill and a self-contained CLI (`agent-plugin/skills/erd-desi
 so the agent consumes almost no context until the skill is actually used.
 The skill folder follows the open Agent Skills format, so other skill-compatible agents may also use it.
 Files stored on Google Drive can be edited through the local path synced by
-[Google Drive for Desktop](https://www.google.com/drive/download/).
+[Google Drive for Desktop](https://www.google.com/drive/download/),
+with the limitation described below.
 The bundled CLI can also be downloaded standalone from [GitHub Releases](https://github.com/kajitiluna/erd-designer/releases).
+
+> **Note (Google Drive app):**
+> Unlike the VSCode extension, the Google Drive app reads the file only when it opens it —
+> it does not detect changes made outside the app. Close the ERD Designer tab before running
+> the CLI, and reopen the file afterwards to see the result.
+> Editing with the CLI while the tab is open makes the app's next save fail with a conflict,
+> and recovering from it reloads the file from Drive, discarding the edits you made in the app.
 
 > **Note:**
 > The agent plugin is experimental, like the MCP Server.

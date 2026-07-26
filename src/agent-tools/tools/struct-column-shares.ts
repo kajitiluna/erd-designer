@@ -287,9 +287,7 @@ const initCallbackForCreateStructColumnShare = (
 
         validateNoStructCycle(previousDocument, newStruct, addingWrapperColumns);
 
-        const nextDocument = previousDocument
-            .updateColumnModels(addingWrapperColumns, [])
-            .updateStructColumnShare(newStruct);
+        const nextDocument = previousDocument.updateStructColumnShare(newStruct, addingWrapperColumns);
         documentResource.notify(documentId, nextDocument);
 
         const response = toStructColumnShareDetail(erdBudget, nextDocument, newStruct);
@@ -372,9 +370,7 @@ const initCallbackForUpdateStructColumnShare = (
 
         validateNoStructCycle(previousDocument, nextStruct, memberEntries.addingWrapperColumns);
 
-        const nextDocument = previousDocument
-            .updateColumnModels(memberEntries.addingWrapperColumns, [])
-            .updateStructColumnShare(nextStruct);
+        const nextDocument = previousDocument.updateStructColumnShare(nextStruct, memberEntries.addingWrapperColumns);
         documentResource.notify(documentId, nextDocument);
 
         const response = toStructColumnShareDetail(erdBudget, nextDocument, nextStruct);
@@ -530,8 +526,6 @@ const initCallbackForAddStructColumnShareToTable = (
 
         nextColumns.splice(addIndex, 0, { modelType: "single" as const, columnModelId: wrapperColumn.columnModelId });
 
-        const documentWithWrapper = previousDocument.updateColumnModels([wrapperColumn], []);
-
         const updatingTable = new TableViewModel({
             ...previousTableView,
             tableModel: new TableModel({
@@ -540,7 +534,8 @@ const initCallbackForAddStructColumnShareToTable = (
             })
         });
 
-        const nextDocument = documentWithWrapper.updateTableMeta(updatingTable);
+        // ラッパー ColumnModel の追加とテーブルへの参照追加は、生存判定のため同一トランザクションで行う
+        const nextDocument = previousDocument.updateTableViewWithColumns(updatingTable, [wrapperColumn]);
         documentResource.notify(documentId, nextDocument);
 
         return {

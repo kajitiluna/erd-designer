@@ -12,6 +12,7 @@ import PortalCanvasContext from "~/context/PortalCanvasContext";
 import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { LocalSettingContext } from "~/context/LocalSettingContext";
 import { inOpenControlPanel } from "~/components/support";
+import { ColumnRowEntry, expandColumnRows } from "~/models/column-row-expansion";
 import ErdDocument from "~/models/ErdDocument";
 import PerspectiveModel from "~/models/PerspectiveModel";
 import { overrideColumnName } from "~/models/database/support";
@@ -531,7 +532,8 @@ const collectTableMatches = (
     const columnMatches = (searchTargets.onColumn === false) ? []
         : visibleTables.flatMap(tableView => {
             const allColumns = erdDocument.toAllColumnsWithStruct(tableView.tableModel);
-            return collectColumnMatches(erdDocument, tableView, allColumns, lowerTerm);
+            const columnRows = expandColumnRows(erdDocument, allColumns);
+            return collectColumnMatches(erdDocument, tableView, columnRows, lowerTerm);
         });
 
     return [...tableNameMatches, ...columnMatches];
@@ -564,21 +566,19 @@ const doCollectTableMatches = (
 };
 
 const collectColumnMatches = (
-    erdDocument: ErdDocument, tableView: TableViewModel, columns: ColumnModel[], lowerTerm: string
+    erdDocument: ErdDocument, tableView: TableViewModel, columnRows: ColumnRowEntry[], lowerTerm: string
 ): SearchMatch[] => {
-    return columns.flatMap(columnModel => {
-        if (ColumnModel.isSimpleColumn(columnModel)) {
-            return doCollectSingleColumnMatches(erdDocument, tableView, columnModel, lowerTerm);
-        }
-
-        return doCollectStructColumnMatches(erdDocument, tableView, columnModel, lowerTerm);
+    return columnRows.flatMap(row => {
+        return ColumnModel.isSimpleColumn(row.columnModel)
+            ? doCollectSingleColumnMatches(erdDocument, tableView, row.columnModel, row.rowId, lowerTerm)
+            : doCollectStructColumnMatches(erdDocument, tableView, row.columnModel, row.rowId, lowerTerm);
     });
 };
 
-// struct カラムはキャンバス上 1 行表示のため、検索対象は struct カラム行の表示名のみとする
-// (定義内メンバーは描画されないため対象外)
+// struct 自身の行は表示名のみを対象とする。定義内メンバーは同じ expandColumnRows が
+// 個別の行として返すため、それぞれ doCollectSingleColumnMatches / doCollectStructColumnMatches で別途対象になる。
 const doCollectStructColumnMatches = (
-    erdDocument: ErdDocument, tableView: TableViewModel, columnModel: StructColumnModel, lowerTerm: string
+    erdDocument: ErdDocument, tableView: TableViewModel, columnModel: StructColumnModel, rowId: string, lowerTerm: string
 ): SearchMatch[] => {
     const structModel = erdDocument.findStructColumnShareModel(columnModel.structShareModelId);
     if (structModel == null) {
@@ -596,14 +596,14 @@ const doCollectStructColumnMatches = (
         {
             matchType: "onColumn" as const,
             entityId: tableView.tableId,
-            subEntityId: columnModel.columnModelId,
+            subEntityId: rowId,
             position: { x: tableView.corner.left, y: tableView.corner.top },
         }
     ];
 };
 
 const doCollectSingleColumnMatches = (
-    erdDocument: ErdDocument, tableView: TableViewModel, column: SimpleColumnModel, lowerTerm: string
+    erdDocument: ErdDocument, tableView: TableViewModel, column: SimpleColumnModel, rowId: string, lowerTerm: string
 ) => {
     const columnShare = erdDocument.findColumnShareModel(column.columnShareModelId);
     if (columnShare == null) {
@@ -621,7 +621,7 @@ const doCollectSingleColumnMatches = (
         {
             matchType: "onColumn" as const,
             entityId: tableView.tableId,
-            subEntityId: column.columnModelId,
+            subEntityId: rowId,
             position: { x: tableView.corner.left, y: tableView.corner.top },
         }
     ];

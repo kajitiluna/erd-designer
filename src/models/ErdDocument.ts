@@ -126,10 +126,16 @@ export default class ErdDocument {
         const hasShareRelatedChange = (overrides.columnModelMap != null)
             || (overrides.columnGroupModelMap != null)
             || (overrides.columnShareModelStorage != null);
-        const nextColumnModelMap = overrides.columnModelMap ?? this.columnModelMap;
+        const nextTableViewModelMap = overrides.tableViewModelMap ?? this.tableViewModelMap;
         const nextColumnGroupModelMap = overrides.columnGroupModelMap ?? this.columnGroupModelMap;
+        const baseColumnModelMap = overrides.columnModelMap ?? this.columnModelMap;
         const baseShareStorage = overrides.columnShareModelStorage ?? this.columnShareStorage;
-        const nextColumnShareStorage = this.doDeleteUnreferencedShareModels(
+
+        const nextColumnModelMap = hasShareRelatedChange
+            ? this.doPruneUnreferencedColumnModels(
+                baseColumnModelMap, nextTableViewModelMap, nextColumnGroupModelMap, baseShareStorage
+            ) : baseColumnModelMap;
+        const nextColumnShareStorage = this.doRetainShareModels(
             hasShareRelatedChange, nextColumnModelMap, nextColumnGroupModelMap, baseShareStorage
         );
 
@@ -149,9 +155,45 @@ export default class ErdDocument {
         );
     }
 
-    // 参照整合の維持を、全更新経路が共通で通る doUpdate に集約するための追随削除。
+    // ColumnModel の生存判定を、全更新経路が共通で通る doUpdate に集約するための追随処理。
+    // どのテーブル・カラムグループ・struct 定義からも single 参照されない ColumnModel を取り除く。
+    // 個々の更新操作は「自分が触った参照を外す」だけでよく、他コンテナからの参照有無を意識しない。
+    private doPruneUnreferencedColumnModels(
+        baseColumnModelMap: Map<string, ColumnModel>,
+        nextTableViewModelMap: Map<string, TableViewModel>,
+        nextColumnGroupModelMap: Map<string, ColumnGroupModel>,
+        baseShareStorage: ColumnShareModelStorage
+    ): Map<string, ColumnModel> {
+        const referencedByTable = new Set(
+            Array.from(nextTableViewModelMap.values())
+                .flatMap(tableViewModel => toSingleColumnIds(tableViewModel.tableModel.columnEntries))
+        );
+        const referencedByGroup = new Set(
+            Array.from(nextColumnGroupModelMap.values()).flatMap(groupModel => groupModel.columnModelIds)
+        );
+        const referencedByStruct = new Set(
+            baseShareStorage.getStructShareModels().flatMap(structModel => toSingleColumnIds(structModel.columnEntries))
+        );
+
+        const unreferencedColumnIds = Array.from(baseColumnModelMap.keys()).filter(columnModelId =>
+            (referencedByTable.has(columnModelId) === false)
+            && (referencedByGroup.has(columnModelId) === false)
+            && (referencedByStruct.has(columnModelId) === false)
+        );
+
+        if (unreferencedColumnIds.length === 0) {
+            return baseColumnModelMap;
+        }
+
+        const prunedColumnModelMap = new Map(baseColumnModelMap);
+        unreferencedColumnIds.forEach(columnModelId => prunedColumnModelMap.delete(columnModelId));
+
+        return prunedColumnModelMap;
+    }
+
+    // 参照整合の維持を、全更新経路が共通で通る doUpdate に集約するための追随処理。
     // 個々の更新操作は共有モデル側の整合を意識しない。
-    private doDeleteUnreferencedShareModels(
+    private doRetainShareModels(
         hasShareRelatedChange: boolean,
         nextColumnModelMap: Map<string, ColumnModel>,
         nextColumnGroupModelMap: Map<string, ColumnGroupModel>,
@@ -164,12 +206,10 @@ export default class ErdDocument {
         const referencedColumnShareIds = Array.from(nextColumnModelMap.values())
             .filter(ColumnModel.isSimpleColumn)
             .map(columnModel => columnModel.columnShareModelId);
-        const existingColumnModelIds = Array.from(nextColumnModelMap.keys());
-        const existingColumnGroupIds = Array.from(nextColumnGroupModelMap.keys());
+        const existingColumnModelIds = new Set(nextColumnModelMap.keys());
+        const existingColumnGroupIds = new Set(nextColumnGroupModelMap.keys());
 
-        return baseShareStorage.deleteUnreferencedModels(
-            referencedColumnShareIds, existingColumnModelIds, existingColumnGroupIds
-        );
+        return baseShareStorage.retain(referencedColumnShareIds, existingColumnModelIds, existingColumnGroupIds);
     }
 
     public getDatabase(): Database {
@@ -399,11 +439,9 @@ export default class ErdDocument {
             nextTableViewMap.set(nextTableViewModel.tableId, nextTableViewModel);
         });
 
-        const previousSingleColumnIds = previousTableView.tableModel.columnEntries
-            .flatMap(column => (column.modelType === "single") ? [column.columnModelId] : []);
-
+        // カラムの追加・更新のみ反映する。テーブルの columnEntries から外れたことによる
+        // ColumnModel の生存判定は doUpdate に集約されており、他所から参照されていれば残る。
         const nextColumnMap = new Map(this.columnModelMap);
-        previousSingleColumnIds.forEach(columnModelId => nextColumnMap.delete(columnModelId));
         updatingColumnMap.forEach(columnModel => nextColumnMap.set(columnModel.columnModelId, columnModel));
 
         return this.doUpdate({
@@ -747,16 +785,11 @@ export default class ErdDocument {
         const nextTableViewModelMap = new Map(this.tableViewModelMap);
         nextTableViewModelMap.delete(deletingTableId);
 
-        const deletingColumnModelIds = deletingTarget.tableModel.columnEntries
-            .flatMap(column => (column.modelType === "single") ? [column.columnModelId] : []);
-
-        const nextColumnMap = new Map(this.columnModelMap);
-        deletingColumnModelIds.forEach(columnModelId => nextColumnMap.delete(columnModelId));
-
+        // テーブルが持っていた列の生存判定は doUpdate に集約されており、他所から参照されていれば残る。
         return this.doUpdate({
             tableViewModelIds: nextTableViewModelIds,
             tableViewModelMap: nextTableViewModelMap,
-            columnModelMap: nextColumnMap,
+            columnModelMap: this.columnModelMap,
             relationViewModelStorage: this.relationViewModelStorage.deleteFromTableId([deletingTableId])
         });
     }
@@ -771,7 +804,7 @@ export default class ErdDocument {
      */
     public updateColumnGroup(
         updatingModel: ColumnGroupModel,
-        updatingColumnModels: SimpleColumnModel[],
+        updatingColumnModels: ColumnModel[],
         updatingColumnShareStorage: ColumnShareModelStorage
     ): ErdDocument {
         const previousModel = this.columnGroupModelMap.get(updatingModel.columnGroupId) || null;
@@ -779,10 +812,8 @@ export default class ErdDocument {
         const nextColumnGroupModelMap = new Map(this.columnGroupModelMap);
         nextColumnGroupModelMap.set(updatingModel.columnGroupId, updatingModel);
 
+        // グループから外れたメンバーの生存判定は doUpdate に集約されており、他所から参照されていれば残る。
         const preNextColumnModelMap = new Map(this.columnModelMap);
-        previousModel?.columnModelIds.forEach(columnModelId => {
-            preNextColumnModelMap.delete(columnModelId);
-        });
         updatingColumnModels.forEach(columnModel => {
             preNextColumnModelMap.set(columnModel.columnModelId, columnModel);
         });
@@ -805,7 +836,7 @@ export default class ErdDocument {
 
     private doUpdateTableViewModelsWithUpdatingColumnGroup(
         previousModel: ColumnGroupModel | null, updatingColumnGroupModel: ColumnGroupModel,
-        updatingColumnModels: SimpleColumnModel[], columnModelMap: Map<string, ColumnModel>,
+        updatingColumnModels: ColumnModel[], columnModelMap: Map<string, ColumnModel>,
         updatingColumnShareStorage: ColumnShareModelStorage
     ) {
         const tableViewModels = Array.from(this.tableViewModelMap.values())
@@ -823,8 +854,8 @@ export default class ErdDocument {
             };
         }
 
-        // カラム名変更時は、checkExpression に変更前のカラム名が含まれる場合に更新が必要
-        const changingNames = updatingColumnModels.map(updatingColumn => {
+        // カラム名変更時は、checkExpression に変更前のカラム名が含まれる場合に更新が必要 (struct は checkExpression の対象外)
+        const changingNames = updatingColumnModels.filter(ColumnModel.isSimpleColumn).map(updatingColumn => {
             const previousColumn = this.columnModelMap.get(updatingColumn.columnModelId);
             if ((previousColumn == null) || (ColumnModel.isSimpleColumn(previousColumn) === false)) {
                 return null;
@@ -948,18 +979,14 @@ export default class ErdDocument {
         const nextColumnGroupModelMap = new Map(this.columnGroupModelMap);
         nextColumnGroupModelMap.delete(columnGroupId);
 
-        const nextColumnModelMap = new Map(this.columnModelMap);
-        previousModel.columnModelIds.forEach(columnModelId => {
-            nextColumnModelMap.delete(columnModelId);
-        });
-
         const { nextTableViewModelMap, nextRelationViewModelStorage }
             = this.doUpdateTableViewModelsWithDeletingColumnGroup(previousModel);
 
+        // グループが持っていたメンバーの生存判定は doUpdate に集約されており、他所から参照されていれば残る。
         return this.doUpdate({
             tableViewModelMap: nextTableViewModelMap,
             columnGroupModelMap: nextColumnGroupModelMap,
-            columnModelMap: nextColumnModelMap,
+            columnModelMap: this.columnModelMap,
             relationViewModelStorage: nextRelationViewModelStorage
         });
     }
@@ -1078,28 +1105,29 @@ export default class ErdDocument {
      * 指定された StructColumnShare の追加もしくは更新を行う。
      * struct は PK・リレーション・unique/index に関与しないため、column-group の更新と異なりテーブル側の
      * インデクス・リレーション更新は発生しない。
-     * struct のメンバーカラム自体の追加・更新は本メソッドの対象外(別途カラム操作 API を用いる)。
+     * 既存メンバーカラム自体の追加・更新は本メソッドの対象外(別途カラム操作 API を用いる)。
+     * addingWrapperColumns は、updatingModel が新規に参照するネスト struct のラッパー ColumnModel など、
+     * この更新と不可分な新規列を同一 doUpdate 内で反映するための引数。生存判定は参照有無で行われるため、
+     * ColumnModel の追加と、それを参照する struct 定義の更新は同一トランザクションで行う必要がある。
      *
      * @param updatingModel 更新対象
+     * @param addingWrapperColumns この更新に伴い新規に追加する ColumnModel (未指定なら追加なし)
      * @returns 操作後のモデル
      */
-    public updateStructColumnShare(updatingModel: StructColumnShareModel): ErdDocument {
-        const previousModel = this.columnShareStorage.findStructShare(updatingModel.structShareModelId);
+    public updateStructColumnShare(
+        updatingModel: StructColumnShareModel, addingWrapperColumns: readonly ColumnModel[] = []
+    ): ErdDocument {
+        // struct から外れたメンバーの生存判定は doUpdate に集約されており、他所から参照されていれば残る。
+        const nextColumnShareModelStorage = this.columnShareStorage.addStructShare(updatingModel);
 
-        // 更新前後の struct.columns 中、single 参照の差分を取り、削除候補メンバーを判定する
-        const previousSingleColumnIds = new Set(toSingleColumnIds(previousModel?.columnEntries ?? []));
-        const nextSingleColumnIds = new Set(toSingleColumnIds(updatingModel.columnEntries));
-        const removingColumnIds = Array.from(previousSingleColumnIds)
-            .filter(columnModelId => (nextSingleColumnIds.has(columnModelId) === false));
-
-        const deletingColumnModelIds = this.filterDeletableColumnModelIds(
-            removingColumnIds, updatingModel.structShareModelId
-        );
+        if (addingWrapperColumns.length === 0) {
+            return this.doUpdate({
+                columnShareModelStorage: nextColumnShareModelStorage
+            });
+        }
 
         const nextColumnModelMap = new Map(this.columnModelMap);
-        deletingColumnModelIds.forEach(columnModelId => nextColumnModelMap.delete(columnModelId));
-
-        const nextColumnShareModelStorage = this.columnShareStorage.addStructShare(updatingModel);
+        addingWrapperColumns.forEach(columnModel => nextColumnModelMap.set(columnModel.columnModelId, columnModel));
 
         return this.doUpdate({
             columnModelMap: nextColumnModelMap,
@@ -1109,9 +1137,9 @@ export default class ErdDocument {
 
     /**
      * 指定した StructColumnShare を削除する。
-     * 当該 struct を参照する struct バリアントの ColumnModel (ラッパー) も削除し、
-     * テーブル・他 struct からのラッパー参照エントリを除去する。
-     * メンバーカラムの連鎖削除の対象は、他のテーブル・グループ・struct から参照されていないもののみとする。
+     * 当該 struct を参照する struct バリアントの ColumnModel (ラッパー) への参照を、
+     * テーブル・カラムグループ・他の struct 定義のすべてから除去する。ラッパー自身・メンバーカラムの
+     * 生存判定は doUpdate に集約されており、除去の結果どこからも参照されなくなったものだけが取り除かれる。
      *
      * @param structColumnShareModelId 削除対象の StructColumnShare ID
      * @returns 操作後のモデル
@@ -1122,21 +1150,15 @@ export default class ErdDocument {
             return this;
         }
 
-        // 当該 struct を参照する struct バリアントのラッパー ColumnModel を削除対象にする
-        const wrapperColumnIds = Array.from(this.columnModelMap.values())
-            .filter(columnModel =>
-                (columnModel.entityType === "struct") && (columnModel.structShareModelId === structColumnShareModelId))
-            .map(columnModel => columnModel.columnModelId);
-
-        const candidateColumnIds = toSingleColumnIds(previousModel.columnEntries);
-        const deletingMemberColumnIds = this.filterDeletableColumnModelIds(candidateColumnIds, structColumnShareModelId);
-
-        const deletingColumnModelIds = [...wrapperColumnIds, ...deletingMemberColumnIds];
-        const nextColumnModelMap = new Map(this.columnModelMap);
-        deletingColumnModelIds.forEach(columnModelId => nextColumnModelMap.delete(columnModelId));
+        // 当該 struct を参照する struct バリアントのラッパー ColumnModel への参照を除去対象にする
+        const wrapperColumnIdSet = new Set(
+            Array.from(this.columnModelMap.values())
+                .filter(columnModel =>
+                    (columnModel.entityType === "struct") && (columnModel.structShareModelId === structColumnShareModelId))
+                .map(columnModel => columnModel.columnModelId)
+        );
 
         // 全テーブルの columns から、ラッパーへの single 参照エントリを除去する。空になったテーブルは削除する。
-        const wrapperColumnIdSet = new Set(wrapperColumnIds);
         const nextTableViewModelIds = [...this.tableViewModelIds];
         const nextTableViewModelMap = new Map(this.tableViewModelMap);
         const deleteTableIds: string[] = [];
@@ -1167,51 +1189,44 @@ export default class ErdDocument {
             ? nextTableViewModelIds.filter(tableId => (deleteTableIds.includes(tableId) === false))
             : nextTableViewModelIds;
 
-        // struct 自体の削除。ラッパー・削除メンバーへの参照整合は doUpdate で追随される
-        const nextColumnShareModelStorage = this.columnShareStorage.deleteStructShare([structColumnShareModelId]);
+        // 全カラムグループの columnModelIds から、ラッパーへの参照を除去する
+        const nextColumnGroupModelMap = new Map(this.columnGroupModelMap);
+        for (const [groupId, groupModel] of this.columnGroupModelMap.entries()) {
+            const nextColumnModelIds = groupModel.columnModelIds
+                .filter(columnModelId => (wrapperColumnIdSet.has(columnModelId) === false));
+
+            if (nextColumnModelIds.length === groupModel.columnModelIds.length) {
+                continue;
+            }
+
+            nextColumnGroupModelMap.set(groupId, new ColumnGroupModel({ ...groupModel, columnModelIds: nextColumnModelIds }));
+        }
+
+        // 他の struct 定義の columnEntries から、ラッパーへの参照を除去したうえで struct 自体を削除する。
+        // ラッパー・メンバーへの参照整合は doUpdate で追随される。
+        const nextColumnShareModelStorage = this.columnShareStorage
+            .getStructShareModels()
+            .filter(structModel => (structModel.structShareModelId !== structColumnShareModelId))
+            .reduce((storage, structModel) => {
+                const nextEntries = structModel.columnEntries.filter(entry =>
+                    (entry.modelType !== "single") || (wrapperColumnIdSet.has(entry.columnModelId) === false));
+
+                if (nextEntries.length === structModel.columnEntries.length) {
+                    return storage;
+                }
+
+                return storage.addStructShare(new StructColumnShareModel({ ...structModel, columnEntries: nextEntries }));
+            }, this.columnShareStorage)
+            .deleteStructShare([structColumnShareModelId]);
 
         return this.doUpdate({
             tableViewModelIds: filteredTableViewModelIds,
             tableViewModelMap: nextTableViewModelMap,
-            columnModelMap: nextColumnModelMap,
+            columnGroupModelMap: nextColumnGroupModelMap,
+            columnModelMap: this.columnModelMap,
             columnShareModelStorage: nextColumnShareModelStorage,
             relationViewModelStorage: nextRelationViewModelStorage
         });
-    }
-
-    /**
-     * 指定した columnModelId 群のうち、削除しても問題ないもの (どのテーブルの columns からも、
-     * どの group の columnModelIds からも、他のどの struct の columns からも参照されていないもの) のみを返す。
-     *
-     * @param candidateColumnIds 削除候補の columnModelId 一覧
-     * @param excludingStructColumnShareId 判定対象から除外する struct ID (削除・更新対象自身)
-     * @returns 削除して問題ない columnModelId 一覧
-     */
-    private filterDeletableColumnModelIds(
-        candidateColumnIds: readonly string[], excludingStructColumnShareId: string
-    ): string[] {
-        if (candidateColumnIds.length === 0) {
-            return [];
-        }
-
-        const referencedByTable = new Set(
-            Array.from(this.tableViewModelMap.values())
-                .flatMap(tableViewModel => toSingleColumnIds(tableViewModel.tableModel.columnEntries))
-        );
-        const referencedByGroup = new Set(
-            Array.from(this.columnGroupModelMap.values()).flatMap(groupModel => groupModel.columnModelIds)
-        );
-        const referencedByOtherStruct = new Set(
-            this.columnShareStorage.getStructShareModels()
-                .filter(structModel => (structModel.structShareModelId !== excludingStructColumnShareId))
-                .flatMap(structModel => toSingleColumnIds(structModel.columnEntries))
-        );
-
-        return candidateColumnIds.filter(columnModelId =>
-            (referencedByTable.has(columnModelId) === false)
-            && (referencedByGroup.has(columnModelId) === false)
-            && (referencedByOtherStruct.has(columnModelId) === false)
-        );
     }
 
     /**
