@@ -19,6 +19,8 @@ export const uriTemplates = {
     schemaDetail: "erd-designer://documents/{documentId}/schemas/{schemaId}",
     columnGroups: "erd-designer://documents/{documentId}/column_groups",
     columnGroupDetail: "erd-designer://documents/{documentId}/column_groups/{columnGroupId}",
+    structColumnShares: "erd-designer://documents/{documentId}/struct_column_shares",
+    structColumnShareDetail: "erd-designer://documents/{documentId}/struct_column_shares/{structColumnShareModelId}",
     memos: "erd-designer://documents/{documentId}/memos",
     memoDetail: "erd-designer://documents/{documentId}/memos/{memoId}",
     perspectives: "erd-designer://documents/{documentId}/perspectives",
@@ -70,6 +72,14 @@ export default class DocumentBudget {
 
     public columnGroupUri(columnGroupId: string): string {
         return `${this.documentUri()}/column_groups/${columnGroupId}`;
+    }
+
+    public structColumnShareListUri(): string {
+        return `${this.documentUri()}/struct_column_shares`;
+    }
+
+    public structColumnShareUri(structColumnShareModelId: string): string {
+        return `${this.documentUri()}/struct_column_shares/${structColumnShareModelId}`;
     }
 
     public columnUri(columnModelId: string): string {

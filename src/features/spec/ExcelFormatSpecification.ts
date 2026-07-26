@@ -3,11 +3,10 @@ import ExcelJS from "exceljs";
 import { ImageContent } from "~/context/ExportSpecificationContext";
 import createSpecification from "~/features/spec/create-specification";
 import {
-    ColumnListSpecGenerator, TableIndexSpec, TableListSpecGenerator,
-    TableDetailSpec, TableDetailSpecGenerator,
-    UniqueKeyConstraintSpec
+    autoIncrementLabel, ColumnListSpecGenerator, TableIndexSpec, TableListSpecGenerator,
+    TableDetailSpec, TableDetailSpecGenerator, UniqueKeyConstraintSpec
 } from "~/features/spec/spec-util";
-import { DatabaseType } from "~/models/database";
+import { Database, DatabaseType } from "~/models/database";
 import ErdDocument from "~/models/ErdDocument";
 
 const exportExcelFormatSpecification = async (erdDocument: ErdDocument, image: ImageContent) => {
@@ -235,18 +234,21 @@ const initColumnHeader = (databaseType: DatabaseType, withTableInfo: boolean = t
         { header: "Scale", key: "scale", width: 7 }
     ];
 
-    const header2: Partial<ExcelJS.Column>[] = (databaseType === "mysql") ? [
+    const isMySqlCompatible = (databaseType === "mysql") || (databaseType === "mariadb");
+
+    const header2: Partial<ExcelJS.Column>[] = isMySqlCompatible ? [
         { header: "Unsigned", key: "unsigned", width: 8, style: centerAlignmentStyle }
     ] : [];
 
+    const incrementLabel = autoIncrementLabel(databaseType);
     const header3: Partial<ExcelJS.Column>[] = [
         { header: "PK", key: "primaryKey", width: 5, style: centerAlignmentStyle },
         { header: "NotNull", key: "notNull", width: 7, style: centerAlignmentStyle },
         { header: "Unique", key: "unique", width: 7, style: centerAlignmentStyle },
-        {
-            header: (databaseType === "mysql") ? "Increment" : "Identity",
-            key: "autoIncrement", width: (databaseType === "mysql") ? 10 : 8, style: centerAlignmentStyle
-        },
+        ...((incrementLabel !== "") ? [{
+            header: incrementLabel, key: "autoIncrement",
+            width: (incrementLabel === "Identity") ? 8 : 10, style: centerAlignmentStyle
+        }] : []),
         { header: "Default", key: "defaultValue", width: 10 },
         { header: "Foreign Key", key: "foreignRelation", width: 15 },
         { header: "Description", key: "description", width: 50, style: { alignment: { wrapText: true } } },
@@ -348,13 +350,14 @@ const doAddUniqueKeySpecForTable = (
     tableSheet: ExcelJS.Worksheet, startRowNumber: number,
     databaseType: DatabaseType, uniqueKeySpec: UniqueKeyConstraintSpec
 ) => {
-    const indexColumnHeader = (databaseType === "postgres")
-        ? ["UniqueKey Columns", "ColumnName (physical)"]
-        : ["UniqueKey Columns", "ColumnName (physical)", "Sort Order"];
+    const showsSortOrder = Database.get(databaseType).uniqueKeySupport.orderable;
+    const indexColumnHeader = showsSortOrder
+        ? ["UniqueKey Columns", "ColumnName (physical)", "Sort Order"]
+        : ["UniqueKey Columns", "ColumnName (physical)"];
     const indexColumnValues = uniqueKeySpec.uniqueKeyColumns.map(
-        column => (databaseType === "postgres")
-            ? ["", column.physicalName]
-            : ["", column.physicalName, column.sortOrder]
+        column => showsSortOrder
+            ? ["", column.physicalName, column.sortOrder]
+            : ["", column.physicalName]
     );
 
     tableSheet.addRows([
@@ -377,7 +380,7 @@ const doAddUniqueKeySpecForTable = (
         [1, 1], // Description
         [2, 1], [2, 2] // Unique key Columns header
     ];
-    if (databaseType !== "postgres") {
+    if (showsSortOrder) {
         titleHeaderIndexes.push([2, 3]);
     }
     titleHeaderIndexes.forEach(index => {
@@ -392,7 +395,7 @@ const doAddUniqueKeySpecForTable = (
         tableSheet.mergeCells(`B${startRowNumber + index}:${mergeEndColumn}${startRowNumber + index}`);
     });
     tableSheet.mergeCells(`A${startRowNumber + 2}:A${startRowNumber + 2 + uniqueKeySpec.uniqueKeyColumns.length}`);
-    if (databaseType === "postgres") {
+    if (showsSortOrder === false) {
         for (let index = 0; index < uniqueKeySpec.uniqueKeyColumns.length + 1; index++) {
             tableSheet.mergeCells(`B${startRowNumber + 2 + index}:C${startRowNumber + 2 + index}`);
         }

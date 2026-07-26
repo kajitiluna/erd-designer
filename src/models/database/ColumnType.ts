@@ -11,10 +11,13 @@ type ColumnTypeOptions = {
     withUnsigned?: boolean,
     withAutoIncrement?: boolean,
     foreignColumn?: ColumnType | null,
-    defaultValueCandidates?: string[]
+    defaultValueCandidates?: string[],
+    arrayQueryTemplate?: string
 }
 
 type ColumnCategory = "integer" | "decimal" | "text" | "timestamp" | "bit" | "other";
+
+const DEFAULT_ARRAY_QUERY_TEMPLATE = "[[TYPE]][]";
 
 export default class ColumnType {
 
@@ -31,10 +34,11 @@ export default class ColumnType {
     public readonly withAutoIncrement: boolean;
     public readonly foreignColumn: ColumnType | null;
     private readonly defaultValueCandidates: string[];
+    public readonly arrayQueryTemplate: string;
 
     /**
      * コンストラクタ。
-     * 
+     *
      * @param id 型ID (データベース間の互換に用いる)
      * @param name 型定義
      * @param description 型の説明
@@ -46,12 +50,14 @@ export default class ColumnType {
      * @param withAutoIncrement auto_increment の設定が可能な型か
      * @param foreignColumn 外部キー参照時の型 (null の場合は元の型と同じ)
      * @param defaultValueCandidates デフォルト値候補
+     * @param arrayQueryTemplate 配列型のクエリ定義 (`[[TYPE]]` を型文字列に変換する)
      */
     constructor({
         id, name, description, baseQuery,
         category = "other", withPrecision = false, withScale = false,
         withUnsigned = false, withAutoIncrement = false,
-        foreignColumn = null, defaultValueCandidates = []
+        foreignColumn = null, defaultValueCandidates = [],
+        arrayQueryTemplate = DEFAULT_ARRAY_QUERY_TEMPLATE
     }: ColumnTypeOptions) {
         this.id = id;
         this.name = name;
@@ -64,6 +70,7 @@ export default class ColumnType {
         this.withAutoIncrement = withAutoIncrement;
         this.foreignColumn = (foreignColumn != null) ? foreignColumn : null;
         this.defaultValueCandidates = defaultValueCandidates;
+        this.arrayQueryTemplate = arrayQueryTemplate;
     }
 
     public specifiedType({
@@ -74,11 +81,20 @@ export default class ColumnType {
         }
 
         if (this.baseQuery.indexOf("[[PARAM]]") < 0) {
-            return this.baseQuery + (isArray ? "[]" : "");
+            return this.applyArrayTemplate(this.baseQuery, isArray);
         }
 
         const param = this.initTypeParam(precision, scale);
-        return this.baseQuery.replace("[[PARAM]]", param) + (isArray ? "[]" : "");
+        const typeString = this.baseQuery.replace("[[PARAM]]", param);
+        return this.applyArrayTemplate(typeString, isArray);
+    }
+
+    private applyArrayTemplate(typeString: string, isArray: boolean): string {
+        if (isArray === false) {
+            return typeString;
+        }
+
+        return this.arrayQueryTemplate.replace("[[TYPE]]", typeString);
     }
 
     public candidateDefaultValues(precision: string, scale: string): string[] {
@@ -110,7 +126,8 @@ export default class ColumnType {
             ...(this.withUnsigned && { withUnsigned: this.withUnsigned }),
             ...(this.withAutoIncrement && { withAutoIncrement: this.withAutoIncrement }),
             ...((this.foreignColumn != null) && { foreignColumn: this.foreignColumn.toJSON() }),
-            ...((this.defaultValueCandidates.length > 0) && { defaultValueCandidates: this.defaultValueCandidates })
+            ...((this.defaultValueCandidates.length > 0) && { defaultValueCandidates: this.defaultValueCandidates }),
+            ...((this.arrayQueryTemplate !== DEFAULT_ARRAY_QUERY_TEMPLATE) && { arrayQueryTemplate: this.arrayQueryTemplate })
         };
     }
 
@@ -134,6 +151,8 @@ export default class ColumnType {
             ? ColumnType.toObject(obj.foreignColumn as object) : null;
         const defaultValueCandidates = ("defaultValueCandidates" in obj)
             ? (obj.defaultValueCandidates as string[]) : [];
+        const arrayQueryTemplate = ("arrayQueryTemplate" in obj)
+            ? (obj.arrayQueryTemplate as string) : DEFAULT_ARRAY_QUERY_TEMPLATE;
 
         return new ColumnType({
             id: obj.id as number,
@@ -146,7 +165,8 @@ export default class ColumnType {
             withUnsigned: withUnsigned,
             withAutoIncrement: withAutoIncrement,
             foreignColumn: foreignColumn,
-            defaultValueCandidates: defaultValueCandidates
+            defaultValueCandidates: defaultValueCandidates,
+            arrayQueryTemplate: arrayQueryTemplate
         });
     }
 
@@ -166,7 +186,8 @@ export default class ColumnType {
                     this.foreignColumn.equals(other.foreignColumn))
             ) &&
             (this.defaultValueCandidates.length === other.defaultValueCandidates.length) &&
-            this.defaultValueCandidates.every((value, index) => (value === other.defaultValueCandidates[index]))
+            this.defaultValueCandidates.every((value, index) => (value === other.defaultValueCandidates[index])) &&
+            (this.arrayQueryTemplate === other.arrayQueryTemplate)
         );
     }
 

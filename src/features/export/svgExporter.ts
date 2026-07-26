@@ -1,6 +1,12 @@
+import { expandColumnRows } from "~/models/column-row-expansion";
 import ErdDocument from "~/models/ErdDocument";
+import ColumnModel from "~/models/database/ColumnModel";
+import DisplayStyle from "~/models/database/DisplayStyle";
+import TableModel from "~/models/database/TableModel";
 import download from "~/components/file-downloader";
 import { overrideColumnName } from "~/models/database/support";
+import SimpleColumnModel from "~/models/database/SimpleColumnModel";
+import StructColumnModel from "~/models/database/StructColumnModel";
 import { escapeCdata, serializePerspective } from "~/features/export/support";
 
 export const downloadSvg = (erdDocument: ErdDocument, erdCanvas: HTMLElement) => {
@@ -79,6 +85,8 @@ const HEADER_FONT = 13;
 const BORDER_RADIUS = 10;
 const FALLBACK_HEADER_H = 28;
 const FALLBACK_ROW_H = 24;
+// STRUCT のネスト階層 1 レベルあたりのインデント幅(px)。キャンバス表示 (ErdTableView) と揃える。
+const STRUCT_INDENT_WIDTH = 10;
 
 const initTableSvg = (erdDocument: ErdDocument) => {
   const tableViewModels = erdDocument.getTableViewModels();
@@ -86,7 +94,7 @@ const initTableSvg = (erdDocument: ErdDocument) => {
 
   const tableElements = tableViewModels.map(tableView => {
     const tableModel = tableView.tableModel;
-    const allColumns = erdDocument.toAllColumnModels(tableModel);
+    const allColumns = erdDocument.toAllColumnsWithStruct(tableModel);
     const tableName = displayStyle.displayName(tableModel.physicalName, tableModel.logicalName);
 
     const tableDom = document.getElementById(tableView.tableId);
@@ -109,9 +117,7 @@ const initTableSvg = (erdDocument: ErdDocument) => {
     const headerHeight = tableHeaderDom ? tableHeaderDom.offsetHeight : FALLBACK_HEADER_H;
 
     const tableTrDom = tableDom.querySelectorAll("tr");
-    const rowHeights: number[] = (tableTrDom.length > 0)
-      ? Array.from(tableTrDom).map(rowDom => rowDom.offsetHeight)
-      : Array(allColumns.length).fill(FALLBACK_ROW_H);
+    const rowHeightById = initRowHeightById(tableTrDom);
 
     const cellDoms = (tableTrDom.length > 0) ? tableTrDom[0].querySelectorAll("td") : null;
     const pkColumnWidth = (cellDoms && (cellDoms.length >= 1)) ? cellDoms[0].offsetWidth : 20;
@@ -119,52 +125,27 @@ const initTableSvg = (erdDocument: ErdDocument) => {
     const nameColumnWidth = (cellDoms && (cellDoms.length >= 3)) ? cellDoms[2].offsetWidth : 100;
     const typeColumnWidth = (cellDoms && (cellDoms.length >= 4)) ? cellDoms[3].offsetWidth : 80;
 
-    const { svgText: svgColumns } = allColumns.reduce((acc, columnModel, indexColumn) => {
-      const shareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
-      if (shareModel == null) {
+    const columnRowContext: ColumnRowContext = {
+      erdDocument, displayStyle, tableModel, tableWidth, fkColumnIds,
+      pkColumnWidth, fkColumnWidth, nameColumnWidth, typeColumnWidth
+    };
+
+    const columnRows = expandColumnRows(erdDocument, allColumns);
+
+    const { svgText: svgColumns } = columnRows.reduce((acc, { columnModel, rowId, nestCount }) => {
+      const columnRowHeight = rowHeightById.get(rowId) ?? FALLBACK_ROW_H;
+      const textY = acc.height + columnRowHeight * 0.68;
+      const separator = (acc.svgText === "") ? ""
+        : `<line x1="1" y1="${acc.height}" x2="${tableWidth - 1}" y2="${acc.height}" stroke="#e0e0e0" stroke-width="0.5"/>`;
+
+      const rowSvgText = ColumnModel.isStructColumn(columnModel)
+        ? initStructColumnSvgRow(columnModel, columnRowContext, textY, nestCount)
+        : initColumnSvgRow(columnModel, columnRowContext, textY, nestCount);
+      if (rowSvgText == null) {
         return acc;
       }
 
-      const { physicalName, logicalName } = overrideColumnName(columnModel, shareModel);
-      const columnName = displayStyle.displayName(physicalName, logicalName);
-      const inRelation = erdDocument.inChildRelation(tableModel.tableModelId, columnModel.columnModelId);
-      const columnType = shareModel.specifiedColumnType(inRelation);
-
-      const columnRowHeight = rowHeights[indexColumn] ?? FALLBACK_ROW_H;
-      const textY = acc.height + columnRowHeight * 0.68;
-
-      let xOffset = COL_PAD;
-      const pkIcon = (columnModel.primaryKey === false) ? ""
-        : `<text x="${xOffset + 2}" y="${textY}" fill="#90292F" font-size="10" font-family="monospace">PK</text>`;
-      xOffset += pkColumnWidth;
-
-      const fkIcon = (fkColumnIds.has(columnModel.columnModelId) === false) ? ""
-        : `<text x="${xOffset + 2}" y="${textY}" fill="#212490" font-size="10" font-family="monospace">FK</text>`;
-      xOffset += fkColumnWidth;
-
-      const nameColor = columnModel.primaryKey ? "#90292F" : (
-        (fkColumnIds.has(columnModel.columnModelId) ? "#212490" : "#333")
-      );
-      const nameEl = `<text x="${xOffset}" y="${textY}" fill="${nameColor}" font-size="${FONT_SIZE}" ` +
-        `font-family="sans-serif">${escapeSvg(columnName)}</text>`;
-      xOffset += nameColumnWidth;
-
-      const typeEl = `<text x="${xOffset}" y="${textY}" fill="#666" font-size="11" ` +
-        `font-family="sans-serif">${escapeSvg(columnType)}</text>`;
-      xOffset += typeColumnWidth;
-
-      const options = [(columnModel.notNull ? "NN" : null), (columnModel.unique ? "U" : null)]
-        .filter(option => option !== null);
-      const optEl = (options.length === 0) ? ""
-        : `<text x="${xOffset}" y="${textY}" fill="#888" font-size="11" font-family="sans-serif">` +
-        `${escapeSvg(options.join(", "))}</text>`;
-
-      const separator = (indexColumn === 0) ? ""
-        : `<line x1="1" y1="${acc.height}" x2="${tableWidth - 1}" y2="${acc.height}" stroke="#e0e0e0" stroke-width="0.5"/>`;
-
-      const nextRow = separator + pkIcon + fkIcon + nameEl + typeEl + optEl;
-
-      return { svgText: acc.svgText + nextRow, height: acc.height + columnRowHeight };
+      return { svgText: acc.svgText + separator + rowSvgText, height: acc.height + columnRowHeight };
     }, { svgText: "", height: headerHeight });
 
     const bgHex = tableView.headerColor.background.toHex();
@@ -199,6 +180,112 @@ const initTableSvg = (erdDocument: ErdDocument) => {
 
     return { svgTables: [...acc.svgTables, svgTable], location: nextLocation };
   }, { svgTables: [] as string[], location: INIT_LOCATION });
+};
+
+// 描画された <tr> の実高さを、行の rowId をキーに引けるようにする。
+// columnRows の配列位置と実際の <tr> 数は、共有モデル欠損などで描画がスキップされた行がある場合にずれるため、
+// 配列位置ではなく rowId で対応付ける。
+const initRowHeightById = (tableTrDom: NodeListOf<HTMLTableRowElement>): Map<string, number> => {
+  const rowHeightEntries = Array.from(tableTrDom)
+    .map((rowDom): readonly [string, number] | null => {
+      const rowId = rowDom.getAttribute("data-column-id");
+      return (rowId != null) ? [rowId, rowDom.offsetHeight] : null;
+    })
+    .filter((rowHeightEntry): rowHeightEntry is readonly [string, number] => (rowHeightEntry != null));
+
+  return new Map(rowHeightEntries);
+};
+
+const initStructColumnSvgRow = (
+  columnModel: StructColumnModel, context: ColumnRowContext, textY: number, nestCount: number
+) => {
+  const { erdDocument, displayStyle, pkColumnWidth, fkColumnWidth, nameColumnWidth, typeColumnWidth } = context;
+
+  const structColumnShareModel = erdDocument.findStructColumnShareModel(columnModel.structShareModelId);
+  if (structColumnShareModel == null) {
+    return null;
+  }
+
+  const overrideName = overrideColumnName(columnModel, structColumnShareModel);
+  const columnName = displayStyle.displayName(overrideName.physicalName, overrideName.logicalName);
+  const columnType = structColumnShareModel.simpleColumnType();
+  const indentWidth = nestCount * STRUCT_INDENT_WIDTH;
+
+  let xOffset = COL_PAD;
+  xOffset += pkColumnWidth;
+  xOffset += fkColumnWidth;
+
+  const nameEl = `<text x="${xOffset + indentWidth}" y="${textY}" fill="#333" font-size="${FONT_SIZE}" ` +
+    `font-family="sans-serif">${escapeSvg(columnName)}</text>`;
+  xOffset += nameColumnWidth;
+
+  const typeEl = `<text x="${xOffset + indentWidth}" y="${textY}" fill="#666" font-size="11" ` +
+    `font-family="sans-serif">${escapeSvg(columnType)}</text>`;
+  xOffset += typeColumnWidth;
+
+  const optEl = (columnModel.notNull === false) ? ""
+    : `<text x="${xOffset}" y="${textY}" fill="#888" font-size="11" font-family="sans-serif">NN</text>`;
+
+  return nameEl + typeEl + optEl;
+};
+
+type ColumnRowContext = {
+  erdDocument: ErdDocument,
+  displayStyle: DisplayStyle,
+  tableModel: TableModel,
+  tableWidth: number,
+  fkColumnIds: Set<string>,
+  pkColumnWidth: number,
+  fkColumnWidth: number,
+  nameColumnWidth: number,
+  typeColumnWidth: number
+};
+
+const initColumnSvgRow = (
+  columnModel: SimpleColumnModel, context: ColumnRowContext, textY: number, nestCount: number
+) => {
+  const {
+    erdDocument, displayStyle, tableModel, fkColumnIds, pkColumnWidth, fkColumnWidth, nameColumnWidth, typeColumnWidth
+  } = context;
+
+  const shareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
+  if (shareModel == null) {
+    return null;
+  }
+
+  const { physicalName, logicalName } = overrideColumnName(columnModel, shareModel);
+  const columnName = displayStyle.displayName(physicalName, logicalName);
+  const inRelation = erdDocument.inChildRelation(tableModel.tableModelId, columnModel.columnModelId);
+  const columnType = shareModel.specifiedColumnType(inRelation);
+  const indentWidth = nestCount * STRUCT_INDENT_WIDTH;
+
+  let xOffset = COL_PAD;
+  const pkIcon = (columnModel.primaryKey === false) ? ""
+    : `<text x="${xOffset + 2}" y="${textY}" fill="#90292F" font-size="10" font-family="monospace">PK</text>`;
+  xOffset += pkColumnWidth;
+
+  const fkIcon = (fkColumnIds.has(columnModel.columnModelId) === false) ? ""
+    : `<text x="${xOffset + 2}" y="${textY}" fill="#212490" font-size="10" font-family="monospace">FK</text>`;
+  xOffset += fkColumnWidth;
+
+  const nameColor = columnModel.primaryKey ? "#90292F" : (
+    (fkColumnIds.has(columnModel.columnModelId) ? "#212490" : "#333")
+  );
+  const nameEl = `<text x="${xOffset + indentWidth}" y="${textY}" fill="${nameColor}" font-size="${FONT_SIZE}" ` +
+    `font-family="sans-serif">${escapeSvg(columnName)}</text>`;
+  xOffset += nameColumnWidth;
+
+  const typeEl = `<text x="${xOffset + indentWidth}" y="${textY}" fill="#666" font-size="11" ` +
+    `font-family="sans-serif">${escapeSvg(columnType)}</text>`;
+  xOffset += typeColumnWidth;
+
+  const options = [(columnModel.notNull ? "NN" : null), (columnModel.unique ? "U" : null)]
+    .filter(option => option !== null);
+  const optEl = (options.length === 0) ? ""
+    : `<text x="${xOffset}" y="${textY}" fill="#888" font-size="11" font-family="sans-serif">` +
+    `${escapeSvg(options.join(", "))}</text>`;
+
+  return pkIcon + fkIcon + nameEl + typeEl + optEl;
 };
 
 const initMemoSvg = (erdDocument: ErdDocument) => {

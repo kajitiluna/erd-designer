@@ -7,14 +7,14 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 
-import ColumnModel from "~/models/database/ColumnModel";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
+import SimpleColumnModel from "~/models/database/SimpleColumnModel";
 import ColumnShareModel from '~/models/database/ColumnShareModel';
 import { overrideColumnName } from '~/models/database/support';
 import EdgedIconButton from "~/components/EdgedIconButton";
 
 type ColumnTransferPanelProps<INDEXED_ENTITY> = {
-    columnModels: ColumnModel[],
+    columnModels: SimpleColumnModel[],
     indexedColumns: INDEXED_ENTITY[],
     isChildRelation: (columnModelId: string) => boolean,
     onNewIndexedColumn: (columnModelId: string) => INDEXED_ENTITY,
@@ -24,12 +24,12 @@ type ColumnTransferPanelProps<INDEXED_ENTITY> = {
 
 type RenderingArgs<INDEXED_ENTITY> = {
     indexedColumn: INDEXED_ENTITY,
-    columnModel: ColumnModel,
+    columnModel: SimpleColumnModel,
     columnShareModel: ColumnShareModel
 }
 
 type ColumnModelDetail = {
-    columnModel: ColumnModel,
+    columnModel: SimpleColumnModel,
     columnShareModel: ColumnShareModel
 };
 
@@ -37,7 +37,7 @@ const ColumnTransferPanel = <INDEXED_ENTITY extends { columnModelId: string },>(
     columnModels, indexedColumns, isChildRelation,
     onNewIndexedColumn, onRenderIndexedColumn, onUpdateIndexedColumns
 }: ColumnTransferPanelProps<INDEXED_ENTITY>) => {
-    const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
+    const { columnShareStorage } = React.useContext(ColumnShareModelStorageContext);
 
     const [selectedFromId, setSelectedFromId] = React.useState<string | null>(null);
     const [selectedIndexedId, setSelectedIndexedId] = React.useState<string | null>(null);
@@ -47,7 +47,7 @@ const ColumnTransferPanel = <INDEXED_ENTITY extends { columnModelId: string },>(
             .map(model => {
                 return {
                     columnModel: model,
-                    columnShareModel: columnShareModelStorage.find(model.columnShareModelId)
+                    columnShareModel: columnShareStorage.findColumnShare(model.columnShareModelId)
                 }
             })
             .filter((pair): pair is ColumnModelDetail => (pair.columnShareModel != null))

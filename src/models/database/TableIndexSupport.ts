@@ -5,7 +5,8 @@ type TableIndexSupportArgs = {
     indexOptions: readonly TableIndexOption[],
     indexTypes: readonly TableIndexType[],
     supportsClustered?: boolean,
-    nullsOrder?: boolean
+    nullsOrder?: boolean,
+    supportsIndex?: boolean
 };
 
 export default class TableIndexSupport {
@@ -14,13 +15,15 @@ export default class TableIndexSupport {
     public readonly indexTypes: readonly TableIndexType[];
     public readonly supportsClustered: boolean;
     public readonly nullsOrder: boolean;
+    public readonly supportsIndex: boolean;
 
     constructor({
-        indexOptions, indexTypes, supportsClustered = false, nullsOrder = false
+        indexOptions, indexTypes, supportsClustered = false, nullsOrder = false, supportsIndex = true
     }: TableIndexSupportArgs) {
         this.indexOptions = indexOptions;
         this.indexTypes = indexTypes;
         this.supportsClustered = supportsClustered;
         this.nullsOrder = nullsOrder;
+        this.supportsIndex = supportsIndex;
     }
 }

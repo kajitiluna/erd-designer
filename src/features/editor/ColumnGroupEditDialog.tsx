@@ -3,11 +3,12 @@ import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Sta
 
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
+import ColumnModel from "~/models/database/ColumnModel";
 import ErdDocument from "~/models/ErdDocument";
 import { ColumnWrapModel, initHandleCloseDialog, initHandleEnterKeyDown } from "~/features/editor/support";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
-import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import ColumnViewTable from "~/features/editor/ColumnViewTable";
+import ColumnModelStorage from "~/models/ColumnModelStorage";
 
 type ColumnGroupEditDialogProps = {
     isOpen: boolean,
@@ -19,7 +20,8 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const erdDocument: ErdDocument = documentsHolder.current();
 
-    const [columnShareModelStorage, setColumnShareModelStorage] = React.useState(erdDocument.getColumnShareModelStorage());
+    const [columnShareStorage, setColumnShareStorage] = React.useState(erdDocument.getColumnShareModelStorage());
+    const [columnStorage, setColumnStorage] = React.useState<ColumnModelStorage>(ColumnModelStorage.create());
 
     const [groupName, setGroupName] = React.useState<string>(columnGroup.groupName);
     const [columnWrapModels, setColumnWrapModels] = React.useState<ColumnWrapModel[]>(
@@ -34,9 +36,13 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
             return;
         }
 
-        const updatingColumnModels = columnWrapModels
-            .filter(wrapModel => (wrapModel.modelType === "single"))
-            .map(wrapModel => wrapModel.columnModel);
+        const updatingColumnModels = columnWrapModels.flatMap(wrapModel => {
+            if (wrapModel.modelType === "group") {
+                return [];
+            }
+
+            return [wrapModel.columnModel];
+        });
         const updatingColumnGroup = new ColumnGroupModel({
             columnGroupId: columnGroup.columnGroupId,
             groupName: groupName,
@@ -44,10 +50,14 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
             description: description
         });
 
+        // struct 編集セッション中に蓄積されたメンバー ColumnModel を合流させる。
+        // 同一 id が両方にある場合はグループ直下の最新編集 (updatingColumnModels) を優先する。
+        const mergedUpdatingColumns = [...columnStorage.getColumnModels(), ...updatingColumnModels];
+
         const loggingMessage = "Update Column Group. " +
             JSON.stringify({ before: columnGroup, after: updatingColumnGroup });
         documentsHolder.updateColumnGroup(
-            updatingColumnGroup, updatingColumnModels, columnShareModelStorage, loggingMessage
+            updatingColumnGroup, mergedUpdatingColumns, columnShareStorage, loggingMessage
         );
 
         onClose();
@@ -57,8 +67,8 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
 
     return (
         <ColumnShareModelStorageContext.Provider value={{
-            columnShareModelStorage: columnShareModelStorage,
-            updateStorage: (updating: ColumnShareModelStorage) => setColumnShareModelStorage(updating)
+            columnShareStorage: columnShareStorage, updateShareStorage: setColumnShareStorage,
+            columnStorage: columnStorage, updateColumnStorage: setColumnStorage
         }}>
             <Dialog fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
                 open={isOpen} onClose={initHandleCloseDialog(onClose)}>
@@ -95,7 +105,9 @@ const initColumnWrapModels = (erdDocument: ErdDocument, columnGroup: ColumnGroup
         .map(columnModelId => erdDocument.findColumnModel(columnModelId))
         .filter(columnModel => (columnModel != null))
         .map(columnModel => {
-            return { modelType: "single", columnModel: columnModel };
+            return ColumnModel.isStructColumn(columnModel)
+                ? { modelType: "struct", columnModel: columnModel }
+                : { modelType: "single", columnModel: columnModel };
         });
 };
 

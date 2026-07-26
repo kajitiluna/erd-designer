@@ -1,23 +1,35 @@
 import ColumnShareModel from "~/models/database/ColumnShareModel";
+import StructColumnShareModel from "~/models/database/StructColumnShareModel";
 import { equalsModelMap } from "~/models/storage-support";
 
 export default class ColumnShareModelStorage {
 
     private columnShareModelMap: Map<string, ColumnShareModel>;
+    private structShareModelMap: Map<string, StructColumnShareModel>;
 
-    private constructor(columnShareModelMap: Map<string, ColumnShareModel>) {
+    private constructor(
+        columnShareModelMap: Map<string, ColumnShareModel>,
+        structShareModelMap: Map<string, StructColumnShareModel>
+    ) {
         this.columnShareModelMap = columnShareModelMap;
+        this.structShareModelMap = structShareModelMap;
     }
 
-    public static create(columnShareModels: (readonly ColumnShareModel[] | null) = null) {
-        const mapping = new Map<string, ColumnShareModel>((columnShareModels == null) ? []
-            : columnShareModels.map((model) => [model.columnShareModelId, model])
+    public static create(
+        columnShareModels: (readonly ColumnShareModel[] | null) = null,
+        structShareModels: (readonly StructColumnShareModel[] | null) = null
+    ) {
+        const columnMapping = new Map<string, ColumnShareModel>((columnShareModels == null) ? []
+            : columnShareModels.map(model => [model.columnShareModelId, model])
+        );
+        const structMapping = new Map<string, StructColumnShareModel>((structShareModels == null) ? []
+            : structShareModels.map(model => [model.structShareModelId, model])
         );
 
-        return new ColumnShareModelStorage(mapping);
+        return new ColumnShareModelStorage(columnMapping, structMapping);
     }
 
-    getModels(): ColumnShareModel[] {
+    public getColumnShareModels(): ColumnShareModel[] {
         return Array.from(this.columnShareModelMap.values())
             .sort((first, second) => {
                 const physicalNameResult = first.physicalName.localeCompare(second.physicalName, "en");
@@ -37,7 +49,7 @@ export default class ColumnShareModelStorage {
             });
     }
 
-    find(columnShareModelId: string): ColumnShareModel | null {
+    public findColumnShare(columnShareModelId: string): ColumnShareModel | null {
         if (columnShareModelId === "") {
             return null;
         }
@@ -50,7 +62,7 @@ export default class ColumnShareModelStorage {
         return model;
     }
 
-    addModel(...columnShareModels: ColumnShareModel[]): ColumnShareModelStorage {
+    public addColumnShare(...columnShareModels: ColumnShareModel[]): ColumnShareModelStorage {
         if (columnShareModels.length === 0) {
             return this;
         }
@@ -59,23 +71,138 @@ export default class ColumnShareModelStorage {
         columnShareModels.forEach(model =>
             nextShareModelMap.set(model.columnShareModelId, model));
 
-        return new ColumnShareModelStorage(nextShareModelMap);
+        return new ColumnShareModelStorage(nextShareModelMap, this.structShareModelMap);
     }
 
-    deleteModels(columnShareModelIds: string[]): ColumnShareModelStorage {
+    public getStructShareModels(): StructColumnShareModel[] {
+        if (this.structShareModelMap.size === 0) {
+            return [];
+        }
+
+        return Array.from(this.structShareModelMap.values())
+            .sort((first, second) => {
+                const nameCompared = first.physicalName.localeCompare(second.physicalName, "en");
+                if (nameCompared !== 0) {
+                    return nameCompared;
+                }
+
+                return first.structShareModelId.localeCompare(second.structShareModelId, "en");
+            });
+    }
+
+    public findStructShare(structShareModelId: string): StructColumnShareModel | null {
+        if (structShareModelId === "") {
+            return null;
+        }
+
+        const model = this.structShareModelMap.get(structShareModelId);
+        if (model == null) {
+            return null;
+        }
+
+        return model;
+    }
+
+    public addStructShare(...structShareModels: StructColumnShareModel[]): ColumnShareModelStorage {
+        if (structShareModels.length === 0) {
+            return this;
+        }
+
+        const nextStructShareModelMap = new Map(this.structShareModelMap);
+        structShareModels.forEach(model =>
+            nextStructShareModelMap.set(model.structShareModelId, model));
+
+        return new ColumnShareModelStorage(this.columnShareModelMap, nextStructShareModelMap);
+    }
+
+    public deleteStructShare(structShareModelIds: string[]): ColumnShareModelStorage {
+        if (structShareModelIds.length === 0) {
+            return this;
+        }
+
+        const nextStructShareModelMap = new Map(this.structShareModelMap);
+        structShareModelIds.forEach(
+            structShareModelId => nextStructShareModelMap.delete(structShareModelId)
+        );
+
+        return new ColumnShareModelStorage(this.columnShareModelMap, nextStructShareModelMap);
+    }
+
+    /**
+     * 渡された ID 群に整合する要素だけを残す。
+     * ColumnShareModel は referencedColumnShareIds に無いものが取り除かれ、
+     * StructColumnShareModel の columnEntries からは existing~ に無い参照エントリが取り除かれる。
+     * StructColumnShareModel 自体は本操作の対象外 (明示的な削除操作 deleteStructShare でのみ削除される)。
+     *
+     * @param referencedColumnShareIds 残存カラムが参照している columnShareModelId 一覧
+     * @param existingColumnModelIds 現存する columnModelId 一覧
+     * @param existingColumnGroupIds 現存する columnGroupId 一覧
+     * @returns 更新後の ColumnShareModelStorage (変更がない場合は自身を返す)
+     */
+    public retain(
+        referencedColumnShareIds: readonly string[],
+        existingColumnModelIds: ReadonlySet<string>,
+        existingColumnGroupIds: ReadonlySet<string>
+    ): ColumnShareModelStorage {
+        const referencedColumnShareIdSet = new Set(referencedColumnShareIds);
+        const unreferencedColumnShareIds = Array.from(this.columnShareModelMap.keys())
+            .filter(columnShareId => (referencedColumnShareIdSet.has(columnShareId) === false));
+
+        const afterShareDeleted = this.deleteColumnShare(unreferencedColumnShareIds);
+        return afterShareDeleted.deleteDanglingColumnEntries(existingColumnModelIds, existingColumnGroupIds);
+    }
+
+    private deleteColumnShare(columnShareIds: string[]): ColumnShareModelStorage {
+        if (columnShareIds.length === 0) {
+            return this;
+        }
+
         const nextShareModelMap = new Map(this.columnShareModelMap);
-        columnShareModelIds.forEach(
+        columnShareIds.forEach(
             columnShareModelId => nextShareModelMap.delete(columnShareModelId)
         );
 
-        return new ColumnShareModelStorage(nextShareModelMap);
+        return new ColumnShareModelStorage(nextShareModelMap, this.structShareModelMap);
     }
 
-    copy(): ColumnShareModelStorage {
-        return new ColumnShareModelStorage(new Map(this.columnShareModelMap));
+    // 全 StructColumnShareModel の columnEntries から、現存しないカラム・カラムグループへの
+    // 参照エントリを除去する。single/group 両参照の判定は同種の1走査のため統合している。
+    // ネストした struct 参照はラッパー ColumnModel への single 参照のため columnModelId 側で判定される。
+    private deleteDanglingColumnEntries(
+        existingColumnIdSet: ReadonlySet<string>, existingGroupIdSet: ReadonlySet<string>
+    ): ColumnShareModelStorage {
+
+        let hasChanged = false;
+        const nextStructShareModelMap = new Map(this.structShareModelMap);
+
+        for (const [structShareModelId, structShareModel] of this.structShareModelMap.entries()) {
+            const nextColumns = structShareModel.columnEntries.filter(column => {
+                if (column.modelType === "single") {
+                    return existingColumnIdSet.has(column.columnModelId);
+                }
+
+                return existingGroupIdSet.has(column.columnGroupId);
+            });
+
+            if (nextColumns.length === structShareModel.columnEntries.length) {
+                continue;
+            }
+
+            hasChanged = true;
+
+            const nextStructShare = new StructColumnShareModel({ ...structShareModel, columnEntries: nextColumns });
+            nextStructShareModelMap.set(structShareModelId, nextStructShare);
+        }
+
+        return hasChanged ? new ColumnShareModelStorage(this.columnShareModelMap, nextStructShareModelMap) : this;
+    }
+
+    public copy(): ColumnShareModelStorage {
+        return new ColumnShareModelStorage(new Map(this.columnShareModelMap), new Map(this.structShareModelMap));
     }
 
     public equals(other: ColumnShareModelStorage): boolean {
-        return equalsModelMap(this.columnShareModelMap, other.columnShareModelMap);
+        return equalsModelMap(this.columnShareModelMap, other.columnShareModelMap)
+            && equalsModelMap(this.structShareModelMap, other.structShareModelMap);
     }
 }

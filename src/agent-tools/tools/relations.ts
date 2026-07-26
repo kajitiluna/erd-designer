@@ -581,8 +581,8 @@ const doFindDocumentAndTables = (
     const parentTable = parentTableView.tableModel;
     const childTable = childTableView.tableModel;
 
-    const parentColumnIds = new Set(erdDocument.toAllColumnModels(parentTable).map(model => model.columnModelId));
-    const childColumnIds = new Set(erdDocument.toAllColumnModels(childTable).map(model => model.columnModelId));
+    const parentColumnIds = new Set(erdDocument.toAllColumnsExceptStruct(parentTable).map(model => model.columnModelId));
+    const childColumnIds = new Set(erdDocument.toAllColumnsExceptStruct(childTable).map(model => model.columnModelId));
 
     return { erdBudget, erdDocument, parentColumnIds, childColumnIds };
 };

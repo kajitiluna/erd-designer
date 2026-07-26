@@ -1,9 +1,13 @@
 import { v4 as uuidV4 } from 'uuid';
 import { Parser as PostgresParser } from "node-sql-parser/build/postgresql";
 import { Parser as MySqlParser } from "node-sql-parser/build/mysql";
-// cSpell: ignore transactsql
+// cSpell: ignore transactsql mariadb sqlite
 import { Parser as MsSqlServerParser } from "node-sql-parser/build/transactsql";
-import { Alter, AST, Create, Parser, ValueExpr } from "node-sql-parser";
+import { Parser as MariaDbParser } from "node-sql-parser/build/mariadb";
+import { Parser as SqliteParser } from "node-sql-parser/build/sqlite";
+import { Parser as SnowflakeParser } from "node-sql-parser/build/snowflake";
+import { Parser as BigQueryParser } from "node-sql-parser/build/bigquery";
+import { Alter, AST, Create, DataType, Parser, ValueExpr } from "node-sql-parser";
 
 import {
     Database, DatabaseType, findDatabaseColumns, IndexColumnModel, TableReferenceActionType
@@ -13,8 +17,10 @@ import { TableIndexOption, TableIndexType } from "~/models/database/TableIndexSu
 import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
 import ColumnModel from '~/models/database/ColumnModel';
+import ColumnEntry from '~/models/database/ColumnEntry';
+import SimpleColumnModel from '~/models/database/SimpleColumnModel';
 import TableIndexModel from '~/models/database/TableIndexModel';
-import TableModel, { ColumnModelType } from '~/models/database/TableModel';
+import TableModel from '~/models/database/TableModel';
 import RelationPair from '~/models/database/RelationPair';
 import RelationModel from '~/models/database/RelationModel';
 import { NullsOrderType, SortOrderType } from '~/models/database/ValueType';
@@ -34,7 +40,11 @@ export type DdlLoadResult = {
 const dispatchInitParser: { [key in DatabaseType]: () => Parser } = {
     "postgres": () => new PostgresParser(),
     "mysql": () => new MySqlParser(),
+    "mariadb": () => new MariaDbParser(),
     "ms_sqlserver": () => new MsSqlServerParser(),
+    "sqlite": () => new SqliteParser(),
+    "bigquery": () => new BigQueryParser(),
+    "snowflake": () => new SnowflakeParser(),
 };
 
 class DdlLoader {
@@ -297,7 +307,11 @@ type ParserEngine = { parse: (query: object) => string };
 const parseOptions: { [key in DatabaseType]: { database: string } } = {
     "postgres": { database: "PostgreSQL" },
     "mysql": { database: "MySQL" },
+    "mariadb": { database: "MariaDB" },
     "ms_sqlserver": { database: "TransactSQL" },
+    "sqlite": { database: "Sqlite" },
+    "bigquery": { database: "BigQuery" },
+    "snowflake": { database: "Snowflake" },
 };
 
 export type DdlLoadSummary = {
@@ -406,7 +420,12 @@ const loadCreateTableDdl = (query: Create, engine: ParserEngine): ([TableBaseDef
             const [columnDefinition, noSuccessResult] =
                 loadCreateColumnDefinition(createDefinition as CreateColumnDefinition, index, engine);
             if (noSuccessResult != null) {
-                return [null, noSuccessResult];
+                if (noSuccessResult.result === "failure") {
+                    return [null, noSuccessResult];
+                }
+
+                skippedReasons.push(noSuccessResult);
+                continue;
             }
 
             columnBaseDefinitions.push(columnDefinition);
@@ -568,13 +587,24 @@ const loadCreateColumnDefinition = (
     }
 
     const dataType = createDefinition.definition;
-    const { columnType, isArray } = dataType.dataType.endsWith("[]")
-        ? { columnType: dataType.dataType.slice(0, -2), isArray: true }
-        : { columnType: dataType.dataType, isArray: false };
+    if (dataType.dataType === "STRUCT") {
+        return [null, skip(`Column "${columnName}" has an unsupported STRUCT type at position ${index + 1}. `
+            + "Reading STRUCT columns from DDL is not supported.")];
+    }
+
+    const { columnType, isArray } = resolveColumnType(dataType);
+    if (columnType == null) {
+        return [null, fail(`Unsupported ARRAY column definition at position ${index + 1}. `
+            + `create_definitions[${index}].definition : ${JSON.stringify(dataType)}`)];
+    }
+    if (columnType.toUpperCase() === "STRUCT") {
+        return [null, skip(`Column "${columnName}" has an unsupported ARRAY<STRUCT<...>> type at position ${index + 1}. `
+            + "Reading STRUCT columns from DDL is not supported.")];
+    }
+
     const timezone = (dataType.suffix && (dataType.suffix.length === 3)
         && (dataType.suffix[1] === "TIME") && (dataType.suffix[2] === "ZONE"))
-        ? ((dataType.suffix[0] === "WITH") ? "with time zone" : "without time zone")
-        : "";
+        ? ((dataType.suffix[0] === "WITH") ? "with time zone" : "without time zone") : "";
     const unsigned = (dataType.suffix && (dataType.suffix.length === 1) && (dataType.suffix[0] === "UNSIGNED")) || false;
     const zeroFill = (dataType.suffix && (dataType.suffix.length === 1) && (dataType.suffix[0] === "ZEROFILL")) || false;
     const precision = dataType.length || null;
@@ -622,6 +652,49 @@ const loadCreateColumnDefinition = (
             checkExpression, characterSet, collate, columnOption
         }, null
     ];
+};
+
+const resolveColumnType = (
+    dataType: DataType
+): { columnType: string | null, isArray: boolean } => {
+    if (dataType.dataType === "ARRAY") {
+        if (isBigQueryArrayDataType(dataType) === false) {
+            return { columnType: null, isArray: false };
+        }
+
+        return { columnType: dataType.definition[0].field_type.dataType, isArray: true };
+    }
+
+    return dataType.dataType.endsWith("[]")
+        ? { columnType: dataType.dataType.slice(0, -2), isArray: true }
+        : { columnType: dataType.dataType, isArray: false };
+};
+
+// BigQuery ダイアレクトの ARRAY<T> は `{ dataType: "ARRAY", definition: [{ field_type: { dataType: T } }] }`
+// という汎用の DataType 型に含まれない拡張構造を持つため、内部型を個別に解決する。
+type BigQueryArrayDataType = {
+    dataType: "ARRAY";
+    definition: [{ field_type: { dataType: string } }];
+};
+
+const isBigQueryArrayDataType = (dataType: object): dataType is BigQueryArrayDataType => {
+    if (("dataType" in dataType) === false) {
+        return false;
+    }
+    if (dataType.dataType !== "ARRAY") {
+        return false;
+    }
+    if ((("definition" in dataType) === false) || (Array.isArray(dataType.definition) === false)) {
+        return false;
+    }
+
+    const definition = dataType.definition;
+    return (definition.length === 1)
+        && (typeof definition[0] === "object") && (definition[0] != null)
+        && ("field_type" in definition[0])
+        && (typeof definition[0].field_type === "object") && (definition[0].field_type != null)
+        && ("dataType" in definition[0].field_type)
+        && (typeof definition[0].field_type.dataType === "string");
 };
 
 type CreateConstraintDefinition = Extract<CreateDefinition, { resource: 'constraint' }>;
@@ -1231,7 +1304,7 @@ class ColumnTypeResolver {
 
     private static initMapping(columnModelShareStorage: ColumnShareModelStorage) {
         const columnNameToColumnShare = new Map<string, ColumnShareModel[]>();
-        for (const columnShare of columnModelShareStorage.getModels()) {
+        for (const columnShare of columnModelShareStorage.getColumnShareModels()) {
             const models = columnNameToColumnShare.get(columnShare.physicalName);
             if (models == null) {
                 columnNameToColumnShare.set(columnShare.physicalName, [columnShare]);
@@ -1413,11 +1486,11 @@ const doInitTableModels = (database: Database, tableDefinitions: DdlTableDefinit
         const [logicalName, description] = parseComment(tableDefinition.comment, separator);
         const logicalTableName = (logicalName !== "") ? logicalName : physicalTableName;
 
-        const columnModelTypes = tableDefinition.columnDefinitions.map(columnDefinition => {
+        const columnEntries = tableDefinition.columnDefinitions.map(columnDefinition => {
             const columnShareModel = columnDefinition.columnShareModel;
 
             columnShareModels.push(columnShareModel);
-            const columnModel = new ColumnModel({
+            const columnModel = new SimpleColumnModel({
                 columnShareModelId: columnShareModel.columnShareModelId,
                 primaryKey: columnDefinition.primaryKey,
                 notNull: columnDefinition.notNull,
@@ -1431,7 +1504,7 @@ const doInitTableModels = (database: Database, tableDefinitions: DdlTableDefinit
             return {
                 modelType: "single",
                 columnModelId: columnModel.columnModelId,
-            } as ColumnModelType;
+            } as ColumnEntry;
         });
 
         const uniqueKeysModels = tableDefinition.tableIndexDefinitions
@@ -1480,7 +1553,7 @@ const doInitTableModels = (database: Database, tableDefinitions: DdlTableDefinit
             tableModelId: uuidV4(),
             physicalName: physicalTableName,
             logicalName: logicalTableName,
-            columns: columnModelTypes,
+            columnEntries: columnEntries,
             uniqueKeysModels: uniqueKeysModels,
             tableIndexModels: tableIndexModels,
             description: description,

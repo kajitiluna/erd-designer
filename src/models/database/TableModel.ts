@@ -1,5 +1,6 @@
 import { v4 as uuidV4 } from 'uuid';
 
+import ColumnEntry from '~/models/database/ColumnEntry';
 import TableIndexModel from '~/models/database/TableIndexModel';
 import TableUniqueKeysModel from '~/models/database/TableUniqueKeysModel';
 import { requireProperty, toObjects } from '~/models/util';
@@ -9,7 +10,7 @@ type TableModelOptions = {
     physicalName?: string,
     logicalName?: string,
     schemaId?: string,
-    columns?: readonly ColumnModelType[],
+    columnEntries?: readonly ColumnEntry[],
     uniqueKeysModels?: readonly TableUniqueKeysModel[],
     tableIndexModels?: readonly TableIndexModel[],
     description?: string,
@@ -20,21 +21,13 @@ type TableModelOptions = {
     optionExpression?: string
 }
 
-export type ColumnModelType = {
-    modelType: "single",
-    columnModelId: string
-} | {
-    modelType: "group",
-    columnGroupId: string
-}
-
 export default class TableModel {
 
     public readonly tableModelId: string;
     public readonly physicalName: string;
     public readonly logicalName: string;
     public readonly schemaId: string;
-    public readonly columns: readonly ColumnModelType[];
+    public readonly columnEntries: readonly ColumnEntry[];
     public readonly uniqueKeysModels: readonly TableUniqueKeysModel[];
     public readonly tableIndexModels: readonly TableIndexModel[];
     public readonly description: string;
@@ -46,14 +39,14 @@ export default class TableModel {
 
     constructor({
         tableModelId = "", physicalName = "", logicalName = "", schemaId = "",
-        columns = [], uniqueKeysModels = [], tableIndexModels = [], description = "",
+        columnEntries = [], uniqueKeysModels = [], tableIndexModels = [], description = "",
         checkExpression = "", characterSet = "", collate = "", definitionExpression = "", optionExpression = ""
     }: TableModelOptions) {
         this.tableModelId = tableModelId ? tableModelId : uuidV4();
         this.physicalName = physicalName.trim();
         this.logicalName = logicalName.trim();
         this.schemaId = schemaId;
-        this.columns = columns;
+        this.columnEntries = columnEntries;
         this.uniqueKeysModels = uniqueKeysModels;
         this.tableIndexModels = tableIndexModels;
         this.description = description.trim();
@@ -66,11 +59,11 @@ export default class TableModel {
 
     public addColumnModelIds(columnModelIds: string[]): TableModel {
         // TODO 本来はグループに属する columnModelId も検査対象にするべき
-        const columnModelIdSet = new Set(this.columns
+        const columnModelIdSet = new Set(this.columnEntries
             .filter(column => column.modelType === "single")
             .map(column => column.columnModelId)
         );
-        const addingColumnModelIds: ColumnModelType[] = columnModelIds
+        const addingColumnModelIds: ColumnEntry[] = columnModelIds
             .filter(targetId => (columnModelIdSet.has(targetId) === false))
             .map(targetId => {
                 return { modelType: "single", columnModelId: targetId };
@@ -81,7 +74,7 @@ export default class TableModel {
 
         return new TableModel({
             ...this,
-            columns: this.columns.concat(addingColumnModelIds),
+            columnEntries: this.columnEntries.concat(addingColumnModelIds),
         });
     }
 
@@ -120,22 +113,8 @@ export default class TableModel {
         if (this.schemaId !== other.schemaId) {
             return false;
         }
-        if (this.columns.length !== other.columns.length) {
+        if (ColumnEntry.equalsEntries(this.columnEntries, other.columnEntries) === false) {
             return false;
-        }
-        for (let index = 0; index < this.columns.length; index++) {
-            const thisColumn = this.columns[index];
-            const otherColumn = other.columns[index];
-            if (thisColumn.modelType !== otherColumn.modelType) {
-                return false;
-            }
-            if ((thisColumn.modelType === "single") && (otherColumn.modelType === "single")
-                && (thisColumn.columnModelId !== otherColumn.columnModelId)) {
-                return false;
-            } else if ((thisColumn.modelType === "group") && (otherColumn.modelType === "group")
-                && (thisColumn.columnGroupId !== otherColumn.columnGroupId)) {
-                return false;
-            }
         }
 
         if (this.uniqueKeysModels.length !== other.uniqueKeysModels.length) {
@@ -183,9 +162,7 @@ export default class TableModel {
     }
 
     public toJSON(): Record<string, unknown> {
-        const columnModelIds = this.columns.map(column =>
-            (column.modelType === "group") ? `group:${column.columnGroupId}` : column.columnModelId
-        );
+        const columnModelIds = ColumnEntry.serializeEntries(this.columnEntries);
 
         return {
             tableModelId: this.tableModelId,
@@ -214,11 +191,7 @@ export default class TableModel {
 
         const schemaId = ("schemaId" in obj) ? obj.schemaId as string : "";
 
-        const columns: ColumnModelType[] = (obj.columnModelIds as string[]).map(id =>
-            id.startsWith("group:")
-                ? { modelType: "group", columnGroupId: id.substring(6) }
-                : { modelType: "single", columnModelId: id }
-        );
+        const columnEntries: ColumnEntry[] = ColumnEntry.deserializeEntries(obj.columnModelIds as string[]);
 
         const uniqueKeysModels = ("uniqueKeysModels" in obj)
             ? toObjects(obj.uniqueKeysModels, "uniqueKeysModels", value => TableUniqueKeysModel.toObject(value)) : [];
@@ -236,7 +209,7 @@ export default class TableModel {
             physicalName: obj.physicalName as string,
             logicalName: obj.logicalName as string,
             schemaId: schemaId,
-            columns: columns,
+            columnEntries: columnEntries,
             uniqueKeysModels: uniqueKeysModels,
             tableIndexModels: tableIndexModels,
             description: description,

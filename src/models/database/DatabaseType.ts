@@ -1,7 +1,7 @@
 import TableIndexSupport from "~/models/database/TableIndexSupport";
 import TableUniqueKeySupport from "~/models/database/TableUniqueKeySupport";
 
-export type DatabaseType = "postgres" | "mysql" | "ms_sqlserver";
+export type DatabaseType = "postgres" | "mysql" | "mariadb" | "ms_sqlserver" | "sqlite" | "bigquery" | "snowflake";
 
 export class Database {
 
@@ -34,6 +34,10 @@ export class Database {
         return this.columnOption.supportArray;
     }
 
+    public get supportsStructType(): boolean {
+        return this.columnOption.supportStruct;
+    }
+
     public get editableCharacterSet(): boolean {
         return this.columnOption.editableCharacterSet;
     }
@@ -56,7 +60,8 @@ type TableOption = {
 type ColumnOption = {
     autoIncrementLabel: string,
     editableCharacterSet: boolean,
-    supportArray: boolean
+    supportArray: boolean,
+    supportStruct: boolean
 };
 
 // cSpell: ignore SPGIST FULLTEXT
@@ -70,7 +75,10 @@ const databases: { [key in DatabaseType]: Database } = {
             nullsOrder: true
         }),
         { supportsSchema: true, supportsTableCollate: false, collatePattern: /^[a-zA-Z][a-zA-Z0-9_.-]*$/ } as const,
-        { autoIncrementLabel: "Generated Always As Identity", editableCharacterSet: false, supportArray: true } as const
+        {
+            autoIncrementLabel: "Generated Always As Identity", editableCharacterSet: false,
+            supportArray: true, supportStruct: false
+        } as const
     ),
     "mysql": new Database(
         "mysql", "MySQL",
@@ -80,7 +88,17 @@ const databases: { [key in DatabaseType]: Database } = {
             indexTypes: ["BTREE", "HASH"]
         }),
         { supportsSchema: false, supportsTableCollate: true, collatePattern: /^[a-zA-Z][a-zA-Z0-9_]*$/ } as const,
-        { autoIncrementLabel: "Auto Increment", editableCharacterSet: true, supportArray: false } as const
+        { autoIncrementLabel: "Auto Increment", editableCharacterSet: true, supportArray: false, supportStruct: false } as const
+    ),
+    "mariadb": new Database(
+        "mariadb", "MariaDB",
+        new TableUniqueKeySupport({ orderable: true }),
+        new TableIndexSupport({
+            indexOptions: ["UNIQUE", "FULLTEXT", "SPATIAL"],
+            indexTypes: ["BTREE", "HASH"]
+        }),
+        { supportsSchema: false, supportsTableCollate: true, collatePattern: /^[a-zA-Z][a-zA-Z0-9_]*$/ } as const,
+        { autoIncrementLabel: "Auto Increment", editableCharacterSet: true, supportArray: false, supportStruct: false } as const
     ),
     "ms_sqlserver": new Database(
         "ms_sqlserver", "MS SQL Server",
@@ -91,6 +109,30 @@ const databases: { [key in DatabaseType]: Database } = {
             supportsClustered: true,
         }),
         { supportsSchema: true, supportsTableCollate: false, collatePattern: /^[a-zA-Z][a-zA-Z0-9_]*$/ } as const,
-        { autoIncrementLabel: "Identity", editableCharacterSet: false, supportArray: false } as const
+        { autoIncrementLabel: "Identity", editableCharacterSet: false, supportArray: false, supportStruct: false } as const
+    ),
+    "sqlite": new Database(
+        "sqlite", "SQLite",
+        new TableUniqueKeySupport({ orderable: true }),
+        new TableIndexSupport({
+            indexOptions: ["UNIQUE"],
+            indexTypes: []
+        }),
+        { supportsSchema: false, supportsTableCollate: false, collatePattern: /^[a-zA-Z][a-zA-Z0-9_]*$/ } as const,
+        { autoIncrementLabel: "", editableCharacterSet: false, supportArray: false, supportStruct: false } as const
+    ),
+    "bigquery": new Database(
+        "bigquery", "BigQuery",
+        new TableUniqueKeySupport({ orderable: false, supportsUniqueKey: false }),
+        new TableIndexSupport({ indexOptions: [], indexTypes: [], supportsIndex: false }),
+        { supportsSchema: true, supportsTableCollate: false, collatePattern: /^[a-zA-Z][a-zA-Z0-9_.:-]*$/ } as const,
+        { autoIncrementLabel: "", editableCharacterSet: false, supportArray: true, supportStruct: true } as const
+    ),
+    "snowflake": new Database(
+        "snowflake", "Snowflake",
+        new TableUniqueKeySupport({ orderable: false }),
+        new TableIndexSupport({ indexOptions: [], indexTypes: [], supportsIndex: false }),
+        { supportsSchema: true, supportsTableCollate: false, collatePattern: /^[a-zA-Z][a-zA-Z0-9_.:-]*$/ } as const,
+        { autoIncrementLabel: "Autoincrement", editableCharacterSet: false, supportArray: false, supportStruct: false } as const
     ),
 };

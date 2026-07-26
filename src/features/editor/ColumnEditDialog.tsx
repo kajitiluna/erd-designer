@@ -1,17 +1,15 @@
 import { v4 as uuidV4 } from 'uuid';
 import React from "react";
 import {
-    Accordion, AccordionDetails, AccordionSummary, Alert, Autocomplete, Box, Button, Checkbox,
-    Chip, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider,
-    FormControlLabel, Grid, IconButton, Paper, Stack, Tab, Tabs, TextField, Tooltip, Typography
+    Alert, Autocomplete, Box, Button, Checkbox, Chip,
+    Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider, FormControlLabel, Grid, Paper,
+    Stack, Tab, TableCell, TableHead, TableRow, Tabs, TextField, Tooltip, Typography
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
-import ClearIcon from '@mui/icons-material/Clear';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined';
 
-import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
+import SimpleColumnModel from "~/models/database/SimpleColumnModel";
 import ColumnType from "~/models/database/ColumnType";
 import { Database } from '~/models/database';
 import DatabaseSettingModel from '~/models/DatabaseSettingModel';
@@ -20,17 +18,17 @@ import EdgedIconButton from '~/components/EdgedIconButton';
 import { ColumnShareModelStorageContext } from '~/context/ColumnShareModelStorageContext';
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from '~/context/ErdDocumentsHolderContext';
 import {
-    ColumnWrapModel, initHandleChangePhysicalName, initHandleChangeWithSyncPhysicalName,
-    initHandleCloseDialog, initHandleEnterKeyDown
+    ColumnWrapModel, initHandleChangeWithSyncPhysicalName, initHandleCloseDialog, initHandleEnterKeyDown
 } from "~/features/editor/support";
-import { initOptionCollatePanel } from '~/features/editor/view-support';
-import SearchColumnShareModelDialog from '~/features/editor/SearchColumnShareModelDialog';
+import { initOptionCollatePanel, useOverrideNamePanel } from '~/features/editor/view-support';
 import { overrideColumnName } from '~/models/database/support';
+import { useInitializeSearchDialog } from '~/features/editor/SearchContentDialog';
 
 type ColumnEditDialogProps = {
     isOpen: boolean,
-    columnModel: ColumnModel,
-    isEditableColumnType: (columnModel: ColumnModel) => boolean,
+    columnModel: SimpleColumnModel,
+    availableKeyConstraints: boolean,
+    isEditableColumnType: (columnModel: SimpleColumnModel) => boolean,
     onUpdateWrapColumnModels: (updateFunction: ((previous: ColumnWrapModel[]) => ColumnWrapModel[])) => void,
     onUpdateCheckExpression: (updateFunction: ((previous: string) => string)) => void,
     onClose: () => void
@@ -50,19 +48,18 @@ type ColumnTypeAttribute = {
 }
 
 const ColumnEditDialog = ({
-    isOpen, columnModel, isEditableColumnType, onUpdateWrapColumnModels, onUpdateCheckExpression, onClose
+    isOpen, columnModel, availableKeyConstraints,
+    isEditableColumnType, onUpdateWrapColumnModels, onUpdateCheckExpression, onClose
 }: ColumnEditDialogProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
-    const { columnShareModelStorage, updateStorage } = React.useContext(ColumnShareModelStorageContext);
+    const { columnShareStorage, updateShareStorage } = React.useContext(ColumnShareModelStorageContext);
 
-    const columnShareModel: ColumnShareModel | null = columnShareModelStorage.find(columnModel.columnShareModelId);
+    const columnShareModel: ColumnShareModel | null = columnShareStorage.findColumnShare(columnModel.columnShareModelId);
 
     const [checkedPrimaryKey, setPrimaryKey] = React.useState<boolean>(columnModel.primaryKey);
     const [checkedNotNull, setNotNull] = React.useState<boolean>(columnModel.notNull);
     const [checkedUnique, setUnique] = React.useState<boolean>(columnModel.unique);
     const [checkAutoIncrement, setAutoIncrement] = React.useState<boolean>(columnModel.autoIncrement);
-    const [overriddenPhysicalName, setOverriddenPhysicalName] = React.useState<string>(columnModel.physicalName);
-    const [overriddenLogicalName, setOverriddenLogicalName] = React.useState<string>(columnModel.logicalName);
     const [defaultValue, setDefaultValue] = React.useState<string>(columnModel.defaultValue);
 
     const erdDocument: ErdDocument = documentsHolder.current();
@@ -76,15 +73,6 @@ const ColumnEditDialog = ({
     const [logicalName, setLogicalName] = React.useState<string>(columnShareModel ? columnShareModel.logicalName : "");
     const [columnTypeAttribute, setColumnTypeAttribute] =
         React.useState<ColumnTypeAttribute>(toColumnTypeAttribute(columnShareModel, database));
-
-    const associateColumnModel = (columnShareModel: ColumnShareModel) => {
-        const columnTypeAttribute = toColumnTypeAttribute(columnShareModel, database);
-
-        setColumnShareModelId(columnShareModel.columnShareModelId);
-        setPhysicalName(columnShareModel.physicalName);
-        setLogicalName(columnShareModel.logicalName);
-        setColumnTypeAttribute(columnTypeAttribute);
-    };
 
     // 論理名が物理名と合致もしくは論理名が空の場合は、論理名に物理名の値を設定する
     const handleChangePhysicalName: ((event: React.ChangeEvent<HTMLInputElement>) => void)
@@ -109,7 +97,7 @@ const ColumnEditDialog = ({
     const validatedValue = (physicalName.length > 0) && (logicalName.length > 0)
         && validateColumnTypeAttribute(columnTypeAttribute);
 
-    const handleCompleted = () => {
+    const handleCompleted = (overriddenName: { physical: string, logical: string }) => {
         const columnType = columnTypeAttribute.columnType;
         if ((columnType == null) || (validatedValue === false)) {
             return;
@@ -126,13 +114,13 @@ const ColumnEditDialog = ({
             characterSet: (availableCollate && database.editableCharacterSet) ? columnTypeAttribute.characterSet : "",
             collate: availableCollate ? columnTypeAttribute.collate : "",
         });
-        const nextShareModelStorage = columnShareModelStorage.addModel(updatedShareModel);
+        const nextShareModelStorage = columnShareStorage.addColumnShare(updatedShareModel);
 
-        const updatedModel = new ColumnModel({
+        const updatedModel = new SimpleColumnModel({
             columnModelId: columnModel.columnModelId,
             columnShareModelId: updatedShareModel.columnShareModelId,
-            physicalName: overriddenPhysicalName,
-            logicalName: overriddenLogicalName,
+            physicalName: overriddenName.physical,
+            logicalName: overriddenName.logical,
             primaryKey: checkedPrimaryKey,
             notNull: checkedNotNull,
             unique: checkedUnique,
@@ -170,9 +158,15 @@ const ColumnEditDialog = ({
             }
         }
 
-        updateStorage(nextShareModelStorage);
+        updateShareStorage(nextShareModelStorage);
         onClose();
     };
+
+    const { overriddenPanel, overriddenName } = useOverrideNamePanel({
+        physicalName: columnModel.physicalName,
+        logicalName: columnModel.logicalName,
+        onCompleted: handleCompleted
+    });
 
     const handleCloseDialog = (event: React.MouseEvent) => {
         event.stopPropagation();
@@ -181,62 +175,36 @@ const ColumnEditDialog = ({
 
     const constraintPanel = (
         <Stack direction="row" spacing={2}>
-            <FormControlLabel label="Primary Key" control={
-                <Checkbox checked={checkedPrimaryKey} onChange={handleChangePrimary} />} />
+            {availableKeyConstraints && (
+                <FormControlLabel label="Primary Key" control={
+                    <Checkbox checked={checkedPrimaryKey} onChange={handleChangePrimary} />} />
+            )}
             <FormControlLabel label="Not Null" control={
                 <Checkbox checked={checkedNotNull} disabled={checkedPrimaryKey}
                     onChange={event => setNotNull(event.target.checked)} />} />
-            <FormControlLabel label="Unique" control={
-                <Checkbox checked={checkedUnique} disabled={checkedPrimaryKey}
-                    onChange={event => setUnique(event.target.checked)} />} />
+            {(database.uniqueKeySupport.supportsUniqueKey === true) && availableKeyConstraints && (
+                <FormControlLabel label="Unique" control={
+                    <Checkbox checked={checkedUnique} disabled={checkedPrimaryKey}
+                        onChange={event => setUnique(event.target.checked)} />} />
+            )}
             {(columnTypeAttribute.columnType != null) && (columnTypeAttribute.columnType.withAutoIncrement) &&
-                <FormControlLabel label={database.autoIncrementLabel()} control={
-                    <Checkbox checked={checkAutoIncrement}
-                        onChange={event => setAutoIncrement(event.target.checked)} />} />
-            }
+                availableKeyConstraints && (
+                    <FormControlLabel label={database.autoIncrementLabel()} control={
+                        <Checkbox checked={checkAutoIncrement}
+                            onChange={event => setAutoIncrement(event.target.checked)} />} />
+                )}
         </Stack>
     );
 
-    const handleEnterDown = initHandleEnterKeyDown(handleCompleted);
+    const associateColumnModel = (columnShareModel: ColumnShareModel) => {
+        const columnTypeAttribute = toColumnTypeAttribute(columnShareModel, database);
 
-    const initClearButton = (value: string, setValue: (value: string) => void) => {
-        return value == "" ? {} : {
-            input: {
-                endAdornment: <IconButton size="small" onClick={() => setValue("")}>
-                    <ClearIcon />
-                </IconButton>
-            }
-        }
-    }
-
-    const overriddenPanel = (
-        <Accordion defaultExpanded={(overriddenPhysicalName != "") || (overriddenLogicalName != "")}>
-            <AccordionSummary id="override-names-header"
-                aria-controls="override-names-content" expandIcon={<ExpandMoreIcon />}>
-                <Stack direction="row" spacing={2} sx={{ alignItems: "center", width: "100%" }}>
-                    <Typography variant="body2">Override Names (optional)</Typography>
-                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
-                        <Tooltip placement="right" arrow title={messageForOverrideNames}>
-                            <HelpOutlineOutlinedIcon fontSize="small" />
-                        </Tooltip>
-                    </Box>
-                </Stack>
-            </AccordionSummary>
-            <AccordionDetails>
-                <Stack direction="row" spacing={1}>
-                    <TextField label="Physical Name" fullWidth variant="outlined" size="small"
-                        slotProps={initClearButton(overriddenPhysicalName, setOverriddenPhysicalName)}
-                        value={overriddenPhysicalName} onKeyDown={handleEnterDown}
-                        onChange={initHandleChangePhysicalName(setOverriddenPhysicalName)} />
-                    <TextField label="Logical Name" fullWidth variant="outlined" size="small"
-                        slotProps={initClearButton(overriddenLogicalName, setOverriddenLogicalName)}
-                        value={overriddenLogicalName} onKeyDown={handleEnterDown}
-                        onChange={event => setOverriddenLogicalName(event.target.value)} />
-                </Stack>
-            </AccordionDetails>
-        </Accordion>
-    );
-
+        setColumnShareModelId(columnShareModel.columnShareModelId);
+        setPhysicalName(columnShareModel.physicalName);
+        setLogicalName(columnShareModel.logicalName);
+        setColumnTypeAttribute(columnTypeAttribute);
+    };
+    const handleEnterDown = initHandleEnterKeyDown(() => handleCompleted(overriddenName));
     const attributePanel = (
         <Paper elevation={4} sx={{ p: 2 }}>
             <Stack useFlexGap spacing={3}>
@@ -262,7 +230,7 @@ const ColumnEditDialog = ({
     return (
         <Dialog fullWidth maxWidth="md" sx={{ userSelect: "none" }}
             open={isOpen} onClose={initHandleCloseDialog(onClose)}>
-            <DialogTitle>Edit table column</DialogTitle>
+            <DialogTitle>Edit {database.supportsStructType ? "single" : "table"} column</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>
                     <Divider />
@@ -279,15 +247,12 @@ const ColumnEditDialog = ({
             </DialogContent>
             <DialogActions>
                 <Button onClick={handleCloseDialog}>Cancel</Button>
-                <Button variant="contained" disabled={!validatedValue} onClick={handleCompleted}>OK</Button>
+                <Button variant="contained" disabled={!validatedValue}
+                    onClick={() => handleCompleted(overriddenName)}>OK</Button>
             </DialogActions>
         </Dialog>
     );
 };
-
-const messageForOverrideNames =
-    "Allows you to override physical or logical names defined in the column model for this specific column." +
-    " This is useful when you want to customize names individually while maintaining shared column definitions.";
 
 const toColumnTypeAttribute = (columnShareModel: ColumnShareModel | null, database: Database) => {
     if (columnShareModel == null) {
@@ -351,27 +316,49 @@ type ColumnModelPanelProps = {
 };
 
 const ColumnModelPanel = ({ columnShareModelId, associateColumnModel, unlinkColumnModel }: ColumnModelPanelProps) => {
+    const { columnShareStorage } = React.useContext(ColumnShareModelStorageContext);
+    const [isOpenDialog, setOpenDialog] = React.useState<"search" | "unlink" | "">("");
 
-    const { columnShareModelStorage } = React.useContext(ColumnShareModelStorageContext);
+    const columnShareModels = columnShareStorage.getColumnShareModels();
 
-    const [isOpenSearchDialog, setOpenSearchDialog] = React.useState<boolean>(false);
-    const [isOpenUnlinkDialog, setOpenUnlinkDialog] = React.useState<boolean>(false);
+    const handleFiltering = React.useCallback((keywords: string[]) => {
+        if (keywords.length === 0) {
+            return columnShareModels;
+        }
 
-    const columnShareModel = columnShareModelId ? columnShareModelStorage.find(columnShareModelId) : null;
+        return columnShareModels.filter(columnShare => {
+            const targets = [
+                columnShare.physicalName, columnShare.logicalName,
+                columnShare.specifiedColumnType(), columnShare.description
+            ];
+
+            return targets.some(target => keywords.some(keyword => target.includes(keyword)));
+        });
+    }, [columnShareModels]);
+
+    const searchDialog = useInitializeSearchDialog({
+        dialogTitle: "Search column model",
+        tableHeader: searchTableHeader,
+        identity: toColumnShareId,
+        onFiltering: handleFiltering,
+        initRecord: initRecord
+    });
 
     const searchButton = (<>
         <EdgedIconButton
             tooltip="Search for column model to be associated"
-            onClick={() => { setOpenSearchDialog(true) }}>
+            onClick={() => { setOpenDialog("search") }}>
             <SearchIcon />
         </EdgedIconButton>
-        <SearchColumnShareModelDialog
-            isOpen={isOpenSearchDialog}
-            associateColumnModel={associateColumnModel}
-            onClose={() => setOpenSearchDialog(false)} />
+        {searchDialog({
+            isOpen: (isOpenDialog === "search"),
+            onCompleted: associateColumnModel,
+            onClose: () => setOpenDialog("")
+        })}
     </>);
 
-    if (columnShareModel == null) {
+    const columnShare = columnShareStorage.findColumnShare(columnShareModelId);
+    if (columnShare == null) {
         return (
             <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
                 <Typography variant="body2">Create new column :</Typography>
@@ -382,35 +369,68 @@ const ColumnModelPanel = ({ columnShareModelId, associateColumnModel, unlinkColu
 
     const handleOpenUnlinkDialog = (event: React.MouseEvent) => {
         event.stopPropagation();
-        setOpenUnlinkDialog(true);
+        setOpenDialog("unlink");
     };
     const handleCloseUnlinkDialog = (event: React.MouseEvent) => {
         event.stopPropagation();
-        setOpenUnlinkDialog(false)
+        setOpenDialog("")
     };
+    const handleCompletedUnlink = (event: React.MouseEvent) => {
+        event.stopPropagation();
+
+        unlinkColumnModel();
+        setOpenDialog("");
+    };
+
+    const unlinkDialog = (
+        <Dialog open={isOpenDialog === "unlink"} onClose={handleCloseUnlinkDialog}>
+            <DialogTitle>Unlink column model?</DialogTitle>
+            <DialogContent>
+                <DialogContentText>Are you sure to unlink the column model ?</DialogContentText>
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={handleCloseUnlinkDialog}>Cancel</Button>
+                <Button variant="contained" color="warning" onClick={handleCompletedUnlink}>Unlink</Button>
+            </DialogActions>
+        </Dialog>
+    );
 
     return (
         <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
             <Typography variant="body2">Associated with :</Typography>
-            <Chip variant="outlined" color="primary" label={columnShareModel.logicalName}
+            <Chip variant="outlined" color="primary" label={columnShare.logicalName}
                 onDelete={handleOpenUnlinkDialog} />
             {searchButton}
-            <Dialog open={isOpenUnlinkDialog} onClose={handleCloseUnlinkDialog}>
-                <DialogTitle>Unlink column model?</DialogTitle>
-                <DialogContent>
-                    <DialogContentText>Are you sure to unlink the column model ?</DialogContentText>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseUnlinkDialog}>Cancel</Button>
-                    <Button variant="contained" color="warning" onClick={() => {
-                        unlinkColumnModel();
-                        setOpenUnlinkDialog(false);
-                    }}>
-                        Unlink
-                    </Button>
-                </DialogActions>
-            </Dialog>
+            {unlinkDialog}
         </Stack>
+    );
+};
+
+const searchTableHeader = (
+    <TableHead>
+        <TableRow>
+            <TableCell sx={{ width: "12px" }} align="center"></TableCell>
+            <TableCell>Physical Name</TableCell>
+            <TableCell>Logical Name</TableCell>
+            <TableCell>Type</TableCell>
+            <TableCell>Description</TableCell>
+        </TableRow>
+    </TableHead>
+);
+
+const toColumnShareId = (columnShare: ColumnShareModel) => columnShare.columnShareModelId;
+
+const initRecord = (
+    columnShare: ColumnShareModel, selected: boolean, attributes: React.ComponentProps<typeof TableRow>
+) => {
+    return (
+        <TableRow key={`search-column_${columnShare.columnShareModelId}`} {...attributes} >
+            <TableCell align="center">{selected && "✔"}</TableCell>
+            <TableCell>{columnShare.physicalName}</TableCell>
+            <TableCell>{columnShare.logicalName}</TableCell>
+            <TableCell>{columnShare.specifiedColumnType()}</TableCell>
+            <TableCell>{columnShare.description}</TableCell>
+        </TableRow>
     );
 };
 

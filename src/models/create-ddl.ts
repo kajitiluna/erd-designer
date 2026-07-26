@@ -1,6 +1,9 @@
 import { Database, DatabaseType } from "~/models/database";
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
+import SimpleColumnModel from "~/models/database/SimpleColumnModel";
+import StructColumnModel from "~/models/database/StructColumnModel";
+import StructColumnShareModel from "~/models/database/StructColumnShareModel";
 import DbSchemaModel from "~/models/database/DbSchemaModel";
 import RelationModel from "~/models/database/RelationModel";
 import { overrideColumnName } from "~/models/database/support";
@@ -8,6 +11,7 @@ import TableModel from "~/models/database/TableModel";
 import TableUniqueKeysModel from "~/models/database/TableUniqueKeysModel";
 import ErdDocument from "~/models/ErdDocument";
 import { DdlCommentStyle } from "~/models/ExportDdlSettingModel";
+import { buildStructTypeExpression } from "~/models/struct-type-expression";
 import TableViewModel from "~/models/TableViewModel";
 
 type DdlOption = {
@@ -40,10 +44,27 @@ type IndexQueryArgs = {
     columnQueries: string[];
 };
 
+type ForeignKeyQueryArgs = {
+    childTableName: string;
+    parentTableName: string;
+    childColumnNames: string[];
+    parentColumnNames: string[];
+    onUpdateAction: string;
+    onDeleteAction: string;
+};
+
 type DatabaseDdlCreatorArgs = {
     tableQueryWithOption: (query: string, tableModel: TableModel, option: DdlOption) => string,
-    columnQueryWithOption?: (query: string, columnShare: ColumnShareModel, overrideName: OverrideName, option: DdlOption) => string,
+    columnQueryWithOption?: (
+        query: string, columnShare: ColumnShareModel, overrideName: OverrideName, option: DdlOption
+    ) => string,
+    structColumnQueryWithOption?: (
+        query: string, structShare: StructColumnShareModel, overrideName: OverrideName, option: DdlOption
+    ) => string,
     indexQuery: (args: IndexQueryArgs) => string,
+    foreignKeyQuery?: (args: ForeignKeyQueryArgs) => string,
+    primaryKeyQuery?: (columns: string[]) => string,
+    supportsUniqueKey?: boolean,
     commentQuery: (erdDocument: ErdDocument, option: DdlOption, escape: (value: string) => string) => string[],
     autoIncrementKeyword: string,
     reservedWords: string[],
@@ -54,27 +75,45 @@ type DatabaseDdlCreatorArgs = {
 class DatabaseDdlCreator {
 
     private readonly tableQueryWithOption: (query: string, tableModel: TableModel, option: DdlOption) => string;
+
     private readonly columnQueryWithOption: (
         query: string, columnShare: ColumnShareModel, overrideName: OverrideName, option: DdlOption
     ) => string;
+
+    private readonly structColumnQueryWithOption: (
+        query: string, structShare: StructColumnShareModel, overrideName: OverrideName, option: DdlOption
+    ) => string;
+
+    private readonly primaryKeyQuery: (columns: string[]) => string;
+    private readonly supportsUniqueKey: boolean;
+    private readonly autoIncrementKeyword: string;
     private readonly indexQuery: (args: IndexQueryArgs) => string;
+    private readonly foreignKeyQuery: (args: ForeignKeyQueryArgs) => string;
+
     private readonly commentQuery: (
         erdDocument: ErdDocument, option: DdlOption, escape: (value: string) => string
     ) => string[];
-    private readonly autoIncrementKeyword: string;
+
     private readonly reservedWords: Set<string>;
     private readonly escapeString: (value: string) => string;
     private readonly escapeCollate: ((value: string) => string);
 
     constructor({
-        tableQueryWithOption, columnQueryWithOption = (query: string) => query, indexQuery, commentQuery,
-        autoIncrementKeyword, reservedWords, escapeString, escapeCollate = (value: string) => value
+        tableQueryWithOption, columnQueryWithOption = (query: string) => query,
+        structColumnQueryWithOption = (query: string) => query,
+        primaryKeyQuery = primaryKeyQueryForConstraint,
+        supportsUniqueKey = true, autoIncrementKeyword, indexQuery, foreignKeyQuery = foreignKeyQueryForAlter,
+        commentQuery, reservedWords, escapeString, escapeCollate = (value: string) => value
     }: DatabaseDdlCreatorArgs) {
         this.tableQueryWithOption = tableQueryWithOption;
         this.columnQueryWithOption = columnQueryWithOption;
-        this.indexQuery = indexQuery;
-        this.commentQuery = commentQuery;
+        this.structColumnQueryWithOption = structColumnQueryWithOption;
+        this.primaryKeyQuery = primaryKeyQuery;
+        this.supportsUniqueKey = supportsUniqueKey;
         this.autoIncrementKeyword = autoIncrementKeyword;
+        this.indexQuery = indexQuery;
+        this.foreignKeyQuery = foreignKeyQuery;
+        this.commentQuery = commentQuery;
         this.reservedWords = new Set(reservedWords);
         this.escapeString = escapeString;
         this.escapeCollate = escapeCollate;
@@ -139,8 +178,10 @@ class DatabaseDdlCreator {
 
     private initTableDefinitionQuery(erdDocument: ErdDocument, tableViewModel: TableViewModel, option: DdlOption) {
         const tableModel: TableModel = tableViewModel.tableModel;
-        const allColumnModels = erdDocument.toAllColumnModels(tableModel);
+        const database = erdDocument.getDatabase();
 
+        // PK・UNIQUE・INDEX・FK・CHECK式の解決は従来どおりフラット化カラム基準で行う
+        const allColumnModels = erdDocument.toAllColumnsExceptStruct(tableModel);
         const columnPairs = allColumnModels.map(columnModel => {
             const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
             const inChildRelation = erdDocument.inChildRelation(tableModel.tableModelId, columnModel.columnModelId);
@@ -148,11 +189,11 @@ class DatabaseDdlCreator {
             return { columnModel, columnShareModel, inChildRelation };
         });
 
-        const database = erdDocument.getDatabase();
-        const columnQueries = columnPairs.map(columnPair => {
-            const { columnModel, columnShareModel, inChildRelation } = columnPair;
-            return this.columnQuery(columnModel, columnShareModel, inChildRelation, database, option);
-        });
+        // カラム行の生成は tableModel.columns のエントリ順(single/group)で走査する。
+        const allColumns = erdDocument.toAllColumnsWithStruct(tableModel);
+        const columnQueries = allColumns
+            .map(columnModel => this.columnEntryQuery(erdDocument, tableModel, columnModel, database, option))
+            .filter((columnQuery): columnQuery is string => (columnQuery != null));
 
         const primaryKeys = columnPairs
             .filter(columnPair => (columnPair.columnModel.primaryKey === true))
@@ -163,11 +204,10 @@ class DatabaseDdlCreator {
             });
 
         if (primaryKeys.length > 0) {
-            const primaryKeyQuery = `PRIMARY KEY (${primaryKeys.join(", ")})`
-            columnQueries.push(primaryKeyQuery);
+            columnQueries.push(this.primaryKeyQuery(primaryKeys));
         }
 
-        if (tableModel.uniqueKeysModels.length > 0) {
+        if ((tableModel.uniqueKeysModels.length > 0) && (this.supportsUniqueKey === true)) {
             const uniqueKeyConstraints = this.initUniqueConstraintQuery(tableModel.uniqueKeysModels, columnPairs);
             columnQueries.push(...uniqueKeyConstraints);
         }
@@ -184,6 +224,39 @@ class DatabaseDdlCreator {
         return columnQueries;
     }
 
+    private columnEntryQuery(
+        erdDocument: ErdDocument, tableModel: TableModel, columnModel: ColumnModel,
+        database: Database, option: DdlOption
+    ): string | null {
+        if (ColumnModel.isStructColumn(columnModel)) {
+            return this.structColumnQuery(erdDocument, columnModel, option);
+        }
+
+        const columnShare = erdDocument.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
+        const inChildRelation = erdDocument.inChildRelation(tableModel.tableModelId, columnModel.columnModelId);
+
+        return this.columnQuery(columnModel, columnShare, inChildRelation, database, option);
+    }
+
+    private structColumnQuery(
+        erdDocument: ErdDocument, columnModel: StructColumnModel, option: DdlOption
+    ): string | null {
+        const structModel = erdDocument.findStructColumnShareModel(columnModel.structShareModelId);
+        if (structModel == null) {
+            return null;
+        }
+
+        const typeExpression = buildStructTypeExpression(
+            erdDocument, structModel, { escape: (value: string) => this.escape(value) }
+        );
+        const overrideName = overrideColumnName(columnModel, structModel);
+
+        const notNullSuffix = (columnModel.notNull === true) ? " NOT NULL" : "";
+        const baseQuery = `${this.escape(overrideName.physicalName)} ${typeExpression}${notNullSuffix}`;
+
+        return this.structColumnQueryWithOption(baseQuery, structModel, overrideName, option);
+    }
+
     private initTableCheckExpression(checkExpression: string, columnPairs: ColumnModelPair[]): string {
         const nameMap = new Map(columnPairs.map(pair => {
             const overrideName = overrideColumnName(pair.columnModel, pair.columnShareModel);
@@ -196,9 +269,9 @@ class DatabaseDdlCreator {
     }
 
     private columnQuery(
-        columnModel: ColumnModel, columnShareModel: ColumnShareModel, inChildRelation: boolean,
+        columnModel: SimpleColumnModel, columnShareModel: ColumnShareModel, inChildRelation: boolean,
         database: Database, option: DdlOption
-    ): string {
+    ) {
         const attributes = [columnShareModel.specifiedColumnType(inChildRelation)];
 
         const characterSet = columnShareModel.characterSet(database);
@@ -222,14 +295,15 @@ class DatabaseDdlCreator {
         if (columnModel.autoIncrement && columnShareModel.columnType.withAutoIncrement) {
             attributes.push(this.autoIncrementKeyword);
         }
-        if (columnModel.unique) {
+
+        const overrideName = overrideColumnName(columnModel, columnShareModel);
+
+        if (columnModel.unique && (this.supportsUniqueKey === true)) {
             attributes.push("UNIQUE");
         }
         if (columnModel.defaultValue) {
             attributes.push("DEFAULT " + columnModel.defaultValue);
         }
-
-        const overrideName = overrideColumnName(columnModel, columnShareModel);
 
         const checkExpression = this.initColumnCheckExpression(columnShareModel, overrideName);
 
@@ -293,7 +367,8 @@ class DatabaseDdlCreator {
 
             return tableModel.tableIndexModels.map(indexModel => {
                 const columnQueries = indexModel.indexColumnModels.map(indexColumn => {
-                    const columnModel = erdDocument.findColumnModel(indexColumn.columnModelId) as ColumnModel;
+                    // INDEX は simple カラムに限定されるため、構造上 struct が混入することはない
+                    const columnModel = erdDocument.findColumnModel(indexColumn.columnModelId) as SimpleColumnModel;
                     const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
 
                     const overrideName = overrideColumnName(columnModel, columnShareModel);
@@ -337,10 +412,11 @@ class DatabaseDdlCreator {
             const parentSchema = erdDocument.findSchema(parentTableModel.schemaId);
 
             const pairColumnNames = relationModel.relationPairs.map(relationPair => {
-                const childColumnModel = erdDocument.findColumnModel(relationPair.childColumnModelId) as ColumnModel;
+                // FK の親子カラムは PK 由来の simple カラムに限定される
+                const childColumnModel = erdDocument.findColumnModel(relationPair.childColumnModelId) as SimpleColumnModel;
                 const childColumnShareModel = erdDocument.findColumnShareModel(childColumnModel.columnShareModelId) as ColumnShareModel;
 
-                const parentColumnModel = erdDocument.findColumnModel(relationPair.parentColumnModelId) as ColumnModel;
+                const parentColumnModel = erdDocument.findColumnModel(relationPair.parentColumnModelId) as SimpleColumnModel;
                 const parentColumnShareModel = (parentColumnModel.columnShareModelId === childColumnModel.columnShareModelId)
                     ? childColumnShareModel : erdDocument.findColumnShareModel(parentColumnModel.columnShareModelId) as ColumnShareModel;
 
@@ -355,17 +431,17 @@ class DatabaseDdlCreator {
 
             const parentTableName = ((parentSchema != null) ? `${this.escape(parentSchema.schemaName)}.` : "")
                 + this.escape(parentTableModel.physicalName);
-            const alterQueries = [
-                `ADD FOREIGN KEY (${pairColumnNames.map(pair => pair.child).join(", ")})`,
-                `REFERENCES ${parentTableName} (${pairColumnNames.map(pair => pair.parent).join(", ")})`,
-                `ON UPDATE ${relationModel.onUpdateAction}`,
-                `ON DELETE ${relationModel.onDeleteAction}`
-            ];
-
             const childTableName = ((childSchema != null) ? `${this.escape(childSchema.schemaName)}.` : "")
                 + this.escape(childTableModel.physicalName);
 
-            return `ALTER TABLE ${childTableName}\n    ${alterQueries.join("\n    ")};\n`;
+            return this.foreignKeyQuery({
+                childTableName,
+                parentTableName,
+                childColumnNames: pairColumnNames.map(pair => pair.child),
+                parentColumnNames: pairColumnNames.map(pair => pair.parent),
+                onUpdateAction: relationModel.onUpdateAction,
+                onDeleteAction: relationModel.onDeleteAction
+            });
         });
 
         return (queries.length > 0) ? ["/* create foreign keys. */", ...queries, ""] : [];
@@ -386,6 +462,21 @@ class DatabaseDdlCreator {
 }
 
 type ColumnModelPair = { columnModel: ColumnModel, columnShareModel: ColumnShareModel, inChildRelation: boolean };
+
+const primaryKeyQueryForConstraint = (columns: string[]): string => {
+    return `PRIMARY KEY (${columns.join(", ")})`;
+};
+
+const foreignKeyQueryForAlter = (args: ForeignKeyQueryArgs): string => {
+    const alterQueries = [
+        `ADD FOREIGN KEY (${args.childColumnNames.join(", ")})`,
+        `REFERENCES ${args.parentTableName} (${args.parentColumnNames.join(", ")})`,
+        `ON UPDATE ${args.onUpdateAction}`,
+        `ON DELETE ${args.onDeleteAction}`
+    ];
+
+    return `ALTER TABLE ${args.childTableName}\n    ${alterQueries.join("\n    ")};\n`;
+};
 
 // cSpell:disable
 
@@ -522,6 +613,13 @@ const mysqlReservedWords = [
     "X509", "XA", "XID", "XML", "XOR", "YEAR", "YEAR_MONTH", "ZEROFILL"
 ];
 
+const mariadbReservedWords = [
+    ...mysqlReservedWords,
+    "CURRENT_ROLE", "DELETE_DOMAIN_ID", "DO_DOMAIN_IDS", "GENERAL", "IGNORE_DOMAIN_IDS",
+    "MASTER_HEARTBEAT_PERIOD", "PAGE_CHECKSUM", "PARSE_VCOL_EXPR", "POSITION", "ROWNUM", "ROWTYPE",
+    "SLOW", "STATEMENT", "UTC_DATE", "UTC_TIME", "UTC_TIMESTAMP"
+];
+
 const msSqlServerReservedWords = [
     "ADD", "EXTERNAL", "PROCEDURE", "ALL", "FETCH", "PUBLIC", "ALTER", "FILE", "RAISERROR", "AND",
     "FILLFACTOR", "READ", "ANY", "FOR", "READTEXT", "AS", "FOREIGN", "RECONFIGURE", "ASC", "FREETEXT",
@@ -544,6 +642,31 @@ const msSqlServerReservedWords = [
     "ORDER", "VARYING", "ELSE", "OUTER", "VIEW", "END", "OVER", "WAITFOR", "ERRLVL", "PERCENT",
     "WHEN", "ESCAPE", "PIVOT", "WHERE", "EXCEPT", "PLAN", "WHILE", "EXEC", "PRECISION", "WITH",
     "EXECUTE", "PRIMARY", "WITHIN GROUP", "EXISTS", "PRINT", "WRITETEXT", "EXIT", "PROC"
+];
+
+const sqliteReservedWords = [
+    "ABORT", "ACTION", "ADD", "AFTER", "ALTER", "ALWAYS", "ANALYZE", "ATTACH", "AUTOINCREMENT", "BEFORE",
+    "BEGIN", "CASCADE", "CAST", "COLLATE", "COMMIT", "CONFLICT", "CROSS", "CURRENT", "DATABASE",
+    "DEFERRABLE", "DEFERRED", "DETACH", "DO", "EACH", "ESCAPE", "EXCEPT", "EXCLUDE", "EXCLUSIVE",
+    "EXPLAIN", "FAIL", "FILTER", "FOLLOWING", "FULL", "GENERATED", "GLOB", "GROUPS", "IGNORE",
+    "IMMEDIATE", "INDEX", "INDEXED", "INITIALLY", "INSTEAD", "ISNULL", "MATCH", "MATERIALIZED", "NO",
+    "NOTHING", "NOTNULL", "NULLS", "OF", "OFFSET", "OTHERS", "OVER", "PARTITION", "PLAN", "PRAGMA",
+    "PRECEDING", "QUERY", "RAISE", "RANGE", "RECURSIVE", "REGEXP", "REINDEX", "RELEASE", "RENAME",
+    "REPLACE", "RESTRICT", "RETURNING", "ROLLBACK", "ROW", "ROWS", "SAVEPOINT", "TEMP", "TEMPORARY",
+    "TIES", "TRANSACTION", "TRIGGER", "UNBOUNDED", "VACUUM", "VIEW", "VIRTUAL", "WINDOW", "WITHOUT"
+];
+
+const bigqueryReservedWords = [
+    "ASSERT_ROWS_MODIFIED", "DEFINE", "ENUM", "ESCAPE", "EXCLUDE", "GROUPS", "HASH", "IF", "IGNORE",
+    "LOOKUP", "MERGE", "PROTO", "QUALIFY", "RESPECT", "STRUCT", "TABLESAMPLE", "TREAT", "UNBOUNDED",
+    "WINDOW", "WITHIN"
+];
+
+const snowflakeReservedWords = [
+    "ACCOUNT", "CLUSTER", "COLLATE", "CONNECT", "CONNECTION", "CURRENT_ACCOUNT", "FILE", "GSCLUSTER",
+    "ILIKE", "INCREMENT", "ISSUE", "LOCALTIME", "LOCALTIMESTAMP", "MINUS", "MODIFY", "ORGANIZATION",
+    "QUALIFY", "REGEXP", "RENAME", "REVOKE", "RLIKE", "ROW", "ROWS", "SAMPLE", "SOME", "START",
+    "TABLESAMPLE", "TRIGGER", "TRY_CAST", "VIEW", "WHENEVER"
 ];
 
 // cSpell:enable
@@ -579,11 +702,94 @@ const tableQueryForMySql = (query: string, tableModel: TableModel, option: DdlOp
 };
 
 const columnQueryForMySql = (
-    query: string, column: ColumnShareModel, overrideName: OverrideName, option: DdlOption
+    query: string, columnShare: ColumnShareModel, overrideName: OverrideName, option: DdlOption
 ) => {
-    const columnComment = initComment(overrideName.physicalName, overrideName.logicalName, column.description, option);
+    const columnComment = initComment(
+        overrideName.physicalName, overrideName.logicalName, columnShare.description, option
+    );
 
     return (columnComment !== "") ? `${query} COMMENT '${escapeComment(columnComment)}'` : query;
+};
+
+const tableQueryForBigQuery = (query: string, tableModel: TableModel, option: DdlOption) => {
+    const tableComment = initComment(tableModel.physicalName, tableModel.logicalName, tableModel.description, option);
+
+    const tableOptions = [
+        (tableComment !== "") ? `OPTIONS(description="${escapeBigQueryOptionDescription(tableComment)}")` : null,
+        (tableModel.optionExpression !== "") ? `\n${tableModel.optionExpression}` : null
+    ].filter(option => (option != null));
+
+    return (tableOptions.length === 0) ? query : `${query} ${tableOptions.join(", ")}`;
+};
+
+const columnQueryForBigQuery = (
+    query: string, columnShare: ColumnShareModel, overrideName: OverrideName, option: DdlOption
+) => {
+    return initBigQueryDescriptionOption(query, columnShare.description, overrideName, option);
+};
+
+const structColumnQueryForBigQuery = (
+    query: string, structShare: StructColumnShareModel, overrideName: OverrideName, option: DdlOption
+) => {
+    return initBigQueryDescriptionOption(query, structShare.description, overrideName, option);
+};
+
+// simple 行と struct 行でコメント出典モデルは異なるが、BigQuery の OPTIONS 句の組み立ては共通。
+const initBigQueryDescriptionOption = (
+    query: string, description: string, overrideName: OverrideName, option: DdlOption
+) => {
+    const comment = initComment(overrideName.physicalName, overrideName.logicalName, description, option);
+    return (comment !== "") ? `${query} OPTIONS(description="${escapeBigQueryOptionDescription(comment)}")` : query;
+};
+
+// BigQuery の OPTIONS(description="...") は二重引用符で囲むため、\ と " と改行をエスケープする。
+// \ は他のエスケープを二重適用しないよう最初に置換する。
+const escapeBigQueryOptionDescription = (value: string): string => {
+    return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("\n", "\\n");
+};
+
+const primaryKeyQueryForBigQuery = (columns: string[]): string => {
+    return `PRIMARY KEY (${columns.join(", ")}) NOT ENFORCED`;
+};
+
+const foreignKeyQueryForBigQuery = (args: ForeignKeyQueryArgs): string => {
+    const alterQueries = [
+        `ADD FOREIGN KEY (${args.childColumnNames.join(", ")})`,
+        `REFERENCES ${args.parentTableName} (${args.parentColumnNames.join(", ")}) NOT ENFORCED`
+    ];
+
+    return `ALTER TABLE ${args.childTableName}\n    ${alterQueries.join("\n    ")};\n`;
+};
+
+const indexQueryForBigQuery = (args: IndexQueryArgs): string => {
+    return `-- BigQuery: CREATE INDEX is not supported: `
+        + `${args.indexName} ON ${args.tableName} (${args.columnQueries.join(", ")})`;
+};
+
+const tableQueryForSnowflake = (query: string, tableModel: TableModel, option: DdlOption) => {
+    const tableComment = initComment(tableModel.physicalName, tableModel.logicalName, tableModel.description, option);
+
+    const tableOptions = [
+        (tableComment !== "") ? `COMMENT = '${escapeComment(tableComment)}'` : null,
+        (tableModel.optionExpression !== "") ? `\n${tableModel.optionExpression}` : null
+    ].filter(option => (option != null));
+
+    return (tableOptions.length === 0) ? query : `${query} ${tableOptions.join(", ")}`;
+};
+
+const columnQueryForSnowflake = (
+    query: string, columnShare: ColumnShareModel, overrideName: OverrideName, option: DdlOption
+) => {
+    const columnComment = initComment(
+        overrideName.physicalName, overrideName.logicalName, columnShare.description, option
+    );
+
+    return (columnComment !== "") ? `${query} COMMENT '${escapeComment(columnComment)}'` : query;
+};
+
+const indexQueryForSnowflake = (args: IndexQueryArgs): string => {
+    return `-- Snowflake: CREATE INDEX is not supported on standard tables: `
+        + `${args.indexName} ON ${args.tableName} (${args.columnQueries.join(", ")})`;
 };
 
 const commentQueryForPostgres = (
@@ -600,7 +806,8 @@ const commentQueryForPostgres = (
         const tableName = ((schemaModel != null) ? `${escape(schemaModel.schemaName)}.` : "")
             + escape(tableModel.physicalName);
 
-        const commentQueries = erdDocument.toAllColumnModels(tableModel)
+        // postgres は struct 非対応なので、struct を除いて取得するのでよい
+        const commentQueries = erdDocument.toAllColumnsExceptStruct(tableModel)
             .map(columnModel => initColumnCommentQueryForPostgres(columnModel, tableName, erdDocument, option, escape))
             .filter(comment => (comment != null));
 
@@ -620,7 +827,7 @@ const commentQueryForPostgres = (
 };
 
 const initColumnCommentQueryForPostgres = (
-    columnModel: ColumnModel, tableName: string, erdDocument: ErdDocument, option: DdlOption,
+    columnModel: SimpleColumnModel, tableName: string, erdDocument: ErdDocument, option: DdlOption,
     escape: (value: string) => string
 ) => {
     const columnShare = erdDocument.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
@@ -637,6 +844,75 @@ const initColumnCommentQueryForPostgres = (
 
 const escapeComment = (comment: string) => {
     return comment.replaceAll("'", '"');
+};
+
+// BigQuery / Snowflake の COLLATE は単一引用符の文字列リテラルを要求する (例: COLLATE 'und:ci')
+const escapeCollateWithSingleQuote = (collate: string): string => {
+    return `'${collate.replaceAll("'", "''")}'`;
+};
+
+const commentQueryForSqlite = (
+    erdDocument: ErdDocument, option: DdlOption, escape: (value: string) => string
+): string[] => {
+    if (option.withTable === false) {
+        return [];
+    }
+
+    const tableViews = erdDocument.getTableViewModels();
+    const queries = tableViews.flatMap(tableView => {
+        const tableModel: TableModel = tableView.tableModel;
+        const schemaModel = erdDocument.findSchema(tableModel.schemaId);
+        const tableName = ((schemaModel != null) ? `${escape(schemaModel.schemaName)}.` : "")
+            + escape(tableModel.physicalName);
+
+        // SQLite は struct 非対応なので、struct を除いて取得するのでよい
+        const commentQueries = erdDocument.toAllColumnsExceptStruct(tableModel)
+            .map(columnModel => initColumnCommentQueryForSqlite(columnModel, tableName, erdDocument, option, escape))
+            .filter(comment => (comment != null));
+
+        const tableComment = initComment(tableModel.physicalName, tableModel.logicalName, tableModel.description, option);
+        if (tableComment !== "") {
+            commentQueries.unshift(`-- ${tableName}: ${escapeSqliteLineComment(tableComment)}`);
+        }
+
+        if (commentQueries.length > 0) {
+            commentQueries.push("");
+        }
+
+        return commentQueries;
+    });
+
+    return (queries.length > 0) ? ["/* create comments. */", ...queries, ""] : [];
+};
+
+const initColumnCommentQueryForSqlite = (
+    columnModel: SimpleColumnModel, tableName: string, erdDocument: ErdDocument, option: DdlOption,
+    escape: (value: string) => string
+): string | null => {
+    const columnShare = erdDocument.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
+    const overrideName = overrideColumnName(columnModel, columnShare);
+    const comment = initComment(overrideName.physicalName, overrideName.logicalName, columnShare.description, option);
+
+    if (comment === "") {
+        return null;
+    }
+
+    const columnName = escape(overrideName.physicalName);
+    return `-- ${tableName}.${columnName}: ${escapeSqliteLineComment(comment)}`;
+};
+
+// SQLiteの `--` は行末までのコメントのため、改行を含むコメントはそのままだと構文破綻する。改行を空白に無害化する。
+const escapeSqliteLineComment = (comment: string) => {
+    return comment.replaceAll("\n", " ");
+};
+
+const foreignKeyQueryForSqlite = (args: ForeignKeyQueryArgs): string => {
+    const childColumns = args.childColumnNames.join(", ");
+    const parentColumns = args.parentColumnNames.join(", ");
+
+    // TODO 外部キーは CREATE TABLE 内に FOREIGN KEY 句として定義する必要がある
+    return "-- Not support foreign key: " +
+        `${args.childTableName} (${childColumns}) -> ${args.parentTableName} (${parentColumns})\n`;
 };
 
 const exportConfigs: { [key in DatabaseType]: DatabaseDdlCreator } = {
@@ -664,14 +940,62 @@ const exportConfigs: { [key in DatabaseType]: DatabaseDdlCreator } = {
         escapeString: (value: string) => '`' + value + '`' // MySQL uses backticks as escape character
     }),
 
+    "mariadb": new DatabaseDdlCreator({
+        tableQueryWithOption: tableQueryForMySql,
+        columnQueryWithOption: columnQueryForMySql,
+        indexQuery: (args: IndexQueryArgs) =>
+            `CREATE ${args.indexOption}INDEX ${args.indexName}${args.indexTypeQuery}`
+            + ` ON ${args.tableName} (${args.columnQueries.join(", ")});`,
+        commentQuery: () => [],
+        autoIncrementKeyword: "AUTO_INCREMENT",
+        reservedWords: [...commonReservedWords, ...mariadbReservedWords],
+        escapeString: (value: string) => '`' + value + '`' // MariaDB uses backticks as escape character
+    }),
+
     "ms_sqlserver": new DatabaseDdlCreator({
         tableQueryWithOption: tableQuery,
         indexQuery: (args: IndexQueryArgs) =>
-            `CREATE ${args.indexOption}INDEX ${args.indexName} ON ${args.tableName}`
-            + ` (${args.columnQueries.join(", ")});`,
+            `CREATE ${args.indexOption}INDEX ${args.indexName} ON ${args.tableName} (${args.columnQueries.join(", ")});`,
         commentQuery: () => [],
         autoIncrementKeyword: "IDENTITY",
         reservedWords: [...commonReservedWords, ...msSqlServerReservedWords],
         escapeString: (value: string) => `[${value}]` // MS SQL Server uses square brackets as escape character
+    }),
+
+    "sqlite": new DatabaseDdlCreator({
+        tableQueryWithOption: tableQuery,
+        indexQuery: (args: IndexQueryArgs) =>
+            `CREATE ${args.indexOption}INDEX ${args.indexName} ON ${args.tableName} (${args.columnQueries.join(", ")});`,
+        foreignKeyQuery: foreignKeyQueryForSqlite,
+        commentQuery: commentQueryForSqlite,
+        autoIncrementKeyword: "",  // 全型 withAutoIncrement:false のため実際には出力されない
+        reservedWords: [...commonReservedWords, ...sqliteReservedWords],
+        escapeString: (value: string) => `"${value}"` // SQLite uses double quotes as escape character
+    }),
+
+    "bigquery": new DatabaseDdlCreator({
+        tableQueryWithOption: tableQueryForBigQuery,
+        columnQueryWithOption: columnQueryForBigQuery,
+        structColumnQueryWithOption: structColumnQueryForBigQuery,
+        indexQuery: indexQueryForBigQuery,
+        primaryKeyQuery: primaryKeyQueryForBigQuery,
+        foreignKeyQuery: foreignKeyQueryForBigQuery,
+        supportsUniqueKey: false,
+        commentQuery: () => [],
+        autoIncrementKeyword: "",
+        reservedWords: [...commonReservedWords, ...bigqueryReservedWords],
+        escapeString: (value: string) => '`' + value + '`', // BigQuery uses backticks as escape character
+        escapeCollate: escapeCollateWithSingleQuote
+    }),
+
+    "snowflake": new DatabaseDdlCreator({
+        tableQueryWithOption: tableQueryForSnowflake,
+        columnQueryWithOption: columnQueryForSnowflake,
+        indexQuery: indexQueryForSnowflake,
+        commentQuery: () => [],
+        autoIncrementKeyword: "AUTOINCREMENT",
+        reservedWords: [...commonReservedWords, ...snowflakeReservedWords],
+        escapeString: (value: string) => `"${value}"`, // Snowflake uses double quotes as escape character
+        escapeCollate: escapeCollateWithSingleQuote
     })
 };

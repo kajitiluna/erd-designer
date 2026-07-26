@@ -7,8 +7,8 @@ import LineViewModel from '~/models/LineViewModel';
 import RelationViewModel from '~/models/RelationViewModel';
 import TableViewModel from '~/models/TableViewModel';
 import ColumnGroupModel from '~/models/database/ColumnGroupModel';
-import ColumnModel from '~/models/database/ColumnModel';
 import RelationModel from '~/models/database/RelationModel';
+import SimpleColumnModel from '~/models/database/SimpleColumnModel';
 import RelationPair from '~/models/database/RelationPair';
 import TableModel from '~/models/database/TableModel';
 
@@ -31,9 +31,9 @@ const initRelationViewModel = (relationModel: RelationModel): RelationViewModel 
 
 describe('ErdDocument.deleteColumnGroup', () => {
     // 親テーブル P (単独PKカラム) と、カラムグループを利用する子テーブル C を持つドキュメントを構築する
-    const parentPkColumn = new ColumnModel({ columnModelId: 'parent-pk-col', primaryKey: true });
-    const childOwnColumn = new ColumnModel({ columnModelId: 'child-own-col' });
-    const groupMemberColumn = new ColumnModel({ columnModelId: 'group-member-col' });
+    const parentPkColumn = new SimpleColumnModel({ columnModelId: 'parent-pk-col', columnShareModelId: '', primaryKey: true });
+    const childOwnColumn = new SimpleColumnModel({ columnModelId: 'child-own-col', columnShareModelId: '' });
+    const groupMemberColumn = new SimpleColumnModel({ columnModelId: 'group-member-col', columnShareModelId: '' });
     const columnGroup = new ColumnGroupModel({
         columnGroupId: 'group-1',
         groupName: 'shared_columns',
@@ -43,12 +43,12 @@ describe('ErdDocument.deleteColumnGroup', () => {
     const parentTableModel = new TableModel({
         tableModelId: 'table-parent',
         physicalName: 'parent_table',
-        columns: [{ modelType: 'single', columnModelId: 'parent-pk-col' }]
+        columnEntries: [{ modelType: 'single', columnModelId: 'parent-pk-col' }]
     });
     const childTableModel = new TableModel({
         tableModelId: 'table-child',
         physicalName: 'child_table',
-        columns: [
+        columnEntries: [
             { modelType: 'single', columnModelId: 'child-own-col' },
             { modelType: 'group', columnGroupId: 'group-1' }
         ]
@@ -110,14 +110,14 @@ describe('ErdDocument.deleteColumnGroup', () => {
 
         const childTableView = nextDocument.findTableViewModel('table-child');
         expect(childTableView).not.toBeNull();
-        expect(childTableView?.tableModel.columns).toHaveLength(1);
+        expect(childTableView?.tableModel.columnEntries).toHaveLength(1);
         expect(nextDocument.findColumnGroupModel('group-1')).toBeNull();
         expect(nextDocument.findColumnModel('group-member-col')).toBeNull();
     });
 
     test('グループ内の PK カラムを親側ペアに含むリレーションは、該当ペアのみ取り除かれる', () => {
         // 親テーブル側がカラムグループを利用し、その中に PK カラムを含むケース
-        const parentGroupPkColumn = new ColumnModel({ columnModelId: 'group-pk-col', primaryKey: true });
+        const parentGroupPkColumn = new SimpleColumnModel({ columnModelId: 'group-pk-col', columnShareModelId: '', primaryKey: true });
         const pkColumnGroup = new ColumnGroupModel({
             columnGroupId: 'group-pk',
             groupName: 'pk_group',
@@ -126,7 +126,7 @@ describe('ErdDocument.deleteColumnGroup', () => {
         const groupedParentTableModel = new TableModel({
             tableModelId: 'table-grouped-parent',
             physicalName: 'grouped_parent_table',
-            columns: [
+            columnEntries: [
                 { modelType: 'single', columnModelId: 'parent-pk-col' },
                 { modelType: 'group', columnGroupId: 'group-pk' }
             ]

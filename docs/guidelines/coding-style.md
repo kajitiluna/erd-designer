@@ -146,3 +146,100 @@ src/features/canvas/ErdCanvas/
 ```
 
 ESLint: `no-restricted-imports` with `patterns: ["**/ErdCanvas/*"]`, ignoring the component directory itself.
+
+## 11. No reverse-direction imports between parent and nested models
+
+A nested/child model must never import its parent model. If both need a shared type or helper function, extract it into a dedicated neutral module with zero model imports (e.g. `ColumnEntry.ts`), not into the parent model's file.
+
+```ts
+// NG — ColumnStructModel (nested) imports its parent TableModel
+import { ColumnEntry } from "~/models/database/TableModel";
+
+// OK — both import the shared type from a neutral module
+import { ColumnEntry } from "~/models/database/ColumnEntry";
+```
+
+Not enforced by ESLint — manual review rule.
+
+## 12. Comments record design intent, not work notes
+
+A comment must explain *why* the code is shaped this way — rationale that stays true whenever the code is next read. Never leave the notes you made while editing.
+
+- **No point-in-time references**: `main`, "previously", "the existing file", "so far" name the state at writing time and become noise once that state moves. Describe the invariant, not its diff against a past version.
+- **No change log**: "added X", "changed to Y", "now supports Z" belong in commit messages, not comments.
+- **No how-only**: a comment that only restates what the line does is noise; delete it or replace it with the reason.
+
+```ts
+// NG — leans on a moving baseline / pure edit memo
+// simple keeps the previous format (entityType key omitted = compatible with existing file)
+
+// OK — states the invariant and why, readable at any future point
+// entityType is the struct discriminator; a simple column omits it by definition.
+```
+
+Not enforced by ESLint — manual review rule.
+
+## 13. Consistency maintenance must not leak into callers
+
+A method that repairs or re-synchronises internal data (cleanup / prune of dangling references, deletion of unreferenced models) must be `private`, invoked from inside the domain operation or from the single common update path (e.g. `ErdDocument.doUpdate`) — never left for each caller to remember. When a class cannot judge consistency alone, pass it the facts it lacks (e.g. "ids still referenced"), not decisions computed by the caller (e.g. "ids to delete").
+
+```ts
+// NG — caller computes the deletion and must remember the follow-up repair
+storage.deleteColumnShare(orphanedIds).cleanupDanglingStructReferences(columnIds);
+
+// OK — common update path passes facts; the storage decides internally
+storage.retain(referencedShareIds, existingColumnIds, existingGroupIds);
+```
+
+Not enforced by ESLint — manual review rule.
+
+## 14. Define in call order — callers above callees
+
+A definition must come after the first definition that references it. Entry points (exported / public API) go at the top, internal helpers below, so the file reads top-down in execution order.
+
+Class methods obey the same rule. Never group all public methods first and all private ones after: put a private method directly below the public method that calls it.
+
+```ts
+// NG — helper above its caller
+const buildHeader = (table: TableModel): string => { /* ... */ };
+export const createDdl = (document: ErdDocument): string => { return buildHeader(table); };
+
+// OK
+export const createDdl = (document: ErdDocument): string => { return buildHeader(table); };
+const buildHeader = (table: TableModel): string => { /* ... */ };
+```
+
+```ts
+// NG — public block, then private block
+class DdlCreator {
+    public create() { return this.tableQuery(); }
+    public createIndex() { /* ... */ }
+    private tableQuery() { /* ... */ }
+}
+
+// OK — the private method sits under the caller that needs it
+class DdlCreator {
+    public create() { return this.tableQuery(); }
+    private tableQuery() { /* ... */ }
+    public createIndex() { /* ... */ }
+}
+```
+
+Exception: only when the order is impossible — a value evaluated at module load (`const CONFIG = buildConfig();`) or anything else that would break compilation (TDZ).
+
+Not enforced by ESLint — manual review rule.
+
+## 15. Public method names state what the caller wants, not how the class decides
+
+A public name that encodes the internal strategy (`deleteUnreferencedXxx`, `cleanupDanglingXxx`, `pruneOrphanedXxx`) forces callers to work out which method matches their situation — that is internal detail leaking through the API. Name the caller's intent; keep strategy words for private members.
+
+```ts
+// NG — the name publishes the deletion strategy
+storage.deleteUnreferencedModels(referencedShareIds, existingColumnIds, existingGroupIds);
+
+// OK — explicit target, or "keep what still matches"
+storage.deleteStructShare(structShareModelIds);
+storage.retain(referencedColumnShareIds, existingColumnModelIds, existingColumnGroupIds);
+```
+
+Not enforced by ESLint — manual review rule.
