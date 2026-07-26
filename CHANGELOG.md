@@ -6,6 +6,52 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.20260726] - 2026-07-26
+
+### Added
+
+- **MariaDB, SQLite, BigQuery, and Snowflake database support**:
+
+  DDL export and import now support four additional database types, alongside the existing PostgreSQL, MySQL,
+  and MS SQL Server support. Select a database type from the icon menu in the title panel.
+
+  - **MariaDB** — MySQL-compatible DDL, UUID / INET4 / INET6 types, Auto Increment
+  - **SQLite** — Type affinity based column types, rowid-based auto numbering (table-level PRIMARY KEY),
+    comments as `--` lines, foreign keys emitted as guidance comments
+  - **BigQuery** — Dataset (schema) support, `ARRAY<T>` / `STRUCT` types, `NOT ENFORCED` primary /
+    foreign keys, `OPTIONS(description=...)` comments
+  - **Snowflake** — Schema support, inline `COMMENT` syntax, AUTOINCREMENT, semi-structured types
+    (VARIANT / OBJECT / ARRAY)
+
+- **STRUCT columns for BigQuery**:
+
+  Columns can now be defined as BigQuery `STRUCT` types with nested fields, edited through a new Struct Column dialog.
+  Struct columns and their nested members are rendered on the canvas, included in DDL export/import
+  and specification exports, and are searchable individually via the canvas search panel (Ctrl+F / Cmd+F).
+
+- **MCP Server / Agent plugin: STRUCT column share tools**:
+
+  New MCP tools allow AI agents to create, update, and manage BigQuery STRUCT column share models
+  and their nested fields, matching the STRUCT column support above.
+
+### Changed
+
+- **Simplified column model search dialog**:
+
+  The "Search column model" dialog — opened from the search icon next to "Associated with :" in the column edit dialog
+  — now filters with a single keyword box that searches physical name, logical name, type, and description at once,
+  instead of a separate filter field for each of them.
+  Multiple space-separated keywords match any entry containing one of them. The same dialog appears
+  as "Search struct column model" when associating a struct column.
+
+- **Agent plugin: Google Drive app limitation documented**:
+
+  The Google Drive app only reads a file when it is opened, so it does not detect changes made
+  by the agent CLI while the app's tab stays open.
+  Editing with the CLI while the tab is open can also cause the app's next save to fail with a conflict.
+  Close the ERD Designer tab before running the CLI, and reopen the file afterwards to see the result.
+
+
 ## [0.20260711] - 2026-07-11
 
 ### Fixed
