@@ -1,7 +1,7 @@
 {
     "name": "erd-designer",
     "description": "Design and edit ERD Designer (.erd) files with an agent. Provides a bundled CLI and a skill so agents can add tables, columns and relations, and export DDL without the MCP server.",
-    "version": "0.260706.021147",
+    "version": "0.260726.150443",
     "author": {
         "name": "kajitiluna"
     },
