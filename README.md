@@ -41,7 +41,7 @@ Inspired by [ERMaster](https://ermaster.sourceforge.net/index.html), built for t
 | **Storage** | Local (IndexedDB) | Google Drive | Local file system (.erd) |
 | **Spec export** | Excel | Google Spreadsheet | Excel |
 | **Team sharing** | — | View sharing via Drive | Git version control |
-| **Agent plugin (CLI)** | — | Limited — [see note](#ai-agent-integration-agent-plugin) | Supported |
+| **Agent plugin (CLI)** | — | Supported (with auto-sync) — [see note](#ai-agent-integration-agent-plugin) | Supported |
 | **MCP / AI** | — | — | Supported |
 
 ## Screenshots
@@ -120,11 +120,12 @@ with the limitation described below.
 The bundled CLI can also be downloaded standalone from [GitHub Releases](https://github.com/kajitiluna/erd-designer/releases).
 
 > **Note (Google Drive app):**
-> Unlike the VSCode extension, the Google Drive app reads the file only when it opens it —
-> it does not detect changes made outside the app. Close the ERD Designer tab before running
-> the CLI, and reopen the file afterwards to see the result.
-> Editing with the CLI while the tab is open makes the app's next save fail with a conflict,
-> and recovering from it reloads the file from Drive, discarding the edits you made in the app.
+> Enable "Sync changes from Google Drive" in the gear menu to detect external changes (such as
+> CLI edits) and pull them into the canvas automatically, usually within about 10 seconds; the
+> change can be undone like any other edit. This toggle is off by default — while it's off,
+> close the ERD Designer tab before editing with the CLI, and reopen the file afterwards to see
+> the result. Background tabs may take longer than the ~10 second target, since browsers throttle
+> timers there.
 
 > **Note:**
 > The agent plugin is experimental, like the MCP Server.
