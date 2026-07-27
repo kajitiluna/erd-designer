@@ -12,6 +12,7 @@ type ErdApplicationShellProps = {
     /** 仕様書エクスポート処理。省略時は Excel ファイルのダウンロードを行う */
     exportSpecification?: (erdDocument: ErdDocument, contents: ImageContent) => void,
     erdExportable?: boolean,
+    remoteSyncable?: boolean,
     children?: React.ReactNode
 };
 
@@ -23,6 +24,7 @@ const ErdApplicationShell = ({
     erdDocument, onSave,
     exportSpecification = exportExcelSpecificationToFile,
     erdExportable = true,
+    remoteSyncable = false,
     children
 }: ErdApplicationShellProps) => {
     const exportContextValue = React.useMemo(() => {
@@ -31,7 +33,8 @@ const ErdApplicationShell = ({
 
     return (
         <ExportSpecificationContext.Provider value={exportContextValue}>
-            <MainView erdDocument={erdDocument} onSave={onSave} erdExportable={erdExportable} />
+            <MainView erdDocument={erdDocument} onSave={onSave} erdExportable={erdExportable}
+                remoteSyncable={remoteSyncable} />
             {children}
         </ExportSpecificationContext.Provider>
     );

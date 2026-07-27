@@ -24,7 +24,11 @@ import DbSchemaView from "~/features/editor/DbSchemaView";
 
 type SettingMenuType = "perspective" | "column_group" | "db_schema" | "import_ddl" | "";
 
-const TitlePanel = () => {
+type TitlePanelProps = {
+    remoteSyncable?: boolean
+};
+
+const TitlePanel = ({ remoteSyncable = false }: TitlePanelProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const erdDocument: ErdDocument = documentsHolder.current();
     const [title, setTitle] = React.useState<string>(erdDocument.documentName);
@@ -85,6 +89,13 @@ const TitlePanel = () => {
         documentsHolder.updateErdSetting(nextSetting, `Update show relation names: ${checked}`);
     };
 
+    const handleChangeSyncRemoteChanges = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const checked = event.target.checked;
+        const nextSetting = erdSetting.update({ syncRemoteChanges: checked });
+
+        documentsHolder.updateErdSetting(nextSetting, `Update sync remote changes: ${checked}`);
+    };
+
     const handleCloseMenu = () => {
         setSelectedMenu("");
         handleClosePreference();
@@ -115,6 +126,16 @@ const TitlePanel = () => {
                         } />
                     </FormControl>
                 </MenuItem>
+                {remoteSyncable && (
+                    <MenuItem>
+                        <FormControl>
+                            <FormControlLabel label="Sync changes from Google Drive" control={
+                                <Switch size="small" checked={erdSetting.syncRemoteChanges}
+                                    onChange={handleChangeSyncRemoteChanges} />
+                            } />
+                        </FormControl>
+                    </MenuItem>
+                )}
                 <Divider />
 
                 <MenuItem onClick={initHandleMenu("perspective")}>Perspective</MenuItem>

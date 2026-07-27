@@ -20,7 +20,8 @@ import { EXTERNAL_DOCUMENT_CHANGED_EVENT } from "~/components/constant";
 type MainViewProps = {
     erdDocument: ErdDocument,
     onSave: (updating: ErdDocument, loggingMessage: string) => void,
-    erdExportable?: boolean
+    erdExportable?: boolean,
+    remoteSyncable?: boolean
 };
 
 type ErdDocumentsHolderOptions = {
@@ -28,7 +29,7 @@ type ErdDocumentsHolderOptions = {
     cursor: number
 };
 
-const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) => {
+const MainView = ({ erdDocument, onSave, erdExportable = true, remoteSyncable = false }: MainViewProps) => {
 
     const { documentsHolder, editModeHolder, selectEntityHolder, localSettingHolder } =
         useMainHolder({ erdDocument, onSave });
@@ -47,7 +48,7 @@ const MainView = ({ erdDocument, onSave, erdExportable = true }: MainViewProps) 
     const erdCanvas = (
         <ErdCanvas onDragAction={dispatchDragAction}>
             <Box sx={{ position: "fixed", top: "30px", left: "30px" }}>
-                <TitlePanel />
+                <TitlePanel remoteSyncable={remoteSyncable} />
             </Box>
             <Box sx={{ position: "fixed", top: "50%", left: "50px", transform: "translateY(-50%)" }}>
                 <ControlPanel erdExportable={erdExportable} />
