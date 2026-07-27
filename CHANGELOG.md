@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Auto-sync for the Google Drive app**:
+
+  The Google Drive app can now detect and pull in changes made to the file outside the app
+  (e.g. by another user, or by the agent plugin CLI via Drive for Desktop). Enable
+  "Sync changes from Google Drive" from the gear menu to poll for remote updates roughly every
+  10 seconds and apply them to the canvas. Imported changes are added as an undo/redo step, so
+  they can be reverted like any other edit. The setting is off by default and is saved with the
+  file.
+
+### Fixed
+
+- **Google Drive app: saving no longer gets stuck after a failed request**:
+
+  A network error during save previously left the internal save queue in a broken state,
+  silently blocking every subsequent save until the tab was reloaded. Failed save attempts are
+  now handled without blocking later saves.
+
 ## [0.20260726] - 2026-07-26
 
 ### Added
