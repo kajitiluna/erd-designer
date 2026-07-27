@@ -1,5 +1,37 @@
 import ErdDocument from "~/models/ErdDocument";
 
+export class GdriveRequestError extends Error {
+    public readonly status: number;
+    constructor(message: string, status: number) { super(message); this.status = status; }
+}
+
+// レスポンス本文まで含めないと、ポーリング失敗の原因 (認可切れ / 404 / 5xx) が切り分けられない
+const toGdriveError = async (response: Response, message: string): Promise<GdriveRequestError> => {
+    const detail = await response.text().catch(() => "");
+    return new GdriveRequestError(
+        `${message} status: ${response.status} ${response.statusText}. ${detail}`, response.status);
+};
+
+export type RemoteUpdate =
+    { updated: false, version: string }
+    | { updated: true, version: string, erdDocument: ErdDocument };
+
+type FindRemoteUpdateArgs = { accessToken: string, fileId: string, currentVersion: string };
+
+/**
+ * modifiedTime のみを先に取得し、保持中の version と一致する場合は本文を取得しない。
+ * 定期ポーリングの転送量を最小化するための二段構え。
+ */
+export const findRemoteUpdate = async (
+    { accessToken, fileId, currentVersion }: FindRemoteUpdateArgs): Promise<RemoteUpdate> => {
+    const metadata = await findGdriveMetadata({ accessToken, fileId });
+    if (metadata.version === currentVersion) {
+        return { updated: false, version: currentVersion };
+    }
+    const gdriveFile = await openGdriveFile({ accessToken, fileId });
+    return { updated: true, version: gdriveFile.version, erdDocument: gdriveFile.erdDocument };
+};
+
 type OpenGdriveFileArgs = {
     accessToken: string,
     fileId: string
@@ -12,7 +44,7 @@ export const openGdriveFile = async ({ accessToken, fileId }: OpenGdriveFileArgs
     const fetchContent = async () => {
         const response = await fetch(`${fileUri}?alt=media`, headerInfo);
         if (response.ok === false) {
-            throw new Error(`Failed to open file. ${JSON.stringify(response)}`);
+            throw await toGdriveError(response, "Failed to open file.");
         }
 
         const jsonContent = await response.json();
@@ -22,7 +54,7 @@ export const openGdriveFile = async ({ accessToken, fileId }: OpenGdriveFileArgs
     const fetchMetadata = async () => {
         const response = await fetch(`${fileUri}?fields=modifiedTime`, headerInfo);
         if (response.ok === false) {
-            throw new Error(`Failed to get metadata. ${JSON.stringify(response)}`);
+            throw await toGdriveError(response, "Failed to get metadata.");
         }
 
         const metaJson = await response.json();
@@ -42,7 +74,7 @@ export const findGdriveMetadata = async ({ accessToken, fileId }: OpenGdriveFile
 
     const response = await fetch(fileUri, headerInfo);
     if (response.ok === false) {
-        throw new Error(`Failed to find metadata. ${JSON.stringify(response)}`);
+        throw await toGdriveError(response, "Failed to find metadata.");
     }
 
     const metadata = await response.json();
@@ -105,7 +137,7 @@ export const updateGdriveFile = async ({ accessToken, fileId, erdDocument, withN
     });
 
     if (response.ok === false) {
-        throw new Error(`Failed to update file. ${JSON.stringify(response)}`);
+        throw await toGdriveError(response, "Failed to update file.");
     }
 
     const responseMetadata = await response.json();
@@ -152,7 +184,7 @@ const doMultipartGdriveFile = async ({ accessToken, fileId = null, metadata, erd
         uploadUri, { method: method, headers: headerInfo, body: multipartBody }
     );
     if (response.ok === false) {
-        throw new Error(`Failed to ${method.toLocaleLowerCase()} file. ${JSON.stringify(response)}`);
+        throw await toGdriveError(response, `Failed to ${method.toLocaleLowerCase()} file.`);
     }
 
     const responseJson = await response.json();
