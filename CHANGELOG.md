@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Star link on the start page**:
+
+  The GitHub link below the feature cards now reads "Star on GitHub" and shows the repository's
+  current star count. The count is fetched from the public GitHub API and is omitted whenever
+  that request does not succeed, so the link itself always works.
+
+- **Link previews for the web app**:
+
+  Sharing a link to the app on social platforms, chat, or a blog now renders a title,
+  description, and preview image instead of a bare URL.
+
 ## [0.20260726] - 2026-07-26
 
 ### Added

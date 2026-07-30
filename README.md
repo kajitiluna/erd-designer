@@ -2,11 +2,36 @@
 
 # Entity Relationship Diagram Designer
 
+[![Live demo](https://img.shields.io/badge/demo-try%20it%20now-3a215a?style=flat-square)](https://kajitiluna.github.io/erd-designer)
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/kajitiluna.erd-designer?style=flat-square&label=VS%20Code&color=3a215a)](https://marketplace.visualstudio.com/items?itemName=kajitiluna.erd-designer)
+[![VS Code installs](https://img.shields.io/visual-studio-marketplace/i/kajitiluna.erd-designer?style=flat-square&color=3a215a)](https://marketplace.visualstudio.com/items?itemName=kajitiluna.erd-designer)
+[![CI](https://img.shields.io/github/actions/workflow/status/kajitiluna/erd-designer/check-pr.yml?branch=main&style=flat-square&label=CI)](https://github.com/kajitiluna/erd-designer/actions/workflows/check-pr.yml)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/kajitiluna/erd-designer?style=flat-square&color=3a215a)](https://github.com/kajitiluna/erd-designer/stargazers)
+
 **ERD Designer** is a free, open-source tool for visually designing database schemas.
 Design your tables and relationships in the browser, VSCode, or Google Drive
  — with AI integration via an agent plugin (CLI + skill) or MCP (Model Context Protocol).
 
 Inspired by [ERMaster](https://ermaster.sourceforge.net/index.html), built for the modern development workflow.
+
+### ▶ [Try it now — kajitiluna.github.io/erd-designer](https://kajitiluna.github.io/erd-designer)
+
+No installation, no account. Your diagrams stay in your browser.
+
+## Why ERD Designer?
+
+- **The same diagram, everywhere you work** — one `.erd` file opens in the browser app, the
+  VSCode extension, and the Google Drive app. No export/import dance between tools.
+- **Your coding agent can edit it too** — the diagram is not a dead-end artifact. Claude Code
+  and other agents create tables, add columns, wire up relations, and generate DDL through
+  the same tool catalog the app itself uses.
+- **Reviewable in Git** — `.erd` is plain JSON, so schema changes show up as a readable diff
+  in pull requests instead of an opaque binary blob.
+- **Define a column once, reuse it everywhere** — Column Share Models and Column Groups keep
+  `created_at`, tenant keys, and audit columns consistent across every table that uses them.
+- **Output your team actually needs** — DDL for 7 databases, plus Excel / Google Spreadsheet
+  specification documents and PNG / SVG / interactive HTML diagrams.
 
 ## Features
 
@@ -15,6 +40,20 @@ Inspired by [ERMaster](https://ermaster.sourceforge.net/index.html), built for t
 - **Relationship management** — Define 1:1 and 1:N relationships visually with automatic foreign key synchronization
 - **Perspectives** — Organize large schemas into multiple views (e.g., by module or feature) for better manageability
 - **Memo notes** — Add foreground/background memo notes to annotate your design
+
+### AI Agent Integration
+- **Agent plugin (CLI + skill)** — A plugin with a bundled CLI lets coding agents edit `.erd` files
+  directly, without a running app or MCP server. Works with [Claude Code](https://claude.com/claude-code)
+  and [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-plugins).
+  Token-efficient: nothing is loaded into the agent context until the skill is used
+- **MCP Server** — The VSCode extension includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) server,
+  enabling AI assistants like Claude to read and modify your ER diagrams programmatically
+- **One tool catalog, both surfaces** — the MCP server and the CLI expose the same set of
+  agent tools (add tables and columns, create relations, manage indexes and constraints,
+  arrange the canvas, export DDL), so behavior never diverges between them
+
+> The agent plugin and the MCP server are still marked experimental — their tool surface may
+> change between releases. The visual editing features are stable.
 
 ### Column Reuse & Sharing
 - **Column Share Model** — Define a column once, reuse it across multiple tables. Type changes propagate automatically
@@ -25,14 +64,6 @@ Inspired by [ERMaster](https://ermaster.sourceforge.net/index.html), built for t
 - **DDL import** — Import existing DDL scripts to auto-generate ER diagrams
 - **Specification documents** — Export table definitions as Excel files or Google Spreadsheets
 - **Image export** — Export as PNG, SVG, or interactive HTML with pan/zoom and perspective switching
-
-### AI Integration (Experimental)
-- **Agent plugin (CLI + skill)** — A plugin with a bundled CLI lets coding agents edit `.erd` files
-  directly, without a running app or MCP server. Works with [Claude Code](https://claude.com/claude-code)
-  and [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-plugins).
-  Token-efficient: nothing is loaded into the agent context until the skill is used
-- **MCP Server** — The VSCode extension includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) server,
-  enabling AI assistants like Claude to read and modify your ER diagrams programmatically.
 
 ### Multi-Platform
 | | Browser | Google Drive | VSCode |
@@ -183,13 +214,15 @@ After starting the development server, open your browser and navigate to http://
 
 ## Contributing
 
-Contributions are welcome!
-Please feel free to open an [Issue](https://github.com/kajitiluna/erd-designer/issues) for bug reports or feature requests.
+Contributions are welcome! See **[CONTRIBUTING.md](CONTRIBUTING.md)** for how to set up the
+project, what the review expects, and how to add a new agent tool.
 
-Contribution guidelines are currently under preparation. In the meantime:
-- For bugs: please include steps to reproduce, expected behavior, screenshots, and your environment
-- For features: please describe the use case and the problem you're trying to solve
-- Pull requests are welcome — please open an issue first to discuss significant changes
+- **Bug reports and feature requests** — open an [Issue](https://github.com/kajitiluna/erd-designer/issues)
+- **Questions and ideas** — start a [Discussion](https://github.com/kajitiluna/erd-designer/discussions)
+- **Pull requests** — please open an issue first to discuss significant changes
+
+This project follows a [Code of Conduct](CODE_OF_CONDUCT.md).
+To report a security issue, see [SECURITY.md](SECURITY.md).
 
 ## License
 

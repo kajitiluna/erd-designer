@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or idea
+    url: https://github.com/kajitiluna/erd-designer/discussions
+    about: Ask how something works, share a diagram, or float an idea before it becomes a feature request.
+  - name: Documentation and manual
+    url: https://github.com/kajitiluna/erd-designer/wiki
+    about: How to use tables, relations, perspectives, DDL import/export, and the agent plugin.
+  - name: Report a security vulnerability
+    url: https://github.com/kajitiluna/erd-designer/security/advisories/new
+    about: Please report vulnerabilities privately rather than as a public issue.

@@ -3,6 +3,13 @@
 ERD Designer is a free, open-source tool for visually designing database schemas within VSCode. 
 Design your tables and relationships, generate DDL scripts, and export specification documents — all without leaving your editor.
 
+Diagrams are saved as `.erd` files — plain JSON you can review in a pull request — and the
+extension ships a built-in [MCP](https://modelcontextprotocol.io/) server, so Copilot, Claude,
+and other AI assistants can read and edit the very same diagram you have open.
+
+The same file also opens in the [browser app](https://kajitiluna.github.io/erd-designer) and the
+[Google Drive app](https://workspace.google.com/marketplace/app/erd_designer/952307856491).
+
 Inspired by [ERMaster](https://ermaster.sourceforge.net/index.html), built for the modern development workflow.
 
 ## Screenshots
@@ -37,7 +44,7 @@ Inspired by [ERMaster](https://ermaster.sourceforge.net/index.html), built for t
 - **Specification documents** — Export table definitions as Excel files
 - **Image export** — Export as PNG, SVG, or interactive HTML with pan/zoom and perspective switching
 
-### AI Integration (Experimental)
+### AI Agent Integration
 - **MCP Server** — Built-in [Model Context Protocol](https://modelcontextprotocol.io/) server
 that enables AI assistants like Claude to read and modify your ER diagrams programmatically
 - **Agent plugin (CLI + skill)** — Alternatively, a plugin with a bundled CLI (for Claude Code and
@@ -142,7 +149,12 @@ Please report issues on [GitHub Issues](https://github.com/kajitiluna/erd-design
 ## Contributing
 
 Contributions are welcome!
-Please visit our [GitHub repository](https://github.com/kajitiluna/erd-designer) for more information.
+See [CONTRIBUTING.md](https://github.com/kajitiluna/erd-designer/blob/main/CONTRIBUTING.md)
+for how to set up the project, or start a
+[Discussion](https://github.com/kajitiluna/erd-designer/discussions) with questions and ideas.
+
+If ERD Designer is useful to you, a [star on GitHub](https://github.com/kajitiluna/erd-designer)
+helps other developers find it.
 
 ## License
 

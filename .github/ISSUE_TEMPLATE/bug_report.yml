@@ -1,0 +1,88 @@
+name: Bug report
+description: Something is not working the way it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. ERD Designer runs as four surfaces on one codebase, so
+        knowing which one you hit the problem on is usually the fastest route to a fix.
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where did this happen?
+      options:
+        - Browser app (kajitiluna.github.io/erd-designer)
+        - VSCode extension
+        - Google Drive app
+        - Agent plugin / CLI (erd-cli)
+        - MCP server
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: database
+    attributes:
+      label: Database type
+      description: Which database is the diagram set to? Leave as "Not applicable" if the bug has nothing to do with DDL.
+      options:
+        - Not applicable
+        - PostgreSQL
+        - MySQL
+        - MariaDB
+        - MS SQL Server
+        - SQLite
+        - BigQuery
+        - Snowflake
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what did you get instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Create a table with ...
+        2. Open the column dialog and ...
+        3. Export DDL
+        4. The output contains ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots, DDL, or a sample .erd file
+      description: |
+        Anything that lets us reproduce it directly. You can drag files into this box.
+        Please remove anything confidential first — table and column names often are.
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Extension version, or the date you loaded the web app.
+      placeholder: "v0.260726.150443"
+    validations:
+      required: false
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, and browser or VSCode version.
+      placeholder: "macOS 15.2 / Chrome 140, or Windows 11 / VSCode 1.105"
+    validations:
+      required: true
