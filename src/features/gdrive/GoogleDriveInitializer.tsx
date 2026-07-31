@@ -1,13 +1,12 @@
 import React from "react";
-import { Box, Button, CircularProgress, Stack, Typography } from "@mui/material";
+import { Button, CircularProgress, Stack, Typography } from "@mui/material";
 import { useSearchParams } from "react-router-dom";
 
 import ErdDocument from "~/models/ErdDocument";
 import InitializeDatabaseDialog from "~/features/start_up/InitializeDatabaseDialog";
 import { createGdriveFile, openGdriveFile } from "~/features/gdrive/gdrive-file-support";
-import RegalFooter from "~/features/regal/RegalFooter";
-import ErdAppLogo from "~/features/regal/ErdAppLogo";
-import { containedButtonStyle, descriptionStyle, gradientStyle } from "~/features/start_up/start-up-styles";
+import GoogleDriveNoticeLayout from "~/features/gdrive/GoogleDriveNoticeLayout";
+import { containedButtonStyle, descriptionStyle } from "~/features/start_up/start-up-styles";
 
 type GoogleDriveInitializerProp = {
     implicitToken: { accessToken: string, expiresAt: number },
@@ -65,44 +64,31 @@ const GoogleDriveInitializer = ({ implicitToken, authorize, onInitialize }: Goog
         });
     }, [erdDocument, gdriveFolderId, implicitToken.accessToken, onInitialize]);
 
-    const boxStyle = {
-        marginTop: 8,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center'
-    };
-
     const currentDate = new Date().getTime();
     const onProcessing = (erdDocument != null)
         || ((implicitToken.expiresAt >= currentDate) && (gdriveState.action === "open"));
 
     return (
-        <Box sx={{ ...gradientStyle, display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-            <Box sx={boxStyle} style={{ flex: 1 }}>
-                <ErdAppLogo />
+        <GoogleDriveNoticeLayout>
+            {(implicitToken.expiresAt < currentDate) && (
+                <Stack spacing={3} sx={{ justifyContent: "center", alignItems: "center", margin: 3 }}>
+                    <Typography variant="body1" sx={descriptionStyle}>
+                        Need to authorize to edit the ERD file on the Google Drive.
+                    </Typography>
+                    <Button variant="contained" size="large" onClick={authorize} sx={containedButtonStyle}>
+                        Authorize with Google
+                    </Button>
+                </Stack>
+            )}
 
-                {(implicitToken.expiresAt < currentDate) && (
-                    <Stack spacing={3} sx={{ justifyContent: "center", alignItems: "center", margin: 3 }}>
-                        <Typography variant="body1" sx={descriptionStyle}>
-                            Need to authorize to edit the ERD file on the Google Drive.
-                        </Typography>
-                        <Button variant="contained" size="large" onClick={authorize} sx={containedButtonStyle}>
-                            Authorize with Google
-                        </Button>
-                    </Stack>
-                )}
-
-                {(gdriveFolderId != null) && (erdDocument == null) && (
-                    <InitializeDatabaseDialog
-                        isOpen={(gdriveFolderId != null) && (erdDocument == null)}
-                        onCreate={handleCreateDocument}
-                        onClose={() => { }} />
-                )}
-                {onProcessing && (<CircularProgress />)}
-            </Box>
-
-            <RegalFooter />
-        </Box>
+            {(gdriveFolderId != null) && (erdDocument == null) && (
+                <InitializeDatabaseDialog
+                    isOpen={(gdriveFolderId != null) && (erdDocument == null)}
+                    onCreate={handleCreateDocument}
+                    onClose={() => { }} />
+            )}
+            {onProcessing && (<CircularProgress />)}
+        </GoogleDriveNoticeLayout>
     );
 };
 

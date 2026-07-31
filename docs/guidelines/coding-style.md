@@ -243,3 +243,23 @@ storage.retain(referencedColumnShareIds, existingColumnModelIds, existingColumnG
 ```
 
 Not enforced by ESLint — manual review rule.
+
+## 16. One state is one string union — never two or more booleans
+
+Never encode a single state as multiple booleans. N booleans make 2^N combinations representable while only a few are legal, and no reader can tell which. Name every state in a string union, and assign the whole value on each transition — partial field updates are what let meaningless intermediate combinations appear.
+
+```ts
+// NG — 4 combinations representable, 3 legal, and the only read collapses both flags anyway
+type RemoteSyncState = { suspended: boolean, inFlight: boolean };
+if ((state.suspended === true) || (state.inFlight === true)) { return; }
+
+// OK — illegal combinations are unrepresentable
+type RemoteSyncState = "idle" | "syncing" | "unauthorized";
+if (state !== "idle") { return; }
+```
+
+Applies equally to sibling `useState`/`useRef` flags describing one subject (`isLoading` + `isError`, `availableGrabbing` + `isGrabbing`).
+
+Exception: independent attributes that merely share an object (`primaryKey`, `notNull`, `unique` on a column). These are not phases of one subject — every combination is legal.
+
+Not enforced by ESLint — manual review rule.

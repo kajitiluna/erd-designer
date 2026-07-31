@@ -1,13 +1,15 @@
 import React from "react";
-import { 
-    Divider, FormControl, FormControlLabel, IconButton, InputBase, Menu, MenuItem, Stack, Switch, Tooltip 
+import {
+    Box, Divider, FormControl, FormControlLabel, IconButton, InputBase, Menu, MenuItem, Stack, Switch, Tooltip
 } from "@mui/material";
 import SettingsIcon from '@mui/icons-material/Settings';
 import ArrowRightIcon from '@mui/icons-material/ArrowRight';
+import SyncIcon from '@mui/icons-material/Sync';
 
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ErdDocument from "~/models/ErdDocument";
 import { DatabaseType } from "~/models/database";
+import { REMOTE_SYNC_INTERVAL_MILLISECOND, REMOTE_SYNC_REQUESTED_EVENT } from "~/components/constant";
 import PostgreSQLIcon from "~/components/icons/PostgreSQLIcon";
 import MySQLIcon from "~/components/icons/MySQLIcon";
 import ColumnGroupView from "~/features/editor/ColumnGroupView";
@@ -25,10 +27,10 @@ import DbSchemaView from "~/features/editor/DbSchemaView";
 type SettingMenuType = "perspective" | "column_group" | "db_schema" | "import_ddl" | "";
 
 type TitlePanelProps = {
-    remoteSyncable?: boolean
+    remoteSync?: boolean
 };
 
-const TitlePanel = ({ remoteSyncable = false }: TitlePanelProps) => {
+const TitlePanel = ({ remoteSync = false }: TitlePanelProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const erdDocument: ErdDocument = documentsHolder.current();
     const [title, setTitle] = React.useState<string>(erdDocument.documentName);
@@ -89,7 +91,7 @@ const TitlePanel = ({ remoteSyncable = false }: TitlePanelProps) => {
         documentsHolder.updateErdSetting(nextSetting, `Update show relation names: ${checked}`);
     };
 
-    const handleChangeSyncRemoteChanges = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChangeSyncRemote = (event: React.ChangeEvent<HTMLInputElement>) => {
         const checked = event.target.checked;
         const nextSetting = erdSetting.update({ syncRemoteChanges: checked });
 
@@ -104,9 +106,11 @@ const TitlePanel = ({ remoteSyncable = false }: TitlePanelProps) => {
     return (
         <Stack direction="row" spacing={1} sx={TITLE_PANEL_STYLE}>
             {databaseIcon}
-            <InputBase value={title} sx={TITLE_INPUT_STYLE}
-                onChange={event => setTitle(event.target.value)}
-                onBlur={handleOnSave} />
+            <Box sx={TITLE_INPUT_AREA_STYLE}>
+                <InputBase value={title} sx={TITLE_INPUT_STYLE}
+                    onChange={event => setTitle(event.target.value)} onBlur={handleOnSave} />
+                {(remoteSync && erdSetting.syncRemoteChanges) && (<RemoteSyncIndicator />)}
+            </Box>
             <IconButton aria-label="Preferences"
                 aria-expanded={isSettingOpen} aria-haspopup="true"
                 onClick={handleOpenPreference}>
@@ -126,12 +130,12 @@ const TitlePanel = ({ remoteSyncable = false }: TitlePanelProps) => {
                         } />
                     </FormControl>
                 </MenuItem>
-                {remoteSyncable && (
+                {remoteSync && (
                     <MenuItem>
                         <FormControl>
-                            <FormControlLabel label="Sync changes from Google Drive" control={
+                            <FormControlLabel label="Sync Google Drive" control={
                                 <Switch size="small" checked={erdSetting.syncRemoteChanges}
-                                    onChange={handleChangeSyncRemoteChanges} />
+                                    onChange={handleChangeSyncRemote} />
                             } />
                         </FormControl>
                     </MenuItem>
@@ -184,6 +188,128 @@ const TitlePanel = ({ remoteSyncable = false }: TitlePanelProps) => {
     );
 };
 
+const RemoteSyncIndicator = () => {
+    const countdownRef = React.useRef<SVGCircleElement>(null);
+    const schedulerRef = React.useRef<RemoteSyncScheduler | null>(null);
+
+    React.useEffect(() => {
+        const countdownElement = countdownRef.current;
+        if (countdownElement == null) {
+            return;
+        }
+
+        const scheduler = initRemoteSyncSchedule(countdownElement);
+        schedulerRef.current = scheduler;
+        scheduler.resume();
+
+        window.document.addEventListener("visibilitychange", scheduler.handleVisibilityChange);
+
+        return () => {
+            window.document.removeEventListener("visibilitychange", scheduler.handleVisibilityChange);
+            scheduler.suspend();
+            schedulerRef.current = null;
+        };
+    }, []);
+
+    const handleRequestSync = () => {
+        schedulerRef.current?.requestSyncManually();
+    };
+
+    return (
+        <Tooltip title="Sync Google Drive" placement="top">
+            <Box sx={SYNC_INDICATOR_CONTAINER_STYLE}>
+                <IconButton size="small" aria-label="Sync Google Drive" onClick={handleRequestSync}>
+                    <SyncIcon fontSize="small" />
+                </IconButton>
+                <Box component="svg" sx={SYNC_INDICATOR_STYLE} width={SYNC_INDICATOR_SIZE} height={SYNC_INDICATOR_SIZE}
+                    viewBox={`0 0 ${SYNC_INDICATOR_SIZE} ${SYNC_INDICATOR_SIZE}`}>
+                    <circle ref={countdownRef}
+                        cx={SYNC_INDICATOR_SIZE / 2} cy={SYNC_INDICATOR_SIZE / 2} r={SYNC_INDICATOR_RADIUS} />
+                </Box>
+            </Box>
+        </Tooltip>
+    );
+};
+
+type RemoteSyncScheduler = {
+    resume: () => void,
+    suspend: () => void,
+    requestSyncManually: () => void,
+    handleVisibilityChange: () => void
+};
+
+/**
+ * 同期要求の発火間隔と円弧の位相を 1 か所で管理する。手動更新・タブ復帰のいずれでも
+ * 「発火 + 巻き戻し + 次回予約」が同時に起きる必要があるため、同じクロージャに閉じ込める。
+ */
+const initRemoteSyncSchedule = (element: SVGCircleElement): RemoteSyncScheduler => {
+
+    const doRequestSync = () => {
+        const customEvent = new CustomEvent(REMOTE_SYNC_REQUESTED_EVENT);
+        window.dispatchEvent(customEvent);
+
+        rewindCountDown(element);
+        doScheduleNextRequest();
+    };
+
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+    const doScheduleNextRequest = () => {
+        if (timerId != null) {
+            clearTimeout(timerId);
+        }
+
+        timerId = setTimeout(doRequestSync, REMOTE_SYNC_INTERVAL_MILLISECOND);
+    };
+
+    const resume = () => {
+        doScheduleNextRequest();
+        rewindCountDown(element);
+    };
+
+    const suspend = () => {
+        if (timerId != null) {
+            clearTimeout(timerId);
+            timerId = null;
+        }
+
+        element.getAnimations().forEach(animation => animation.pause());
+    };
+
+    let lastManualRequestedAt = 0;
+    const requestSyncManually = () => {
+        const currentTime = Date.now();
+        if ((currentTime - lastManualRequestedAt) < MANUAL_SYNC_MIN_INTERVAL_MILLISECOND) {
+            return;
+        }
+
+        lastManualRequestedAt = currentTime;
+        doRequestSync();
+    };
+
+    // 非表示中は取り込みが止まるため、復帰時は次の発火を待たずに 1 回チェックする
+    const handleVisibilityChange = () => {
+        if (window.document.visibilityState === "hidden") {
+            suspend();
+            return;
+        }
+
+        doRequestSync();
+    };
+
+    return { resume, suspend, requestSyncManually, handleVisibilityChange };
+};
+
+/**
+ * 巻き戻しはアニメーション先頭ではなく復帰フェーズの先頭へ送る。周期発火時はアニメーションが
+ * 同位相で既にそこに居るため何も動かず、手動同期・タブ復帰のときだけ復帰が再生される。
+ */
+const rewindCountDown = (countdownElement: SVGCircleElement) => {
+    countdownElement.getAnimations().forEach(animation => {
+        animation.currentTime = SYNC_INDICATOR_COUNTDOWN_MILLISECOND;
+        animation.play();
+    });
+};
+
 const TITLE_PANEL_STYLE = {
     display: "flex",
     flexDirection: "row",
@@ -198,11 +324,67 @@ const TITLE_PANEL_STYLE = {
     backgroundColor: "#FFFFFF"
 };
 
+/**
+ * RemoteSyncIndicator の表示有無で TitlePanel 全体の幅が動かないよう、入力欄と
+ * インジケータの合計幅をここで固定する。増減分は伸縮する入力欄側が吸収する。
+ */
+const TITLE_INPUT_AREA_STYLE = {
+    display: "flex",
+    alignItems: "center",
+    width: "300px"
+};
+
 const TITLE_INPUT_STYLE = {
     fontSize: "1.2rem",
     fontWeight: "bold",
     color: "#3F3F3F",
-    width: "300px"
+    flex: 1,
+    minWidth: 0
+};
+
+const MANUAL_SYNC_MIN_INTERVAL_MILLISECOND = 1000;
+const SYNC_INDICATOR_SIZE = 32;
+const SYNC_INDICATOR_THICKNESS = 2.5;
+const SYNC_INDICATOR_RADIUS = (SYNC_INDICATOR_SIZE - SYNC_INDICATOR_THICKNESS) / 2;
+const SYNC_INDICATOR_CIRCUMFERENCE = 2 * Math.PI * SYNC_INDICATOR_RADIUS;
+const SYNC_INDICATOR_REWIND_MILLISECOND = 200;
+const SYNC_INDICATOR_COUNTDOWN_MILLISECOND = REMOTE_SYNC_INTERVAL_MILLISECOND - SYNC_INDICATOR_REWIND_MILLISECOND;
+const SYNC_INDICATOR_REWIND_START_PERCENT = (SYNC_INDICATOR_COUNTDOWN_MILLISECOND / REMOTE_SYNC_INTERVAL_MILLISECOND) * 100;
+
+const SYNC_INDICATOR_CONTAINER_STYLE = {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+    flexShrink: 0
+};
+
+/**
+ * 弧の開始位置を 12 時にするため -90deg 回転させる。中央寄せは transform-origin ではなく
+ * 負のマージンで行う (transform は sx の他のスタイルと詳細度が競合しないよう root に閉じる)。
+ * stroke-dashoffset は 1 周期で 0 → 円周 → 円周x2 と単調増加させる。円周x2 は 0 と同じ満タン表示のため、
+ * 残り時間の減少も満タンへの復帰も弧の端が同じ向きに動き続ける。1 周期を同期要求の間隔ちょうどに
+ * 合わせてあるので、発火とアニメーションの位相が一致し、React の state 更新なしに CSS だけで完結する。
+ */
+const SYNC_INDICATOR_STYLE = {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    marginTop: `${-SYNC_INDICATOR_SIZE / 2}px`,
+    marginLeft: `${-SYNC_INDICATOR_SIZE / 2}px`,
+    pointerEvents: "none",
+    transform: "rotate(-90deg)",
+    "@keyframes erdRemoteSyncCountdown": {
+        "0%": { strokeDashoffset: 0 },
+        [`${SYNC_INDICATOR_REWIND_START_PERCENT}%`]: { strokeDashoffset: `${SYNC_INDICATOR_CIRCUMFERENCE}px` },
+        "100%": { strokeDashoffset: `${2 * SYNC_INDICATOR_CIRCUMFERENCE}px` }
+    },
+    "& circle": {
+        fill: "none",
+        stroke: "#BDBDBD",
+        strokeWidth: SYNC_INDICATOR_THICKNESS,
+        strokeDasharray: `${SYNC_INDICATOR_CIRCUMFERENCE}px`,
+        animation: `erdRemoteSyncCountdown ${REMOTE_SYNC_INTERVAL_MILLISECOND}ms linear infinite`
+    }
 };
 
 const databaseTypeIcons: { [key in DatabaseType]: React.JSX.Element } = {

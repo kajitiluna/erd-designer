@@ -16,6 +16,7 @@ dist-ssr
 out
 *.local
 
+docs/plans
 work
 
 *.vsix

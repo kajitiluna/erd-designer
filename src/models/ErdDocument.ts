@@ -1849,6 +1849,48 @@ export default class ErdDocument {
 
         return true;
     }
+
+    /**
+     * 直前世代 (previous) と内容が同じモデルのインスタンスを引き継いだドキュメントを返す。
+     * JSON から復元したドキュメント (Google Drive の外部更新取り込み等) は全モデルが別インスタンスになり、
+     * ローカル編集のような未変更モデルの参照共有が起きない。
+     * そのまま undo 履歴に積むと変更されていない部分まで世代数分の複製が残るため、呼び出し側が任意でこれを通してから履歴へ渡す。
+     */
+    public reuseInstancesFrom(previous: ErdDocument): ErdDocument {
+        const tableViewModelIds = doReuseIds(previous.tableViewModelIds, this.tableViewModelIds);
+        const tableViewModelMap = doReuseModelMap(
+            previous.tableViewModelMap, this.tableViewModelMap,
+            (previousModel, nextModel) => previousModel.equals(nextModel)
+        );
+        const columnGroupModelMap = doReuseModelMap(
+            previous.columnGroupModelMap, this.columnGroupModelMap,
+            (previousModel, nextModel) => previousModel.equals(nextModel)
+        );
+        const columnModelMap = doReuseModelMap(
+            previous.columnModelMap, this.columnModelMap,
+            (previousModel, nextModel) => ColumnModel.equals(previousModel, nextModel)
+        );
+
+        const columnShareStorage = (this.columnShareStorage.equals(previous.columnShareStorage) === true)
+            ? previous.columnShareStorage : this.columnShareStorage;
+        const relationViewModelStorage =
+            (this.relationViewModelStorage.equals(previous.relationViewModelStorage) === true)
+                ? previous.relationViewModelStorage : this.relationViewModelStorage;
+        const memoViewModelStorage = (this.memoViewModelStorage.equals(previous.memoViewModelStorage) === true)
+            ? previous.memoViewModelStorage : this.memoViewModelStorage;
+        const erdSettingModel = (this.erdSettingModel.equals(previous.erdSettingModel) === true)
+            ? previous.erdSettingModel : this.erdSettingModel;
+        const databaseSettingModel = (this.databaseSettingModel.equals(previous.databaseSettingModel) === true)
+            ? previous.databaseSettingModel : this.databaseSettingModel;
+        const schemaConfig = (this.schemaConfig.equals(previous.schemaConfig) === true)
+            ? previous.schemaConfig : this.schemaConfig;
+
+        return new ErdDocument(
+            this.documentName, erdSettingModel, databaseSettingModel, schemaConfig,
+            tableViewModelIds, tableViewModelMap, columnGroupModelMap, columnModelMap,
+            columnShareStorage, relationViewModelStorage, memoViewModelStorage, this.lastUpdatedAt
+        );
+    }
 }
 
 type ImportDdlArgs = {
@@ -1866,4 +1908,40 @@ type ImportDdlArgs = {
  */
 const toSingleColumnIds = (columns: readonly ColumnEntry[]): string[] => {
     return columns.flatMap(column => (column.modelType === "single") ? [column.columnModelId] : []);
+};
+
+/**
+ * previous と next の要素数・並び順が同じであれば previous の配列参照を再利用する。
+ * テーブル追加/削除/並び替えがあった場合のみ next をそのまま返す。
+ */
+const doReuseIds = (
+    previousIds: readonly string[], nextIds: readonly string[]
+): readonly string[] => {
+    if (previousIds.length !== nextIds.length) {
+        return nextIds;
+    }
+
+    const sameOrder = nextIds.every((tableId, index) => previousIds[index] === tableId);
+    return sameOrder ? previousIds : nextIds;
+};
+
+/**
+ * next の各エントリについて、同じキーの previous エントリと isSameModel が真であれば
+ * previous 側のインスタンスへ差し替える。キーが一致しないエントリは next のまま返す。
+ */
+const doReuseModelMap = <MODEL>(
+    previousModels: Map<string, MODEL>, nextModels: Map<string, MODEL>,
+    isSameModel: (previousModel: MODEL, nextModel: MODEL) => boolean
+): Map<string, MODEL> => {
+    const entries = Array.from(nextModels.entries()).map(([modelId, nextModel]): [string, MODEL] => {
+        const previousModel = previousModels.get(modelId);
+        if (previousModel == null) {
+            return [modelId, nextModel];
+        }
+
+        const isSame = isSameModel(previousModel, nextModel);
+        return isSame ? [modelId, previousModel] : [modelId, nextModel];
+    });
+
+    return new Map(entries);
 };

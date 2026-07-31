@@ -21,7 +21,7 @@ type MainViewProps = {
     erdDocument: ErdDocument,
     onSave: (updating: ErdDocument, loggingMessage: string) => void,
     erdExportable?: boolean,
-    remoteSyncable?: boolean
+    remoteSync?: boolean
 };
 
 type ErdDocumentsHolderOptions = {
@@ -29,7 +29,7 @@ type ErdDocumentsHolderOptions = {
     cursor: number
 };
 
-const MainView = ({ erdDocument, onSave, erdExportable = true, remoteSyncable = false }: MainViewProps) => {
+const MainView = ({ erdDocument, onSave, erdExportable = true, remoteSync = false }: MainViewProps) => {
 
     const { documentsHolder, editModeHolder, selectEntityHolder, localSettingHolder } =
         useMainHolder({ erdDocument, onSave });
@@ -48,7 +48,7 @@ const MainView = ({ erdDocument, onSave, erdExportable = true, remoteSyncable = 
     const erdCanvas = (
         <ErdCanvas onDragAction={dispatchDragAction}>
             <Box sx={{ position: "fixed", top: "30px", left: "30px" }}>
-                <TitlePanel remoteSyncable={remoteSyncable} />
+                <TitlePanel remoteSync={remoteSync} />
             </Box>
             <Box sx={{ position: "fixed", top: "50%", left: "50px", transform: "translateY(-50%)" }}>
                 <ControlPanel erdExportable={erdExportable} />
@@ -84,17 +84,22 @@ const useMainHolder = ({ erdDocument, onSave }: MainViewProps) => {
     const [editMode, dispatchEditMode] = React.useReducer(initReduceEditMode(dispatchSelectAction), EditModeType.SELECT);
     const [localSetting, dispatchLocalSetting] = React.useReducer(reduceLocalSetting, DEFAULT_LOCAL_SETTING);
 
-    // コンテキスト値は参照が変わると全コンシューマが再レンダーされるため、useMemo で安定化する
+    // documentsHolder は onSave の参照が変わるたびに作り直され、Context コンシューマ全数が再レンダーされる。
+    // ref によるここでの吸収は ESLint react-hooks/refs (ref を閉じたクロージャを他の関数へ渡す形を許さない) に抵触するため採らない。
+    // 呼び出し元 (GoogleDriveFile 等) が useCallback で onSave 自体の参照を安定させる契約とする。
     const documentsHolder = React.useMemo(
         () => initDocumentsHolder(holderProps, onSave, setHolderProps),
         [holderProps, onSave]
     );
+
     const editModeHolder = React.useMemo(() => {
         return { editMode, dispatchEditMode };
     }, [editMode]);
+
     const selectEntityHolder = React.useMemo(() => {
         return { selectState, dispatchSelectAction };
     }, [selectState]);
+
     const localSettingHolder = React.useMemo(() => {
         return { localSetting, dispatchLocalSetting };
     }, [localSetting]);

@@ -50,7 +50,7 @@ CLI=<directory of this SKILL.md>/scripts/erd-cli.cjs
 - The VSCode extension reflects CLI edits automatically while the file is open; no reload is
   needed. The browser app (IndexedDB) does not — re-import the file after CLI edits. The Google
   Drive app reflects CLI edits automatically too, but only when the user has enabled its
-  "Sync changes from Google Drive" toggle (see below).
+  "Sync Google Drive" toggle (see below).
 - Creating a brand-new `.erd` file is done in the ERD Designer app (it configures the target
   database type). The CLI edits existing files.
 
@@ -73,7 +73,7 @@ IDs cross-reference between these arrays, which is why manual edits are unsafe.
 
 - Files stored in Google Drive can be edited locally through Google Drive for Desktop:
   point `--file` at the synced local path.
-  Tell the user to enable "Sync changes from Google Drive" in the gear menu: with it on,
+  Tell the user to enable "Sync Google Drive" in the gear menu: with it on,
   they can keep the ERD Designer tab open while you edit, and your changes appear on the
   canvas within about 10 seconds. If the toggle is left off, fall back to the old workflow —
   tell the user to close the tab before you edit, and to reopen the file afterwards.

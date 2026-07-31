@@ -12,7 +12,7 @@ type ErdApplicationShellProps = {
     /** 仕様書エクスポート処理。省略時は Excel ファイルのダウンロードを行う */
     exportSpecification?: (erdDocument: ErdDocument, contents: ImageContent) => void,
     erdExportable?: boolean,
-    remoteSyncable?: boolean,
+    remoteSync?: boolean,
     children?: React.ReactNode
 };
 
@@ -20,11 +20,9 @@ type ErdApplicationShellProps = {
  * アプリケーションシェル (Local / GoogleDrive / VSCode 拡張) 共通のメインビュー構成。
  * 保存処理と仕様書エクスポート処理を各シェルから注入する。
  */
-const ErdApplicationShell = ({
-    erdDocument, onSave,
-    exportSpecification = exportExcelSpecificationToFile,
-    erdExportable = true,
-    remoteSyncable = false,
+const ErdApplicationShellComponent = ({
+    erdDocument, onSave, exportSpecification = exportExcelSpecificationToFile,
+    erdExportable = true, remoteSync = false,
     children
 }: ErdApplicationShellProps) => {
     const exportContextValue = React.useMemo(() => {
@@ -33,8 +31,8 @@ const ErdApplicationShell = ({
 
     return (
         <ExportSpecificationContext.Provider value={exportContextValue}>
-            <MainView erdDocument={erdDocument} onSave={onSave} erdExportable={erdExportable}
-                remoteSyncable={remoteSyncable} />
+            <MainView erdDocument={erdDocument} onSave={onSave}
+                erdExportable={erdExportable} remoteSync={remoteSync} />
             {children}
         </ExportSpecificationContext.Provider>
     );
@@ -46,5 +44,7 @@ const exportExcelSpecificationToFile = (erdDocument: ErdDocument, contents: Imag
         download(fileName, specs);
     });
 };
+
+const ErdApplicationShell = React.memo(ErdApplicationShellComponent);
 
 export default ErdApplicationShell;

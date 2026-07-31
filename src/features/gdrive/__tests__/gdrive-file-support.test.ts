@@ -1,6 +1,6 @@
 import { vi, describe, test, expect, beforeEach } from 'vitest';
 
-import { findRemoteUpdate, GdriveRequestError } from '~/features/gdrive/gdrive-file-support';
+import { findRemoteUpdated, GdriveRequestError } from '~/features/gdrive/gdrive-file-support';
 import DatabaseSettingModel from '~/models/DatabaseSettingModel';
 import DbSchemaConfig from '~/models/DbSchemaConfig';
 import ErdDocument from '~/models/ErdDocument';
@@ -81,7 +81,7 @@ describe('findRemoteUpdate', () => {
         const metadataResponse = createOkResponse({ name: 'test.erd', modifiedTime: CURRENT_VERSION });
         stubFetchWith(metadataResponse, createErrorResponse(500, 'Internal Server Error'));
 
-        const result = await findRemoteUpdate({
+        const result = await findRemoteUpdated({
             accessToken: TEST_ACCESS_TOKEN, fileId: TEST_FILE_ID, currentVersion: CURRENT_VERSION
         });
 
@@ -95,7 +95,7 @@ describe('findRemoteUpdate', () => {
         const contentResponse = createOkResponse(erdDocument.toJSON());
         stubFetchWith(metadataResponse, contentResponse);
 
-        const result = await findRemoteUpdate({
+        const result = await findRemoteUpdated({
             accessToken: TEST_ACCESS_TOKEN, fileId: TEST_FILE_ID, currentVersion: CURRENT_VERSION
         });
 
@@ -104,15 +104,16 @@ describe('findRemoteUpdate', () => {
         if (result.updated === true) {
             expect(result.erdDocument).toBeInstanceOf(ErdDocument);
         }
-        // findRemoteUpdate 自身のメタデータ確認 (1回) + openGdriveFile 内の本文/メタデータ並行取得 (2回)
-        expect(fetch).toHaveBeenCalledTimes(3);
+        // メタデータ確認 (1回) + 本文取得のみ (1回)。openGdriveFile を経由しないため
+        // メタデータの再取得はしない
+        expect(fetch).toHaveBeenCalledTimes(2);
     });
 
     test('メタデータ取得が401を返す場合、GdriveRequestError が status 401 で throw される', async () => {
         const metadataResponse = createErrorResponse(401, 'Unauthorized');
         stubFetchWith(metadataResponse, createErrorResponse(401, 'Unauthorized'));
 
-        const findRemoteUpdatePromise = findRemoteUpdate({
+        const findRemoteUpdatePromise = findRemoteUpdated({
             accessToken: TEST_ACCESS_TOKEN, fileId: TEST_FILE_ID, currentVersion: CURRENT_VERSION
         });
 
@@ -125,7 +126,7 @@ describe('findRemoteUpdate', () => {
         const contentResponse = createBrokenJsonResponse();
         stubFetchWith(metadataResponse, contentResponse);
 
-        const findRemoteUpdatePromise = findRemoteUpdate({
+        const findRemoteUpdatePromise = findRemoteUpdated({
             accessToken: TEST_ACCESS_TOKEN, fileId: TEST_FILE_ID, currentVersion: CURRENT_VERSION
         });
 
