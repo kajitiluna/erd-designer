@@ -45,7 +45,7 @@ npm run testrun      # vitest, single run
 ## Coding style
 
 **[`docs/guidelines/coding-style.md`](docs/guidelines/coding-style.md) is mandatory reading
-before you write code.** It is a 15-rule guide, and roughly two thirds of the rules are not
+before you write code.** It is a 17-rule guide, and roughly two thirds of the rules are not
 enforced by ESLint — they are checked during review, so skimming it will save you a round trip.
 
 The rules that most often come up in review:
