@@ -1,6 +1,6 @@
 import ColumnShareModel from "~/models/database/ColumnShareModel";
 import StructColumnShareModel from "~/models/database/StructColumnShareModel";
-import { equalsModelMap } from "~/models/storage-support";
+import { equalsModelMap, reuseModelMap } from "~/models/storage-support";
 
 export default class ColumnShareModelStorage {
 
@@ -207,5 +207,18 @@ export default class ColumnShareModelStorage {
     public equals(other: ColumnShareModelStorage): boolean {
         return equalsModelMap(this.columnShareModelMap, other.columnShareModelMap)
             && equalsModelMap(this.structShareModelMap, other.structShareModelMap);
+    }
+
+    public reuseInstancesFrom(previous: ColumnShareModelStorage): ColumnShareModelStorage {
+        const reusedColumnShareMap = reuseModelMap(previous.columnShareModelMap, this.columnShareModelMap);
+        const reusedStructShareMap = reuseModelMap(previous.structShareModelMap, this.structShareModelMap);
+
+        const allReused = (reusedColumnShareMap === previous.columnShareModelMap)
+            && (reusedStructShareMap === previous.structShareModelMap);
+        if (allReused === true) {
+            return previous;
+        }
+
+        return new ColumnShareModelStorage(new Map(reusedColumnShareMap), new Map(reusedStructShareMap));
     }
 }

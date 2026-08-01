@@ -1,7 +1,16 @@
 # ERD Designer
 
 ERD Designer is a free, open-source tool for visually designing database schemas within VSCode. 
-Design your tables and relationships, generate DDL scripts, and export specification documents — all without leaving your editor.
+Design your tables and relationships, generate DDL scripts, and export specification documents
+— all without leaving your editor.
+
+Your coding agent can edit the diagram too — the extension ships an agent plugin (CLI + skill)
+for Claude Code and GitHub Copilot CLI, plus a built-in [MCP](https://modelcontextprotocol.io/) server,
+so AI assistants read and edit the very same diagram you have open.
+
+Diagrams are saved as `.erd` files — plain JSON you can review in a pull request.
+The same file also opens in the [browser app](https://kajitiluna.github.io/erd-designer)
+and the [Google Drive app](https://workspace.google.com/marketplace/app/erd_designer/952307856491).
 
 Inspired by [ERMaster](https://ermaster.sourceforge.net/index.html), built for the modern development workflow.
 
@@ -37,13 +46,12 @@ Inspired by [ERMaster](https://ermaster.sourceforge.net/index.html), built for t
 - **Specification documents** — Export table definitions as Excel files
 - **Image export** — Export as PNG, SVG, or interactive HTML with pan/zoom and perspective switching
 
-### AI Integration (Experimental)
-- **MCP Server** — Built-in [Model Context Protocol](https://modelcontextprotocol.io/) server
-that enables AI assistants like Claude to read and modify your ER diagrams programmatically
-- **Agent plugin (CLI + skill)** — Alternatively, a plugin with a bundled CLI (for Claude Code and
-GitHub Copilot CLI) lets coding agents edit `.erd` files directly, with lower token overhead and
-no need to keep VS Code running.
+### AI Agent Integration
+- **Agent plugin (CLI + skill)** — A plugin with a bundled CLI (for Claude Code and GitHub Copilot CLI)
+lets coding agents edit `.erd` files directly, with lower token overhead and no need to keep VS Code running.
 See the [GitHub repository](https://github.com/kajitiluna/erd-designer#ai-agent-integration-agent-plugin)
+- **MCP Server** — Alternatively, a built-in [Model Context Protocol](https://modelcontextprotocol.io/)
+server enables AI assistants like Claude to read and modify your ER diagrams programmatically.
 
 ## Supported Databases
 
@@ -51,11 +59,14 @@ See the [GitHub repository](https://github.com/kajitiluna/erd-designer#ai-agent-
 - **MySQL** — CHARACTER SET / COLLATE, FULLTEXT / SPATIAL indexes, Auto Increment
 - **MariaDB** — MySQL-compatible DDL, UUID / INET4 / INET6 types, Auto Increment
 - **MS SQL Server** — Schema support, clustered indexes, Identity columns
-- **SQLite** — Type affinity based column types, rowid-based auto numbering (table-level PRIMARY KEY), comments as `--` lines, foreign keys emitted as guidance comments
-- **BigQuery** — Dataset (schema) support, `ARRAY<T>` / `STRUCT` types, `NOT ENFORCED` primary / foreign keys, `OPTIONS(description=...)` comments
+- **SQLite** — Type affinity based column types, rowid-based auto numbering (table-level PRIMARY KEY),
+comments as `--` lines, foreign keys emitted as guidance comments
+- **BigQuery** — Dataset (schema) support, `ARRAY<T>` / `STRUCT` types, `NOT ENFORCED` primary / foreign keys,
+`OPTIONS(description=...)` comments
 - **Snowflake** — Schema support, inline `COMMENT` syntax, AUTOINCREMENT, semi-structured types (VARIANT / OBJECT / ARRAY)
 
-PostgreSQL/MySQL-compatible databases such as Amazon Aurora, CockroachDB, and TiDB can generally be modeled using the corresponding dialect.
+PostgreSQL/MySQL-compatible databases such as Amazon Aurora, CockroachDB, and TiDB can generally be modeled
+using the corresponding dialect.
 
 ## Getting Started
 
@@ -85,7 +96,8 @@ PostgreSQL/MySQL-compatible databases such as Amazon Aurora, CockroachDB, and Ti
 
 ### Use MCP Server (Experimental)
 
-ERD Designer includes an experimental MCP (Model Context Protocol) Server that allows AI assistants to interact with your ERD files.
+ERD Designer includes an experimental MCP (Model Context Protocol) Server
+that allows AI assistants to interact with your ERD files.
 
 #### Setup
 
@@ -118,18 +130,23 @@ ERD Designer includes an experimental MCP (Model Context Protocol) Server that a
 - The MCP Server only runs when VS Code is active
 - Only ERD files currently open in VS Code can be accessed and modified
 - Ensure the port 53753 is not blocked by firewall settings
-- If you use Claude Code or GitHub Copilot CLI, consider the [agent plugin](https://github.com/kajitiluna/erd-designer#ai-agent-integration-agent-plugin) instead: it edits `.erd` files directly through a bundled CLI and consumes far fewer context tokens than the MCP tool schemas
+- If you use Claude Code or GitHub Copilot CLI,
+consider the [agent plugin](https://github.com/kajitiluna/erd-designer#ai-agent-integration-agent-plugin) instead:
+it edits `.erd` files directly through a bundled CLI and consumes far fewer context tokens than the MCP tool schemas
 
 ## Sample File
 
 Try ERD Designer with a ready-made sample:
-- [sample-ec_mysql.erd](https://github.com/kajitiluna/erd-designer/raw/main/samples/sample-ec_mysql.erd) (Right-click and select "Save link as...", then open in VS Code)
+- [sample-ec_mysql.erd](https://github.com/kajitiluna/erd-designer/raw/main/samples/sample-ec_mysql.erd)
+(Right-click and select "Save link as...", then open in VS Code)
 
 ## Documentation
 
-For detailed documentation and advanced features, please visit the [Wiki](https://github.com/kajitiluna/erd-designer/wiki).
+For detailed documentation and advanced features,
+please visit the [Wiki](https://github.com/kajitiluna/erd-designer/wiki).
 
-Browser and Google Drive versions are also available — see the [GitHub repository](https://github.com/kajitiluna/erd-designer).
+Browser and Google Drive versions are also available
+— see the [GitHub repository](https://github.com/kajitiluna/erd-designer).
 
 ## Requirements
 
@@ -142,7 +159,11 @@ Please report issues on [GitHub Issues](https://github.com/kajitiluna/erd-design
 ## Contributing
 
 Contributions are welcome!
-Please visit our [GitHub repository](https://github.com/kajitiluna/erd-designer) for more information.
+See [CONTRIBUTING.md](https://github.com/kajitiluna/erd-designer/blob/main/CONTRIBUTING.md) for how to set up the project,
+or start a [Discussion](https://github.com/kajitiluna/erd-designer/discussions) with questions and ideas.
+
+If ERD Designer is useful to you,
+a [star on GitHub](https://github.com/kajitiluna/erd-designer) helps other developers find it.
 
 ## License
 

@@ -2,7 +2,7 @@ import RelationModel from "~/models/database/RelationModel";
 import LabelViewModel from "~/models/LabelViewModel";
 import LineViewModel from "~/models/LineViewModel";
 import RelationViewModel, { OrthogonalRelation } from "~/models/RelationViewModel";
-import { equalsModelMap } from "~/models/storage-support";
+import { equalsModelMap, reuseModelMap } from "~/models/storage-support";
 
 export default class RelationViewModelStorage {
 
@@ -286,6 +286,15 @@ export default class RelationViewModelStorage {
 
     public equals(other: RelationViewModelStorage): boolean {
         return equalsModelMap(this.relationIdMap, other.relationIdMap);
+    }
+
+    public reuseInstancesFrom(previous: RelationViewModelStorage): RelationViewModelStorage {
+        const reusedMap = reuseModelMap(previous.relationIdMap, this.relationIdMap);
+        if (reusedMap === previous.relationIdMap) {
+            return previous;
+        }
+
+        return new RelationViewModelStorage(Array.from(reusedMap.values()));
     }
 }
 

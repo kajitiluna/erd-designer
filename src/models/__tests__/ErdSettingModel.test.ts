@@ -2,6 +2,7 @@ import ErdSettingModel from '../ErdSettingModel';
 import DisplayStyle from '~/models/database/DisplayStyle';
 import ExportDdlSettingModel from '~/models/ExportDdlSettingModel';
 import { PropertyNotExistsError } from '~/models/exceptions';
+import PerspectiveModel from '~/models/PerspectiveModel';
 
 describe('ErdSettingModel', () => {
     describe('constructor', () => {
@@ -116,6 +117,40 @@ describe('ErdSettingModel', () => {
             expect(updated.displayStyle).toBe(DisplayStyle.PHYSICAL);
             expect(updated.exportDdlSetting).toBe(newExportSetting);
         });
+
+        test('should update syncRemoteChanges only', () => {
+            const exportDdlSetting = new ExportDdlSettingModel({ fileName: 'test.sql' });
+            const original = ErdSettingModel.toObject({
+                displayStyle: DisplayStyle.LOGICAL.toJSON(),
+                exportDdlSetting: exportDdlSetting.toJSON()
+            });
+
+            const updated = original.update({
+                syncRemoteChanges: true
+            });
+
+            expect(updated).not.toBe(original);
+            expect(updated.syncRemoteChanges).toBe(true);
+            expect(updated.displayStyle).toEqual(DisplayStyle.LOGICAL);
+        });
+
+        test('should return same instance when all parameters including syncRemoteChanges are null', () => {
+            const exportDdlSetting = new ExportDdlSettingModel({ fileName: 'test.sql' });
+            const original = ErdSettingModel.toObject({
+                displayStyle: DisplayStyle.LOGICAL.toJSON(),
+                exportDdlSetting: exportDdlSetting.toJSON()
+            });
+
+            const updated = original.update({
+                displayStyle: null,
+                exportDdlSetting: null,
+                perspectiveModels: null,
+                showRelationNames: null,
+                syncRemoteChanges: null
+            });
+
+            expect(updated).toBe(original);
+        });
     });
 
     describe('toJSON', () => {
@@ -132,6 +167,30 @@ describe('ErdSettingModel', () => {
                 displayStyle: DisplayStyle.LOGICAL.toJSON(),
                 exportDdlSetting: exportDdlSetting.toJSON()
             });
+        });
+
+        test('should omit syncRemoteChanges when false', () => {
+            const exportDdlSetting = new ExportDdlSettingModel({ fileName: 'test.sql' });
+            const model = ErdSettingModel.toObject({
+                displayStyle: DisplayStyle.LOGICAL.toJSON(),
+                exportDdlSetting: exportDdlSetting.toJSON()
+            });
+
+            const json = model.toJSON();
+
+            expect(json).not.toHaveProperty('syncRemoteChanges');
+        });
+
+        test('should include syncRemoteChanges when true', () => {
+            const exportDdlSetting = new ExportDdlSettingModel({ fileName: 'test.sql' });
+            const model = ErdSettingModel.toObject({
+                displayStyle: DisplayStyle.LOGICAL.toJSON(),
+                exportDdlSetting: exportDdlSetting.toJSON()
+            }).update({ syncRemoteChanges: true });
+
+            const json = model.toJSON();
+
+            expect(json).toEqual(expect.objectContaining({ syncRemoteChanges: true }));
         });
     });
 
@@ -205,6 +264,62 @@ describe('ErdSettingModel', () => {
 
             expect(() => ErdSettingModel.toObject(obj))
                 .toThrow(PropertyNotExistsError);
+        });
+
+        test('should default syncRemoteChanges to false when not provided', () => {
+            const exportDdlSettingJson = {
+                fileName: 'test.sql',
+                withTable: true,
+                withIndex: true,
+                withForeignKey: true,
+                withComment: true
+            };
+
+            const obj = {
+                exportDdlSetting: exportDdlSettingJson
+            };
+
+            const model = ErdSettingModel.toObject(obj);
+
+            expect(model.syncRemoteChanges).toBe(false);
+        });
+
+        test('should round-trip syncRemoteChanges through toJSON/toObject', () => {
+            const original = ErdSettingModel.create('test-document').update({ syncRemoteChanges: true });
+
+            const json = original.toJSON();
+            const deserialized = ErdSettingModel.toObject(json);
+
+            expect(deserialized.syncRemoteChanges).toBe(true);
+        });
+    });
+
+    describe('updatePerspective', () => {
+        test('should keep syncRemoteChanges after updating a perspective', () => {
+            const original = ErdSettingModel.create('test-document').update({ syncRemoteChanges: true });
+            const perspective = PerspectiveModel.create('Test Perspective');
+
+            const updated = original.updatePerspective(perspective);
+
+            expect(updated).not.toBe(original);
+            expect(updated.syncRemoteChanges).toBe(true);
+            expect(updated.findPerspectiveModel(perspective.perspectiveId)).not.toBeNull();
+        });
+    });
+
+    describe('equals', () => {
+        test('should return true when syncRemoteChanges matches', () => {
+            const first = ErdSettingModel.create('test-document').update({ syncRemoteChanges: true });
+            const second = ErdSettingModel.create('test-document').update({ syncRemoteChanges: true });
+
+            expect(first.equals(second)).toBe(true);
+        });
+
+        test('should return false when syncRemoteChanges differs', () => {
+            const first = ErdSettingModel.create('test-document').update({ syncRemoteChanges: true });
+            const second = ErdSettingModel.create('test-document');
+
+            expect(first.equals(second)).toBe(false);
         });
     });
 });

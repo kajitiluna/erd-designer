@@ -10,8 +10,15 @@
     "license": "Apache-2.0",
     "keywords": [
         "erd",
+        "er-diagram",
         "database",
+        "database-design",
+        "schema-design",
         "ddl",
-        "diagram"
+        "sql",
+        "diagram",
+        "mcp",
+        "claude-code",
+        "agent-skills"
     ]
 }

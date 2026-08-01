@@ -1,10 +1,31 @@
 {
   "name": "erd-designer",
   "displayName": "ERD Designer",
-  "description": "ERD Designer is a VSCode extension for visually designing database Entity Relationship Diagrams",
+  "description": "Visually design database ER diagrams in VSCode — DDL import/export for 7 databases, Excel specification documents, and a built-in MCP server so AI assistants can edit the same diagram",
+  "license": "Apache-2.0",
+  "keywords": [
+    "erd",
+    "er-diagram",
+    "entity-relationship-diagram",
+    "database",
+    "database-design",
+    "schema-design",
+    "sql",
+    "ddl",
+    "mcp",
+    "model-context-protocol",
+    "postgresql",
+    "mysql",
+    "bigquery",
+    "snowflake",
+    "sqlite"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/kajitiluna/erd-designer"
+  },
+  "bugs": {
+    "url": "https://github.com/kajitiluna/erd-designer/issues"
   },
   "icon": "images/icon.png",
   "categories": [
@@ -133,7 +154,21 @@
     "undici": "7.28.0",
     "ws": ">=8.21.0",
     "form-data": ">=4.0.6",
-    "js-yaml": ">=4.2.0",
-    "markdown-it": ">=14.2.0"
+    "js-yaml": ">=4.3.0 <5.0.0",
+    "markdown-it": ">=14.2.0",
+    "@hono/node-server": ">=2.0.5",
+    "exceljs": {
+      "uuid": "^11.1.1"
+    },
+    "minimatch@10.2.5": {
+      "brace-expansion": "^5.0.7"
+    }
+  },
+  "allowScripts": {
+    "@swc/core@1.15.41": true,
+    "@vscode/vsce-sign@2.0.9": true,
+    "esbuild@0.28.1": true,
+    "fsevents@2.3.3": true,
+    "keytar@7.9.0": true
   }
 }

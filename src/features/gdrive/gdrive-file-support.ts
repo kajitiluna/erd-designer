@@ -1,48 +1,63 @@
 import ErdDocument from "~/models/ErdDocument";
 
+export const openGdriveFile = async ({ accessToken, fileId }: OpenGdriveFileArgs) => {
+    const contentPromise = fetchGdriveContent({ accessToken, fileId });
+    const metadataPromise = findGdriveMetadata({ accessToken, fileId });
+
+    const [erdDocument, metadata] = await Promise.all([contentPromise, metadataPromise]);
+    return { fileId, erdDocument, version: metadata.version };
+};
+
+type FindRemoteArgs = { accessToken: string, fileId: string, currentVersion: string };
+
+type FindRemoteResult = { updated: false, version: string }
+    | { updated: true, version: string, erdDocument: ErdDocument };
+
+/**
+ * modifiedTime のみを先に取得し、保持中の version と一致する場合は本文を取得しない。
+ * 定期ポーリングの転送量を最小化するための二段構え。
+ */
+export const findRemoteUpdated = async ({
+    accessToken, fileId, currentVersion
+}: FindRemoteArgs): Promise<FindRemoteResult> => {
+    const metadata = await findGdriveMetadata({ accessToken, fileId });
+    if (metadata.version === currentVersion) {
+        return { updated: false, version: currentVersion };
+    }
+
+    const erdDocument = await fetchGdriveContent({ accessToken, fileId });
+
+    // version はここで再取得せず、差分検知の契機になった modifiedTime をそのまま採用する。
+    // 本文取得中に別の書き込みが挟まっても、古い側の version を記録しておけば次回チェックで
+    // 再度不一致として検知されるため、取りこぼしは起きない。
+    return { updated: true, version: metadata.version, erdDocument };
+};
+
 type OpenGdriveFileArgs = {
     accessToken: string,
     fileId: string
 };
 
-export const openGdriveFile = async ({ accessToken, fileId }: OpenGdriveFileArgs) => {
-    const fileUri = `https://www.googleapis.com/drive/v3/files/${fileId}`;
+const fetchGdriveContent = async ({ accessToken, fileId }: OpenGdriveFileArgs): Promise<ErdDocument> => {
+    const contentUri = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
     const headerInfo = { headers: { Authorization: `Bearer ${accessToken}` } };
 
-    const fetchContent = async () => {
-        const response = await fetch(`${fileUri}?alt=media`, headerInfo);
-        if (response.ok === false) {
-            throw new Error(`Failed to open file. ${JSON.stringify(response)}`);
-        }
+    const response = await doFetchGdrive(contentUri, headerInfo);
+    if (response.ok === false) {
+        throw await toGdriveError(response, "Failed to open file.");
+    }
 
-        const jsonContent = await response.json();
-        return ErdDocument.toObject(jsonContent);
-    };
-
-    const fetchMetadata = async () => {
-        const response = await fetch(`${fileUri}?fields=modifiedTime`, headerInfo);
-        if (response.ok === false) {
-            throw new Error(`Failed to get metadata. ${JSON.stringify(response)}`);
-        }
-
-        const metaJson = await response.json();
-        return {
-            fileId: fileId,
-            version: metaJson.modifiedTime as string
-        };
-    };
-
-    const [erdDocument, metadata] = await Promise.all([fetchContent(), fetchMetadata()]);
-    return { fileId, erdDocument, version: metadata.version };
+    const jsonContent = await response.json();
+    return ErdDocument.toObject(jsonContent);
 };
 
 export const findGdriveMetadata = async ({ accessToken, fileId }: OpenGdriveFileArgs) => {
     const fileUri = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,modifiedTime`;
     const headerInfo = { headers: { Authorization: `Bearer ${accessToken}` } };
 
-    const response = await fetch(fileUri, headerInfo);
+    const response = await doFetchGdrive(fileUri, headerInfo);
     if (response.ok === false) {
-        throw new Error(`Failed to find metadata. ${JSON.stringify(response)}`);
+        throw await toGdriveError(response, "Failed to find metadata.");
     }
 
     const metadata = await response.json();
@@ -98,14 +113,14 @@ export const updateGdriveFile = async ({ accessToken, fileId, erdDocument, withN
         "Content-Type": "application/json; charset=UTF-8"
     };
 
-    const response = await fetch(uploadUri, {
+    const response = await doFetchGdrive(uploadUri, {
         method: "PATCH",
         headers: headerInfo,
         body: JSON.stringify(erdDocument.toJSON())
     });
 
     if (response.ok === false) {
-        throw new Error(`Failed to update file. ${JSON.stringify(response)}`);
+        throw await toGdriveError(response, "Failed to update file.");
     }
 
     const responseMetadata = await response.json();
@@ -148,11 +163,11 @@ const doMultipartGdriveFile = async ({ accessToken, fileId = null, metadata, erd
         "Content-Type": `multipart/related; boundary=${boundary}`
     };
 
-    const response = await fetch(
+    const response = await doFetchGdrive(
         uploadUri, { method: method, headers: headerInfo, body: multipartBody }
     );
     if (response.ok === false) {
-        throw new Error(`Failed to ${method.toLocaleLowerCase()} file. ${JSON.stringify(response)}`);
+        throw await toGdriveError(response, `Failed to ${method.toLocaleLowerCase()} file.`);
     }
 
     const responseJson = await response.json();
@@ -167,6 +182,40 @@ const doMultipartGdriveFile = async ({ accessToken, fileId = null, metadata, erd
     const version = responseJson.modifiedTime as string;
 
     return { fileId: responseFileId, version };
+};
+
+const doFetchGdrive = async (uri: string, requestInit: RequestInit = {}): Promise<Response> => {
+    try {
+        return await fetch(uri, {
+            ...requestInit,
+            // 通信がストールしたままだと GoogleDriveFile の更新キュー (Promise チェーン) が解決せず、
+            // 以降の保存タスクが ErdDocument を掴んだまま積み上がる (かつ保存が Drive に一切届かない)。
+            // 上限を設けてチェーンを必ず前進させる。
+            signal: AbortSignal.timeout(30 * 1000)
+        });
+    } catch (error) {
+        // AbortSignal.timeout や回線切断は fetch() 自体を DOMException/TypeError で reject させ Response を伴わないため
+        // toGdriveError を経由しない。呼び出し側の instanceof GdriveRequestError 判定を素通りさせないよう型を揃える。
+        const detail = (error instanceof Error) ? error.message : String(error);
+        throw new GdriveRequestError(`Network error while calling Google Drive API. ${detail}`, 0);
+    }
+};
+
+export class GdriveRequestError extends Error {
+
+    public readonly status: number;
+
+    constructor(message: string, status: number) {
+        super(message);
+        this.status = status;
+    }
+}
+
+const toGdriveError = async (response: Response, message: string): Promise<GdriveRequestError> => {
+    const detail = await response.text().catch(() => "");
+
+    const cause = `${message} status: ${response.status} ${response.statusText}. ${detail}`;
+    return new GdriveRequestError(cause, response.status);
 };
 
 type CreateSpreadSheetType = {
