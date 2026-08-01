@@ -1,5 +1,5 @@
 import MemoViewModel from "~/models/MemoViewModel";
-import { equalsIdSequence, equalsModelMap } from "~/models/storage-support";
+import { equalsIdSequence, equalsModelMap, reuseIdSequence, reuseModelMap } from "~/models/storage-support";
 
 type MemoDirection = "front" | "back";
 
@@ -125,6 +125,21 @@ export default class MemoViewModelStorage {
         }
 
         return equalsIdSequence(this.backgroundIds, other.backgroundIds);
+    }
+
+    public reuseInstancesFrom(previous: MemoViewModelStorage): MemoViewModelStorage {
+        const reusedMap = reuseModelMap(previous.memoIdMap, this.memoIdMap);
+        const reusedForegroundIds = reuseIdSequence(previous.foregroundIds, this.foregroundIds);
+        const reusedBackgroundIds = reuseIdSequence(previous.backgroundIds, this.backgroundIds);
+
+        const allReused = (reusedMap === previous.memoIdMap)
+            && (reusedForegroundIds === previous.foregroundIds)
+            && (reusedBackgroundIds === previous.backgroundIds);
+        if (allReused === true) {
+            return previous;
+        }
+
+        return new MemoViewModelStorage(new Map(reusedMap), reusedForegroundIds, reusedBackgroundIds);
     }
 }
 

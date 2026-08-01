@@ -229,6 +229,10 @@ const GoogleDriveFile = ({ implicitToken, authorize }: GoogleDriveFileProp) => {
         if (reason === "clickaway") {
             return;
         }
+        // 自動非表示指定のないトースト (Reload/Reauthorize 等の明示操作が前提) は Escape でも閉じない。
+        if ((reason === "escapeKeyDown") && (messageToast?.autoHideMills == null)) {
+            return;
+        }
 
         setMessageToast(null);
     };
@@ -497,18 +501,18 @@ const doImportRemoteUpdate = async (args: ImportRemoteUpdateArgs): Promise<strin
         return args.currentVersion;
     }
 
-    // modifiedTime だけが進み内容が同一の場合 (他ユーザーの無変更保存等)、取り込んでも履歴・画面は変化しないため、
-    // 通知と全体再描画だけが空振りするのを避ける。
-    const currentDocument = args.latestDocumentRef.current;
-    if ((currentDocument != null) && currentDocument.equals(remoteUpdate.erdDocument)) {
-        return remoteUpdate.version;
-    }
-
     // 取り込みは JSON から全モデルを再構築するため、ローカル編集と違い未変更モデルのインスタンス共有が起きない。
     // undo 履歴 (最大100件) に完全コピーが積み上がるのを防ぐため、現在のドキュメントと内容が一致するモデルはここでインスタンスを寄せておく。
+    // 全フィールドが再利用された場合 (= 内容が完全に同一) は currentDocument 自身が返るため、
+    // modifiedTime だけが進んだ無変更保存 (他ユーザーの無変更保存等) を === で安価に検知できる。
+    const currentDocument = args.latestDocumentRef.current;
     const importedDocument = (currentDocument != null)
         ? remoteUpdate.erdDocument.reuseInstancesFrom(currentDocument)
         : remoteUpdate.erdDocument;
+
+    if (importedDocument === currentDocument) {
+        return remoteUpdate.version;
+    }
 
     dispatchExternalDocumentChanged(args.importedDocumentRef, importedDocument);
     args.onImported();

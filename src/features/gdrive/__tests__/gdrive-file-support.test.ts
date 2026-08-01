@@ -132,4 +132,17 @@ describe('findRemoteUpdate', () => {
 
         await expect(findRemoteUpdatePromise).rejects.toThrow();
     });
+
+    test('fetch がタイムアウト等で reject する場合、GdriveRequestError が status 0 で throw される', async () => {
+        vi.mocked(fetch).mockImplementation(async () => {
+            throw new DOMException('The operation timed out.', 'TimeoutError');
+        });
+
+        const findRemoteUpdatePromise = findRemoteUpdated({
+            accessToken: TEST_ACCESS_TOKEN, fileId: TEST_FILE_ID, currentVersion: CURRENT_VERSION
+        });
+
+        await expect(findRemoteUpdatePromise).rejects.toBeInstanceOf(GdriveRequestError);
+        await expect(findRemoteUpdatePromise).rejects.toMatchObject({ status: 0 });
+    });
 });

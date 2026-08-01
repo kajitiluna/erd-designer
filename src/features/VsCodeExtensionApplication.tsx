@@ -5,7 +5,10 @@ import ErdDocument from "~/models/ErdDocument";
 import InitializeDatabaseDialog from "~/features/start_up/InitializeDatabaseDialog";
 import ErdApplicationShell from "~/features/ErdApplicationShell";
 import RectangleViewModel from "~/models/RectangleViewModel";
-import { ERD_MESSAGE_EVENT_SOURCE, notifySaveDocument, onDrawnRectangles, onExternalChangedDocument, onInitializeCompleted, onStartedExtension } from "~/extension/vscode-message-resolver";
+import {
+    ERD_MESSAGE_EVENT_SOURCE, notifySaveDocument,
+    onDrawnRectangles, onExternalChangedDocument, onInitializeCompleted, onStartedExtension
+} from "~/extension/vscode-message-resolver";
 import { CANVAS_RECTANGLES_DRAWN_EVENT } from "~/components/constant";
 
 const VsCodeExtensionApplication = (prop: { vscodeApi: VsCodeApi }) => {
@@ -15,6 +18,12 @@ const VsCodeExtensionApplication = (prop: { vscodeApi: VsCodeApi }) => {
     const { documentUri, initDocument, setInitDocument, loadResult } = useInitialize();
     // Canvas 上に描画されたテーブルの矩形情報を受信し、拡張機能に伝搬する。
     useSyncRectangles(vscodeApi, documentUri);
+
+    // ErdApplicationShell は React.memo でラップされているため、
+    // onSave の参照が render のたびに変わると memo が素通りし MainView 以下が再構築される。useCallback で安定化する。
+    const handleSaveDocument = React.useCallback((erdDocument: ErdDocument, message: string) => {
+        notifySaveDocument(vscodeApi, documentUri)(erdDocument, message);
+    }, [vscodeApi, documentUri]);
 
     // 初期化処理が終わっていない場合は、読み込み中であることを示す
     if (documentUri === "") {
@@ -29,9 +38,6 @@ const VsCodeExtensionApplication = (prop: { vscodeApi: VsCodeApi }) => {
     if (loadResult === "failure") {
         return (<div>Failed to load erd file.</div>);
     }
-
-    // VSCode 上のファイル保存処理
-    const handleSaveDocument = notifySaveDocument(vscodeApi, documentUri);
 
     if (initDocument === null) {
         const handleCreated = (erdDocument: ErdDocument) => {

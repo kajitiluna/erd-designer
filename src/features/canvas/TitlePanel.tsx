@@ -200,12 +200,19 @@ const RemoteSyncIndicator = () => {
 
         const scheduler = initRemoteSyncSchedule(countdownElement);
         schedulerRef.current = scheduler;
-        scheduler.resume();
+
+        // バックグラウンドタブとして開かれた場合は取り込みを開始しない。可視化時は handleVisibilityChange が拾う。
+        if (window.document.visibilityState === "hidden") {
+            scheduler.suspend();
+        } else {
+            scheduler.resume();
+        }
 
         window.document.addEventListener("visibilitychange", scheduler.handleVisibilityChange);
 
         return () => {
             window.document.removeEventListener("visibilitychange", scheduler.handleVisibilityChange);
+
             scheduler.suspend();
             schedulerRef.current = null;
         };
@@ -286,14 +293,15 @@ const initRemoteSyncSchedule = (element: SVGCircleElement): RemoteSyncScheduler 
         doRequestSync();
     };
 
-    // 非表示中は取り込みが止まるため、復帰時は次の発火を待たずに 1 回チェックする
+    // 非表示中は取り込みが止まるため、復帰時は次の発火を待たずに 1 回チェックする。
+    // 手動更新と同じスロットルを共有し、タブの頻繁な切り替えで要求が連発しないようにする。
     const handleVisibilityChange = () => {
         if (window.document.visibilityState === "hidden") {
             suspend();
             return;
         }
 
-        doRequestSync();
+        requestSyncManually();
     };
 
     return { resume, suspend, requestSyncManually, handleVisibilityChange };

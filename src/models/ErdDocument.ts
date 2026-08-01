@@ -1871,19 +1871,33 @@ export default class ErdDocument {
             (previousModel, nextModel) => ColumnModel.equals(previousModel, nextModel)
         );
 
-        const columnShareStorage = (this.columnShareStorage.equals(previous.columnShareStorage) === true)
-            ? previous.columnShareStorage : this.columnShareStorage;
+        const columnShareStorage = this.columnShareStorage.reuseInstancesFrom(previous.columnShareStorage);
         const relationViewModelStorage =
-            (this.relationViewModelStorage.equals(previous.relationViewModelStorage) === true)
-                ? previous.relationViewModelStorage : this.relationViewModelStorage;
-        const memoViewModelStorage = (this.memoViewModelStorage.equals(previous.memoViewModelStorage) === true)
-            ? previous.memoViewModelStorage : this.memoViewModelStorage;
+            this.relationViewModelStorage.reuseInstancesFrom(previous.relationViewModelStorage);
+        const memoViewModelStorage = this.memoViewModelStorage.reuseInstancesFrom(previous.memoViewModelStorage);
         const erdSettingModel = (this.erdSettingModel.equals(previous.erdSettingModel) === true)
             ? previous.erdSettingModel : this.erdSettingModel;
         const databaseSettingModel = (this.databaseSettingModel.equals(previous.databaseSettingModel) === true)
             ? previous.databaseSettingModel : this.databaseSettingModel;
         const schemaConfig = (this.schemaConfig.equals(previous.schemaConfig) === true)
             ? previous.schemaConfig : this.schemaConfig;
+
+        // .equals() が比較する全フィールドが previous 側へ再利用された場合、内容は previous と完全に同一である。
+        // 呼び出し側 (GoogleDriveFile 等) が === で無変更検知できるよう、その場合は previous 自身を返す。
+        const allReused = (this.documentName === previous.documentName)
+            && (tableViewModelIds === previous.tableViewModelIds)
+            && (tableViewModelMap === previous.tableViewModelMap)
+            && (columnGroupModelMap === previous.columnGroupModelMap)
+            && (columnModelMap === previous.columnModelMap)
+            && (columnShareStorage === previous.columnShareStorage)
+            && (relationViewModelStorage === previous.relationViewModelStorage)
+            && (memoViewModelStorage === previous.memoViewModelStorage)
+            && (erdSettingModel === previous.erdSettingModel)
+            && (databaseSettingModel === previous.databaseSettingModel)
+            && (schemaConfig === previous.schemaConfig);
+        if (allReused === true) {
+            return previous;
+        }
 
         return new ErdDocument(
             this.documentName, erdSettingModel, databaseSettingModel, schemaConfig,
@@ -1928,20 +1942,23 @@ const doReuseIds = (
 /**
  * next の各エントリについて、同じキーの previous エントリと isSameModel が真であれば
  * previous 側のインスタンスへ差し替える。キーが一致しないエントリは next のまま返す。
+ * 全エントリが previous 側へ差し替わった場合は previous のマップ参照をそのまま返す。
  */
 const doReuseModelMap = <MODEL>(
     previousModels: Map<string, MODEL>, nextModels: Map<string, MODEL>,
     isSameModel: (previousModel: MODEL, nextModel: MODEL) => boolean
 ): Map<string, MODEL> => {
+    let allReused = (previousModels.size === nextModels.size);
+
     const entries = Array.from(nextModels.entries()).map(([modelId, nextModel]): [string, MODEL] => {
         const previousModel = previousModels.get(modelId);
-        if (previousModel == null) {
-            return [modelId, nextModel];
+        if ((previousModel != null) && isSameModel(previousModel, nextModel)) {
+            return [modelId, previousModel];
         }
 
-        const isSame = isSameModel(previousModel, nextModel);
-        return isSame ? [modelId, previousModel] : [modelId, nextModel];
+        allReused = false;
+        return [modelId, nextModel];
     });
 
-    return new Map(entries);
+    return allReused ? previousModels : new Map(entries);
 };

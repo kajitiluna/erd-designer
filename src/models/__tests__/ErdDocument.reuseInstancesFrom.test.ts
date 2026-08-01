@@ -32,8 +32,8 @@ const initRelationViewModel = (relationModel: RelationModel): RelationViewModel 
     });
 };
 
-const initMemoViewModel = (): MemoViewModel => {
-    const rectangle = new RectangleViewModel({ positionX: 0, positionY: 0, width: 100, height: 100 });
+const initMemoViewModel = (positionX: number): MemoViewModel => {
+    const rectangle = new RectangleViewModel({ positionX, positionY: 0, width: 100, height: 100 });
     return MemoViewModel.create(rectangle, { background: ColorValue.WHITE, foreground: ColorValue.BLACK });
 };
 
@@ -42,10 +42,18 @@ const sharedColumnShareModel = new ColumnShareModel({
     columnShareModelId: 'share-a-pk', physicalName: 'id', logicalName: 'ID',
     columnType: findDatabaseColumns('postgres')[0]
 });
+// テーブル D のPKカラムが参照する2件目のカラム共有モデル。1件だけ変更した場合の再利用検証に使う
+const secondColumnShareModel = new ColumnShareModel({
+    columnShareModelId: 'share-d-pk', physicalName: 'id', logicalName: 'ID',
+    columnType: findDatabaseColumns('postgres')[0]
+});
 const tableAPkColumn = new SimpleColumnModel({
     columnModelId: 'col-a-pk', columnShareModelId: 'share-a-pk', primaryKey: true
 });
 const tableBOwnColumn = new SimpleColumnModel({ columnModelId: 'col-b-own', columnShareModelId: '' });
+const tableDPkColumn = new SimpleColumnModel({
+    columnModelId: 'col-d-pk', columnShareModelId: 'share-d-pk', primaryKey: true
+});
 
 const tableAModel = new TableModel({
     tableModelId: 'table-a', physicalName: 'table_a',
@@ -55,11 +63,21 @@ const tableBModel = new TableModel({
     tableModelId: 'table-b', physicalName: 'table_b',
     columnEntries: [{ modelType: 'single', columnModelId: 'col-b-own' }]
 });
+// 2件目のリレーション (table-a → table-d) を持たせ、relationViewModelStorage の1件だけの再利用を検証する
+const tableDModel = new TableModel({
+    tableModelId: 'table-d', physicalName: 'table_d',
+    columnEntries: [{ modelType: 'single', columnModelId: 'col-d-pk' }]
+});
 
 const relationModel = new RelationModel({
     relationModelId: 'relation-1',
     parentTableModelId: 'table-a', childTableModelId: 'table-b',
     relationPairs: [new RelationPair({ parentColumnModelId: 'col-a-pk', childColumnModelId: 'col-b-own' })]
+});
+const relationModel2 = new RelationModel({
+    relationModelId: 'relation-2',
+    parentTableModelId: 'table-a', childTableModelId: 'table-d',
+    relationPairs: [new RelationPair({ parentColumnModelId: 'col-a-pk', childColumnModelId: 'col-d-pk' })]
 });
 
 const initBaseDocument = (): ErdDocument => {
@@ -68,11 +86,11 @@ const initBaseDocument = (): ErdDocument => {
         erdSettingModel: ErdSettingModel.create('test-document'),
         databaseSettingModel: DatabaseSettingModel.create('postgres'),
         schemaConfig: DbSchemaConfig.create(),
-        tableViewModels: [initTableViewModel(tableAModel), initTableViewModel(tableBModel)],
-        columnModels: [tableAPkColumn, tableBOwnColumn],
-        columnShareModels: [sharedColumnShareModel],
-        relationViewModels: [initRelationViewModel(relationModel)],
-        foregroundMemoViewModels: [initMemoViewModel()]
+        tableViewModels: [initTableViewModel(tableAModel), initTableViewModel(tableBModel), initTableViewModel(tableDModel)],
+        columnModels: [tableAPkColumn, tableBOwnColumn, tableDPkColumn],
+        columnShareModels: [sharedColumnShareModel, secondColumnShareModel],
+        relationViewModels: [initRelationViewModel(relationModel), initRelationViewModel(relationModel2)],
+        foregroundMemoViewModels: [initMemoViewModel(0), initMemoViewModel(200)]
     });
 };
 
@@ -91,6 +109,8 @@ describe('ErdDocument.reuseInstancesFrom', () => {
 
         const reused = imported.reuseInstancesFrom(previous);
 
+        // 全フィールドが再利用された場合、previous 自身の参照が返る
+        expect(reused).toBe(previous);
         expect(reused.equals(previous)).toBe(true);
         expect(reused.findTableViewModel('table-a')).toBe(previous.findTableViewModel('table-a'));
         expect(reused.findTableViewModel('table-b')).toBe(previous.findTableViewModel('table-b'));
@@ -99,8 +119,11 @@ describe('ErdDocument.reuseInstancesFrom', () => {
         // getColumnShareModelStorage() は呼び出しごとに copy() された新規ラッパーを返すため、
         // ラッパーではなく内部モデルの参照で共有を確認する
         expect(reused.findColumnShareModel('share-a-pk')).toBe(previous.findColumnShareModel('share-a-pk'));
+        expect(reused.findColumnShareModel('share-d-pk')).toBe(previous.findColumnShareModel('share-d-pk'));
         expect(reused.getRelationViewModels()[0]).toBe(previous.getRelationViewModels()[0]);
+        expect(reused.getRelationViewModels()[1]).toBe(previous.getRelationViewModels()[1]);
         expect(reused.getMemoViewModels().frontMemos[0]).toBe(previous.getMemoViewModels().frontMemos[0]);
+        expect(reused.getMemoViewModels().frontMemos[1]).toBe(previous.getMemoViewModels().frontMemos[1]);
         expect(reused.erdSettingModel).toBe(previous.erdSettingModel);
         expect(reused.databaseSettingModel).toBe(previous.databaseSettingModel);
         expect(reused.schemaConfig).toBe(previous.schemaConfig);
@@ -114,6 +137,7 @@ describe('ErdDocument.reuseInstancesFrom', () => {
 
         const reused = imported.reuseInstancesFrom(previous);
 
+        expect(reused).not.toBe(previous);
         expect(reused.equals(imported)).toBe(true);
         expect(reused.findTableViewModel('table-a')).toBe(previous.findTableViewModel('table-a'));
         expect(reused.findTableViewModel('table-b')).not.toBe(previous.findTableViewModel('table-b'));
@@ -141,8 +165,8 @@ describe('ErdDocument.reuseInstancesFrom', () => {
                 ...previous.getTableViewModels(),
                 initTableViewModel(extraTableModel)
             ],
-            columnModels: [tableAPkColumn, tableBOwnColumn],
-            columnShareModels: [sharedColumnShareModel],
+            columnModels: [tableAPkColumn, tableBOwnColumn, tableDPkColumn],
+            columnShareModels: [sharedColumnShareModel, secondColumnShareModel],
             relationViewModels: previous.getRelationViewModels(),
             foregroundMemoViewModels: previous.getMemoViewModels().frontMemos
         });
@@ -151,9 +175,67 @@ describe('ErdDocument.reuseInstancesFrom', () => {
         const reused = imported.reuseInstancesFrom(previous);
 
         expect(reused.equals(imported)).toBe(true);
-        expect(reused.getTableViewModels()).toHaveLength(3);
+        expect(reused.getTableViewModels()).toHaveLength(4);
         expect(reused.findTableViewModel('table-a')).toBe(previous.findTableViewModel('table-a'));
         expect(reused.findTableViewModel('table-b')).toBe(previous.findTableViewModel('table-b'));
         expect(reused.findTableViewModel('table-c')).not.toBeNull();
+    });
+
+    test('1件だけリレーションが変更された場合、そのリレーションのみ新規インスタンスで他は再利用される', () => {
+        const previous = initBaseDocument();
+        const changed = previous.updateRelationLine('relation-1', new LineViewModel({ edges: [{ x: 10, y: 10 }] }));
+        const imported = toIndependentCopy(changed);
+
+        const reused = imported.reuseInstancesFrom(previous);
+
+        expect(reused).not.toBe(previous);
+        expect(reused.equals(imported)).toBe(true);
+        const previousRelation1 = previous.getRelationViewModels().find(relation => relation.relationId === 'relation-1');
+        const reusedRelation1 = reused.getRelationViewModels().find(relation => relation.relationId === 'relation-1');
+        const previousRelation2 = previous.getRelationViewModels().find(relation => relation.relationId === 'relation-2');
+        const reusedRelation2 = reused.getRelationViewModels().find(relation => relation.relationId === 'relation-2');
+        expect(reusedRelation1).not.toBe(previousRelation1);
+        expect(reusedRelation2).toBe(previousRelation2);
+        // 変更されていないテーブル・メモ・カラム共有は引き続き共有される
+        expect(reused.findTableViewModel('table-a')).toBe(previous.findTableViewModel('table-a'));
+        expect(reused.getMemoViewModels().frontMemos[0]).toBe(previous.getMemoViewModels().frontMemos[0]);
+    });
+
+    test('1件だけメモが変更された場合、そのメモのみ新規インスタンスで他は再利用される', () => {
+        const previous = initBaseDocument();
+        const [firstMemo, secondMemo] = previous.getMemoViewModels().frontMemos;
+        const movedMemo = firstMemo.move({ x: 10, y: 10 });
+        const changed = previous.updateMemo(movedMemo);
+        const imported = toIndependentCopy(changed);
+
+        const reused = imported.reuseInstancesFrom(previous);
+
+        expect(reused).not.toBe(previous);
+        expect(reused.equals(imported)).toBe(true);
+        const [reusedFirstMemo, reusedSecondMemo] = reused.getMemoViewModels().frontMemos;
+        expect(reusedFirstMemo).not.toBe(firstMemo);
+        expect(reusedSecondMemo).toBe(secondMemo);
+        // 変更されていないテーブル・リレーションは引き続き共有される
+        expect(reused.findTableViewModel('table-a')).toBe(previous.findTableViewModel('table-a'));
+        expect(reused.getRelationViewModels()[0]).toBe(previous.getRelationViewModels()[0]);
+    });
+
+    test('1件だけカラム共有モデルが変更された場合、そのモデルのみ新規インスタンスで他は再利用される', () => {
+        const previous = initBaseDocument();
+        const updatedShareModel = new ColumnShareModel({ ...sharedColumnShareModel, logicalName: 'ID (renamed)' });
+        const changed = previous.updateColumnModels([], [updatedShareModel]);
+        const imported = toIndependentCopy(changed);
+
+        const reused = imported.reuseInstancesFrom(previous);
+
+        expect(reused).not.toBe(previous);
+        expect(reused.equals(imported)).toBe(true);
+        expect(reused.findColumnShareModel('share-a-pk')).not.toBe(previous.findColumnShareModel('share-a-pk'));
+        expect(reused.findColumnShareModel('share-a-pk')?.logicalName).toBe('ID (renamed)');
+        expect(reused.findColumnShareModel('share-d-pk')).toBe(previous.findColumnShareModel('share-d-pk'));
+        // 変更されていないテーブル・リレーション・メモは引き続き共有される
+        expect(reused.findTableViewModel('table-a')).toBe(previous.findTableViewModel('table-a'));
+        expect(reused.getRelationViewModels()[0]).toBe(previous.getRelationViewModels()[0]);
+        expect(reused.getMemoViewModels().frontMemos[0]).toBe(previous.getMemoViewModels().frontMemos[0]);
     });
 });

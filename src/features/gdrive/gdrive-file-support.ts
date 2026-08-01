@@ -184,14 +184,21 @@ const doMultipartGdriveFile = async ({ accessToken, fileId = null, metadata, erd
     return { fileId: responseFileId, version };
 };
 
-const doFetchGdrive = (uri: string, requestInit: RequestInit = {}): Promise<Response> => {
-    return fetch(uri, {
-        ...requestInit,
-        // 通信がストールしたままだと GoogleDriveFile の更新キュー (Promise チェーン) が解決せず、
-        // 以降の保存タスクが ErdDocument を掴んだまま積み上がる (かつ保存が Drive に一切届かない)。
-        // 上限を設けてチェーンを必ず前進させる。
-        signal: AbortSignal.timeout(30 * 1000)
-    });
+const doFetchGdrive = async (uri: string, requestInit: RequestInit = {}): Promise<Response> => {
+    try {
+        return await fetch(uri, {
+            ...requestInit,
+            // 通信がストールしたままだと GoogleDriveFile の更新キュー (Promise チェーン) が解決せず、
+            // 以降の保存タスクが ErdDocument を掴んだまま積み上がる (かつ保存が Drive に一切届かない)。
+            // 上限を設けてチェーンを必ず前進させる。
+            signal: AbortSignal.timeout(30 * 1000)
+        });
+    } catch (error) {
+        // AbortSignal.timeout や回線切断は fetch() 自体を DOMException/TypeError で reject させ Response を伴わないため
+        // toGdriveError を経由しない。呼び出し側の instanceof GdriveRequestError 判定を素通りさせないよう型を揃える。
+        const detail = (error instanceof Error) ? error.message : String(error);
+        throw new GdriveRequestError(`Network error while calling Google Drive API. ${detail}`, 0);
+    }
 };
 
 export class GdriveRequestError extends Error {
