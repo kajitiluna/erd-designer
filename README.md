@@ -119,15 +119,12 @@ Files stored on Google Drive can be edited through the local path synced by
 with the limitation described below.
 The bundled CLI can also be downloaded standalone from [GitHub Releases](https://github.com/kajitiluna/erd-designer/releases).
 
-> **Note (Google Drive app):**
-> Enable "Sync changes from Google Drive" in the gear menu to detect external changes (such as
-> CLI edits) and pull them into the canvas automatically, usually within about 10 seconds; the
-> change can be undone like any other edit. This toggle is off by default — while it's off,
-> close the ERD Designer tab before editing with the CLI, and reopen the file afterwards to see
-> the result. Background tabs may take longer than the ~10 second target, since browsers throttle
-> timers there.
+> [!TIP] **(Google Drive app):**
+> Enable "Sync Google Drive" in the gear menu to auto-detect external changes (e.g. CLI edits)
+> and pull them into the canvas within about 10 seconds, as an undoable edit.
+> This is off by default — while off, close the tab before editing via CLI, then reopen it afterward to see the result.
 
-> **Note:**
+> [!NOTE]
 > The agent plugin is experimental, like the MCP Server.
 
 ## Manual
