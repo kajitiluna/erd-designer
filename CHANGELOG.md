@@ -17,6 +17,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   gear menu to poll for remote updates and apply them to the canvas as an undoable edit.
   Off by default.
 
+### Changed
+
+- **Link previews for the web app**:
+
+  Sharing a link to the app on social platforms, chat, or a blog now renders a title,
+  description, and preview image instead of a bare URL.
+
 ### Fixed
 
 - **Google Drive app: saving no longer gets stuck after a failed request**:

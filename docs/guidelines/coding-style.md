@@ -263,3 +263,20 @@ Applies equally to sibling `useState`/`useRef` flags describing one subject (`is
 Exception: independent attributes that merely share an object (`primaryKey`, `notNull`, `unique` on a column). These are not phases of one subject — every combination is legal.
 
 Not enforced by ESLint — manual review rule.
+
+## 17. Model fields must stay backward compatible
+
+`.erd` files are a JSON serialization of `src/models/` with no schema version. A model's `toObject` must treat a missing field as "not yet saved," not as an error — files saved before the field existed must keep loading.
+
+```ts
+// NG — requireProperty throws PropertyNotExistsError on files saved before this field existed
+requireProperty(obj, "notNull");
+const notNull = obj.notNull as boolean;
+
+// OK — absent field falls back to a default
+const notNull = obj.notNull != null ? obj.notNull as boolean : false;
+```
+
+Never remove or repurpose a field that has shipped — older files still contain it.
+
+Not enforced by ESLint — manual review rule.

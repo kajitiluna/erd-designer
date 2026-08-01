@@ -1,0 +1,74 @@
+name: Feature request
+description: Suggest an idea for ERD Designer
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describing the problem you are running into is more useful than describing a solution
+        — it often turns out there is a better fit than the feature you had in mind.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: What are you doing today, and where does it get painful?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to see?
+      description: If you have a concrete idea, describe it here. A rough sketch is fine.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface would this affect?
+      multiple: true
+      options:
+        - Browser app
+        - VSCode extension
+        - Google Drive app
+        - Agent plugin / CLI
+        - MCP server
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: database
+    attributes:
+      label: Related database
+      description: For DDL or dialect-specific requests.
+      options:
+        - Not applicable
+        - PostgreSQL
+        - MySQL
+        - MariaDB
+        - MS SQL Server
+        - SQLite
+        - BigQuery
+        - Snowflake
+        - A database not supported yet
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Workarounds you have tried
+      description: Including how other tools handle it, if that is useful context.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Would you like to work on this?
+      options:
+        - label: I would be interested in opening a pull request for this
+          required: false
