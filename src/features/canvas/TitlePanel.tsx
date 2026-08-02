@@ -27,6 +27,8 @@ import DisplayColumnStyle from "~/models/DisplayColumnStyle";
 
 type SettingMenuType = "perspective" | "column_group" | "db_schema" | "import_ddl" | "";
 
+type DisplayMenuState = { status: "closed" } | { status: "open" | "interacted", anchor: HTMLElement };
+
 type TitlePanelProps = {
     remoteSync?: boolean
 };
@@ -37,7 +39,7 @@ const TitlePanel = ({ remoteSync = false }: TitlePanelProps) => {
 
     const [title, setTitle] = React.useState<string>(erdDocument.documentName);
     const [preferenceElement, setPreferenceElement] = React.useState<HTMLElement | null>(null);
-    const [displayStyleElement, setDisplayStyleElement] = React.useState<HTMLElement | null>(null);
+    const [displayMenuState, setDisplayMenuState] = React.useState<DisplayMenuState>({ status: "closed" });
     const [selectedMenu, setSelectedMenu] = React.useState<SettingMenuType>("");
 
     const erdSetting: ErdSettingModel = erdDocument.erdSettingModel;
@@ -77,7 +79,7 @@ const TitlePanel = ({ remoteSync = false }: TitlePanelProps) => {
     const preferenceMenu = (
         <Menu anchorEl={preferenceElement} open={isSettingOpen} onClose={handleClosePreference}>
             <MenuItem sx={{ display: "flex", justifyContent: "space-between", paddingRight: "4px" }}
-                onClick={event => setDisplayStyleElement(event.currentTarget)}>
+                onClick={event => setDisplayMenuState({ status: "open", anchor: event.currentTarget })}>
                 <span>Display Style</span>
                 <ArrowRightIcon />
             </MenuItem>
@@ -103,11 +105,17 @@ const TitlePanel = ({ remoteSync = false }: TitlePanelProps) => {
     );
 
     const handleCloseDisplayStyle = () => {
-        setDisplayStyleElement(null);
+        if (displayMenuState.status === "interacted") {
+            handleClosePreference();
+        }
+
+        setDisplayMenuState({ status: "closed" });
     };
 
     const initHandleChangeDisplayNameStyle = (displayNameStyle: DisplayNameStyle) => {
         return () => {
+            markDisplayMenuInteracted();
+
             if (displayNameStyle.name === erdSetting.displayNameStyle.name) {
                 return;
             }
@@ -118,6 +126,16 @@ const TitlePanel = ({ remoteSync = false }: TitlePanelProps) => {
                 JSON.stringify({ before: erdSetting.displayNameStyle.name, after: displayNameStyle.name });
             documentsHolder.updateErdSetting(nextErdSetting, loggingMessage);
         };
+    };
+
+    const markDisplayMenuInteracted = () => {
+        setDisplayMenuState(previous => {
+            if (previous.status !== "open") {
+                return previous;
+            }
+
+            return { status: "interacted", anchor: previous.anchor };
+        });
     };
 
     const displayNameStyleMenu = (
@@ -139,6 +157,8 @@ const TitlePanel = ({ remoteSync = false }: TitlePanelProps) => {
 
     const initHandleChangeDisplayColumnStyle = (displayColumnStyle: DisplayColumnStyle) => {
         return () => {
+            markDisplayMenuInteracted();
+
             if (displayColumnStyle.key === erdSetting.displayColumnStyle.key) {
                 return;
             }
@@ -169,14 +189,17 @@ const TitlePanel = ({ remoteSync = false }: TitlePanelProps) => {
     );
 
     const handleChangeShowRelationNames = (event: React.ChangeEvent<HTMLInputElement>) => {
+        markDisplayMenuInteracted();
+
         const checked = event.target.checked;
         const nextSetting = erdSetting.update({ showRelationNames: checked });
 
         documentsHolder.updateErdSetting(nextSetting, `Update show relation names: ${checked}`);
     };
 
+    const displayAnchorElement = (displayMenuState.status === "closed") ? null : displayMenuState.anchor;
     const displayStyleMenu = (
-        <Menu anchorEl={displayStyleElement} open={Boolean(displayStyleElement)}
+        <Menu anchorEl={displayAnchorElement} open={displayMenuState.status !== "closed"}
             anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
             transformOrigin={{ vertical: 'top', horizontal: 'left' }}
             onClose={handleCloseDisplayStyle}>
