@@ -1,5 +1,5 @@
 import ErdSettingModel from '../ErdSettingModel';
-import DisplayStyle from '~/models/database/DisplayStyle';
+import DisplayNameStyle from '~/models/DisplayNameStyle';
 import ExportDdlSettingModel from '~/models/ExportDdlSettingModel';
 import { PropertyNotExistsError } from '~/models/exceptions';
 import PerspectiveModel from '~/models/PerspectiveModel';
@@ -9,11 +9,11 @@ describe('ErdSettingModel', () => {
         test('should create with provided values', () => {
             const exportDdlSetting = new ExportDdlSettingModel({ fileName: 'test.sql' });
             const model = ErdSettingModel.toObject({
-                displayStyle: DisplayStyle.LOGICAL.toJSON(),
+                displayStyle: DisplayNameStyle.LOGICAL.toJSON(),
                 exportDdlSetting: exportDdlSetting.toJSON()
             });
 
-            expect(model.displayStyle).toEqual(DisplayStyle.LOGICAL);
+            expect(model.displayNameStyle).toEqual(DisplayNameStyle.LOGICAL);
             expect(model.exportDdlSetting.fileName).toBe(exportDdlSetting.fileName);
         });
 
@@ -23,7 +23,7 @@ describe('ErdSettingModel', () => {
                 exportDdlSetting: exportDdlSetting.toJSON()
             });
 
-            expect(model.displayStyle).toBe(DisplayStyle.BOTH);
+            expect(model.displayNameStyle).toBe(DisplayNameStyle.BOTH);
             expect(model.exportDdlSetting.fileName).toBe(exportDdlSetting.fileName);
         });
     });
@@ -33,7 +33,7 @@ describe('ErdSettingModel', () => {
             const documentName = 'MyERD';
             const model = ErdSettingModel.create(documentName);
 
-            expect(model.displayStyle).toBe(DisplayStyle.BOTH);
+            expect(model.displayNameStyle).toBe(DisplayNameStyle.BOTH);
             expect(model.exportDdlSetting).toBeInstanceOf(ExportDdlSettingModel);
             expect(model.exportDdlSetting.fileName).toBe(documentName);
         });
@@ -43,7 +43,7 @@ describe('ErdSettingModel', () => {
         test('should return same instance when no changes provided', () => {
             const exportDdlSetting = new ExportDdlSettingModel({ fileName: 'test.sql' });
             const original = ErdSettingModel.toObject({
-                displayStyle: DisplayStyle.LOGICAL.toJSON(),
+                displayStyle: DisplayNameStyle.LOGICAL.toJSON(),
                 exportDdlSetting: exportDdlSetting.toJSON()
             });
 
@@ -55,12 +55,12 @@ describe('ErdSettingModel', () => {
         test('should return same instance when all parameters are null', () => {
             const exportDdlSetting = new ExportDdlSettingModel({ fileName: 'test.sql' });
             const original = ErdSettingModel.toObject({
-                displayStyle: DisplayStyle.LOGICAL.toJSON(),
+                displayStyle: DisplayNameStyle.LOGICAL.toJSON(),
                 exportDdlSetting: exportDdlSetting.toJSON()
             });
 
             const updated = original.update({
-                displayStyle: null,
+                displayNameStyle: null,
                 exportDdlSetting: null
             });
 
@@ -70,16 +70,16 @@ describe('ErdSettingModel', () => {
         test('should update displayStyle only', () => {
             const exportDdlSetting = new ExportDdlSettingModel({ fileName: 'test.sql' });
             const original = ErdSettingModel.toObject({
-                displayStyle: DisplayStyle.LOGICAL.toJSON(),
+                displayStyle: DisplayNameStyle.LOGICAL.toJSON(),
                 exportDdlSetting: exportDdlSetting.toJSON()
             });
 
             const updated = original.update({
-                displayStyle: DisplayStyle.PHYSICAL
+                displayNameStyle: DisplayNameStyle.PHYSICAL
             });
 
             expect(updated).not.toBe(original);
-            expect(updated.displayStyle).toBe(DisplayStyle.PHYSICAL);
+            expect(updated.displayNameStyle).toBe(DisplayNameStyle.PHYSICAL);
             expect(updated.exportDdlSetting.fileName).toBe(exportDdlSetting.fileName);
         });
 
@@ -87,7 +87,7 @@ describe('ErdSettingModel', () => {
             const originalExportSetting = new ExportDdlSettingModel({ fileName: 'test.sql' });
             const newExportSetting = new ExportDdlSettingModel({ fileName: 'new.sql' });
             const original = ErdSettingModel.toObject({
-                displayStyle: DisplayStyle.LOGICAL.toJSON(),
+                displayStyle: DisplayNameStyle.LOGICAL.toJSON(),
                 exportDdlSetting: originalExportSetting.toJSON()
             });
 
@@ -96,7 +96,7 @@ describe('ErdSettingModel', () => {
             });
 
             expect(updated).not.toBe(original);
-            expect(updated.displayStyle).toEqual(DisplayStyle.LOGICAL);
+            expect(updated.displayNameStyle).toEqual(DisplayNameStyle.LOGICAL);
             expect(updated.exportDdlSetting).toBe(newExportSetting);
         });
 
@@ -104,24 +104,24 @@ describe('ErdSettingModel', () => {
             const originalExportSetting = new ExportDdlSettingModel({ fileName: 'test.sql' });
             const newExportSetting = new ExportDdlSettingModel({ fileName: 'new.sql' });
             const original = ErdSettingModel.toObject({
-                displayStyle: DisplayStyle.LOGICAL.toJSON(),
+                displayStyle: DisplayNameStyle.LOGICAL.toJSON(),
                 exportDdlSetting: originalExportSetting.toJSON()
             });
 
             const updated = original.update({
-                displayStyle: DisplayStyle.PHYSICAL,
+                displayNameStyle: DisplayNameStyle.PHYSICAL,
                 exportDdlSetting: newExportSetting
             });
 
             expect(updated).not.toBe(original);
-            expect(updated.displayStyle).toBe(DisplayStyle.PHYSICAL);
+            expect(updated.displayNameStyle).toBe(DisplayNameStyle.PHYSICAL);
             expect(updated.exportDdlSetting).toBe(newExportSetting);
         });
 
         test('should update syncRemoteChanges only', () => {
             const exportDdlSetting = new ExportDdlSettingModel({ fileName: 'test.sql' });
             const original = ErdSettingModel.toObject({
-                displayStyle: DisplayStyle.LOGICAL.toJSON(),
+                displayStyle: DisplayNameStyle.LOGICAL.toJSON(),
                 exportDdlSetting: exportDdlSetting.toJSON()
             });
 
@@ -131,18 +131,18 @@ describe('ErdSettingModel', () => {
 
             expect(updated).not.toBe(original);
             expect(updated.syncRemoteChanges).toBe(true);
-            expect(updated.displayStyle).toEqual(DisplayStyle.LOGICAL);
+            expect(updated.displayNameStyle).toEqual(DisplayNameStyle.LOGICAL);
         });
 
         test('should return same instance when all parameters including syncRemoteChanges are null', () => {
             const exportDdlSetting = new ExportDdlSettingModel({ fileName: 'test.sql' });
             const original = ErdSettingModel.toObject({
-                displayStyle: DisplayStyle.LOGICAL.toJSON(),
+                displayStyle: DisplayNameStyle.LOGICAL.toJSON(),
                 exportDdlSetting: exportDdlSetting.toJSON()
             });
 
             const updated = original.update({
-                displayStyle: null,
+                displayNameStyle: null,
                 exportDdlSetting: null,
                 perspectiveModels: null,
                 showRelationNames: null,
@@ -157,14 +157,14 @@ describe('ErdSettingModel', () => {
         test('should convert to plain object', () => {
             const exportDdlSetting = new ExportDdlSettingModel({ fileName: 'test.sql' });
             const model = ErdSettingModel.toObject({
-                displayStyle: DisplayStyle.LOGICAL.toJSON(),
+                displayStyle: DisplayNameStyle.LOGICAL.toJSON(),
                 exportDdlSetting: exportDdlSetting.toJSON()
             });
 
             const json = model.toJSON();
 
             expect(json).toEqual({
-                displayStyle: DisplayStyle.LOGICAL.toJSON(),
+                displayStyle: DisplayNameStyle.LOGICAL.toJSON(),
                 exportDdlSetting: exportDdlSetting.toJSON()
             });
         });
@@ -172,7 +172,7 @@ describe('ErdSettingModel', () => {
         test('should omit syncRemoteChanges when false', () => {
             const exportDdlSetting = new ExportDdlSettingModel({ fileName: 'test.sql' });
             const model = ErdSettingModel.toObject({
-                displayStyle: DisplayStyle.LOGICAL.toJSON(),
+                displayStyle: DisplayNameStyle.LOGICAL.toJSON(),
                 exportDdlSetting: exportDdlSetting.toJSON()
             });
 
@@ -184,7 +184,7 @@ describe('ErdSettingModel', () => {
         test('should include syncRemoteChanges when true', () => {
             const exportDdlSetting = new ExportDdlSettingModel({ fileName: 'test.sql' });
             const model = ErdSettingModel.toObject({
-                displayStyle: DisplayStyle.LOGICAL.toJSON(),
+                displayStyle: DisplayNameStyle.LOGICAL.toJSON(),
                 exportDdlSetting: exportDdlSetting.toJSON()
             }).update({ syncRemoteChanges: true });
 
@@ -221,7 +221,7 @@ describe('ErdSettingModel', () => {
             const model = ErdSettingModel.toObject(obj);
 
             expect(model).toBeInstanceOf(ErdSettingModel);
-            expect(model.displayStyle).toBeInstanceOf(DisplayStyle);
+            expect(model.displayNameStyle).toBeInstanceOf(DisplayNameStyle);
             expect(model.exportDdlSetting).toBeInstanceOf(ExportDdlSettingModel);
             expect(model.exportDdlSetting.fileName).toBe('test.sql');
         });
@@ -242,7 +242,7 @@ describe('ErdSettingModel', () => {
             const model = ErdSettingModel.toObject(obj);
 
             expect(model).toBeInstanceOf(ErdSettingModel);
-            expect(model.displayStyle).toBe(DisplayStyle.BOTH);
+            expect(model.displayNameStyle).toBe(DisplayNameStyle.BOTH);
             expect(model.exportDdlSetting).toBeInstanceOf(ExportDdlSettingModel);
         });
 
@@ -253,13 +253,13 @@ describe('ErdSettingModel', () => {
             const deserialized = ErdSettingModel.toObject(json);
 
             expect(deserialized).toBeInstanceOf(ErdSettingModel);
-            expect(deserialized.displayStyle).toEqual(original.displayStyle);
+            expect(deserialized.displayNameStyle).toEqual(original.displayNameStyle);
             expect(deserialized.exportDdlSetting.fileName).toBe(original.exportDdlSetting.fileName);
         });
 
         test('should throw error when exportDdlSetting is missing', () => {
             const obj = {
-                displayStyle: DisplayStyle.BOTH.toJSON()
+                displayStyle: DisplayNameStyle.BOTH.toJSON()
             };
 
             expect(() => ErdSettingModel.toObject(obj))

@@ -36,7 +36,7 @@ const cardinalityMapping = {
     "0..1": CARDINALITY_MARKER.NONE_TO_ONE,
     "0..N": CARDINALITY_MARKER.NONE_TO_MANY,
     "1..N": CARDINALITY_MARKER.ONE_TO_MANY
-};
+} as const;
 
 export const toMarkerId = (cardinality: CardinalityType) => `url(#${cardinalityMapping[cardinality]})`;
 
@@ -48,56 +48,85 @@ type ToOrthogonalPointsArgs = {
 
 type Point = { x: number, y: number };
 
-export const toOrthogonalPoints = (
-    { orthogonalLines, parentTable, childTable }: ToOrthogonalPointsArgs
-): Point[] => {
+export const toOrthogonalPoints = ({ orthogonalLines, parentTable, childTable }: ToOrthogonalPointsArgs): Point[] => {
 
-    const points = orthogonalLines.map((line, index) => {
+    const attachedLines = toAttachedOrthogonalLines(orthogonalLines, parentTable, childTable);
+
+    const points = attachedLines.map((line, index) => {
         // 始点の個別制御
         if (index === 0) {
             if (line.direction === "horizontal") {
-                const xDirection = (orthogonalLines.length > 1) ? orthogonalLines[1].position : childTable.center.x;
+                const xDirection = (attachedLines.length > 1) ? attachedLines[1].position : childTable.center.x;
                 const startX = (xDirection > parentTable.center.x) ? parentTable.right : parentTable.left;
 
                 return { x: startX, y: line.position };
             }
 
-            const yDirection = (orthogonalLines.length > 1) ? orthogonalLines[1].position : childTable.center.y;
+            const yDirection = (attachedLines.length > 1) ? attachedLines[1].position : childTable.center.y;
             const startY = (yDirection > parentTable.center.y) ? parentTable.bottom : parentTable.top;
 
             return { x: line.position, y: startY };
         }
 
         if (line.direction === "horizontal") {
-            const startX = orthogonalLines[index - 1].position;
+            const startX = attachedLines[index - 1].position;
             return { x: startX, y: line.position };
         }
 
-        const startY = orthogonalLines[index - 1].position;
+        const startY = attachedLines[index - 1].position;
         return { x: line.position, y: startY };
     });
 
     // 終点の個別制御
     const lastPoint = (() => {
-        const lastIndex = orthogonalLines.length - 1;
-        if (orthogonalLines[lastIndex].direction === "horizontal") {
-            const xDirection = (orthogonalLines.length > 1)
-                ? orthogonalLines[lastIndex - 1].position : parentTable.center.x;
+        const lastIndex = attachedLines.length - 1;
+        if (attachedLines[lastIndex].direction === "horizontal") {
+            const xDirection = (attachedLines.length > 1)
+                ? attachedLines[lastIndex - 1].position : parentTable.center.x;
             const endX = (xDirection > childTable.center.x) ? childTable.right : childTable.left;
 
-            return { x: endX, y: orthogonalLines[lastIndex].position };
+            return { x: endX, y: attachedLines[lastIndex].position };
         }
 
-        const yDirection = (orthogonalLines.length > 1)
-            ? orthogonalLines[lastIndex - 1].position : parentTable.center.y;
+        const yDirection = (attachedLines.length > 1)
+            ? attachedLines[lastIndex - 1].position : parentTable.center.y;
         const endY = (yDirection > childTable.center.y) ? childTable.bottom : childTable.top;
 
-        return { x: orthogonalLines[lastIndex].position, y: endY };
+        return { x: attachedLines[lastIndex].position, y: endY };
     })();
 
     points.push(lastPoint);
 
     return points;
+};
+
+/**
+ * テーブル面に沿う軸 (横線なら y、縦線なら x) は絶対座標で永続化されており、テーブルの伸縮に追随しない。
+ * テーブルは左上固定で右下方向に伸縮するため、縮むと接続点が面から外れて線がテーブルから離れる。
+ * 描画のたびに接続点を現在の面の範囲へ収めることで、曲がり角を増やさずに追随させる。
+ */
+const toAttachedOrthogonalLines = (
+    orthogonalLines: OrthogonalDirection[], parentTable: RectangleViewModel, childTable: RectangleViewModel
+): OrthogonalDirection[] => {
+
+    const lastIndex = orthogonalLines.length - 1;
+
+    return orthogonalLines.map((line, index) => {
+        if ((index !== 0) && (index !== lastIndex)) {
+            return line;
+        }
+
+        const edgeTable = (index === 0) ? parentTable : childTable;
+        const [edgeStart, edgeEnd] = (line.direction === "horizontal")
+            ? [edgeTable.top, edgeTable.bottom] : [edgeTable.left, edgeTable.right];
+
+        if ((line.position >= edgeStart + 4) && (line.position <= edgeEnd - 4)) {
+            return line;
+        }
+
+        const position = (line.direction === "horizontal") ? edgeTable.yCenter : edgeTable.xCenter;
+        return { direction: line.direction, position };
+    });
 };
 
 export const toRoundedPath = (points: Point[], radius: number): string => {

@@ -546,14 +546,14 @@ const doCollectTableMatches = (
         return [];
     }
 
-    const displayStyle = erdDocument.getDisplayStyle();
+    const displayNameStyle = erdDocument.getDisplayNameStyle();
 
     return visibleTables.filter(tableView => {
         const tableModel = tableView.tableModel;
         const dbSchema = erdDocument.findSchema(tableModel.schemaId);
         const physicalName = (dbSchema != null)
             ? `${dbSchema.schemaName}.${tableModel.physicalName}` : tableModel.physicalName;
-        const tableDisplayName = displayStyle.displayName(physicalName, tableModel.logicalName);
+        const tableDisplayName = displayNameStyle.displayName(physicalName, tableModel.logicalName);
 
         return tableDisplayName.toLowerCase().includes(lowerTerm);
     }).map(tableView => {
@@ -586,8 +586,8 @@ const doCollectStructColumnMatches = (
     }
 
     const overrideName = overrideColumnName(columnModel, structModel);
-    const displayStyle = erdDocument.getDisplayStyle();
-    const displayStructName = displayStyle.displayName(overrideName.physicalName, overrideName.logicalName);
+    const displayNameStyle = erdDocument.getDisplayNameStyle();
+    const displayStructName = displayNameStyle.displayName(overrideName.physicalName, overrideName.logicalName);
     if (displayStructName.toLowerCase().includes(lowerTerm) === false) {
         return [];
     }
@@ -611,8 +611,8 @@ const doCollectSingleColumnMatches = (
     }
 
     const overrideName = overrideColumnName(column, columnShare);
-    const displayStyle = erdDocument.getDisplayStyle();
-    const columnDisplayName = displayStyle.displayName(overrideName.physicalName, overrideName.logicalName);
+    const displayNameStyle = erdDocument.getDisplayNameStyle();
+    const columnDisplayName = displayNameStyle.displayName(overrideName.physicalName, overrideName.logicalName);
     if (columnDisplayName.toLowerCase().includes(lowerTerm) === false) {
         return [];
     }

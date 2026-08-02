@@ -2,7 +2,6 @@ export * from "./ColumnModel";
 export * from "./ColumnShareModel";
 export * from "./ColumnType";
 export * from "./DatabaseType";
-export * from "./DisplayStyle";
 export * from "./RelationModel";
 export * from "./TableIndexModel";
 export * from "./TableModel";

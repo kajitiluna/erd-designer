@@ -13,7 +13,7 @@ import {
 import { toTableSummary } from "~/agent-tools/tools/tables";
 import { createDdl } from "~/models/create-ddl";
 import { toNextOrthogonalLines } from "~/features/canvas/support";
-import DisplayStyle from "~/models/database/DisplayStyle";
+import DisplayNameStyle from "~/models/DisplayNameStyle";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import { DragState } from "~/models/DragState";
 import { SelectState } from "~/models/SelectState";
@@ -393,8 +393,8 @@ const initCallbackForUpdatingDocument = (
             nextDocument = nextDocument.updateDocumentName(inputDocument.documentName.trim());
         }
         if (inputDocument.displayStyle) {
-            const nextStyle = toDisplayStyle(inputDocument.displayStyle);
-            const nextSetting = previousSetting.update({ displayStyle: nextStyle });
+            const nextStyle = toDisplayNameStyle(inputDocument.displayStyle);
+            const nextSetting = previousSetting.update({ displayNameStyle: nextStyle });
             nextDocument = nextDocument.updateErdSetting(nextSetting);
         }
 
@@ -413,14 +413,14 @@ const initCallbackForUpdatingDocument = (
     }
 };
 
-const toDisplayStyle = (style: "both" | "physical" | "logical"): DisplayStyle => {
+const toDisplayNameStyle = (style: "both" | "physical" | "logical"): DisplayNameStyle => {
     switch (style) {
         case "both":
-            return DisplayStyle.BOTH;
+            return DisplayNameStyle.BOTH;
         case "physical":
-            return DisplayStyle.PHYSICAL;
+            return DisplayNameStyle.PHYSICAL;
         case "logical":
-            return DisplayStyle.LOGICAL;
+            return DisplayNameStyle.LOGICAL;
     }
 };
 

@@ -1,6 +1,6 @@
 import React from "react";
 import {
-    Box, Divider, FormControl, FormControlLabel, IconButton, InputBase, Menu, MenuItem, Stack, Switch, Tooltip
+    Box, Divider, FormControl, FormControlLabel, IconButton, InputBase, Menu, MenuItem, Select, Stack, Switch, Tooltip
 } from "@mui/material";
 import SettingsIcon from '@mui/icons-material/Settings';
 import ArrowRightIcon from '@mui/icons-material/ArrowRight';
@@ -20,9 +20,10 @@ import SqliteIcon from "~/components/icons/SqliteIcon";
 import SnowflakeIcon from "~/components/icons/SnowflakeIcon";
 import BigQueryIcon from "~/components/icons/BigQueryIcon";
 import ErdSettingModel from "~/models/ErdSettingModel";
-import DisplayStyle from "~/models/database/DisplayStyle";
+import DisplayNameStyle from "~/models/DisplayNameStyle";
 import PerspectiveView from "~/features/editor/PerspectiveView";
 import DbSchemaView from "~/features/editor/DbSchemaView";
+import DisplayColumnStyle from "~/models/DisplayColumnStyle";
 
 type SettingMenuType = "perspective" | "column_group" | "db_schema" | "import_ddl" | "";
 
@@ -33,6 +34,7 @@ type TitlePanelProps = {
 const TitlePanel = ({ remoteSync = false }: TitlePanelProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const erdDocument: ErdDocument = documentsHolder.current();
+
     const [title, setTitle] = React.useState<string>(erdDocument.documentName);
     const [preferenceElement, setPreferenceElement] = React.useState<HTMLElement | null>(null);
     const [displayStyleElement, setDisplayStyleElement] = React.useState<HTMLElement | null>(null);
@@ -56,6 +58,13 @@ const TitlePanel = ({ remoteSync = false }: TitlePanelProps) => {
         setPreferenceElement(null);
     };
 
+    const handleChangeSyncRemote = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const checked = event.target.checked;
+        const nextSetting = erdSetting.update({ syncRemoteChanges: checked });
+
+        documentsHolder.updateErdSetting(nextSetting, `Update sync remote changes: ${checked}`);
+    };
+
     const initHandleMenu = (menuType: SettingMenuType) => {
         return (event: React.MouseEvent) => {
             event.stopPropagation();
@@ -65,24 +74,99 @@ const TitlePanel = ({ remoteSync = false }: TitlePanelProps) => {
         };
     };
 
+    const preferenceMenu = (
+        <Menu anchorEl={preferenceElement} open={isSettingOpen} onClose={handleClosePreference}>
+            <MenuItem sx={{ display: "flex", justifyContent: "space-between", paddingRight: "4px" }}
+                onClick={event => setDisplayStyleElement(event.currentTarget)}>
+                <span>Display Style</span>
+                <ArrowRightIcon />
+            </MenuItem>
+            {remoteSync && (
+                <MenuItem>
+                    <FormControl>
+                        <FormControlLabel label="Sync Google Drive" control={
+                            <Switch size="small" checked={erdSetting.syncRemoteChanges}
+                                onChange={handleChangeSyncRemote} />
+                        } />
+                    </FormControl>
+                </MenuItem>
+            )}
+            <Divider />
+
+            <MenuItem onClick={initHandleMenu("perspective")}>Perspective</MenuItem>
+            <MenuItem onClick={initHandleMenu("column_group")}>Column Group</MenuItem>
+            {(database.supportsSchema) && (
+                <MenuItem onClick={initHandleMenu("db_schema")}>DB Schema</MenuItem>
+            )}
+            <MenuItem onClick={initHandleMenu("import_ddl")}>Import from DDL</MenuItem>
+        </Menu>
+    );
+
     const handleCloseDisplayStyle = () => {
         setDisplayStyleElement(null);
     };
-    const initHandleChangeDisplayStyle = (displayStyle: DisplayStyle) => {
+
+    const initHandleChangeDisplayNameStyle = (displayNameStyle: DisplayNameStyle) => {
         return () => {
-            if (displayStyle.name === erdSetting.displayStyle.name) {
+            if (displayNameStyle.name === erdSetting.displayNameStyle.name) {
                 return;
             }
 
-            const nextErdSetting = erdSetting.update({ displayStyle: displayStyle });
+            const nextErdSetting = erdSetting.update({ displayNameStyle });
 
-            const loggingMessage = "Update display style. " +
-                JSON.stringify({ before: erdSetting.displayStyle.name, after: displayStyle.name });
+            const loggingMessage = "Update display name style. " +
+                JSON.stringify({ before: erdSetting.displayNameStyle.name, after: displayNameStyle.name });
             documentsHolder.updateErdSetting(nextErdSetting, loggingMessage);
-
-            handleCloseDisplayStyle();
         };
     };
+
+    const displayNameStyleMenu = (
+        <Box sx={MENU_ITEM_ROW_STYLE}>
+            <div>Name Style :</div>
+            <FormControl size="small" sx={MENU_ITEM_SELECT_STYLE}>
+                <Select size="small" fullWidth value={erdSetting.displayNameStyle.name}>
+                    {DisplayNameStyle.values().map(displayNameStyle => (
+                        <MenuItem key={displayNameStyle.name} value={displayNameStyle.name}
+                            selected={displayNameStyle.name === erdSetting.displayNameStyle.name}
+                            onClick={initHandleChangeDisplayNameStyle(displayNameStyle)}>
+                            {displayNameStyle.name}
+                        </MenuItem>
+                    ))}
+                </Select>
+            </FormControl>
+        </Box>
+    );
+
+    const initHandleChangeDisplayColumnStyle = (displayColumnStyle: DisplayColumnStyle) => {
+        return () => {
+            if (displayColumnStyle.key === erdSetting.displayColumnStyle.key) {
+                return;
+            }
+
+            const nextErdSetting = erdSetting.update({ displayColumnStyle });
+
+            const loggingMessage = "Update display column style. " +
+                JSON.stringify({ before: erdSetting.displayColumnStyle.name, after: displayColumnStyle.name });
+            documentsHolder.updateErdSetting(nextErdSetting, loggingMessage);
+        };
+    };
+
+    const showColumnStyleMenu = (
+        <Box sx={MENU_ITEM_ROW_STYLE}>
+            <div>Show Columns :</div>
+            <FormControl size="small" sx={MENU_ITEM_SELECT_STYLE}>
+                <Select size="small" fullWidth value={erdSetting.displayColumnStyle.name}>
+                    {DisplayColumnStyle.values().map(displayColumnStyle => (
+                        <MenuItem key={displayColumnStyle.key} value={displayColumnStyle.name}
+                            selected={displayColumnStyle.key === erdSetting.displayColumnStyle.key}
+                            onClick={initHandleChangeDisplayColumnStyle(displayColumnStyle)}>
+                            {displayColumnStyle.name}
+                        </MenuItem>
+                    ))}
+                </Select>
+            </FormControl>
+        </Box>
+    );
 
     const handleChangeShowRelationNames = (event: React.ChangeEvent<HTMLInputElement>) => {
         const checked = event.target.checked;
@@ -91,12 +175,23 @@ const TitlePanel = ({ remoteSync = false }: TitlePanelProps) => {
         documentsHolder.updateErdSetting(nextSetting, `Update show relation names: ${checked}`);
     };
 
-    const handleChangeSyncRemote = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const checked = event.target.checked;
-        const nextSetting = erdSetting.update({ syncRemoteChanges: checked });
-
-        documentsHolder.updateErdSetting(nextSetting, `Update sync remote changes: ${checked}`);
-    };
+    const displayStyleMenu = (
+        <Menu anchorEl={displayStyleElement} open={Boolean(displayStyleElement)}
+            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+            onClose={handleCloseDisplayStyle}>
+            {displayNameStyleMenu}
+            {showColumnStyleMenu}
+            <Box sx={MENU_ITEM_ROW_STYLE}>
+                <FormControl>
+                    <FormControlLabel label="Show Relation Names" control={
+                        <Switch size="small" checked={erdSetting.showRelationNames}
+                            onChange={handleChangeShowRelationNames} />
+                    } />
+                </FormControl>
+            </Box>
+        </Menu>
+    );
 
     const handleCloseMenu = () => {
         setSelectedMenu("");
@@ -117,76 +212,42 @@ const TitlePanel = ({ remoteSync = false }: TitlePanelProps) => {
                 <SettingsIcon />
             </IconButton>
 
-            <Menu anchorEl={preferenceElement} open={isSettingOpen} onClose={handleClosePreference}>
-                <MenuItem sx={{ paddingRight: "4px" }}
-                    onClick={event => setDisplayStyleElement(event.currentTarget)}>
-                    Display Style : {erdSetting.displayStyle.name} <ArrowRightIcon />
-                </MenuItem>
-                <MenuItem>
-                    <FormControl>
-                        <FormControlLabel label="Show relation names" control={
-                            <Switch size="small" checked={erdSetting.showRelationNames}
-                                onChange={handleChangeShowRelationNames} />
-                        } />
-                    </FormControl>
-                </MenuItem>
-                {remoteSync && (
-                    <MenuItem>
-                        <FormControl>
-                            <FormControlLabel label="Sync Google Drive" control={
-                                <Switch size="small" checked={erdSetting.syncRemoteChanges}
-                                    onChange={handleChangeSyncRemote} />
-                            } />
-                        </FormControl>
-                    </MenuItem>
-                )}
-                <Divider />
-
-                <MenuItem onClick={initHandleMenu("perspective")}>Perspective</MenuItem>
-                <MenuItem onClick={initHandleMenu("column_group")}>Column Group</MenuItem>
-                {(database.supportsSchema) && (
-                    <MenuItem onClick={initHandleMenu("db_schema")}>DB Schema</MenuItem>
-                )}
-                <MenuItem onClick={initHandleMenu("import_ddl")}>Import from DDL</MenuItem>
-            </Menu>
-
-            <Menu anchorEl={displayStyleElement} open={Boolean(displayStyleElement)}
-                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                onClose={handleCloseDisplayStyle}>
-                {DisplayStyle.values().map(displayStyle => (
-                    <MenuItem key={displayStyle.name} value={displayStyle.name}
-                        selected={displayStyle.name === erdSetting.displayStyle.name}
-                        onClick={initHandleChangeDisplayStyle(displayStyle)}>
-                        {displayStyle.name}
-                    </MenuItem>
-                ))}
-            </Menu>
+            {preferenceMenu}
+            {displayStyleMenu}
 
             {(selectedMenu === "perspective") && (
-                <PerspectiveView
-                    isOpen={selectedMenu === "perspective"}
-                    onClose={handleCloseMenu} />
+                <PerspectiveView isOpen={selectedMenu === "perspective"} onClose={handleCloseMenu} />
             )}
             {(selectedMenu === "column_group") && (
-                <ColumnGroupView
-                    isOpen={selectedMenu === "column_group"}
-                    viewMode="edit"
-                    onClose={handleCloseMenu} />
+                <ColumnGroupView isOpen={selectedMenu === "column_group"} viewMode="edit" onClose={handleCloseMenu} />
             )}
             {(selectedMenu === "db_schema") && (
-                <DbSchemaView
-                    isOpen={selectedMenu === "db_schema"}
-                    onClose={handleCloseMenu} />
+                <DbSchemaView isOpen={selectedMenu === "db_schema"} onClose={handleCloseMenu} />
             )}
             {(selectedMenu === "import_ddl") && (
-                <ImportFromDdlView
-                    isOpen={selectedMenu === "import_ddl"}
-                    onClose={handleCloseMenu} />
+                <ImportFromDdlView isOpen={selectedMenu === "import_ddl"} onClose={handleCloseMenu} />
             )}
         </Stack>
     );
 };
+
+// ラベルの文字数が行ごとに違っても Select の右端が揃うよう、行をメニュー幅いっぱいに広げてラベルと入力を両端に寄せる。
+const MENU_ITEM_ROW_STYLE = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px",
+    padding: "6px 16px"
+} as const;
+
+const MENU_ITEM_SELECT_STYLE = {
+    width: "190px",
+    flexShrink: 0,
+    "& .MuiSelect-select": {
+        paddingTop: "4px",
+        paddingBottom: "4px"
+    }
+} as const;
 
 const RemoteSyncIndicator = () => {
     const countdownRef = React.useRef<SVGCircleElement>(null);
@@ -330,7 +391,7 @@ const TITLE_PANEL_STYLE = {
     paddingLeft: "15px",
     paddingRight: "15px",
     backgroundColor: "#FFFFFF"
-};
+} as const;
 
 /**
  * RemoteSyncIndicator の表示有無で TitlePanel 全体の幅が動かないよう、入力欄と
@@ -340,7 +401,7 @@ const TITLE_INPUT_AREA_STYLE = {
     display: "flex",
     alignItems: "center",
     width: "300px"
-};
+} as const;
 
 const TITLE_INPUT_STYLE = {
     fontSize: "1.2rem",
@@ -348,7 +409,7 @@ const TITLE_INPUT_STYLE = {
     color: "#3F3F3F",
     flex: 1,
     minWidth: 0
-};
+} as const;
 
 const MANUAL_SYNC_MIN_INTERVAL_MILLISECOND = 1000;
 const SYNC_INDICATOR_SIZE = 32;

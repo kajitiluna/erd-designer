@@ -1,7 +1,7 @@
 import { expandColumnRows } from "~/models/column-row-expansion";
 import ErdDocument from "~/models/ErdDocument";
 import ColumnModel from "~/models/database/ColumnModel";
-import DisplayStyle from "~/models/database/DisplayStyle";
+import DisplayNameStyle from "~/models/DisplayNameStyle";
 import TableModel from "~/models/database/TableModel";
 import download from "~/components/file-downloader";
 import { overrideColumnName } from "~/models/database/support";
@@ -90,12 +90,12 @@ const STRUCT_INDENT_WIDTH = 10;
 
 const initTableSvg = (erdDocument: ErdDocument) => {
   const tableViewModels = erdDocument.getTableViewModels();
-  const displayStyle = erdDocument.getDisplayStyle();
+  const displayNameStyle = erdDocument.getDisplayNameStyle();
 
   const tableElements = tableViewModels.map(tableView => {
     const tableModel = tableView.tableModel;
     const allColumns = erdDocument.toAllColumnsWithStruct(tableModel);
-    const tableName = displayStyle.displayName(tableModel.physicalName, tableModel.logicalName);
+    const tableName = displayNameStyle.displayName(tableModel.physicalName, tableModel.logicalName);
 
     const tableDom = document.getElementById(tableView.tableId);
     if (tableDom == null) {
@@ -126,7 +126,7 @@ const initTableSvg = (erdDocument: ErdDocument) => {
     const typeColumnWidth = (cellDoms && (cellDoms.length >= 4)) ? cellDoms[3].offsetWidth : 80;
 
     const columnRowContext: ColumnRowContext = {
-      erdDocument, displayStyle, tableModel, tableWidth, fkColumnIds,
+      erdDocument, displayNameStyle, tableModel, tableWidth, fkColumnIds,
       pkColumnWidth, fkColumnWidth, nameColumnWidth, typeColumnWidth
     };
 
@@ -199,7 +199,7 @@ const initRowHeightById = (tableTrDom: NodeListOf<HTMLTableRowElement>): Map<str
 const initStructColumnSvgRow = (
   columnModel: StructColumnModel, context: ColumnRowContext, textY: number, nestCount: number
 ) => {
-  const { erdDocument, displayStyle, pkColumnWidth, fkColumnWidth, nameColumnWidth, typeColumnWidth } = context;
+  const { erdDocument, displayNameStyle, pkColumnWidth, fkColumnWidth, nameColumnWidth, typeColumnWidth } = context;
 
   const structColumnShareModel = erdDocument.findStructColumnShareModel(columnModel.structShareModelId);
   if (structColumnShareModel == null) {
@@ -207,7 +207,7 @@ const initStructColumnSvgRow = (
   }
 
   const overrideName = overrideColumnName(columnModel, structColumnShareModel);
-  const columnName = displayStyle.displayName(overrideName.physicalName, overrideName.logicalName);
+  const columnName = displayNameStyle.displayName(overrideName.physicalName, overrideName.logicalName);
   const columnType = structColumnShareModel.simpleColumnType();
   const indentWidth = nestCount * STRUCT_INDENT_WIDTH;
 
@@ -231,7 +231,7 @@ const initStructColumnSvgRow = (
 
 type ColumnRowContext = {
   erdDocument: ErdDocument,
-  displayStyle: DisplayStyle,
+  displayNameStyle: DisplayNameStyle,
   tableModel: TableModel,
   tableWidth: number,
   fkColumnIds: Set<string>,
@@ -245,7 +245,8 @@ const initColumnSvgRow = (
   columnModel: SimpleColumnModel, context: ColumnRowContext, textY: number, nestCount: number
 ) => {
   const {
-    erdDocument, displayStyle, tableModel, fkColumnIds, pkColumnWidth, fkColumnWidth, nameColumnWidth, typeColumnWidth
+    erdDocument, displayNameStyle, tableModel, fkColumnIds,
+    pkColumnWidth, fkColumnWidth, nameColumnWidth, typeColumnWidth
   } = context;
 
   const shareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
@@ -254,7 +255,7 @@ const initColumnSvgRow = (
   }
 
   const { physicalName, logicalName } = overrideColumnName(columnModel, shareModel);
-  const columnName = displayStyle.displayName(physicalName, logicalName);
+  const columnName = displayNameStyle.displayName(physicalName, logicalName);
   const inRelation = erdDocument.inChildRelation(tableModel.tableModelId, columnModel.columnModelId);
   const columnType = shareModel.specifiedColumnType(inRelation);
   const indentWidth = nestCount * STRUCT_INDENT_WIDTH;

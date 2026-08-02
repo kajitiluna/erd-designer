@@ -176,7 +176,7 @@ const RelationReferencesPanel = ({
     erdDocument, parentTableModel, childTableModel, parentPrimaryColumns, relationPairs, updateRelationPairs
 }: RelationReferencesPanelProps) => {
 
-    const displayStyle = erdDocument.getDisplayStyle();
+    const displayNameStyle = erdDocument.getDisplayNameStyle();
     const childColumnDetails = erdDocument.toAllColumnsExceptStruct(childTableModel)
         .map(columnModel => {
             const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
@@ -242,7 +242,7 @@ const RelationReferencesPanel = ({
                     {foreignDetails.map(childColumn => (
                         <MenuItem key={childColumn.columnModel.columnModelId}
                             value={childColumn.columnModel.columnModelId}>
-                            {displayStyle.displayName(
+                            {displayNameStyle.displayName(
                                 childColumn.columnName.physicalName, childColumn.columnName.logicalName)}
                         </MenuItem>
                     ))}
@@ -253,7 +253,7 @@ const RelationReferencesPanel = ({
         return (
             <TableRow key={primaryColumn.columnShareModelId}>
                 <TableCell>
-                    {displayStyle.displayName(parentColumnName.physicalName, parentColumnName.logicalName)}
+                    {displayNameStyle.displayName(parentColumnName.physicalName, parentColumnName.logicalName)}
                 </TableCell>
                 <TableCell>{selector}</TableCell>
             </TableRow>
@@ -267,12 +267,12 @@ const RelationReferencesPanel = ({
                 <Grid container>
                     <Grid size={{ xs: 6 }}>
                         <Typography variant="body2" gutterBottom>
-                            {displayStyle.displayName(parentTableModel.physicalName, parentTableModel.logicalName)}
+                            {displayNameStyle.displayName(parentTableModel.physicalName, parentTableModel.logicalName)}
                         </Typography>
                     </Grid>
                     <Grid size={{ xs: 6 }}>
                         <Typography variant="body2" gutterBottom>
-                            {displayStyle.displayName(childTableModel.physicalName, childTableModel.logicalName)}
+                            {displayNameStyle.displayName(childTableModel.physicalName, childTableModel.logicalName)}
                         </Typography>
                     </Grid>
                 </Grid>
