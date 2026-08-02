@@ -90,6 +90,7 @@ export default class ErdSettingModel {
 
         return new ErdSettingModel({
             displayNameStyle: this.displayNameStyle,
+            displayColumnStyle: this.displayColumnStyle,
             exportDdlSetting: this.exportDdlSetting,
             perspectiveModelStorage: nextPerspectiveStorage,
             showRelationNames: this.showRelationNames,

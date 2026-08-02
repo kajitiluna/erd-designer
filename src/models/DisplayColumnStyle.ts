@@ -54,16 +54,13 @@ export default class DisplayColumnStyle {
         }
 
         const styleKey = obj.style as string;
-        switch (styleKey) {
-            case "pk":
-                return DisplayColumnStyle.ONLY_PK;
-            case "pk_fk":
-                return DisplayColumnStyle.PK_OR_FK;
-            case "none":
-                return DisplayColumnStyle.NONE;
-            default:
-                return DisplayColumnStyle.ALL;
+        for (const style of DisplayColumnStyle.values()) {
+            if (style.key === styleKey) {
+                return style;
+            }
         }
+
+        return DisplayColumnStyle.ALL;
     }
 
     public equals(other: DisplayColumnStyle): boolean {

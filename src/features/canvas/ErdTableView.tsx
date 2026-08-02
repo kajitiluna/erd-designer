@@ -157,7 +157,7 @@ const initTableColumnRow = (
     }
 
     const displayColumnStyle = erdDocument.getDisplayColumnStyle();
-    if (displayColumnStyle !== DisplayColumnStyle.ALL) {
+    if (displayColumnStyle.equals(DisplayColumnStyle.ALL) === false) {
         // PK もしくは FK のみ表示する場合は、struct は該当しない
         return (<></>);
     }

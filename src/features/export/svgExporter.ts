@@ -1,4 +1,4 @@
-import { expandColumnRows } from "~/models/column-row-expansion";
+import { expandColumnRows, isColumnRowVisible } from "~/models/column-row-expansion";
 import ErdDocument from "~/models/ErdDocument";
 import ColumnModel from "~/models/database/ColumnModel";
 import DisplayNameStyle from "~/models/DisplayNameStyle";
@@ -131,8 +131,9 @@ const initTableSvg = (erdDocument: ErdDocument) => {
     };
 
     const columnRows = expandColumnRows(erdDocument, allColumns);
+    const visibleColumnRows = columnRows.filter(row => isColumnRowVisible(erdDocument, tableModel, row));
 
-    const { svgText: svgColumns } = columnRows.reduce((acc, { columnModel, rowId, nestCount }) => {
+    const { svgText: svgColumns } = visibleColumnRows.reduce((acc, { columnModel, rowId, nestCount }) => {
       const columnRowHeight = rowHeightById.get(rowId) ?? FALLBACK_ROW_H;
       const textY = acc.height + columnRowHeight * 0.68;
       const separator = (acc.svgText === "") ? ""

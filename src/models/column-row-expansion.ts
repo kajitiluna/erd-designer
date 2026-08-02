@@ -1,5 +1,7 @@
 import ColumnModel from "~/models/database/ColumnModel";
 import StructColumnModel from "~/models/database/StructColumnModel";
+import TableModel from "~/models/database/TableModel";
+import DisplayColumnStyle from "~/models/DisplayColumnStyle";
 import ErdDocument from "~/models/ErdDocument";
 
 export type ColumnRowEntry = {
@@ -62,4 +64,15 @@ const expandStructColumnRows = (
     );
 
     return [currentRow, ...innerRows];
+};
+
+export const isColumnRowVisible = (erdDocument: ErdDocument, tableModel: TableModel, row: ColumnRowEntry): boolean => {
+    const displayColumnStyle = erdDocument.getDisplayColumnStyle();
+
+    if (ColumnModel.isSimpleColumn(row.columnModel)) {
+        const inChildRelation = erdDocument.inChildRelation(tableModel.tableModelId, row.columnModel.columnModelId);
+        return displayColumnStyle.viewable(row.columnModel, inChildRelation);
+    }
+
+    return displayColumnStyle.equals(DisplayColumnStyle.ALL);
 };

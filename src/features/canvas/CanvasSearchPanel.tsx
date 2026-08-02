@@ -12,7 +12,7 @@ import PortalCanvasContext from "~/context/PortalCanvasContext";
 import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { LocalSettingContext } from "~/context/LocalSettingContext";
 import { inOpenControlPanel } from "~/components/support";
-import { ColumnRowEntry, expandColumnRows } from "~/models/column-row-expansion";
+import { ColumnRowEntry, expandColumnRows, isColumnRowVisible } from "~/models/column-row-expansion";
 import ErdDocument from "~/models/ErdDocument";
 import PerspectiveModel from "~/models/PerspectiveModel";
 import { overrideColumnName } from "~/models/database/support";
@@ -532,7 +532,8 @@ const collectTableMatches = (
     const columnMatches = (searchTargets.onColumn === false) ? []
         : visibleTables.flatMap(tableView => {
             const allColumns = erdDocument.toAllColumnsWithStruct(tableView.tableModel);
-            const columnRows = expandColumnRows(erdDocument, allColumns);
+            const expandedRows = expandColumnRows(erdDocument, allColumns);
+            const columnRows = expandedRows.filter(row => isColumnRowVisible(erdDocument, tableView.tableModel, row));
             return collectColumnMatches(erdDocument, tableView, columnRows, lowerTerm);
         });
 
