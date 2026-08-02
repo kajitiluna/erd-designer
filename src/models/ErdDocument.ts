@@ -10,7 +10,7 @@ import ColumnShareModel from '~/models/database/ColumnShareModel';
 import SimpleColumnModel from '~/models/database/SimpleColumnModel';
 import StructColumnShareModel from '~/models/database/StructColumnShareModel';
 import DbSchemaModel from '~/models/database/DbSchemaModel';
-import DisplayStyle from '~/models/database/DisplayStyle';
+import DisplayNameStyle from '~/models/DisplayNameStyle';
 import RelationModel from '~/models/database/RelationModel';
 import RelationPair from '~/models/database/RelationPair';
 import { overrideColumnName } from '~/models/database/support';
@@ -28,6 +28,7 @@ import RelationViewModel, { OrthogonalRelation } from '~/models/RelationViewMode
 import RelationViewModelStorage from '~/models/RelationViewModelStorage';
 import TableViewModel from '~/models/TableViewModel';
 import { requireProperty, toDateTime, toObjects } from '~/models/util';
+import DisplayColumnStyle from '~/models/DisplayColumnStyle';
 
 type ReachableModelIds = {
     columnModelIds: Set<string>,
@@ -236,8 +237,12 @@ export default class ErdDocument {
         return this.databaseSettingModel.getDatabase();
     }
 
-    public getDisplayStyle(): DisplayStyle {
-        return this.erdSettingModel.displayStyle;
+    public getDisplayNameStyle(): DisplayNameStyle {
+        return this.erdSettingModel.displayNameStyle;
+    }
+
+    public getDisplayColumnStyle(): DisplayColumnStyle {
+        return this.erdSettingModel.displayColumnStyle;
     }
 
     public findSchema(schemaId: string): DbSchemaModel | null {

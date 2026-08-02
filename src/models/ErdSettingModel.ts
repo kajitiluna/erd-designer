@@ -1,11 +1,13 @@
-import DisplayStyle from "~/models/database/DisplayStyle";
+import DisplayNameStyle from "~/models/DisplayNameStyle";
+import DisplayColumnStyle from "~/models/DisplayColumnStyle";
 import ExportDdlSettingModel from "~/models/ExportDdlSettingModel";
 import PerspectiveModel from "~/models/PerspectiveModel";
 import PerspectiveModelStorage from "~/models/PerspectiveModelStorage";
 import { requireProperty, toObjects } from "~/models/util";
 
 type ErdSettingModelOptions = {
-    displayStyle?: DisplayStyle,
+    displayNameStyle?: DisplayNameStyle,
+    displayColumnStyle?: DisplayColumnStyle,
     exportDdlSetting: ExportDdlSettingModel,
     perspectiveModelStorage: PerspectiveModelStorage,
     showRelationNames?: boolean,
@@ -13,7 +15,8 @@ type ErdSettingModelOptions = {
 };
 
 type UpdatingArgs = {
-    displayStyle?: DisplayStyle | null,
+    displayNameStyle?: DisplayNameStyle | null,
+    displayColumnStyle?: DisplayColumnStyle | null,
     exportDdlSetting?: ExportDdlSettingModel | null,
     perspectiveModels?: PerspectiveModel[] | null,
     showRelationNames?: boolean | null,
@@ -22,17 +25,20 @@ type UpdatingArgs = {
 
 export default class ErdSettingModel {
 
-    public readonly displayStyle: DisplayStyle;
+    public readonly displayNameStyle: DisplayNameStyle;
+    public readonly displayColumnStyle: DisplayColumnStyle;
     public readonly exportDdlSetting: ExportDdlSettingModel;
     private readonly perspectiveModelStorage: PerspectiveModelStorage;
     public readonly showRelationNames: boolean;
     public readonly syncRemoteChanges: boolean;
 
     private constructor({
-        displayStyle = DisplayStyle.BOTH, exportDdlSetting, perspectiveModelStorage, showRelationNames = false,
-        syncRemoteChanges = false
+        displayNameStyle = DisplayNameStyle.BOTH, displayColumnStyle = DisplayColumnStyle.ALL,
+        exportDdlSetting, perspectiveModelStorage,
+        showRelationNames = false, syncRemoteChanges = false
     }: ErdSettingModelOptions) {
-        this.displayStyle = displayStyle;
+        this.displayNameStyle = displayNameStyle;
+        this.displayColumnStyle = displayColumnStyle;
         this.exportDdlSetting = exportDdlSetting;
         this.perspectiveModelStorage = perspectiveModelStorage;
         this.showRelationNames = showRelationNames;
@@ -55,17 +61,19 @@ export default class ErdSettingModel {
     }
 
     public update({
-        displayStyle = null, exportDdlSetting = null, perspectiveModels = null, showRelationNames = null,
-        syncRemoteChanges = null
+        displayNameStyle = null, displayColumnStyle = null, exportDdlSetting = null, perspectiveModels = null,
+        showRelationNames = null, syncRemoteChanges = null
     }: UpdatingArgs): ErdSettingModel {
 
-        if ((displayStyle == null) && (exportDdlSetting == null) && (perspectiveModels == null)
+        if ((displayNameStyle == null) && (displayColumnStyle == null)
+            && (exportDdlSetting == null) && (perspectiveModels == null)
             && (showRelationNames == null) && (syncRemoteChanges == null)) {
             return this;
         }
 
         return new ErdSettingModel({
-            displayStyle: ((displayStyle != null) ? displayStyle : this.displayStyle),
+            displayNameStyle: ((displayNameStyle != null) ? displayNameStyle : this.displayNameStyle),
+            displayColumnStyle: ((displayColumnStyle != null) ? displayColumnStyle : this.displayColumnStyle),
             exportDdlSetting: ((exportDdlSetting != null) ? exportDdlSetting : this.exportDdlSetting),
             perspectiveModelStorage: ((perspectiveModels != null)
                 ? new PerspectiveModelStorage(perspectiveModels) : this.perspectiveModelStorage),
@@ -81,7 +89,8 @@ export default class ErdSettingModel {
         }
 
         return new ErdSettingModel({
-            displayStyle: this.displayStyle,
+            displayNameStyle: this.displayNameStyle,
+            displayColumnStyle: this.displayColumnStyle,
             exportDdlSetting: this.exportDdlSetting,
             perspectiveModelStorage: nextPerspectiveStorage,
             showRelationNames: this.showRelationNames,
@@ -93,7 +102,10 @@ export default class ErdSettingModel {
         const perspectiveModels = this.perspectiveModelStorage.getModels().map(model => model.toJSON());
 
         return {
-            displayStyle: this.displayStyle.toJSON(),
+            displayStyle: this.displayNameStyle.toJSON(),
+            ...((this.displayColumnStyle.key !== DisplayColumnStyle.ALL.key) && {
+                displayColumn: this.displayColumnStyle.toJSON()
+            }),
             exportDdlSetting: this.exportDdlSetting.toJSON(),
             ...((perspectiveModels.length > 0) && { perspectiveModels: perspectiveModels }),
             ...(this.showRelationNames && { showRelationNames: true }),
@@ -104,8 +116,10 @@ export default class ErdSettingModel {
     public static toObject(obj: object): ErdSettingModel {
         requireProperty(obj, "exportDdlSetting");
 
-        const displayStyle = ("displayStyle" in obj)
-            ? DisplayStyle.toObject(obj.displayStyle as object) : DisplayStyle.BOTH;
+        const displayNameStyle = ("displayStyle" in obj)
+            ? DisplayNameStyle.toObject(obj.displayStyle as object) : DisplayNameStyle.BOTH;
+        const displayColumnStyle = ("displayColumn" in obj)
+            ? DisplayColumnStyle.toObject(obj.displayColumn as object) : DisplayColumnStyle.ALL;
         const exportDdlSetting = ExportDdlSettingModel.toObject(obj.exportDdlSetting as object)
         const perspectiveModels = ("perspectiveModels" in obj)
             ? toObjects(obj.perspectiveModels, "perspectiveModels", value => PerspectiveModel.toObject(value)) : [];
@@ -114,7 +128,8 @@ export default class ErdSettingModel {
         const syncRemoteChanges = ("syncRemoteChanges" in obj) ? obj.syncRemoteChanges as boolean : false;
 
         return new ErdSettingModel({
-            displayStyle,
+            displayNameStyle,
+            displayColumnStyle,
             exportDdlSetting,
             perspectiveModelStorage: new PerspectiveModelStorage(perspectiveModels),
             showRelationNames,
@@ -123,7 +138,10 @@ export default class ErdSettingModel {
     }
 
     public equals(other: ErdSettingModel): boolean {
-        if (this.displayStyle.equals(other.displayStyle) === false) {
+        if (this.displayNameStyle.equals(other.displayNameStyle) === false) {
+            return false;
+        }
+        if (this.displayColumnStyle.equals(other.displayColumnStyle) === false) {
             return false;
         }
         if (this.exportDdlSetting.equals(other.exportDdlSetting) === false) {

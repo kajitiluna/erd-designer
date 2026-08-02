@@ -33,7 +33,7 @@ import LineViewModel from "~/models/LineViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
-import DisplayStyle from "~/models/database/DisplayStyle";
+import DisplayNameStyle from "~/models/DisplayNameStyle";
 import RelationModel from "~/models/database/RelationModel";
 import SimpleColumnModel from "~/models/database/SimpleColumnModel";
 import StructColumnModel from "~/models/database/StructColumnModel";
@@ -44,6 +44,7 @@ import { overrideColumnName } from "~/models/database/support";
 
 import styleClasses from "./ErdCanvas.module.css";
 import { SelectState } from "~/models/SelectState";
+import DisplayColumnStyle from "~/models/DisplayColumnStyle";
 
 export const ERD_TABLE_VIEW_CLASS_NAME = "erd-table-view";
 
@@ -123,13 +124,13 @@ const ErdTableView = ({ tableViewModel, visible = true, onEditAction, onDragActi
 
 const initDisplayTableName = (erdDocument: ErdDocument, tableModel: TableModel) => {
     const dbSchema = erdDocument.findSchema(tableModel.schemaId);
-    const displayStyle = erdDocument.getDisplayStyle();
+    const displayNameStyle = erdDocument.getDisplayNameStyle();
 
     const physicalName = (dbSchema != null)
         ? `${dbSchema.schemaName}.${tableModel.physicalName}`
         : tableModel.physicalName;
 
-    return displayStyle.displayName(physicalName, tableModel.logicalName);
+    return displayNameStyle.displayName(physicalName, tableModel.logicalName);
 };
 
 const HEADER_STYLE = {
@@ -138,6 +139,7 @@ const HEADER_STYLE = {
     paddingRight: "8px",
     borderBottom: "1px solid black",
     display: "flex",
+    whiteSpace: "nowrap",
     fontSize: "0.95em"
 };
 
@@ -150,33 +152,45 @@ const BODY_STYLE = {
 const initTableColumnRow = (
     row: ColumnRowEntry, tableModel: TableModel, erdDocument: ErdDocument, selectState: SelectState
 ): React.JSX.Element => {
-    return ColumnModel.isSimpleColumn(row.columnModel)
-        ? initTableSingleColumn(row.columnModel, row.rowId, row.nestCount, tableModel, erdDocument, selectState)
-        : initTableStructColumnRow(row.columnModel, row.rowId, row.nestCount, tableModel, erdDocument);
+    if (ColumnModel.isSimpleColumn(row.columnModel)) {
+        return initTableSingleColumn(row.columnModel, row.rowId, row.nestCount, tableModel, erdDocument, selectState);
+    }
+
+    const displayColumnStyle = erdDocument.getDisplayColumnStyle();
+    if (displayColumnStyle.equals(DisplayColumnStyle.ALL) === false) {
+        // PK もしくは FK のみ表示する場合は、struct は該当しない
+        return (<></>);
+    }
+
+    return initTableStructColumnRow(row.columnModel, row.rowId, row.nestCount, tableModel, erdDocument);
 };
 
 const initTableSingleColumn = (
     columnModel: SimpleColumnModel, rowId: string, nestCount: number,
     tableModel: TableModel, erdDocument: ErdDocument, selectState: SelectState
 ) => {
-    const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
-    if (columnShareModel == null) {
+    const columnShare = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
+    if (columnShare == null) {
         console.warn(`columnShareModel is not existed. columnShareModelId = ${columnModel.columnShareModelId}`)
         return (<></>);
     }
 
-    const uniqueKeysModels = tableModel.uniqueKeysModels;
-    const tableIndexModels = tableModel.tableIndexModels;
-
     const inChildRelation = erdDocument.inChildRelation(tableModel.tableModelId, columnModel.columnModelId);
-    const fontColor = initTableColumnFontColor(columnModel, inChildRelation);
+    const displayColumnStyle = erdDocument.getDisplayColumnStyle();
+    if (displayColumnStyle.viewable(columnModel, inChildRelation) === false) {
+        return (<></>);
+    }
 
     const selectedRelationColumn = isSelectedRelationColumn(columnModel.columnModelId, erdDocument, selectState);
 
-    const displayColumnName = initDisplayColumnName(columnModel, columnShareModel, erdDocument.getDisplayStyle());
-    const displayColumnType = columnShareModel.specifiedColumnType(inChildRelation).replace("TIME ZONE", "TZ");
+    const displayColumnName = initDisplayColumnName(columnModel, columnShare, erdDocument.getDisplayNameStyle());
+    const displayColumnType = columnShare.specifiedColumnType(inChildRelation).replace("TIME ZONE", "TZ");
     const displayOption = initDisplayOption(columnModel);
 
+    const uniqueKeysModels = tableModel.uniqueKeysModels;
+    const tableIndexModels = tableModel.tableIndexModels;
+
+    const fontColor = initTableColumnFontColor(columnModel, inChildRelation);
     const styleRow = selectedRelationColumn ? { backgroundColor: "rgba(73, 76, 218, 0.12)" } : {};
     const styleTextCell = { whiteSpace: "nowrap", color: fontColor };
     const styleAttributeCell = { whiteSpace: "nowrap", color: fontColor, fontSize: "0.914em" };
@@ -192,7 +206,7 @@ const initTableSingleColumn = (
                 {inChildRelation && <ForeignKeyIcon />}
             </TableCell>
 
-            <DescriptionTooltip title={columnShareModel.description} placement="top">
+            <DescriptionTooltip title={columnShare.description} placement="top">
                 <TableCell sx={styleTextCell}>
                     <span style={indentStyle}>{displayColumnName}</span>
                 </TableCell>
@@ -218,7 +232,7 @@ const initTableStructColumnRow = (
     }
 
     const overrideName = overrideColumnName(structColumn, structShare);
-    const columnName = erdDocument.getDisplayStyle().displayName(overrideName.physicalName, overrideName.logicalName);
+    const columnName = erdDocument.getDisplayNameStyle().displayName(overrideName.physicalName, overrideName.logicalName);
     const displayColumnType = structShare.simpleColumnType();
     const displayOption = structColumn.notNull ? "(NN)" : "";
 
@@ -288,7 +302,9 @@ const isSelectedRelationColumn = (columnId: string, erdDocument: ErdDocument, se
     return false;
 }
 
-const initDisplayColumnName = (columnModel: ColumnModel, shareModel: ColumnShareModel, displayStyle: DisplayStyle): string => {
+const initDisplayColumnName = (
+    columnModel: ColumnModel, shareModel: ColumnShareModel, displayStyle: DisplayNameStyle
+): string => {
     const overrideName = overrideColumnName(columnModel, shareModel);
 
     return displayStyle.displayName(overrideName.physicalName, overrideName.logicalName);

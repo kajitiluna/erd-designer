@@ -129,6 +129,10 @@ claude plugin marketplace add kajitiluna/erd-designer
 claude plugin install erd-designer@erd-designer
 ```
 
+Auto-update is off by default for third-party marketplaces. To be notified when a new version ships,
+run `/plugin` in Claude Code, open the `erd-designer` marketplace, and select **Enable auto-update**.
+Claude Code then updates the plugin on startup and shows `Plugins updated: erd-designer`.
+
 With [GitHub Copilot CLI](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-plugin-reference):
 
 ```sh

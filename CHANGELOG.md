@@ -6,6 +6,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+
+## [0.20260803] - 2026-08-03
+
+### Added
+
+- **Column display options**:
+
+  The canvas can now hide columns per document. From the gear menu, open "Display Style" and pick
+  "Show Columns": All Columns, Only PK Columns, PK or FK Columns, or No Columns (table name only).
+  The choice applies to the canvas, SVG export, and the canvas search panel, and is saved with the file.
+
+- **MCP Server / Agent plugin: column display style**:
+
+  `update-document` accepts a new `displayColumnStyle` field (`all`, `pk`, `pk_fk`, `none`) to switch
+  which columns the canvas shows. The document detail response now also reports the current
+  `displayNameStyle` and `displayColumnStyle`, so agents can tell when columns exist in the document
+  but are hidden on the canvas.
+
+### Changed
+
+- **Display Style menu reworked**:
+
+  The "Display Style" submenu now shows dropdowns for "Name Style" and "Show Columns" together with
+  the "Show Relation Names" switch. The submenu stays open while adjusting several settings in a row,
+  and closes the whole menu once you dismiss it.
+
+- **MCP Server / Agent plugin: `displayStyle` renamed to `displayNameStyle`**:
+
+  The `update-document` field that selects physical / logical / both names is now `displayNameStyle`.
+  Existing `.erd` files are unaffected.
+
+
 ## [0.20260801] - 2026-08-01
 
 ### Added

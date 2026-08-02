@@ -13,7 +13,8 @@ import {
 import { toTableSummary } from "~/agent-tools/tools/tables";
 import { createDdl } from "~/models/create-ddl";
 import { toNextOrthogonalLines } from "~/features/canvas/support";
-import DisplayStyle from "~/models/database/DisplayStyle";
+import DisplayColumnStyle from "~/models/DisplayColumnStyle";
+import DisplayNameStyle from "~/models/DisplayNameStyle";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import { DragState } from "~/models/DragState";
 import { SelectState } from "~/models/SelectState";
@@ -155,7 +156,10 @@ An object containing detailed document information:
   - uri: The URI to access detailed memo information.
   - memoId: The unique identifier of the memo.
   - view: Display settings including position, size, and color.
-- setting: URIs for accessing various document settings:
+- setting: The document's display settings and URIs for further settings:
+  - displayNameStyle: Whether tables show physical, logical, or both names ('physical', 'logical', 'both').
+  - displayColumnStyle: Which columns the canvas shows ('all', 'pk', 'pk_fk', 'none').
+    When it is not 'all', some columns exist in the document but are hidden on the canvas.
   - perspectives: URI to access perspective settings.
   - columnGroups: URI to access column group settings.
   - schemas: URI to access schema settings (only if database supports schemas).
@@ -271,6 +275,8 @@ const toDetail = (erdBudget: DocumentBudget) => {
         relations: relationModels,
         memos: memos,
         setting: {
+            displayNameStyle: toDisplayNameStyleKey(erdDocument.getDisplayNameStyle()),
+            displayColumnStyle: erdDocument.getDisplayColumnStyle().key,
             perspectives: { uri: erdBudget.perspectiveListUri() },
             columnGroups: { uri: erdBudget.columnGroupListUri() },
             ...(database.supportsSchema && {
@@ -280,6 +286,17 @@ const toDetail = (erdBudget: DocumentBudget) => {
 
         lastUpdatedAt: erdDocument.lastUpdatedAt.toISOString()
     };
+};
+
+// update-document の displayNameStyle enum と同じ語彙でレスポンスを返し、読み取り値をそのまま再入力できるようにする
+const toDisplayNameStyleKey = (displayNameStyle: DisplayNameStyle): string => {
+    if (displayNameStyle.equals(DisplayNameStyle.PHYSICAL)) {
+        return "physical";
+    }
+    if (displayNameStyle.equals(DisplayNameStyle.LOGICAL)) {
+        return "logical";
+    }
+    return "both";
 };
 
 // ==================== find-document-by-filepath ====================
@@ -335,17 +352,23 @@ const initCallbackForFindDocumentByFilepath = (
 // ==================== update-document ====================
 
 const descriptionUpdate = `\
-Updates the name or display style of an existing ERD document.
-You can update either the document name, the display style, or both properties simultaneously.
+Updates the name or display settings of an existing ERD document.
+You can update the document name, the name display style, the column display style,
+or any combination of these properties simultaneously.
 
 REQUEST:
 - documentId: ${DESCRIPTION_DOCUMENT_ID}
 - document: An object containing the fields to be updated (all fields are optional):
   - documentName: The new name for the document. Leading and trailing whitespace will be trimmed.
-  - displayStyle: The new display style for the document. Must be one of:
+  - displayNameStyle: The new name display style for the document. Must be one of:
     - 'physical': Display only physical names
     - 'logical': Display only logical names
     - 'both': Display both physical and logical names
+  - displayColumnStyle: Which columns are shown on the canvas for every table. Must be one of:
+    - 'all': Show all columns
+    - 'pk': Show only primary key columns
+    - 'pk_fk': Show primary key and foreign key columns
+    - 'none': Show no columns (table name only)
 
   Note: If no fields are provided, the document remains unchanged.
   At least one field should be provided to make meaningful changes.
@@ -363,7 +386,7 @@ const mcpUpdateDocument = (
     return [
         "update-document",
         {
-            title: "Update the name or display style of ERD document",
+            title: "Update the name or display settings of ERD document",
             description: descriptionUpdate,
             inputSchema: updateDocumentInputSchema
         },
@@ -376,8 +399,11 @@ const updateDocumentInputSchema = {
     document: z.object({
         documentName: z.string().optional()
             .describe("The new name for the document."),
-        displayStyle: z.enum(["both", "physical", "logical"]).optional()
-            .describe("The new display style for the document ('physical', 'logical', or 'both').")
+        displayNameStyle: z.enum(["both", "physical", "logical"]).optional()
+            .describe("The new name display style for the document ('physical', 'logical', or 'both')."),
+        displayColumnStyle: z.enum(["all", "pk", "pk_fk", "none"]).optional()
+            .describe("Which columns the canvas shows for every table "
+                + "('all', 'pk', 'pk_fk', or 'none').")
     }).describe("The document properties to update.")
 };
 
@@ -386,15 +412,19 @@ const initCallbackForUpdatingDocument = (
 ): ToolCallback<typeof updateDocumentInputSchema> => {
     return async ({ documentId, document: inputDocument }) => {
         const { erdBudget, erdDocument: previousDocument } = findDocument(documentResource, documentId);
-        const previousSetting = previousDocument.erdSettingModel;
 
         let nextDocument = previousDocument;
         if (inputDocument.documentName) {
             nextDocument = nextDocument.updateDocumentName(inputDocument.documentName.trim());
         }
-        if (inputDocument.displayStyle) {
-            const nextStyle = toDisplayStyle(inputDocument.displayStyle);
-            const nextSetting = previousSetting.update({ displayStyle: nextStyle });
+
+        // 表示設定は 1 つの ErdSettingModel に同居するため、複数指定でも update は 1 回に集約する
+        const displayNameStyle = (inputDocument.displayNameStyle != null)
+            ? toDisplayNameStyle(inputDocument.displayNameStyle) : null;
+        const displayColumnStyle = (inputDocument.displayColumnStyle != null)
+            ? toDisplayColumnStyle(inputDocument.displayColumnStyle) : null;
+        if ((displayNameStyle != null) || (displayColumnStyle != null)) {
+            const nextSetting = previousDocument.erdSettingModel.update({ displayNameStyle, displayColumnStyle });
             nextDocument = nextDocument.updateErdSetting(nextSetting);
         }
 
@@ -413,14 +443,27 @@ const initCallbackForUpdatingDocument = (
     }
 };
 
-const toDisplayStyle = (style: "both" | "physical" | "logical"): DisplayStyle => {
+const toDisplayNameStyle = (style: "both" | "physical" | "logical"): DisplayNameStyle => {
     switch (style) {
         case "both":
-            return DisplayStyle.BOTH;
+            return DisplayNameStyle.BOTH;
         case "physical":
-            return DisplayStyle.PHYSICAL;
+            return DisplayNameStyle.PHYSICAL;
         case "logical":
-            return DisplayStyle.LOGICAL;
+            return DisplayNameStyle.LOGICAL;
+    }
+};
+
+const toDisplayColumnStyle = (style: "all" | "pk" | "pk_fk" | "none"): DisplayColumnStyle => {
+    switch (style) {
+        case "all":
+            return DisplayColumnStyle.ALL;
+        case "pk":
+            return DisplayColumnStyle.ONLY_PK;
+        case "pk_fk":
+            return DisplayColumnStyle.PK_OR_FK;
+        case "none":
+            return DisplayColumnStyle.NONE;
     }
 };
 
