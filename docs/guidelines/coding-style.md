@@ -280,3 +280,17 @@ const notNull = obj.notNull != null ? obj.notNull as boolean : false;
 Never remove or repurpose a field that has shipped — older files still contain it.
 
 Not enforced by ESLint — manual review rule.
+
+## 18. `src/extension/` is import-only for the VSCode extension
+
+Code outside the VSCode extension package (React components, shared logic, etc.) must never import from `src/extension/`. A constant or utility shared by the whole app belongs in a common module (e.g. `src/components/constant.ts`), not inside the extension package.
+
+```ts
+// NG — a React component reaching into the extension package
+import { SOME_CONSTANT } from "~/extension/vscode-message";
+
+// OK — shared constant lives in a common module
+import { SOME_CONSTANT } from "~/components/constant";
+```
+
+Not enforced by ESLint — manual review rule.

@@ -6,8 +6,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import ArrowRightIcon from '@mui/icons-material/ArrowRight';
 import SyncIcon from '@mui/icons-material/Sync';
 
-import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
-import ErdDocument from "~/models/ErdDocument";
+import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { DatabaseType } from "~/models/database";
 import { REMOTE_SYNC_INTERVAL_MILLISECOND, REMOTE_SYNC_REQUESTED_EVENT } from "~/components/constant";
 import PostgreSQLIcon from "~/components/icons/PostgreSQLIcon";
@@ -19,30 +18,22 @@ import MariaDBIcon from "~/components/icons/MariaDBIcon";
 import SqliteIcon from "~/components/icons/SqliteIcon";
 import SnowflakeIcon from "~/components/icons/SnowflakeIcon";
 import BigQueryIcon from "~/components/icons/BigQueryIcon";
-import ErdSettingModel from "~/models/ErdSettingModel";
 import DisplayNameStyle from "~/models/DisplayNameStyle";
 import PerspectiveView from "~/features/editor/PerspectiveView";
 import DbSchemaView from "~/features/editor/DbSchemaView";
 import DisplayColumnStyle from "~/models/DisplayColumnStyle";
-
-type SettingMenuType = "perspective" | "column_group" | "db_schema" | "import_ddl" | "";
-
-type DisplayMenuState = { status: "closed" } | { status: "open" | "interacted", anchor: HTMLElement };
 
 type TitlePanelProps = {
     remoteSync?: boolean
 };
 
 const TitlePanel = ({ remoteSync = false }: TitlePanelProps) => {
-    const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
-    const erdDocument: ErdDocument = documentsHolder.current();
+    const documentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const erdDocument = documentsHolder.current();
 
     const [title, setTitle] = React.useState<string>(erdDocument.documentName);
-    const [preferenceElement, setPreferenceElement] = React.useState<HTMLElement | null>(null);
-    const [displayMenuState, setDisplayMenuState] = React.useState<DisplayMenuState>({ status: "closed" });
-    const [selectedMenu, setSelectedMenu] = React.useState<SettingMenuType>("");
 
-    const erdSetting: ErdSettingModel = erdDocument.erdSettingModel;
+    const erdSetting = erdDocument.erdSettingModel;
     const database = erdDocument.getDatabase();
     const databaseIcon = databaseTypeIcons[database.databaseType];
 
@@ -52,7 +43,48 @@ const TitlePanel = ({ remoteSync = false }: TitlePanelProps) => {
         documentsHolder.updateDocumentName(title, loggingMessage);
     }
 
-    const isSettingOpen = Boolean(preferenceElement);
+    return (
+        <Stack direction="row" spacing={1} sx={TITLE_PANEL_STYLE}>
+            {databaseIcon}
+            <Box sx={TITLE_INPUT_AREA_STYLE}>
+                <InputBase value={title} sx={TITLE_INPUT_STYLE}
+                    onChange={event => setTitle(event.target.value)} onBlur={handleOnSave} />
+                {(remoteSync && erdSetting.syncRemoteChanges) && (<RemoteSyncIndicator />)}
+            </Box>
+            <PreferenceMenu remoteSync={remoteSync} />
+        </Stack>
+    );
+};
+
+const TITLE_PANEL_STYLE = {
+    display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center",
+    border: "2px solid #F0F0F0", borderRadius: "5px", boxShadow: "5px 5px 15px 0px #bebebe",
+    padding: "5px", paddingLeft: "15px", paddingRight: "15px",
+    backgroundColor: "#FFFFFF"
+} as const;
+
+const TITLE_INPUT_AREA_STYLE = {
+    display: "flex", alignItems: "center", width: "300px"
+} as const;
+
+const TITLE_INPUT_STYLE = {
+    fontSize: "1.2rem", fontWeight: "bold", color: "#3F3F3F", flex: 1, minWidth: 0
+} as const;
+
+type DisplayMenuState = { status: "closed" } | { status: "open" | "interacted", anchor: HTMLElement };
+
+type SettingMenuType = "perspective" | "column_group" | "db_schema" | "import_ddl" | "";
+
+const PreferenceMenu = ({ remoteSync = false }: TitlePanelProps) => {
+    const documentsHolder = React.useContext(ErdDocumentsHolderContext);
+
+    const [preferenceElement, setPreferenceElement] = React.useState<HTMLElement | null>(null);
+    const [displayMenuState, setDisplayMenuState] = React.useState<DisplayMenuState>({ status: "closed" });
+    const [selectedMenu, setSelectedMenu] = React.useState<SettingMenuType>("");
+
+    const erdDocument = documentsHolder.current();
+    const erdSetting = erdDocument.erdSettingModel;
+
     const handleOpenPreference = (event: React.MouseEvent<HTMLButtonElement>) => {
         setPreferenceElement(event.currentTarget);
     };
@@ -76,6 +108,8 @@ const TitlePanel = ({ remoteSync = false }: TitlePanelProps) => {
         };
     };
 
+    const isSettingOpen = Boolean(preferenceElement);
+    const database = erdDocument.getDatabase();
     const preferenceMenu = (
         <Menu anchorEl={preferenceElement} open={isSettingOpen} onClose={handleClosePreference}>
             <MenuItem sx={{ display: "flex", justifyContent: "space-between", paddingRight: "4px" }}
@@ -221,37 +255,28 @@ const TitlePanel = ({ remoteSync = false }: TitlePanelProps) => {
         handleClosePreference();
     };
 
-    return (
-        <Stack direction="row" spacing={1} sx={TITLE_PANEL_STYLE}>
-            {databaseIcon}
-            <Box sx={TITLE_INPUT_AREA_STYLE}>
-                <InputBase value={title} sx={TITLE_INPUT_STYLE}
-                    onChange={event => setTitle(event.target.value)} onBlur={handleOnSave} />
-                {(remoteSync && erdSetting.syncRemoteChanges) && (<RemoteSyncIndicator />)}
-            </Box>
-            <IconButton aria-label="Preferences"
-                aria-expanded={isSettingOpen} aria-haspopup="true"
-                onClick={handleOpenPreference}>
-                <SettingsIcon />
-            </IconButton>
+    return (<>
+        <IconButton aria-label="Preferences" aria-expanded={isSettingOpen} aria-haspopup="true"
+            onClick={handleOpenPreference}>
+            <SettingsIcon />
+        </IconButton>
 
-            {preferenceMenu}
-            {displayStyleMenu}
+        {preferenceMenu}
+        {displayStyleMenu}
 
-            {(selectedMenu === "perspective") && (
-                <PerspectiveView isOpen={selectedMenu === "perspective"} onClose={handleCloseMenu} />
-            )}
-            {(selectedMenu === "column_group") && (
-                <ColumnGroupView isOpen={selectedMenu === "column_group"} viewMode="edit" onClose={handleCloseMenu} />
-            )}
-            {(selectedMenu === "db_schema") && (
-                <DbSchemaView isOpen={selectedMenu === "db_schema"} onClose={handleCloseMenu} />
-            )}
-            {(selectedMenu === "import_ddl") && (
-                <ImportFromDdlView isOpen={selectedMenu === "import_ddl"} onClose={handleCloseMenu} />
-            )}
-        </Stack>
-    );
+        {(selectedMenu === "perspective") && (
+            <PerspectiveView isOpen={selectedMenu === "perspective"} onClose={handleCloseMenu} />
+        )}
+        {(selectedMenu === "column_group") && (
+            <ColumnGroupView isOpen={selectedMenu === "column_group"} viewMode="edit" onClose={handleCloseMenu} />
+        )}
+        {(selectedMenu === "db_schema") && (
+            <DbSchemaView isOpen={selectedMenu === "db_schema"} onClose={handleCloseMenu} />
+        )}
+        {(selectedMenu === "import_ddl") && (
+            <ImportFromDdlView isOpen={selectedMenu === "import_ddl"} onClose={handleCloseMenu} />
+        )}
+    </>);
 };
 
 // ラベルの文字数が行ごとに違っても Select の右端が揃うよう、行をメニュー幅いっぱいに広げてラベルと入力を両端に寄せる。
@@ -401,38 +426,6 @@ const rewindCountDown = (countdownElement: SVGCircleElement) => {
         animation.play();
     });
 };
-
-const TITLE_PANEL_STYLE = {
-    display: "flex",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    border: "2px solid #F0F0F0",
-    borderRadius: "5px",
-    boxShadow: "5px 5px 15px 0px #bebebe",
-    padding: "5px",
-    paddingLeft: "15px",
-    paddingRight: "15px",
-    backgroundColor: "#FFFFFF"
-} as const;
-
-/**
- * RemoteSyncIndicator の表示有無で TitlePanel 全体の幅が動かないよう、入力欄と
- * インジケータの合計幅をここで固定する。増減分は伸縮する入力欄側が吸収する。
- */
-const TITLE_INPUT_AREA_STYLE = {
-    display: "flex",
-    alignItems: "center",
-    width: "300px"
-} as const;
-
-const TITLE_INPUT_STYLE = {
-    fontSize: "1.2rem",
-    fontWeight: "bold",
-    color: "#3F3F3F",
-    flex: 1,
-    minWidth: 0
-} as const;
 
 const MANUAL_SYNC_MIN_INTERVAL_MILLISECOND = 1000;
 const SYNC_INDICATOR_SIZE = 32;
