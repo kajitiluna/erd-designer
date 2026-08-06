@@ -9,17 +9,17 @@ import GitHubLinkButton from "~/features/start_up/GitHubLinkButton";
 import FeatureCard from "~/components/FeatureCard";
 import ErdAppLogo from "~/features/regal/ErdAppLogo";
 import { descriptionStyle, gradientStyle } from "~/features/start_up/start-up-styles";
+import { StartUpActions } from "~/features/start_up/support";
 
 type HeroLayoutProp = {
-    onOpenCreateDialog: () => void;
-    onOpenImportDialog: () => void;
+    actions: StartUpActions;
 };
 
-const HeroLayout = ({ onOpenCreateDialog, onOpenImportDialog }: HeroLayoutProp) => {
+const HeroLayout = ({ actions }: HeroLayoutProp) => {
     return (
         <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
             <Box sx={{ flex: 1 }}>
-                <MainPanel onOpenCreateDialog={onOpenCreateDialog} onOpenImportDialog={onOpenImportDialog} />
+                <MainPanel actions={actions} />
 
                 <ExplanationPanel />
 
@@ -32,7 +32,7 @@ const HeroLayout = ({ onOpenCreateDialog, onOpenImportDialog }: HeroLayoutProp) 
     );
 };
 
-const MainPanel = ({ onOpenCreateDialog, onOpenImportDialog }: HeroLayoutProp) => {
+const MainPanel = ({ actions }: HeroLayoutProp) => {
     return (
         <Box sx={mainPanelStyle}>
             <Box sx={{ maxWidth: 960, margin: "0 auto" }}>
@@ -41,8 +41,9 @@ const MainPanel = ({ onOpenCreateDialog, onOpenImportDialog }: HeroLayoutProp) =
                     A browser-based tool for designing database tables and relationships
                     through a graphical interface.
                 </Typography>
-                <DiagramActionButtons direction="row" sx={{ justifyContent: "center", maxWidth: 490, margin: "0 auto" }}
-                    onOpenCreateDialog={onOpenCreateDialog} onOpenImportDialog={onOpenImportDialog} />
+                <DiagramActionButtons direction="row"
+                    sx={{ justifyContent: "center", maxWidth: 742, margin: "0 auto" }}
+                    actions={actions} />
             </Box>
         </Box>
     );

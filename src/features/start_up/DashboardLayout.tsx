@@ -8,18 +8,18 @@ import GitHubLinkButton from "~/features/start_up/GitHubLinkButton";
 import ErdDocumentStorage from "~/features/storage/ErdDocumentStorage";
 import ErdDocument from "~/models/ErdDocument";
 import ErdDocumentSummary from "~/features/storage/ErdDocumentSummary";
+import { StartUpActions } from "~/features/start_up/support";
 
 type DashboardLayoutProp = {
     documentStorage: ErdDocumentStorage;
     erdSummaries: ErdDocumentSummary[];
     onOpenDocument: (openDocument: ErdDocument, onSave: (document: ErdDocument, message: string) => void) => void;
     onSummariesUpdated: (summaries: ErdDocumentSummary[]) => void;
-    onOpenCreateDialog: () => void;
-    onOpenImportDialog: () => void;
+    actions: StartUpActions;
 };
 
 const DashboardLayout = ({
-    documentStorage, erdSummaries, onOpenDocument, onSummariesUpdated, onOpenCreateDialog, onOpenImportDialog,
+    documentStorage, erdSummaries, onOpenDocument, onSummariesUpdated, actions,
 }: DashboardLayoutProp) => {
 
     return (
@@ -29,7 +29,7 @@ const DashboardLayout = ({
                 <ErdDocumentListPanel documentStorage={documentStorage} erdSummaries={erdSummaries}
                     onOpenDocument={onOpenDocument} onSummariesUpdated={onSummariesUpdated} />
 
-                <CreatePanel onOpenCreateDialog={onOpenCreateDialog} onOpenImportDialog={onOpenImportDialog} />
+                <CreatePanel actions={actions} />
             </Box>
             <RegalFooter />
         </Box>
