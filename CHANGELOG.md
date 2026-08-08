@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Google Drive app: no more hourly re-authorization by hand**:
+
+  The access token is now renewed silently. Once the token is within ten minutes of expiring, the next
+  click or key press you make in the editor renews it in the background, so a long design session no
+  longer needs you to press "Reauthorize" every hour. Renewal is skipped while you are typing in a text
+  field, so no keystrokes are lost. If the browser blocks the renewal popup, or you have been idle long
+  enough for the token to lapse, the "Reauthorize" notice still appears as before.
+
+### Fixed
+
+- **Google Drive app: edits are no longer discarded when the session expires**:
+
+  An expired access token used to unmount the editor, losing unsaved changes and the undo history.
+  The diagram now stays open and editable; saving and remote sync pause, and the edits made while the
+  session was expired are saved once you re-authorize. If the file changed on Drive in the meantime,
+  the existing conflict notice appears instead of overwriting it.
+
 
 ## [0.20260803] - 2026-08-03
 
