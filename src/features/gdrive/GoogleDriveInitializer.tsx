@@ -14,7 +14,8 @@ type GoogleDriveInitializerProp = {
     onInitialize: (gdriveFile: GdriveFile) => void
 };
 
-const GoogleDriveInitializer = ({ authorization, onInitialize }: GoogleDriveInitializerProp) => {
+const GoogleDriveInitializer = ({ authorization: gdriveAuthorization, onInitialize }: GoogleDriveInitializerProp) => {
+    const { authorization, authorize } = gdriveAuthorization;
     const [gdriveFolderId, setGdriveFolderId] = React.useState<string | null>(null);
     const [erdDocument, setErdDocument] = React.useState<ErdDocument | null>(null);
 
@@ -73,8 +74,7 @@ const GoogleDriveInitializer = ({ authorization, onInitialize }: GoogleDriveInit
                     <Typography variant="body1" sx={descriptionStyle}>
                         Need to authorize to edit the ERD file on the Google Drive.
                     </Typography>
-                    <Button variant="contained" size="large"
-                        onClick={authorization.authorize} sx={containedButtonStyle}>
+                    <Button variant="contained" size="large" sx={containedButtonStyle} onClick={authorize}>
                         Authorize with Google
                     </Button>
                 </Stack>

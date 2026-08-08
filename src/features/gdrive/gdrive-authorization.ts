@@ -8,12 +8,29 @@ import { findAuthorizedAccount } from "~/features/gdrive/gdrive-file-support";
 // アクセストークンの有効性を表す唯一の状態。
 // expired は「トークンだけが失効し、編集中のドキュメントは生きている」状態で、
 // 一度も認可していない unauthorized とは表示も復帰手順も異なるため区別する。
-export type AuthorizationState = "unauthorized" | "authorized" | "expired";
+type AuthorizationState = "unauthorized" | "authorized" | "expired";
 
-export type GdriveAuthorization = {
+// トークンを取得した契機。無音更新は利用者の操作なしに完了するため完了を知らせる必要があり、
+// 明示操作による認可と区別する。
+type TokenGrant = "userRequest" | "silentRenewal";
+
+export type AuthorizationToken = {
     state: AuthorizationState,
     accessToken: string,
     expiresAt: number,
+    grantedBy: TokenGrant
+};
+
+/**
+ * idle: 次のユーザ操作で更新してよい
+ * silentRequesting: ユーザ操作に便乗した無音更新の応答待ち
+ * manualRequesting: Authorize / Reauthorize ボタンによる応答待ち
+ * blocked: 自動更新が失敗した。ポップアップを繰り返し開かないよう、明示操作まで再試行しない
+ */
+type RenewalState = "idle" | "silentRequesting" | "manualRequesting" | "blocked";
+
+export type GdriveAuthorization = {
+    authorization: AuthorizationToken,
     authorize: () => void
 };
 
@@ -28,18 +45,46 @@ export type GdriveAuthorization = {
 export const useGdriveAuthorization = (): GdriveAuthorization => {
     const [authorization, setAuthorization] = React.useState<AuthorizationToken>(UNAUTHORIZED_TOKEN);
 
-    // 発行済みポップアップ要求の有無。DOM リスナ内で同期的に判定する必要があるため ref で持つ。
-    // AuthorizationState とは対象が異なる (トークンの有効性 vs 未応答の要求) ため別の状態にしている。
     const renewalStateRef = React.useRef<RenewalState>("idle");
     const accountEmailRef = React.useRef<string | null>(null);
+
+    const handleAuthorized = (response: AuthorizedTokenResponse) => {
+        const requestedFrom = renewalStateRef.current;
+
+        const hasAccess = hasGrantedAllScopesGoogle(response, "https://www.googleapis.com/auth/drive.file");
+        if (hasAccess === false) {
+            console.warn("Not granted the drive.file scope.");
+            renewalStateRef.current = "blocked";
+
+            return;
+        }
+
+        renewalStateRef.current = "idle";
+
+        // 失効直後に認可処理を発火しないよう、実際の失効時間から 60 秒短い時間を有効期限に設定する
+        const expiresAt = new Date().getTime() + (response.expires_in - 60) * 1000;
+        const grantedBy: TokenGrant = (requestedFrom === "silentRequesting") ? "silentRenewal" : "userRequest";
+        setAuthorization({ state: "authorized", accessToken: response.access_token, expiresAt, grantedBy });
+
+        console.info(`Authorized google access token. Token expires at ${new Date(expiresAt).toISOString()}`);
+
+        if (accountEmailRef.current != null) {
+            return;
+        }
+
+        // login_hint に渡すアカウントは初回だけ引く。
+        // 取得できなくてもログイン中のアカウントが1 つなら更新は成立するため、失敗しても認可自体は続行させる。
+        findAuthorizedAccount(response.access_token).then(account => {
+            accountEmailRef.current = account.email;
+        }).catch(error => {
+            console.warn(`Failed to find the authorized account. ${error}`);
+        });
+    };
 
     const requestToken = useGoogleLogin({
         flow: "implicit",
         scope: GDRIVE_SCOPES.join(" "),
-        // ref を render 中に関数へ渡さないよう、コールバックの内部で組み立てる。
-        onSuccess: response => {
-            doAuthorized(response, { setAuthorization, renewalStateRef, accountEmailRef });
-        },
+        onSuccess: response => handleAuthorized(response),
         onNonOAuthError: error => {
             console.warn(`Canceled to authorize. ${error.type}`);
             renewalStateRef.current = "blocked";
@@ -50,8 +95,7 @@ export const useGdriveAuthorization = (): GdriveAuthorization => {
         }
     });
 
-    // 有効期限に到達したら expired へ落とす。トークン値は保持したままにすることで、
-    // 呼び出し側が編集中のドキュメントを破棄せずに再認可を待てるようにする。
+    // 有効期限経過後に失効状態に移行するための制御
     React.useEffect(() => {
         if (authorization.state !== "authorized") {
             return;
@@ -59,8 +103,11 @@ export const useGdriveAuthorization = (): GdriveAuthorization => {
 
         const remainedTime = authorization.expiresAt - new Date().getTime();
         const timerId = setTimeout(() => {
-            setAuthorization(current => {
-                return { state: "expired", accessToken: current.accessToken, expiresAt: current.expiresAt };
+            setAuthorization(previous => {
+                return {
+                    state: "expired", accessToken: previous.accessToken,
+                    expiresAt: previous.expiresAt, grantedBy: previous.grantedBy
+                };
             });
         }, Math.max(remainedTime, 0));
 
@@ -69,15 +116,39 @@ export const useGdriveAuthorization = (): GdriveAuthorization => {
         };
     }, [authorization]);
 
-    // 期限切れ後も購読を続ける。放置して失効した場合でも、次のユーザ操作で復帰できるようにする。
+    const renewToken = React.useCallback((event: Event) => {
+        if (renewalStateRef.current !== "idle") {
+            return;
+        }
+
+        const remindTime = authorization.expiresAt - new Date().getTime();
+        if (remindTime > RENEW_TOKEN_MILLISECONDS) {
+            return;
+        }
+
+        // ポップアップはフォーカスを奪うため、文字入力中に開くとタイプを取りこぼす。入力中は見送り、キャンバス操作など次の機会を待つ。
+        if (isEditingText(event.target) === true) {
+            return;
+        }
+
+        renewalStateRef.current = "silentRequesting";
+
+        // hint を渡すのは、複数の Google アカウントでログイン中でもアカウント選択画面を出さないため。
+        const accountEmail = accountEmailRef.current;
+        const overrideConfig: OverridableTokenClientConfig = (accountEmail == null)
+            ? { prompt: "" } : { prompt: "", hint: accountEmail };
+
+        console.info("Attempting silent renewal of google access token. " +
+            `remind minutes: ${(remindTime / (60 * 1000)).toFixed(1)}`);
+
+        requestToken(overrideConfig);
+    }, [authorization.expiresAt, requestToken]);
+
+    // ユーザ操作をトリガとして、有効期限が残り僅かな時にバックグラウンドで再認可を行うための制御
     React.useEffect(() => {
         if (authorization.state === "unauthorized") {
             return;
         }
-
-        const renewToken = initRenewOnUserGesture({
-            expiresAt: authorization.expiresAt, renewalStateRef, accountEmailRef, requestToken
-        });
 
         window.addEventListener("click", renewToken, { capture: true });
         window.addEventListener("keyup", renewToken, { capture: true });
@@ -86,18 +157,18 @@ export const useGdriveAuthorization = (): GdriveAuthorization => {
             window.removeEventListener("click", renewToken, { capture: true });
             window.removeEventListener("keyup", renewToken, { capture: true });
         };
-    }, [authorization, requestToken]);
+    }, [authorization, renewToken]);
 
     // React の onClick へ直接渡されると SyntheticEvent が overrideConfig として
     // requestAccessToken に流れ込むため、引数を受け取らない関数で境界を塞ぐ。
     const authorize = React.useCallback(() => {
-        // Reauthorize ボタンのクリックは window の capture リスナも通るため、
-        // 無音更新が先に走っている場合はポップアップを二重に開かない。
-        if (renewalStateRef.current === "requesting") {
+        const renewalState = renewalStateRef.current;
+        // Reauthorize ボタンのクリックは window の capture リスナも通るため、無音更新が先に走っている場合はポップアップを二重に開かない
+        if ((renewalState === "silentRequesting") || (renewalState === "manualRequesting")) {
             return;
         }
 
-        renewalStateRef.current = "requesting";
+        renewalStateRef.current = "manualRequesting";
 
         const accountEmail = accountEmailRef.current;
         if (accountEmail == null) {
@@ -109,15 +180,8 @@ export const useGdriveAuthorization = (): GdriveAuthorization => {
         requestToken({ prompt: "", hint: accountEmail });
     }, [requestToken]);
 
-    // ErdApplicationShell は React.memo でラップされており、参照が毎 render 変わると memo が素通りする。
-    // 状態遷移のときだけ参照が変わるよう固定する。
     return React.useMemo(() => {
-        return {
-            state: authorization.state,
-            accessToken: authorization.accessToken,
-            expiresAt: authorization.expiresAt,
-            authorize
-        };
+        return { authorization, authorize };
     }, [authorization, authorize]);
 };
 
@@ -126,90 +190,14 @@ const GDRIVE_SCOPES = [
     "https://www.googleapis.com/auth/drive.install"
 ];
 
-type AuthorizationToken = {
-    state: AuthorizationState,
-    accessToken: string,
-    expiresAt: number
-};
-
-const UNAUTHORIZED_TOKEN: AuthorizationToken = { state: "unauthorized", accessToken: "", expiresAt: 0 };
-
-// idle: 次のユーザ操作で更新してよい / requesting: ポップアップの応答待ち /
-// blocked: 自動更新が失敗した。ポップアップを繰り返し開かないよう、明示操作まで再試行しない。
-type RenewalState = "idle" | "requesting" | "blocked";
+const UNAUTHORIZED_TOKEN: AuthorizationToken = {
+    state: "unauthorized", accessToken: "", expiresAt: 0, grantedBy: "userRequest"
+} as const;
 
 type AuthorizedTokenResponse = Omit<TokenResponse, "error" | "error_description" | "error_uri">;
 
-type AuthorizedArgs = {
-    setAuthorization: React.Dispatch<React.SetStateAction<AuthorizationToken>>,
-    renewalStateRef: React.RefObject<RenewalState>,
-    accountEmailRef: React.RefObject<string | null>
-};
-
-const doAuthorized = (response: AuthorizedTokenResponse, args: AuthorizedArgs): void => {
-    const hasAccess = hasGrantedAllScopesGoogle(
-        response, "https://www.googleapis.com/auth/drive.file");
-    if (hasAccess === false) {
-        // 利用者がスコープを許可しなかった場合、操作のたびにポップアップを開き直しても同じ結果になる。
-        console.warn("Not granted the drive.file scope.");
-        args.renewalStateRef.current = "blocked";
-        return;
-    }
-
-    args.renewalStateRef.current = "idle";
-
-    // 期限ぎりぎりの要求が失効済みトークンで飛ばないよう、60 秒の余裕を引いておく。
-    const expiresAt = new Date().getTime() + (response.expires_in - 60) * 1000;
-    args.setAuthorization({ state: "authorized", accessToken: response.access_token, expiresAt });
-
-    if (args.accountEmailRef.current != null) {
-        return;
-    }
-
-    // login_hint に渡すアカウントは初回だけ引く。取得できなくてもログイン中のアカウントが
-    // 1 つなら更新は成立するため、失敗しても認可自体は続行させる。
-    findAuthorizedAccount(response.access_token).then(account => {
-        args.accountEmailRef.current = account.email;
-    }).catch(error => {
-        console.warn(`Failed to find the authorized account. ${error}`);
-    });
-};
-
-type RenewOnUserGestureArgs = {
-    expiresAt: number,
-    renewalStateRef: React.RefObject<RenewalState>,
-    accountEmailRef: React.RefObject<string | null>,
-    requestToken: (overrideConfig?: OverridableTokenClientConfig) => void
-};
-
-const initRenewOnUserGesture = (args: RenewOnUserGestureArgs): ((event: Event) => void) => {
-    return (event: Event) => {
-        if (args.renewalStateRef.current !== "idle") {
-            return;
-        }
-        if (shouldRenewAccessToken(args.expiresAt, new Date().getTime()) === false) {
-            return;
-        }
-
-        // ポップアップはフォーカスを奪うため、文字入力中に開くとタイプを取りこぼす。
-        // 入力中は見送り、キャンバス操作など次の機会を待つ。
-        if (isEditingText(event.target) === true) {
-            return;
-        }
-
-        args.renewalStateRef.current = "requesting";
-
-        // await や setState を挟むと transient user activation が失われ window.open がブロックされる。
-        // 必ずリスナと同じタスクの中で同期的に要求する。
-        // hint を渡すのは、複数の Google アカウントでログイン中でもアカウント選択画面を出さないため。
-        const accountEmail = args.accountEmailRef.current;
-        const overrideConfig: OverridableTokenClientConfig = (accountEmail == null)
-            ? { prompt: "" }
-            : { prompt: "", hint: accountEmail };
-
-        args.requestToken(overrideConfig);
-    };
-};
+// 有効期限が 10 分以下になった場合に、access_token の更新を行う
+const RENEW_TOKEN_MILLISECONDS = 10 * 60 * 1000;
 
 const isEditingText = (eventTarget: EventTarget | null): boolean => {
     if (eventTarget instanceof HTMLElement) {
@@ -218,11 +206,4 @@ const isEditingText = (eventTarget: EventTarget | null): boolean => {
     }
 
     return false;
-};
-
-// 期限までの残りがこの時間を切ったら、次のユーザ操作で更新を試みる。
-const RENEW_LEAD_MILLS = 10 * 60 * 1000;
-
-export const shouldRenewAccessToken = (expiresAt: number, currentTime: number): boolean => {
-    return (expiresAt - currentTime) <= RENEW_LEAD_MILLS;
 };
