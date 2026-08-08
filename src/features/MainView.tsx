@@ -5,7 +5,7 @@ import { DragActionContext, reduceDragAction, NO_DRAGGING } from "~/context/Drag
 import EditModeContext from "~/context/EditModeContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import {
-    SelectAction, reduceSelectAction, SelectEntityContext, EMPTY_SELECT_STATE, RELEASE_ACTION
+    SelectAction, reduceSelectAction, SelectEntityContext, RELEASE_ACTION
 } from "~/context/SelectEntityContext";
 import CanvasSearchPanel from "~/features/canvas/CanvasSearchPanel";
 import ControlPanel from "~/features/canvas/ControlPanel";
@@ -13,6 +13,7 @@ import DisplayScalePanel from "~/features/canvas/DisplayScalePanel";
 import ErdCanvas from "~/features/canvas/ErdCanvas";
 import EditMode, { EditModeType } from "~/models/EditMode";
 import ErdDocument from "~/models/ErdDocument";
+import SelectState from "~/models/SelectState";
 import { DEFAULT_LOCAL_SETTING, LocalSettingContext, reduceLocalSetting } from "~/context/LocalSettingContext";
 import TitlePanel from "~/features/canvas/TitlePanel";
 import { EXTERNAL_DOCUMENT_CHANGED_EVENT } from "~/components/constant";
@@ -80,7 +81,7 @@ const MainView = ({ erdDocument, onSave, erdExportable = true, remoteSync = fals
 const useMainHolder = ({ erdDocument, onSave }: MainViewProps) => {
     const [holderProps, setHolderProps] =
         React.useState<ErdDocumentsHolderOptions>({ erdDocuments: [erdDocument], cursor: 0 });
-    const [selectState, dispatchSelectAction] = React.useReducer(reduceSelectAction, EMPTY_SELECT_STATE);
+    const [selectState, dispatchSelectAction] = React.useReducer(reduceSelectAction, SelectState.NONE);
     const [editMode, dispatchEditMode] = React.useReducer(initReduceEditMode(dispatchSelectAction), EditModeType.SELECT);
     const [localSetting, dispatchLocalSetting] = React.useReducer(reduceLocalSetting, DEFAULT_LOCAL_SETTING);
 

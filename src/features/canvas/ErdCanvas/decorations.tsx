@@ -4,7 +4,7 @@ import MemoViewModel from "~/models/MemoViewModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import TableModel from "~/models/database/TableModel";
 import TableViewModel from "~/models/TableViewModel";
-import { SelectState } from "~/models/SelectState";
+import SelectState from "~/models/SelectState";
 import { CARDINALITY_MARKER } from "~/features/canvas/support";
 
 /**

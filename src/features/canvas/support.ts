@@ -3,7 +3,7 @@ import { DragState } from "~/models/DragState";
 import { OrthogonalDirection } from "~/models/LineViewModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import RelationViewModel, { OrthogonalRelation } from "~/models/RelationViewModel";
-import { SelectState } from "~/models/SelectState";
+import SelectState from "~/models/SelectState";
 
 export const handlePreventMouseEvent = (event: React.MouseEvent) => {
     event.stopPropagation();
