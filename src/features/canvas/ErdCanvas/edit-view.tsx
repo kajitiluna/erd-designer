@@ -19,7 +19,7 @@ export const initEditView = (editAction: EditAction, rectangleArea: RectangleAre
     if (editAction.editType === "table") {
         return (
             <TableEditView isOpen={editAction.editType === "table"}
-                tableViewModel={editAction.tableViewModel}
+                tableViewModel={editAction.tableView}
                 onClose={onClose} />
         );
     }
@@ -50,17 +50,17 @@ export const initEditView = (editAction: EditAction, rectangleArea: RectangleAre
 };
 
 const doCreateSelfRelation = (editAction: EditAction & { editType: "relation" }, rectangleArea: RectangleArea) => {
-    const lineViewModel = editAction.relationViewModel.lineViewModel;
+    const lineView = editAction.relationView.lineViewModel;
     const parentTableId = editAction.parentTable.tableModelId;
     const childTableId = editAction.childTable.tableModelId;
 
-    if ((parentTableId !== childTableId) || (lineViewModel.orthogonalLines.length >= 3)) {
-        return editAction.relationViewModel;
+    if ((parentTableId !== childTableId) || (lineView.orthogonalLines.length >= 3)) {
+        return editAction.relationView;
     }
 
     const rectangle = rectangleArea.tableRectangles.get(parentTableId);
     if (rectangle == null) {
-        return editAction.relationViewModel;
+        return editAction.relationView;
     }
 
     const orthogonalLines: OrthogonalDirection[] = [
@@ -69,7 +69,7 @@ const doCreateSelfRelation = (editAction: EditAction & { editType: "relation" },
         { direction: "horizontal", position: rectangle.bottom + 70 },
         { direction: "vertical", position: rectangle.right - rectangle.width / 4 }
     ];
-    const nextLineViewModel = lineViewModel.updateOrthogonalLines(orthogonalLines);
+    const nextLineView = lineView.updateOrthogonalLines(orthogonalLines);
 
-    return new RelationViewModel({ ...editAction.relationViewModel, lineViewModel: nextLineViewModel });
+    return new RelationViewModel({ ...editAction.relationView, lineViewModel: nextLineView });
 };

@@ -17,7 +17,7 @@ import DisplayColumnStyle from "~/models/DisplayColumnStyle";
 import DisplayNameStyle from "~/models/DisplayNameStyle";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import { DragState } from "~/models/DragState";
-import { SelectState } from "~/models/SelectState";
+import SelectState from "~/models/SelectState";
 
 export const mcpRegisterErdDocument = (documentResource: DocumentResource): McpRegisterConfig => {
     return {

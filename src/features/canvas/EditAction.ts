@@ -3,9 +3,9 @@ import RelationViewModel from "~/models/RelationViewModel";
 import TableViewModel from "~/models/TableViewModel";
 
 type EditAction = { editType: "none" }
-    | { editType: "table", tableViewModel: TableViewModel }
+    | { editType: "table", tableView: TableViewModel }
     | {
-        editType: "relation", relationViewModel: RelationViewModel,
+        editType: "relation", relationView: RelationViewModel,
         parentTable: TableModel, childTable: TableModel
     }
     | { editType: "perspective", targetId: string };

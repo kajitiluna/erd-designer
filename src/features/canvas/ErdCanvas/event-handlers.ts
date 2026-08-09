@@ -3,7 +3,7 @@ import React from "react";
 import { ErdDocumentsHolder } from "~/context/ErdDocumentsHolderContext";
 import { RELEASE_ACTION, SelectAction } from "~/context/SelectEntityContext";
 import EditMode, { EditModeType } from "~/models/EditMode";
-import { SelectState } from "~/models/SelectState";
+import SelectState from "~/models/SelectState";
 import { inOpenControlPanel, isTextInputFocused } from "~/components/support";
 
 /**

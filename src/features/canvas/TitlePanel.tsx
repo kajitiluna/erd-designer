@@ -200,7 +200,7 @@ const PreferenceMenu = ({ remoteSync = false }: TitlePanelProps) => {
             const nextErdSetting = erdSetting.update({ displayColumnStyle });
 
             const loggingMessage = "Update display column style. " +
-                JSON.stringify({ before: erdSetting.displayColumnStyle.name, after: displayColumnStyle.name });
+                JSON.stringify({ before: erdSetting.displayColumnStyle.key, after: displayColumnStyle.key });
             documentsHolder.updateErdSetting(nextErdSetting, loggingMessage);
         };
     };

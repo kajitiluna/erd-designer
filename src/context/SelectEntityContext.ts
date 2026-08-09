@@ -1,5 +1,5 @@
 import React from "react";
-import { SelectState } from "~/models/SelectState";
+import SelectState from "~/models/SelectState";
 
 export type SelectAction = { type: "none" }
     | SelectTableAction
@@ -16,17 +16,12 @@ type SelectEdgeAction = { type: "edge", lineType: "real" | "virtual", relationId
 type SelectRelationAction = { type: "relation", relationId: string };
 
 const EMPTY_IDS = new Set<string>();
-export const EMPTY_SELECT_STATE: SelectState = {
-    status: "none",
-    tableIds: EMPTY_IDS,
-    memoIds: EMPTY_IDS
-} as const;
 
 export const RELEASE_ACTION: SelectAction = { type: "none" };
 
 export const reduceSelectAction = (currentStatus: SelectState, action: SelectAction): SelectState => {
     if (action.type === "none") {
-        return EMPTY_SELECT_STATE;
+        return SelectState.NONE;
     }
 
     if (action.type === "completed") {
@@ -59,7 +54,7 @@ export const reduceSelectAction = (currentStatus: SelectState, action: SelectAct
 const handleSelectTable = (currentStatus: SelectState, action: SelectTableAction): SelectState => {
     if (action.withMultiSelection === false) {
         return currentStatus.tableIds.has(action.tableId)
-            ? EMPTY_SELECT_STATE
+            ? SelectState.NONE
             : { status: "on_selecting", tableIds: new Set([action.tableId]), memoIds: EMPTY_IDS };
     }
 
@@ -75,7 +70,7 @@ const handleSelectTable = (currentStatus: SelectState, action: SelectTableAction
 const handleSelectMemo = (currentStatus: SelectState, action: SelectMemoAction): SelectState => {
     if (action.withMultiSelection === false) {
         return currentStatus.memoIds.has(action.memoId)
-            ? EMPTY_SELECT_STATE
+            ? SelectState.NONE
             : { status: "on_selecting", tableIds: EMPTY_IDS, memoIds: new Set([action.memoId]) };
     }
 
@@ -91,7 +86,7 @@ const handleSelectMemo = (currentStatus: SelectState, action: SelectMemoAction):
 const handleSelectBulk = (currentStatus: SelectState, action: SelectBulkAction): SelectState => {
     if (action.withMultiSelection === false) {
         if (action.tableIds.length + action.memoIds.length === 0) {
-            return EMPTY_SELECT_STATE;
+            return SelectState.NONE;
         }
 
         const nextTableIds = (action.tableIds.length > 0) ? new Set(action.tableIds) : EMPTY_IDS;

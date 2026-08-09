@@ -5,7 +5,7 @@ import ViewportContext from "~/context/ViewportContext";
 import EditMode, { EditModeType } from "~/models/EditMode";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import { DragState } from "~/models/DragState";
-import { SelectState } from "~/models/SelectState";
+import SelectState from "~/models/SelectState";
 
 /**
  * ErdCanvas 内部専用モジュール。外部からの import は禁止 (ESLint no-restricted-imports で検査)。

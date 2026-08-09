@@ -2,21 +2,21 @@ import { Button, Stack } from "@mui/material";
 import { SxProps, Theme } from "@mui/material/styles";
 
 import { containedButtonStyle } from "~/features/start_up/start-up-styles";
+import { StartUpActions } from "~/features/start_up/support";
 
 type DiagramActionButtonsProp = {
-    onOpenCreateDialog: () => void;
-    onOpenImportDialog: () => void;
+    actions: StartUpActions;
     direction: "row" | "column";
     sx?: SxProps<Theme>;
 };
 
-const DiagramActionButtons = ({
-    onOpenCreateDialog, onOpenImportDialog, direction, sx
-}: DiagramActionButtonsProp) => {
+const DiagramActionButtons = ({ actions, direction, sx }: DiagramActionButtonsProp) => {
+    const { onOpenCreateDialog, onOpenImportDialog, onOpenSample } = actions;
 
     const isFullWidth = direction === "column";
     const createButtonSx = (direction === "row") ? { ...containedButtonStyle, flex: 1 } : containedButtonStyle;
     const importButtonSx = (direction === "row") ? { ...importButtonStyle, flex: 1 } : importButtonStyle;
+    const sampleButtonSx = (direction === "row") ? { ...sampleButtonStyle, flex: 1 } : sampleButtonStyle;
 
     return (
         <Stack direction={direction} spacing={1.75} sx={sx}>
@@ -27,6 +27,10 @@ const DiagramActionButtons = ({
             <Button variant="outlined" size="large" fullWidth={isFullWidth} sx={importButtonSx}
                 onClick={onOpenImportDialog}>
                 Import from .erd file
+            </Button>
+            <Button variant="outlined" size="large" fullWidth={isFullWidth} sx={sampleButtonSx}
+                onClick={onOpenSample}>
+                Open sample diagram
             </Button>
         </Stack>
     );
@@ -42,6 +46,18 @@ const importButtonStyle = {
     "&:hover": {
         backgroundColor: "brand.heroGradientStart",
         borderColor: "brand.borderButtonOutline",
+    },
+};
+
+const sampleButtonStyle = {
+    fontSize: 15,
+    padding: "14px 26px",
+    borderRadius: "9px",
+    color: "text.secondary",
+    borderColor: "brand.borderDivider",
+    "&:hover": {
+        borderColor: "brand.borderButtonOutline",
+        color: "primary.main",
     },
 };
 

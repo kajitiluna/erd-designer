@@ -13,6 +13,7 @@ import InitializeDatabaseDialog from "~/features/start_up/InitializeDatabaseDial
 import HeroLayout from "~/features/start_up/HeroLayout";
 import DashboardLayout from "~/features/start_up/DashboardLayout";
 import startUpTheme from "~/features/start_up/StartUpTheme";
+import { StartUpActions } from "~/features/start_up/support";
 
 type StartUpProp = {
     documentStorage: ErdDocumentStorage,
@@ -25,6 +26,7 @@ const StartUp = ({ documentStorage, onOpenDocument }: StartUpProp) => {
     const [initialized, setInitialized] = React.useState(false);
     const [openDialogName, setOpenDialogName] = React.useState<DialogName>("");
     const [erdSummaries, setErdSummaries] = React.useState<ErdDocumentSummary[]>([]);
+    const [sampleLoadFailureMessage, setSampleLoadFailureMessage] = React.useState("");
 
     // 初回表示時に保存済みの ERD ドキュメント一覧を取得する
     React.useEffect(() => {
@@ -43,19 +45,26 @@ const StartUp = ({ documentStorage, onOpenDocument }: StartUpProp) => {
 
     const handleCloseDialog = () => setOpenDialogName("");
 
-    const handleCreateDocument = (erdDocument: ErdDocument) => {
-        const documentKey = uuidV4();
-        documentStorage.save(documentKey, erdDocument, "Create new erd document.");
+    const handleCreateDocument = (erdDocument: ErdDocument) =>
+        handleSaveAndOpenDocument(erdDocument, "Create new erd document.");
 
-        const handleOnSave = (updating: ErdDocument, loggingMessage: string) =>
-            documentStorage.save(documentKey, updating, loggingMessage);
+    const handleLoadDocument = (erdDocument: ErdDocument) =>
+        handleSaveAndOpenDocument(erdDocument, "Load erd document from file.");
 
-        onOpenDocument(erdDocument, handleOnSave);
+    const handleOpenSample = () => {
+        setSampleLoadFailureMessage("");
+
+        loadSampleDocument()
+            .then(erdDocument => handleSaveAndOpenDocument(erdDocument, "Load sample erd document."))
+            .catch(error => {
+                console.warn(`Failed to load sample erd document. detail : ${error}`);
+                setSampleLoadFailureMessage("Failed to load the sample diagram.");
+            });
     };
 
-    const handleLoadDocument = (erdDocument: ErdDocument) => {
+    const handleSaveAndOpenDocument = (erdDocument: ErdDocument, savingMessage: string) => {
         const documentKey = uuidV4();
-        documentStorage.save(documentKey, erdDocument, "Load erd document from file.");
+        documentStorage.save(documentKey, erdDocument, savingMessage);
 
         const handleOnSave = (updating: ErdDocument, loggingMessage: string) =>
             documentStorage.save(documentKey, updating, loggingMessage);
@@ -66,12 +75,21 @@ const StartUp = ({ documentStorage, onOpenDocument }: StartUpProp) => {
     const mainPanel = initStartView({
         documentStorage, erdSummaries, onOpenDocument,
         onSummariesUpdated: (summaries: ErdDocumentSummary[]) => setErdSummaries(summaries),
-        onOpenDialog: (dialogName) => setOpenDialogName(dialogName)
+        onOpenDialog: (dialogName) => setOpenDialogName(dialogName),
+        onOpenSample: handleOpenSample
     });
 
     return (
         <ThemeProvider theme={startUpTheme}>
             {mainPanel}
+
+            {(sampleLoadFailureMessage !== "") && (
+                <Box sx={{ position: "fixed", top: 16, right: 16, zIndex: 1300, maxWidth: 360 }}>
+                    <Alert severity="error" onClose={() => setSampleLoadFailureMessage("")}>
+                        {sampleLoadFailureMessage}
+                    </Alert>
+                </Box>
+            )}
 
             {(openDialogName === "new_file") && (
                 <InitializeDatabaseDialog
@@ -91,24 +109,33 @@ const StartUp = ({ documentStorage, onOpenDocument }: StartUpProp) => {
     );
 };
 
+const loadSampleDocument = async (): Promise<ErdDocument> => {
+    const sampleModule = await import("../../../samples/sample-ec_mysql.erd?raw");
+    return ErdDocument.toObject(JSON.parse(sampleModule.default));
+};
+
 type InitViewArgs = {
     documentStorage: ErdDocumentStorage,
     erdSummaries: ErdDocumentSummary[],
     onOpenDocument: (openDocument: ErdDocument, onSave: (document: ErdDocument, message: string) => void) => void,
     onSummariesUpdated: (summaries: ErdDocumentSummary[]) => void,
-    onOpenDialog: (dialogName: "new_file" | "load_file") => void
+    onOpenDialog: (dialogName: "new_file" | "load_file") => void,
+    onOpenSample: () => void
 };
 
 const initStartView = ({
-    documentStorage, erdSummaries, onOpenDocument, onSummariesUpdated, onOpenDialog
+    documentStorage, erdSummaries, onOpenDocument, onSummariesUpdated, onOpenDialog, onOpenSample
 }: InitViewArgs) => {
 
-    const onOpenCreateDialog = () => onOpenDialog("new_file");
-    const onOpenImportDialog = () => onOpenDialog("load_file");
+    const actions: StartUpActions = {
+        onOpenCreateDialog: () => onOpenDialog("new_file"),
+        onOpenImportDialog: () => onOpenDialog("load_file"),
+        onOpenSample
+    };
 
     if (erdSummaries.length === 0) {
         return (
-            <HeroLayout onOpenCreateDialog={onOpenCreateDialog} onOpenImportDialog={onOpenImportDialog} />
+            <HeroLayout actions={actions} />
         );
     }
 
@@ -118,8 +145,7 @@ const initStartView = ({
             erdSummaries={erdSummaries}
             onOpenDocument={onOpenDocument}
             onSummariesUpdated={onSummariesUpdated}
-            onOpenCreateDialog={onOpenCreateDialog}
-            onOpenImportDialog={onOpenImportDialog}
+            actions={actions}
         />
     );
 };

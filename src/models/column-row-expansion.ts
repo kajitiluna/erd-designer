@@ -1,12 +1,16 @@
 import ColumnModel from "~/models/database/ColumnModel";
+import SimpleColumnModel from "~/models/database/SimpleColumnModel";
 import StructColumnModel from "~/models/database/StructColumnModel";
 import TableModel from "~/models/database/TableModel";
 import DisplayColumnStyle from "~/models/DisplayColumnStyle";
 import ErdDocument from "~/models/ErdDocument";
 
 export type ColumnRowEntry = {
-    columnModel: ColumnModel;
-    /** 同一 struct 定義を複数の兄弟カラムが共有していても一意になる、経路付きの行識別子。 */
+    columnModel: SimpleColumnModel;
+    rowId: string;
+    nestCount: number;
+} | {
+    columnModel: StructColumnModel;
     rowId: string;
     nestCount: number;
 };
@@ -67,12 +71,15 @@ const expandStructColumnRows = (
 };
 
 export const isColumnRowVisible = (erdDocument: ErdDocument, tableModel: TableModel, row: ColumnRowEntry): boolean => {
-    const displayColumnStyle = erdDocument.getDisplayColumnStyle();
+    const displayStyle = erdDocument.getDisplayColumnStyle();
+    if (displayStyle.equals(DisplayColumnStyle.NONE)) {
+        return false;
+    }
 
     if (ColumnModel.isSimpleColumn(row.columnModel)) {
         const inChildRelation = erdDocument.inChildRelation(tableModel.tableModelId, row.columnModel.columnModelId);
-        return displayColumnStyle.viewable(row.columnModel, inChildRelation);
+        return displayStyle.viewable(row.columnModel, inChildRelation);
     }
 
-    return displayColumnStyle.equals(DisplayColumnStyle.ALL);
+    return displayStyle.equals(DisplayColumnStyle.ALL);
 };

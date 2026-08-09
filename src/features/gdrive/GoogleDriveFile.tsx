@@ -13,6 +13,7 @@ import GoogleDriveNoticeLayout from "~/features/gdrive/GoogleDriveNoticeLayout";
 import exportSpreadSheetFormatSpecification from "~/features/spec/GoogleSpreadSheetFormatSpecification";
 import { containedButtonStyle, descriptionStyle } from "~/features/start_up/start-up-styles";
 import { EXTERNAL_DOCUMENT_CHANGED_EVENT, REMOTE_SYNC_REQUESTED_EVENT } from "~/components/constant";
+import { AuthorizationToken, GdriveAuthorization } from "~/features/gdrive/gdrive-authorization";
 
 type SessionDocument = {
     erdDocument: ErdDocument,
@@ -24,16 +25,17 @@ type SessionDocument = {
 type RemoteSyncState = "idle" | "syncing" | "unauthorized";
 
 type GoogleDriveFileProp = {
-    implicitToken: { accessToken: string, expiresAt: number },
-    authorize: () => void
+    authorization: GdriveAuthorization
 };
 
-const GoogleDriveFile = ({ implicitToken, authorize }: GoogleDriveFileProp) => {
+const GoogleDriveFile = ({ authorization: gdriveAuthorization }: GoogleDriveFileProp) => {
+    const { authorization, authorize } = gdriveAuthorization;
     const [sessionDocument, setSessionDocument] = React.useState<SessionDocument | null>(initSessionDocument);
     const [messageToast, setMessageToast] = React.useState<MessageToast | null>(null);
     const updateQueueRef = React.useRef<Promise<string>>(Promise.resolve(""));
     const latestDocumentRef = React.useRef<ErdDocument | null>(null);
     const importedDocumentRef = React.useRef<ErdDocument | null>(null);
+    const pendingDocumentRef = React.useRef<ErdDocument | null>(null);
     const syncStateRef = React.useRef<RemoteSyncState>("idle");
 
     const gdriveFileId = sessionStorage.getItem("gdriveFileId");
@@ -56,9 +58,15 @@ const GoogleDriveFile = ({ implicitToken, authorize }: GoogleDriveFileProp) => {
             return;
         }
 
+        // 期限切れ中は Drive へ書き込めないため保留する。再認可後にまとめて 1 件だけ保存する。
+        if (authorization.state !== "authorized") {
+            pendingDocumentRef.current = erdDocument;
+            return;
+        }
+
         const updateFunction = async (currentVersion: string) => {
             const updateArgs = {
-                accessToken: implicitToken.accessToken, fileId: gdriveFileId,
+                accessToken: authorization.accessToken, fileId: gdriveFileId,
                 currentVersion, nextDocument: erdDocument, loggingMessage: message,
                 setMessageToast, setSessionDocument
             };
@@ -66,12 +74,12 @@ const GoogleDriveFile = ({ implicitToken, authorize }: GoogleDriveFileProp) => {
         };
 
         enqueueUpdateTask(updateFunction, "save document");
-    }, [sessionDocument, gdriveFileId, implicitToken, enqueueUpdateTask]);
+    }, [sessionDocument, gdriveFileId, authorization, enqueueUpdateTask]);
 
     const exportSpecification = React.useCallback((erdDocument: ErdDocument) => {
         const specInfo = exportSpreadSheetFormatSpecification(erdDocument);
 
-        createSpreadSheet(implicitToken.accessToken, specInfo).then(spreadSheetId => {
+        createSpreadSheet(authorization.accessToken, specInfo).then(spreadSheetId => {
             const handleOpenSpec = (event: React.MouseEvent) => {
                 event.stopPropagation();
 
@@ -100,7 +108,7 @@ const GoogleDriveFile = ({ implicitToken, authorize }: GoogleDriveFileProp) => {
             };
             setMessageToast(failedToast);
         });
-    }, [implicitToken.accessToken]);
+    }, [authorization.accessToken]);
 
     // 再読み込みされた場合の制御
     React.useEffect(() => {
@@ -109,42 +117,84 @@ const GoogleDriveFile = ({ implicitToken, authorize }: GoogleDriveFileProp) => {
         }
 
         // 再読み込みされた直後は token がクリアされるので、再度認証を行ったうえで最新のファイルを取得する。
-        if (implicitToken.expiresAt < new Date().getTime()) {
+        if (authorization.state !== "authorized") {
             return;
         }
 
         openGdriveFile({
-            accessToken: implicitToken.accessToken, fileId: gdriveFileId
+            accessToken: authorization.accessToken, fileId: gdriveFileId
         }).then(gdriveFile => {
             setSessionDocument({ erdDocument: gdriveFile.erdDocument, version: gdriveFile.version });
         }).catch(error => {
             console.error(`Failed to open file. ${error}`);
         });
-    }, [implicitToken, sessionDocument, gdriveFileId]);
+    }, [authorization, sessionDocument, gdriveFileId]);
 
-    // アクセストークンの有効期限が切れる少し前に通知を表示する
+    // 期限が近づいたら再認可を促す。無音更新に成功すると expiresAt が延びて effect が張り直されるため、
+    // 通知は自分で消える。失効しても編集は続けられるので、その間は通知を出したままにする。
     React.useEffect(() => {
-        const currentDate = new Date().getTime();
-        const remainedTime = implicitToken.expiresAt - currentDate;
-        if (remainedTime <= 0) {
-            setSessionDocument(null);
+        if (authorization.state === "unauthorized") {
             return;
         }
 
-        const notifyTimerId = setTimeout(() => {
-            setMessageToast(initReauthorizeToast(setMessageToast, authorize));
-        }, remainedTime - 3 * 60 * 1000);
+        if (authorization.state === "expired") {
+            const expiredToast = initReauthorizeToast(setMessageToast, authorize, EXPIRED_MESSAGE);
+            setMessageToast(expiredToast);
+            return;
+        }
 
-        const timeoutTimerId = setTimeout(() => {
-            setMessageToast(null);
-            setSessionDocument(null);
-        }, remainedTime);
+        setMessageToast(current => {
+            // 対応を促している通知 (競合・再読み込み) を消さないよう、
+            // 差し替えるのは再認可を促す通知が出ている場合と、何も出ていない場合だけに限る。
+            if ((current != null) && (current.kind !== "reauthorize")) {
+                return current;
+            }
+
+            // 無音更新は利用者の操作なしに完了するため、再認可済みで編集を続けられることを知らせる。
+            if (authorization.grantedBy !== "silentRenewal") {
+                return null;
+            }
+
+            return {
+                severity: "info",
+                message: "Your Google authorization has been renewed automatically.\n"
+                    + "You can continue editing and saving to Google Drive.",
+                action: initCloseToastButton(setMessageToast),
+                autoHideMills: 5 * 1000
+            };
+        });
+
+        const remainedTime = authorization.expiresAt - new Date().getTime();
+        const notifyTimerId = setTimeout(() => {
+            const expiringToast = initReauthorizeToast(setMessageToast, authorize, EXPIRING_MESSAGE);
+            setMessageToast(expiringToast);
+        }, remainedTime - NOTIFY_LEAD_MILLS);
 
         return () => {
-            clearTimeout(timeoutTimerId);
             clearTimeout(notifyTimerId);
         };
-    }, [implicitToken, authorize]);
+    }, [authorization, authorize]);
+
+    // 期限切れ中に保留した編集を、再認可できた時点で保存する。
+    // Drive 側が更新されていれば doUpdateDocument の version 比較が競合を検知するため、上書きにはならない。
+    React.useEffect(() => {
+        if (authorization.state !== "authorized") {
+            return;
+        }
+
+        const pendingDocument = pendingDocumentRef.current;
+        if ((pendingDocument == null) || (gdriveFileId == null)) {
+            return;
+        }
+
+        pendingDocumentRef.current = null;
+
+        const savePendingTask = initSavePendingTask({
+            accessToken: authorization.accessToken, fileId: gdriveFileId,
+            nextDocument: pendingDocument, setMessageToast, setSessionDocument
+        });
+        enqueueUpdateTask(savePendingTask, "save pending document");
+    }, [authorization, gdriveFileId, enqueueUpdateTask]);
 
     // ドキュメント読み込み直後に、現在のバージョンを保持する
     React.useEffect(() => {
@@ -174,9 +224,9 @@ const GoogleDriveFile = ({ implicitToken, authorize }: GoogleDriveFileProp) => {
         syncStateRef.current = "idle";
 
         const handleSyncRequest = initHandleSyncRemoteRequest({
-            implicitToken, fileId: gdriveFileId,
+            authorization, authorize, fileId: gdriveFileId,
             latestDocumentRef, importedDocumentRef, syncStateRef,
-            enqueueUpdateTask, setMessageToast, authorize
+            enqueueUpdateTask, setMessageToast
         });
 
         window.addEventListener(REMOTE_SYNC_REQUESTED_EVENT, handleSyncRequest);
@@ -184,7 +234,7 @@ const GoogleDriveFile = ({ implicitToken, authorize }: GoogleDriveFileProp) => {
         return () => {
             window.removeEventListener(REMOTE_SYNC_REQUESTED_EVENT, handleSyncRequest);
         };
-    }, [sessionDocument, gdriveFileId, implicitToken, authorize, enqueueUpdateTask]);
+    }, [sessionDocument, gdriveFileId, authorization, authorize, enqueueUpdateTask]);
 
     // 初回描画後に、リダイレクト時にドキュメント情報を保持していたセッションを破棄する
     React.useEffect(() => {
@@ -204,11 +254,9 @@ const GoogleDriveFile = ({ implicitToken, authorize }: GoogleDriveFileProp) => {
     }
 
     if (sessionDocument == null) {
-        const currentDate = new Date().getTime();
-
         return (
             <GoogleDriveNoticeLayout>
-                {(implicitToken.expiresAt < currentDate) ? (
+                {(authorization.state === "authorized") ? (<CircularProgress />) : (
                     <Stack spacing={3} sx={{ justifyContent: "center", alignItems: "center", margin: 3 }}>
                         <Typography variant="body1" sx={descriptionStyle}>
                             Need to re-authorize to edit the ERD file on the Google Drive.
@@ -217,8 +265,6 @@ const GoogleDriveFile = ({ implicitToken, authorize }: GoogleDriveFileProp) => {
                             Authorize with Google
                         </Button>
                     </Stack>
-                ) : (
-                    <CircularProgress />
                 )}
             </GoogleDriveNoticeLayout>
         );
@@ -279,7 +325,9 @@ type MessageToast = {
     severity: "info" | "success" | "warning" | "error",
     message: string,
     action: React.ReactNode,
-    autoHideMills?: number
+    autoHideMills?: number,
+    // 再認可を促す通知だけは無音更新の成功時に取り下げる必要があるため、他の通知と区別できるようにする。
+    kind?: "reauthorize"
 };
 
 type DoUpdateDocumentArgs = {
@@ -358,9 +406,22 @@ const initSafeUpdateTask = (task: UpdateTask, taskName: string): UpdateTask => {
     };
 };
 
+// 無音更新はユーザ操作に便乗するため、放置されている間は走らない。
+// 手動の Reauthorize へ切り替えられる猶予として、失効前に通知を出す。
+const NOTIFY_LEAD_MILLS = 3 * 60 * 1000;
+
+const EXPIRING_MESSAGE = "Your session is about to expire in less than a few minutes.\n"
+    + "Please reauthorize your Google account\n"
+    + "to continue using the service without interruption.";
+
+const EXPIRED_MESSAGE = "Your session has expired.\n"
+    + "Your edits are kept in this tab but are no longer saved to Google Drive.\n"
+    + "Please reauthorize your Google account to resume saving.";
+
 const initReauthorizeToast = (
     setMessageToast: React.Dispatch<React.SetStateAction<MessageToast | null>>,
-    authorize: () => void
+    authorize: () => void,
+    message: string
 ): MessageToast => {
     const handleRenewToken = (event: React.MouseEvent) => {
         event.stopPropagation();
@@ -371,22 +432,29 @@ const initReauthorizeToast = (
 
     return {
         severity: "warning",
-        message: "Your session is about to expire in less than a few minutes.\n"
-            + "Please reauthorize your Google account\n"
-            + "to continue using the service without interruption.",
-        action: (<Button color="inherit" size="small" onClick={handleRenewToken}>Reauthorize</Button>)
+        message,
+        action: (<Button color="inherit" size="small" onClick={handleRenewToken}>Reauthorize</Button>),
+        kind: "reauthorize"
+    };
+};
+
+const initSavePendingTask = (
+    args: Omit<DoUpdateDocumentArgs, "currentVersion" | "loggingMessage">
+): UpdateTask => {
+    return async (currentVersion: string) => {
+        return doUpdateDocument({ ...args, currentVersion, loggingMessage: "save pending document" });
     };
 };
 
 type HandleSyncRemoteRequestArgs = {
-    implicitToken: { accessToken: string, expiresAt: number },
+    authorization: AuthorizationToken,
+    authorize: () => void,
     fileId: string,
     latestDocumentRef: React.RefObject<ErdDocument | null>,
     importedDocumentRef: React.RefObject<ErdDocument | null>,
     syncStateRef: React.RefObject<RemoteSyncState>,
     enqueueUpdateTask: (task: UpdateTask, taskName: string) => void,
-    setMessageToast: React.Dispatch<React.SetStateAction<MessageToast | null>>,
-    authorize: () => void
+    setMessageToast: React.Dispatch<React.SetStateAction<MessageToast | null>>
 };
 
 const initHandleSyncRemoteRequest = (args: HandleSyncRemoteRequestArgs) => {
@@ -399,7 +467,7 @@ const initHandleSyncRemoteRequest = (args: HandleSyncRemoteRequestArgs) => {
             return;
         }
 
-        if (args.implicitToken.expiresAt < Date.now()) {
+        if (args.authorization.state !== "authorized") {
             return;
         }
 
@@ -414,7 +482,7 @@ const initRemoteSyncTask = (args: HandleSyncRemoteRequestArgs): UpdateTask => {
     return async (currentVersion: string) => {
         try {
             const nextVersion = await doImportRemoteUpdate({
-                accessToken: args.implicitToken.accessToken,
+                accessToken: args.authorization.accessToken,
                 fileId: args.fileId,
                 currentVersion,
                 latestDocumentRef: args.latestDocumentRef,
@@ -430,7 +498,9 @@ const initRemoteSyncTask = (args: HandleSyncRemoteRequestArgs): UpdateTask => {
             args.syncStateRef.current = nextState;
 
             if (nextState === "unauthorized") {
-                args.setMessageToast(initReauthorizeToast(args.setMessageToast, args.authorize));
+                const expiredToast = initReauthorizeToast(
+                    args.setMessageToast, args.authorize, EXPIRED_MESSAGE);
+                args.setMessageToast(expiredToast);
             } else {
                 console.warn(`Failed to sync remote updated. ${error}`);
             }

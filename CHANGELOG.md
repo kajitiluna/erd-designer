@@ -6,6 +6,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.20260809] - 2026-08-09
+
+### Added
+
+- **Hidden columns shown on hover**:
+
+  When "Show Columns" hides some of a table's columns, select the table and hover over it to see the full column list
+  in a popup. It does not appear while you drag the table, or when "Show Columns" is set to "All Columns".
+
+- **Open sample diagram**:
+
+  A new "Open sample diagram" button on the start screen opens a ready-made EC site schema, so you can try out
+  the editor without drawing a diagram first. An error message appears if the sample cannot be loaded.
+
+### Changed
+
+- **Google Drive app: re-authorization no longer needed every hour**:
+
+  The access token is now renewed in the background. Once it is within ten minutes of expiring,
+  your next click or key press in the editor triggers the renewal, and a short notice confirms it.
+  The "Reauthorize" prompt still appears if the browser blocks the renewal popup,
+  or if you were idle long enough for the token to lapse.
+
+### Fixed
+
+- **Google Drive app: edits are no longer lost when the session expires**:
+
+  An expired access token used to close the editor, discarding unsaved changes and the undo history.
+  The diagram now stays open and editable. Saving and remote sync pause until you re-authorize,
+  then the pending edits are saved. If the file changed on Drive in the meantime, the usual conflict notice appears
+  instead of overwriting it.
+
 
 ## [0.20260803] - 2026-08-03
 

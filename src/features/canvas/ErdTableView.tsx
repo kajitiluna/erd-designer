@@ -27,7 +27,7 @@ import { handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/s
 import TableViewModel from "~/models/TableViewModel";
 import ColorValue from "~/models/ColorValue";
 import { EditModeType } from "~/models/EditMode";
-import { ColumnRowEntry, expandColumnRows } from "~/models/column-row-expansion";
+import { ColumnRowEntry, expandColumnRows, isColumnRowVisible } from "~/models/column-row-expansion";
 import ErdDocument from "~/models/ErdDocument";
 import LineViewModel from "~/models/LineViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
@@ -43,19 +43,20 @@ import TableUniqueKeysModel from "~/models/database/TableUniqueKeysModel";
 import { overrideColumnName } from "~/models/database/support";
 
 import styleClasses from "./ErdCanvas.module.css";
-import { SelectState } from "~/models/SelectState";
+import SelectState from "~/models/SelectState";
 import DisplayColumnStyle from "~/models/DisplayColumnStyle";
+import { DragState } from "~/models/DragState";
 
 export const ERD_TABLE_VIEW_CLASS_NAME = "erd-table-view";
 
 type ErdTableViewProps = {
-    tableViewModel: TableViewModel,
+    tableView: TableViewModel,
     visible?: boolean,
     onEditAction: (editAction: EditAction) => void,
     onDragAction: (dragAction: DragAction) => void
 };
 
-const ErdTableView = ({ tableViewModel, visible = true, onEditAction, onDragAction }: ErdTableViewProps) => {
+const ErdTableView = ({ tableView, visible = true, onEditAction, onDragAction }: ErdTableViewProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState } = React.useContext(SelectEntityContext);
@@ -66,9 +67,13 @@ const ErdTableView = ({ tableViewModel, visible = true, onEditAction, onDragActi
     const erdDocument = documentsHolder.current();
 
     const tableContentCache = React.useMemo(() => {
-        const tableModel = tableViewModel.tableModel;
-        const allColumns = erdDocument.toAllColumnsWithStruct(tableModel);
-        const columnRows = expandColumnRows(erdDocument, allColumns);
+        const tableModel = tableView.tableModel;
+        const displayStyle = erdDocument.getDisplayColumnStyle();
+
+        const allColumns = (displayStyle.equals(DisplayColumnStyle.NONE))
+            ? [] : erdDocument.toAllColumnsWithStruct(tableModel);
+        const columnRows = expandColumnRows(erdDocument, allColumns)
+            .filter(row => isColumnRowVisible(erdDocument, tableModel, row));
         const tableRows = (columnRows.length > 0)
             ? columnRows.map(row => initTableColumnRow(row, tableModel, erdDocument, selectState))
             : (<TableRow><TableCell></TableCell></TableRow>);
@@ -91,18 +96,23 @@ const ErdTableView = ({ tableViewModel, visible = true, onEditAction, onDragActi
         (selectState.relationId || "")
     ]);
 
-    const selected = selectState.tableIds.has(tableViewModel.tableId);
+    const selected = selectState.tableIds.has(tableView.tableId);
+
+    const wrapTableTooltip = React.useMemo(() => {
+        return initWrapContentTooltip(tableView.tableModel, selected, erdDocument, dragState);
+    }, [erdDocument.lastUpdatedAt, selected, (selected ? dragState.status : "")]);
 
     const viewCache = React.useMemo(() => {
         return (
             <InnerErdTableView
-                tableViewModel={tableViewModel}
+                tableView={tableView}
                 onEditAction={onEditAction}
                 onDragAction={onDragAction}
                 tableContentCache={tableContentCache}
                 selected={selected}
                 visible={visible}
                 isOpenDeletingDialog={openDeletingDialog}
+                wrapTableTooltip={wrapTableTooltip}
                 onOpenDeleteDialog={setOpenDeleteDialog} />
         );
     }, [
@@ -114,7 +124,7 @@ const ErdTableView = ({ tableViewModel, visible = true, onEditAction, onDragActi
         // リレーション作成時の制御に対する検証
         editMode, (editMode === EditModeType.CREATE_RELATION ? [...selectState.tableIds].join(",") : ""),
         // テーブルキャッシュに対する検証
-        tableContentCache,
+        tableContentCache, wrapTableTooltip,
         // 削除確認ダイアログ表示に対する検証
         openDeletingDialog
     ]);
@@ -150,40 +160,34 @@ const BODY_STYLE = {
 };
 
 const initTableColumnRow = (
-    row: ColumnRowEntry, tableModel: TableModel, erdDocument: ErdDocument, selectState: SelectState
+    row: ColumnRowEntry, tableModel: TableModel, erdDocument: ErdDocument, selectState: SelectState = SelectState.NONE
 ): React.JSX.Element => {
-    if (ColumnModel.isSimpleColumn(row.columnModel)) {
-        return initTableSingleColumn(row.columnModel, row.rowId, row.nestCount, tableModel, erdDocument, selectState);
+    if (isSimpleColumnRow(row)) {
+        return initTableSingleColumn(row, tableModel, erdDocument, selectState);
     }
 
-    const displayColumnStyle = erdDocument.getDisplayColumnStyle();
-    if (displayColumnStyle.equals(DisplayColumnStyle.ALL) === false) {
-        // PK もしくは FK のみ表示する場合は、struct は該当しない
-        return (<></>);
-    }
+    return initTableStructColumnRow(row, tableModel, erdDocument);
+};
 
-    return initTableStructColumnRow(row.columnModel, row.rowId, row.nestCount, tableModel, erdDocument);
+const isSimpleColumnRow = (row: ColumnRowEntry): row is ColumnRowEntry & { columnModel: SimpleColumnModel } => {
+    return ColumnModel.isSimpleColumn(row.columnModel);
 };
 
 const initTableSingleColumn = (
-    columnModel: SimpleColumnModel, rowId: string, nestCount: number,
-    tableModel: TableModel, erdDocument: ErdDocument, selectState: SelectState
+    row: ColumnRowEntry & { columnModel: SimpleColumnModel }, tableModel: TableModel,
+    erdDocument: ErdDocument, selectState: SelectState
 ) => {
+    const columnModel = row.columnModel;
     const columnShare = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
     if (columnShare == null) {
         console.warn(`columnShareModel is not existed. columnShareModelId = ${columnModel.columnShareModelId}`)
         return (<></>);
     }
 
-    const inChildRelation = erdDocument.inChildRelation(tableModel.tableModelId, columnModel.columnModelId);
-    const displayColumnStyle = erdDocument.getDisplayColumnStyle();
-    if (displayColumnStyle.viewable(columnModel, inChildRelation) === false) {
-        return (<></>);
-    }
-
     const selectedRelationColumn = isSelectedRelationColumn(columnModel.columnModelId, erdDocument, selectState);
 
     const displayColumnName = initDisplayColumnName(columnModel, columnShare, erdDocument.getDisplayNameStyle());
+    const inChildRelation = erdDocument.inChildRelation(tableModel.tableModelId, columnModel.columnModelId);
     const displayColumnType = columnShare.specifiedColumnType(inChildRelation).replace("TIME ZONE", "TZ");
     const displayOption = initDisplayOption(columnModel);
 
@@ -194,11 +198,11 @@ const initTableSingleColumn = (
     const styleRow = selectedRelationColumn ? { backgroundColor: "rgba(73, 76, 218, 0.12)" } : {};
     const styleTextCell = { whiteSpace: "nowrap", color: fontColor };
     const styleAttributeCell = { whiteSpace: "nowrap", color: fontColor, fontSize: "0.914em" };
-    const indentStyle = { marginLeft: `${nestCount * STRUCT_INDENT_WIDTH}px` };
+    const indentStyle = { marginLeft: `${row.nestCount * STRUCT_INDENT_WIDTH}px` };
 
     return (
-        <TableRow key={`erd-table-column_${rowId}`}
-            data-column-id={rowId} sx={styleRow}>
+        <TableRow key={`erd-table-column_${row.rowId}`}
+            data-column-id={row.rowId} sx={styleRow}>
             <TableCell align="center" sx={STYLE_PRIMARY_CELL} >
                 {columnModel.primaryKey && <PrimaryKeyIcon />}
             </TableCell>
@@ -223,8 +227,9 @@ const initTableSingleColumn = (
 };
 
 const initTableStructColumnRow = (
-    structColumn: StructColumnModel, rowId: string, nestCount: number, tableModel: TableModel, erdDocument: ErdDocument
+    row: ColumnRowEntry & { columnModel: StructColumnModel }, tableModel: TableModel, erdDocument: ErdDocument
 ): React.JSX.Element => {
+    const structColumn = row.columnModel;
     const structShare = erdDocument.findStructColumnShareModel(structColumn.structShareModelId);
     if (structShare == null) {
         console.warn(`structColumnShareModel is not existed. structColumnShareId = ${structColumn.structShareModelId}`)
@@ -236,11 +241,11 @@ const initTableStructColumnRow = (
     const displayColumnType = structShare.simpleColumnType();
     const displayOption = structColumn.notNull ? "(NN)" : "";
 
-    const indentStyle = { marginLeft: `${nestCount * STRUCT_INDENT_WIDTH}px` };
+    const indentStyle = { marginLeft: `${row.nestCount * STRUCT_INDENT_WIDTH}px` };
 
     return (
-        <TableRow key={`erd-table-column_${rowId}`}
-            data-column-id={rowId}>
+        <TableRow key={`erd-table-column_${row.rowId}`}
+            data-column-id={row.rowId}>
             <TableCell align="center" sx={STYLE_PRIMARY_CELL} />
             <TableCell align="center" sx={STYLE_FOREIGN_CELL} />
 
@@ -418,37 +423,33 @@ const STRUCT_INDENT_WIDTH = 10;
 type SelfSelectableMode = "none" | "start_selecting" | "self_selectable";
 
 type InnerErdTableViewProps = {
-    tableViewModel: TableViewModel,
+    tableView: TableViewModel,
     onEditAction: (editAction: EditAction) => void,
     onDragAction: (dragAction: DragAction) => void,
     tableContentCache: React.JSX.Element,
     selected: boolean,
     isOpenDeletingDialog: boolean,
     visible: boolean,
+    wrapTableTooltip: (content: React.JSX.Element) => React.JSX.Element,
     onOpenDeleteDialog: (open: boolean) => void
 };
 
 const InnerErdTableView = ({
-    tableViewModel, onEditAction, onDragAction,
-    tableContentCache, selected, isOpenDeletingDialog, visible, onOpenDeleteDialog
+    tableView, onEditAction, onDragAction,
+    tableContentCache, selected, isOpenDeletingDialog, visible, wrapTableTooltip, onOpenDeleteDialog
 }: InnerErdTableViewProps) => {
 
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
-    const { viewport, scaleState } = React.useContext(ViewportContext);
+    const { viewport } = React.useContext(ViewportContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
-    const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
-    const { toolbarCanvasElement } = React.useContext(PortalCanvasContext);
 
     const containerRef = React.useRef<HTMLDivElement>(null);
     const [selfSelectableMode, setSelfSelectableMode] = React.useState<SelfSelectableMode>("none");
 
     const erdDocument = documentsHolder.current();
-    const erdSetting = erdDocument.erdSettingModel;
-    const perspectives = erdSetting.getPerspectiveModels();
-
-    const tableModel = tableViewModel.tableModel;
+    const tableModel = tableView.tableModel;
 
     const handleMouseDown = (event: React.MouseEvent) => {
         // 左クリック以外は無視
@@ -463,13 +464,13 @@ const InnerErdTableView = ({
             setSelfSelectableMode("none");
             onDragAction({ type: "start_dragging", start: mousePosition });
 
-            if (selectState.tableIds.has(tableViewModel.tableId)) {
+            if (selectState.tableIds.has(tableView.tableId)) {
                 return;
             }
 
             const withMultiSelection = withMultiSelectKey(event);
             dispatchSelectAction({
-                type: "table", tableId: tableViewModel.tableId, withMultiSelection
+                type: "table", tableId: tableView.tableId, withMultiSelection
             });
 
             return;
@@ -481,7 +482,7 @@ const InnerErdTableView = ({
             onDragAction({ type: "start_dragging", start: mousePosition });
 
             if (selectState.tableIds.size !== 1) {
-                dispatchSelectAction({ type: "table", tableId: tableViewModel.tableId });
+                dispatchSelectAction({ type: "table", tableId: tableView.tableId });
                 setSelfSelectableMode(current => (current === "none") ? "start_selecting" : current);
             }
 
@@ -505,14 +506,14 @@ const InnerErdTableView = ({
             }
 
             if ((selectState.status === "on_selecting")
-                && (selectState.tableIds.has(tableViewModel.tableId))) {
+                && (selectState.tableIds.has(tableView.tableId))) {
                 dispatchSelectAction({ type: "completed" });
                 return;
             }
 
             const withMultiSelection = withMultiSelectKey(event);
             dispatchSelectAction({
-                type: "table", tableId: tableViewModel.tableId, withMultiSelection
+                type: "table", tableId: tableView.tableId, withMultiSelection
             });
 
             return;
@@ -525,7 +526,7 @@ const InnerErdTableView = ({
 
             const parentTableId = selectState.tableIds.values().next().value as string;
             // 選択を開始した直後に限り、親と子が同じテーブルの場合は無視する
-            if ((parentTableId === tableViewModel.tableId) && (selfSelectableMode === "start_selecting")) {
+            if ((parentTableId === tableView.tableId) && (selfSelectableMode === "start_selecting")) {
                 setSelfSelectableMode("self_selectable");
                 return;
             }
@@ -539,13 +540,13 @@ const InnerErdTableView = ({
 
             const relationModel = new RelationModel({
                 parentTableModelId: parentTableId,
-                childTableModelId: tableViewModel.tableId
+                childTableModelId: tableView.tableId
             });
             const lineViewModel = new LineViewModel({});
 
             onEditAction({
                 editType: "relation",
-                relationViewModel: new RelationViewModel({ relationModel, lineViewModel }),
+                relationView: new RelationViewModel({ relationModel, lineViewModel }),
                 parentTable: parentTableView.tableModel,
                 childTable: tableModel
             });
@@ -572,17 +573,6 @@ const InnerErdTableView = ({
         handleOpenEditDialog(event);
     };
 
-    const handleSettingPerspectiveDialog = (event: React.MouseEvent) => {
-        if (editMode != EditModeType.SELECT) {
-            return;
-        }
-
-        event.stopPropagation();
-
-        onEditAction({ editType: "perspective", targetId: tableViewModel.tableId });
-        dispatchSelectAction(RELEASE_ACTION);
-    };
-
     const handleOpenEditDialog = (event: React.MouseEvent) => {
         if (editMode != EditModeType.SELECT) {
             return;
@@ -590,25 +580,13 @@ const InnerErdTableView = ({
 
         event.stopPropagation();
 
-        onEditAction({ editType: "table", tableViewModel });
+        onEditAction({ editType: "table", tableView });
         dispatchSelectAction(RELEASE_ACTION);
     };
 
-    const handleSetColor = (background: ColorValue, foreground: ColorValue) => {
-        dispatchLocalSetting({ type: "defaultColor", color: { background, foreground } });
-
-        const beforeColor = tableViewModel.headerColor;
-        const loggingMessage = `Update table color. ${JSON.stringify({
-            tableId: tableViewModel.tableId,
-            before: { background: beforeColor.background.toHex(), foreground: beforeColor.foreground.toHex() },
-            after: { background: background.toHex(), foreground: foreground.toHex() }
-        })}`;
-        documentsHolder.updateTableViewColor([tableViewModel.tableId], background, foreground, loggingMessage);
-    };
-
     const handleDeleteTable = (event: React.MouseEvent) => {
-        const loggingMessage = `Delete table: ${JSON.stringify(tableViewModel)}`;
-        documentsHolder.deleteTable(tableViewModel.tableId, loggingMessage);
+        const loggingMessage = `Delete table: ${JSON.stringify(tableView)}`;
+        documentsHolder.deleteTable(tableView.tableId, loggingMessage);
         handleCloseDeletingDialog(event);
     };
 
@@ -617,12 +595,11 @@ const InnerErdTableView = ({
         onOpenDeleteDialog(false)
     };
 
-    const moving = (selected && (dragState.status === "on_dragging"))
-        ? dragState.delta() : { x: 0, y: 0 }
-
+    const moving = (selected && (dragState.status === "on_dragging")) ? dragState.delta() : { x: 0, y: 0 };
     const physicalPosition = viewport.toPhysicalPosition(
-        { x: tableViewModel.corner.left + moving.x, y: tableViewModel.corner.top + moving.y }
+        { x: tableView.corner.left + moving.x, y: tableView.corner.top + moving.y }
     );
+
     const tableStyle = {
         position: "absolute", zIndex: selected ? 100 : "auto",
         left: physicalPosition.x, top: physicalPosition.y,
@@ -630,86 +607,33 @@ const InnerErdTableView = ({
         userSelect: "none",
         ...((visible === false) && { opacity: 0, pointerEvents: 'none' })
     };
-
     const boundStyle = {
         paddingBottom: "4px",
         border: "2px solid black",
         borderRadius: "10px",
-        backgroundColor: tableViewModel.headerColor.background.toRgba(),
-        color: tableViewModel.headerColor.foreground.toRgba()
+        backgroundColor: tableView.headerColor.background.toRgba(),
+        color: tableView.headerColor.foreground.toRgba()
     };
 
-    const tableClassName = selected ?
-        `${ERD_TABLE_VIEW_CLASS_NAME} ${styleClasses.selectedBox}`
+    const tableClassName = selected
+        ? `${ERD_TABLE_VIEW_CLASS_NAME} ${styleClasses.selectedBox}`
         : ERD_TABLE_VIEW_CLASS_NAME;
-
-    const initControlPanel = () => {
-        if ((containerRef.current == null) || (toolbarCanvasElement == null)) {
-            return (<></>);
-        }
-
-        if ((selected === false) || (editMode !== EditModeType.SELECT)
-            || (dragState.status === "on_dragging")
-            || (selectState.tableIds.size + selectState.memoIds.size !== 1)) {
-            return (<></>);
-        }
-
-        const portalRect = toolbarCanvasElement.getBoundingClientRect();
-        const containerRect = containerRef.current.getBoundingClientRect();
-        const controlPanelStyle: React.CSSProperties = {
-            justifyContent: "flex-end",
-            position: "absolute",
-            left: (containerRect.right - portalRect.left) / scaleState.scale,
-            top: (containerRect.bottom - portalRect.top + 10) / scaleState.scale,
-            transformOrigin: "top right",
-            transform: `translateX(-100%) scale(${1 / scaleState.scale})`,
-            pointerEvents: "auto",
-        };
-
-        const controlMenu = (
-            <Stack direction="row" sx={controlPanelStyle}
-                onClick={handlePreventMouseEvent}
-                onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
-                <div style={CONTROL_PANEL_STYLE}>
-                    <ColorSelector key={`table-color-selector_${tableViewModel.tableId}`}
-                        color={tableViewModel.headerColor.background}
-                        callback={handleSetColor} />
-                    {(perspectives.length > 0) && (
-                        <Tooltip title="Perspective" placement="top-end">
-                            <IconButton onClick={handleSettingPerspectiveDialog}>
-                                <VisibilityIcon />
-                            </IconButton>
-                        </Tooltip>
-                    )}
-                    <Tooltip title="Edit" placement="top-end">
-                        <IconButton onClick={handleOpenEditDialog}>
-                            <EditIcon />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete" placement="top-end">
-                        <IconButton onClick={() => onOpenDeleteDialog(true)}>
-                            <DeleteIcon />
-                        </IconButton>
-                    </Tooltip>
-                </div>
-            </Stack>
-        );
-
-        return ReactDOM.createPortal(controlMenu, toolbarCanvasElement);
-    };
-
-    const controlPanel = initControlPanel();
 
     return (
         <Box sx={tableStyle} ref={containerRef}>
-            <Box id={tableViewModel.tableId} tabIndex={0} sx={boundStyle}
-                style={{ cursor: 'pointer' }} className={tableClassName}
-                data-entity-id={tableViewModel.tableId}
-                onMouseDown={handleMouseDown} onMouseUp={handleMouseUp}
-                onClick={handleClick} onDoubleClick={handleDoubleClick}>
-                {tableContentCache}
-            </Box>
-            {controlPanel}
+            {wrapTableTooltip(
+                <Box id={tableView.tableId} tabIndex={0} sx={boundStyle}
+                    style={{ cursor: 'pointer' }} className={tableClassName}
+                    data-entity-id={tableView.tableId}
+                    onMouseDown={handleMouseDown} onMouseUp={handleMouseUp}
+                    onClick={handleClick} onDoubleClick={handleDoubleClick}>
+                    {tableContentCache}
+                </Box>
+            )}
+            <TableControlPanel
+                tableView={tableView} containerRef={containerRef} selected={selected}
+                onEditAction={onEditAction} onOpenDeleteDialog={onOpenDeleteDialog} />
+
             <Dialog open={isOpenDeletingDialog} onClose={handleCloseDeletingDialog}>
                 <DialogTitle>Delete table?</DialogTitle>
                 <DialogContent>
@@ -726,9 +650,180 @@ const InnerErdTableView = ({
     );
 };
 
+const initWrapContentTooltip = (
+    tableModel: TableModel, selected: boolean, erdDocument: ErdDocument, dragState: DragState
+) => {
+    const columnTooltip = initColumnTooltip(tableModel, selected, erdDocument, dragState);
+    const wrapContentTooltip = (content: React.JSX.Element) => {
+        return (
+            <Tooltip title={columnTooltip} placement="right" arrow slotProps={TABLE_TOOLTIP_STYLE}>
+                {content}
+            </Tooltip>
+        );
+    };
+
+    // eslint-plugin-react の react/display-name ルール対応のため、一度変数に代入したものを返却する
+    return wrapContentTooltip;
+};
+
+const initColumnTooltip = (
+    tableModel: TableModel, selected: boolean, erdDocument: ErdDocument, dragState: DragState
+) => {
+    if ((selected === false) || (dragState.status === "on_dragging")) {
+        return "";
+    }
+
+    const displayStyle = erdDocument.getDisplayColumnStyle();
+    if (displayStyle.equals(DisplayColumnStyle.ALL)) {
+        return "";
+    }
+
+    const allColumns = erdDocument.toAllColumnsWithStruct(tableModel);
+    const columnRows = expandColumnRows(erdDocument, allColumns);
+    if (columnRows.length === 0) {
+        return "";
+    }
+
+    const tableRows = columnRows.map(row => initTableColumnRow(row, tableModel, erdDocument));
+
+    return (
+        <TableContainer sx={{ overflow: "hidden", borderRadius: "10px" }}>
+            <Table size="small" sx={{ backgroundColor: "#FDFDFD", "& .MuiTableCell-root": { fontSize: "0.7rem" } }}>
+                <TableBody>{tableRows}</TableBody>
+            </Table>
+        </TableContainer>
+    );
+};
+
+const TABLE_TOOLTIP_STYLE = {
+    tooltip: {
+        sx: {
+            maxWidth: "none",
+            padding: 0,
+            backgroundColor: "#FDFDFD",
+            border: "1px solid rgba(0, 0, 0, 0.12)",
+            borderRadius: "10px",
+            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.35)"
+        }
+    },
+    arrow: { sx: { color: "#FDFDFD" } }
+} as const;
+
+type TableControlPanelProps = {
+    tableView: TableViewModel;
+    containerRef: React.RefObject<HTMLDivElement | null>;
+    selected: boolean;
+    onEditAction: (editAction: EditAction) => void;
+    onOpenDeleteDialog: (open: boolean) => void;
+};
+
+const TableControlPanel = ({
+    tableView, containerRef, selected, onEditAction, onOpenDeleteDialog
+}: TableControlPanelProps) => {
+    const documentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const { scaleState } = React.useContext(ViewportContext);
+    const { editMode } = React.useContext(EditModeContext);
+    const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
+    const dragState = React.useContext(DragActionContext);
+    const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
+    const { toolbarCanvasElement } = React.useContext(PortalCanvasContext);
+
+    if ((containerRef.current == null) || (toolbarCanvasElement == null)) {
+        return (<></>);
+    }
+
+    if ((selected === false) || (editMode !== EditModeType.SELECT)
+        || (dragState.status === "on_dragging")
+        || (selectState.tableIds.size + selectState.memoIds.size !== 1)) {
+        return (<></>);
+    }
+
+    const erdDocument = documentsHolder.current();
+    const erdSetting = erdDocument.erdSettingModel;
+    const perspectives = erdSetting.getPerspectiveModels();
+
+    const portalRect = toolbarCanvasElement.getBoundingClientRect();
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const controlPanelStyle: React.CSSProperties = {
+        justifyContent: "flex-end",
+        position: "absolute",
+        left: (containerRect.right - portalRect.left) / scaleState.scale,
+        top: (containerRect.bottom - portalRect.top + 10) / scaleState.scale,
+        transformOrigin: "top right",
+        transform: `translateX(-100%) scale(${1 / scaleState.scale})`,
+        pointerEvents: "auto",
+    };
+
+    const handleSetColor = (background: ColorValue, foreground: ColorValue) => {
+        dispatchLocalSetting({ type: "defaultColor", color: { background, foreground } });
+
+        const beforeColor = tableView.headerColor;
+        const loggingMessage = `Update table color. ${JSON.stringify({
+            tableId: tableView.tableId,
+            before: { background: beforeColor.background.toHex(), foreground: beforeColor.foreground.toHex() },
+            after: { background: background.toHex(), foreground: foreground.toHex() }
+        })}`;
+        documentsHolder.updateTableViewColor([tableView.tableId], background, foreground, loggingMessage);
+    };
+
+    const handleSettingPerspectiveDialog = (event: React.MouseEvent) => {
+        if (editMode != EditModeType.SELECT) {
+            return;
+        }
+
+        event.stopPropagation();
+
+        onEditAction({ editType: "perspective", targetId: tableView.tableId });
+        dispatchSelectAction(RELEASE_ACTION);
+    };
+
+    const handleOpenEditDialog = (event: React.MouseEvent) => {
+        if (editMode != EditModeType.SELECT) {
+            return;
+        }
+
+        event.stopPropagation();
+
+        onEditAction({ editType: "table", tableView });
+        dispatchSelectAction(RELEASE_ACTION);
+    };
+
+    const controlMenu = (
+        <Stack direction="row" sx={controlPanelStyle}
+            onClick={handlePreventMouseEvent}
+            onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
+            <div style={CONTROL_PANEL_STYLE}>
+                <ColorSelector key={`table-color-selector_${tableView.tableId}`}
+                    color={tableView.headerColor.background}
+                    callback={handleSetColor} />
+                {(perspectives.length > 0) && (
+                    <Tooltip title="Perspective" placement="top-end">
+                        <IconButton onClick={handleSettingPerspectiveDialog}>
+                            <VisibilityIcon />
+                        </IconButton>
+                    </Tooltip>
+                )}
+                <Tooltip title="Edit" placement="top-end">
+                    <IconButton onClick={handleOpenEditDialog}>
+                        <EditIcon />
+                    </IconButton>
+                </Tooltip>
+                <Tooltip title="Delete" placement="top-end">
+                    <IconButton onClick={() => onOpenDeleteDialog(true)}>
+                        <DeleteIcon />
+                    </IconButton>
+                </Tooltip>
+            </div>
+        </Stack>
+    );
+
+    return ReactDOM.createPortal(controlMenu, toolbarCanvasElement);
+};
+
+
 const CONTROL_PANEL_STYLE = {
     backgroundColor: "rgba(255, 255, 255, 0.9)",
     borderRadius: "10px"
-};
+} as const;
 
 export default ErdTableView;

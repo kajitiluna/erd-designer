@@ -71,6 +71,27 @@ export const findGdriveMetadata = async ({ accessToken, fileId }: OpenGdriveFile
     return { fileName: metadata.name as string, version: metadata.modifiedTime as string };
 };
 
+/**
+ * トークン更新時に login_hint として渡すアカウントを特定する。
+ * @react-oauth/google が scope へ openid/profile/email を自動付加するため、追加の同意なしに参照できる。
+ */
+export const findAuthorizedAccount = async (accessToken: string): Promise<{ email: string }> => {
+    const accountUri = "https://www.googleapis.com/oauth2/v3/userinfo";
+    const headerInfo = { headers: { Authorization: `Bearer ${accessToken}` } };
+
+    const response = await doFetchGdrive(accountUri, headerInfo);
+    if (response.ok === false) {
+        throw await toGdriveError(response, "Failed to find the authorized account.");
+    }
+
+    const account = await response.json();
+    if (("email" in account) === false) {
+        throw new Error(`Failed to find email in the account. ${JSON.stringify(account)}`);
+    }
+
+    return { email: account.email as string };
+};
+
 type CreateGdriveFileArgs = {
     accessToken: string,
     folderId: string,

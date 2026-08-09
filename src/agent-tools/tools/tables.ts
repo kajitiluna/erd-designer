@@ -22,7 +22,7 @@ import TableUniqueKeysModel, { UniqueKeysColumnModel } from "~/models/database/T
 import { DragState } from "~/models/DragState";
 import ErdDocument from "~/models/ErdDocument";
 import RectangleViewModel from "~/models/RectangleViewModel";
-import { SelectState } from "~/models/SelectState";
+import SelectState from "~/models/SelectState";
 import TableViewModel from "~/models/TableViewModel";
 import ColumnModel from "~/models/database/ColumnModel";
 import SimpleColumnModel from "~/models/database/SimpleColumnModel";

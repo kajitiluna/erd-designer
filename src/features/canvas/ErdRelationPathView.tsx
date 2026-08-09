@@ -85,7 +85,7 @@ const ErdRelationPathView = ({
 
         onEditAction({
             editType: "relation",
-            relationViewModel: relationView,
+            relationView: relationView,
             parentTable: parentTable.tableModel,
             childTable: childTable.tableModel
         });
@@ -206,7 +206,7 @@ const useRelationTooltip = (
 
         onEditAction({
             editType: "relation",
-            relationViewModel: relationView,
+            relationView: relationView,
             parentTable: parentTable.tableModel,
             childTable: childTable.tableModel
         });

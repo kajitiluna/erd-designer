@@ -4,13 +4,13 @@ import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 
 import DiagramActionButtons from "~/features/start_up/DiagramActionButtons";
+import { StartUpActions } from "~/features/start_up/support";
 
 type CreatePanelProp = {
-    onOpenCreateDialog: () => void;
-    onOpenImportDialog: () => void;
+    actions: StartUpActions;
 };
 
-const CreatePanel = ({ onOpenCreateDialog, onOpenImportDialog }: CreatePanelProp) => {
+const CreatePanel = ({ actions }: CreatePanelProp) => {
     return (
         <Box sx={createPanelStyle}>
             <Typography variant="h6" sx={{ fontWeight: 600, marginBottom: "8px" }}>
@@ -19,8 +19,7 @@ const CreatePanel = ({ onOpenCreateDialog, onOpenImportDialog }: CreatePanelProp
             <Typography variant="body2" sx={{ lineHeight: 1.55, color: "text.secondary", marginBottom: "22px" }}>
                 Create a new diagram or import an existing schema file.
             </Typography>
-            <DiagramActionButtons direction="column" sx={{ marginBottom: "30px" }}
-                onOpenCreateDialog={onOpenCreateDialog} onOpenImportDialog={onOpenImportDialog} />
+            <DiagramActionButtons direction="column" sx={{ marginBottom: "30px" }} actions={actions} />
             <Divider sx={{ borderColor: "brand.borderDivider" }} />
             {explainPanel()}
         </Box>

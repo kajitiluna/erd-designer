@@ -24,8 +24,7 @@ import {
 import { RectangleArea, doFindRectangleSelected, initRectangleArea } from "~/features/canvas/ErdCanvas/rectangle-area";
 import ActiveDraggingArea from "~/features/canvas/ErdCanvas/ActiveDraggingArea";
 import {
-    createNewMemo, createNewTable,
-    initCreatingRelationLine, initRelationCardinalityDefinitions
+    createNewMemo, createNewTable, initCreatingRelationLine, initRelationCardinalityDefinitions
 } from "~/features/canvas/ErdCanvas/decorations";
 import { initEditView } from "~/features/canvas/ErdCanvas/edit-view";
 import { CANVAS_RECTANGLES_DRAWN_EVENT } from "~/components/constant";
@@ -98,7 +97,7 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
     }
 
     const tableViews = erdDocument.getTableViewModels().map(tableView => (
-        <ErdTableView key={`erd-table-view_${tableView.tableId}`} tableViewModel={tableView}
+        <ErdTableView key={`erd-table-view_${tableView.tableId}`} tableView={tableView}
             visible={(currentPerspective == null) || currentPerspective.containsModel(tableView.tableId)}
             onEditAction={setEditAction} onDragAction={dispatchDragAction} />
     ));
@@ -138,8 +137,8 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
         const mousePosition = viewport.getLogicalPosition(event);
 
         if (editMode === EditModeType.CREATE_TABLE) {
-            const tableViewModel = createNewTable(mousePosition, localSetting);
-            setEditAction({ editType: "table", tableViewModel });
+            const tableView = createNewTable(mousePosition, localSetting);
+            setEditAction({ editType: "table", tableView });
             return;
         }
 
