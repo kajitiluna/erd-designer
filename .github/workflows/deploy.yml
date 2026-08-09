@@ -23,6 +23,8 @@ concurrency:
   group: deploy
   cancel-in-progress: false
 
+permissions: {}
+
 jobs:
   generate_version:
     runs-on: ubuntu-latest
