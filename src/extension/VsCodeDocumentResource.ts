@@ -1,8 +1,17 @@
+import * as path from 'path';
 import * as vscode from 'vscode';
 
 import ErdDocument from '~/models/ErdDocument';
 import DocumentBudget, { RectangleType } from '~/agent-tools/DocumentBudget';
-import { DocumentResource, generateDocumentId } from '~/agent-tools/DocumentResource';
+import { CreatedDocument, DocumentResource, generateDocumentId } from '~/agent-tools/DocumentResource';
+import { initInvalidParams } from '~/agent-tools/tools/support';
+
+// package.json の contributes.customEditors で宣言した viewType と一致させる
+const ERD_EDITOR_VIEW_TYPE = 'erdDesigner.erdEditor';
+
+// register は webview の ready 通知を受けてから走るため、エディタを開いた直後は登録が間に合わない
+const REGISTRATION_WAIT_INTERVAL_MILLIS = 100;
+const REGISTRATION_WAIT_LIMIT_MILLIS = 3000;
 
 type InnerErdBudget = {
     status: "ready";
@@ -31,9 +40,46 @@ export class VsCodeDocumentResource implements DocumentResource {
         this.idToBudgetMap = new Map<string, InnerErdBudget>();
     }
 
+    public async create(filePath: string, erdDocument: ErdDocument): Promise<CreatedDocument> {
+        const uri = resolveFileUri(filePath);
+
+        const fileStat = await statOrNull(uri);
+        if (fileStat != null) {
+            throw initInvalidParams(`File already exists: ${uri.fsPath}`);
+        }
+
+        // ERD Designer アプリの保存形式(4スペースインデント)に合わせる
+        const jsonContent = JSON.stringify(erdDocument.toJSON(), null, 4);
+        await vscode.workspace.fs.writeFile(uri, Buffer.from(jsonContent, 'utf-8'));
+
+        // カスタムエディタで開くことで register が走り、以降のツール呼び出しから参照できるようになる
+        await vscode.commands.executeCommand('vscode.openWith', uri, ERD_EDITOR_VIEW_TYPE);
+
+        const documentId = generateDocumentId(uri.toString());
+        await this.doWaitForRegistration(documentId);
+
+        console.info(`VsCodeDocumentResource created document: ${uri.toString()} (id: ${documentId})`);
+        return { documentId, fileUri: uri.toString() };
+    }
+
+    private async doWaitForRegistration(documentId: string): Promise<void> {
+        const limitAt = Date.now() + REGISTRATION_WAIT_LIMIT_MILLIS;
+
+        while (Date.now() < limitAt) {
+            if (this.findById(documentId) != null) {
+                return;
+            }
+
+            await new Promise(resolve => setTimeout(resolve, REGISTRATION_WAIT_INTERVAL_MILLIS));
+        }
+
+        // documentId は uri から一意に決まるため、待てなくても find-document-by-filepath で復帰できる
+        console.warn(`Timed out waiting for document registration: ${documentId}`);
+    }
+
     /**
      * ドキュメント管理者が該当ドキュメントを登録する。
-     * 
+     *
      * @param textDocument ファイル参照
      * @param content ドキュメント本文
      * @param onUpdateDocument ドキュメント所有者以外からの更新操作を通知するコールバック関数
@@ -187,6 +233,32 @@ export class VsCodeDocumentResource implements DocumentResource {
         return convertBudget(budget);
     }
 }
+
+const resolveFileUri = (filePath: string): vscode.Uri => {
+    if (path.isAbsolute(filePath)) {
+        return vscode.Uri.file(filePath);
+    }
+
+    // 拡張機能には CLI のようなカレントディレクトリがないため、相対パスの基準はワークスペースに限る。
+    // 複数フォルダがある場合はどれを基準にするか一意に決められないため、絶対パス指定を要求する。
+    const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
+    if (workspaceFolders.length !== 1) {
+        throw initInvalidParams(
+            `Relative file path requires exactly one open workspace folder (found ${workspaceFolders.length}). `
+            + `Specify an absolute path: ${filePath}`
+        );
+    }
+
+    return vscode.Uri.joinPath(workspaceFolders[0].uri, filePath);
+};
+
+const statOrNull = async (uri: vscode.Uri): Promise<vscode.FileStat | null> => {
+    try {
+        return await vscode.workspace.fs.stat(uri);
+    } catch {
+        return null;
+    }
+};
 
 const parseErdDocument = (content: string): ErdDocument | null => {
     try {

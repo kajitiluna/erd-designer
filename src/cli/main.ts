@@ -9,7 +9,8 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import { DocumentResource } from "~/agent-tools/DocumentResource";
 import { FileDocumentResource } from "~/agent-tools/FileDocumentResource";
 import { initToolRegistrations } from "~/agent-tools/tools";
-import { McpServerRegisterToolArgs } from "~/agent-tools/tools/support";
+import { CREATE_DOCUMENT_TOOL_NAME } from "~/agent-tools/tools/documents";
+import { McpServerRegisterToolArgs, toOsFilePath } from "~/agent-tools/tools/support";
 
 const USAGE = `\
 erd-cli : Edit ERD Designer (.erd) files from the command line.
@@ -23,7 +24,11 @@ USAGE:
 
   node erd-cli.cjs run <tool-name> --file <path.erd> [--args '<json>']
       Run a tool against the given .erd file. Mutating tools save the file in place.
-      'documentId' in the arguments is injected automatically from --file.
+      'documentId' and 'filePath' in the arguments are injected automatically from --file.
+      --file accepts both an absolute OS path and a file:// URI.
+
+      To create a new .erd file, point --file at a path that does not exist yet:
+        node erd-cli.cjs run create-document --file <new.erd> --args '{"databaseType":"postgres"}'
 
   node erd-cli.cjs validate --file <path.erd>
       Check that the file can be parsed as an ERD document.
@@ -115,11 +120,12 @@ const runDescribe = (toolName: string | undefined): number => {
 };
 
 const runTool = async (toolName: string | undefined, optionArgv: string[]): Promise<number> => {
-    const filePath = readOption(optionArgv, "--file");
-    if (filePath == null) {
+    const fileOption = readOption(optionArgv, "--file");
+    if (fileOption == null) {
         console.error("Missing required option: --file <path.erd>");
         return 1;
     }
+    const filePath = toOsFilePath(fileOption);
 
     const documentResource = new FileDocumentResource();
     const tools = initTools(documentResource);
@@ -130,17 +136,23 @@ const runTool = async (toolName: string | undefined, optionArgv: string[]): Prom
         return 1;
     }
 
-    const documentId = documentResource.register(filePath);
+    const [name, config, callback] = tool;
+    const inputSchemaShape = config.inputSchema ?? {};
+
+    // ファイルを新規作成するツールは未作成のパスを受け取るため登録しない。
+    // 既存チェックや拡張子の検証はツール自身が担う。
+    // それ以外のツールは --file が既存ドキュメントである前提なので、documentId・filePath の
+    // どちらで参照する場合でも解決できるようここで登録しておく。
+    const createsDocument = (name === CREATE_DOCUMENT_TOOL_NAME);
+    const documentId = (createsDocument === false) ? documentResource.tryRegister(filePath) : null;
+    if ((documentId == null) && (createsDocument === false)) {
+        console.error(`File not found: ${filePath}. Tool '${name}' operates on an existing .erd file.`);
+        return 1;
+    }
 
     const argsJson = readOption(optionArgv, "--args");
     const toolArguments = parseToolArguments(argsJson);
-
-    const [name, config, callback] = tool;
-    const inputSchemaShape = config.inputSchema ?? {};
-    const needsDocumentId = ("documentId" in inputSchemaShape) && (toolArguments.documentId == null);
-    const mergedArguments = needsDocumentId
-        ? { ...toolArguments, documentId }
-        : toolArguments;
+    const mergedArguments = mergeFileArguments(toolArguments, inputSchemaShape, filePath, documentId);
 
     const parsedArguments = z.object(inputSchemaShape).safeParse(mergedArguments);
     if (parsedArguments.success === false) {
@@ -155,6 +167,20 @@ const runTool = async (toolName: string | undefined, optionArgv: string[]): Prom
     printToolResult(result);
 
     return 0;
+};
+
+// --file はツールの引数そのものではないため、スキーマが受け取れる形に合わせて補完する。
+// --args で明示された値が常に優先される。
+const mergeFileArguments = (
+    toolArguments: Record<string, unknown>, inputSchemaShape: ZodRawShape,
+    filePath: string, documentId: string | null
+): Record<string, unknown> => {
+    const injectedDocumentId = (("documentId" in inputSchemaShape) && (toolArguments.documentId == null)
+        && (documentId != null)) ? { documentId } : {};
+    const injectedFilePath = (("filePath" in inputSchemaShape) && (toolArguments.filePath == null))
+        ? { filePath } : {};
+
+    return { ...toolArguments, ...injectedDocumentId, ...injectedFilePath };
 };
 
 const parseToolArguments = (argsJson: string | null): Record<string, unknown> => {
@@ -206,11 +232,12 @@ const printToolResult = (result: CallToolResult): void => {
 };
 
 const runValidate = (optionArgv: string[]): number => {
-    const filePath = readOption(optionArgv, "--file");
-    if (filePath == null) {
+    const fileOption = readOption(optionArgv, "--file");
+    if (fileOption == null) {
         console.error("Missing required option: --file <path.erd>");
         return 1;
     }
+    const filePath = toOsFilePath(fileOption);
 
     const documentResource = new FileDocumentResource();
     const documentId = documentResource.register(filePath);

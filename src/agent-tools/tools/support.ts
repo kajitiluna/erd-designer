@@ -2,6 +2,7 @@ import {
     ReadResourceCallback, ReadResourceTemplateCallback, ResourceMetadata, ResourceTemplate, ToolCallback
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ErrorCode, McpError, ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
+import { fileURLToPath } from "url";
 import z, { ZodRawShape } from "zod";
 
 import { DocumentResource } from "~/agent-tools/DocumentResource";
@@ -176,6 +177,15 @@ export const initResourceResponse = (url: URL, response: object) => {
 
 export const searchParameters = (url: URL, param: string) =>
     url.searchParams.getAll(param).filter(value => (value !== ""));
+
+// 利用者は OS パスと file URI のどちらでもファイルを指定できる。内部処理は OS パスに揃える。
+export const toOsFilePath = (filePath: string): string => {
+    if (filePath.startsWith("file://")) {
+        return fileURLToPath(filePath);
+    }
+
+    return filePath;
+};
 
 export const initToolJsonResponse = (response: object | unknown[]) => {
     const structuredContent = Array.isArray(response) ? { items: response } : response as Record<string, unknown>;

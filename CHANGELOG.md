@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **MCP Server / Agent plugin: create a new .erd file**:
+
+  A new `create-document` tool creates a brand-new `.erd` file, so an AI assistant can start a diagram
+  from scratch instead of asking you to make an empty file in the app first. It takes the file path and
+  the target database, plus an optional diagram name that defaults to the file name. The database type
+  cannot be changed later, so it must be given explicitly. An existing file is never overwritten.
+  In VS Code the new file opens in the ERD editor right away.
+
 ## [0.20260809] - 2026-08-09
 
 ### Added

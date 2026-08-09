@@ -1,20 +1,25 @@
 import {
     ReadResourceCallback, ReadResourceTemplateCallback, ResourceTemplate, ToolCallback
 } from "@modelcontextprotocol/sdk/server/mcp.js";
+import * as path from "path";
 import { pathToFileURL } from "url";
 import z from "zod";
 
 import { DocumentResource } from "~/agent-tools/DocumentResource";
 import DocumentBudget, { uriTemplates } from "~/agent-tools/DocumentBudget";
 import {
-    DESCRIPTION_DOCUMENT_ID, findDocument, initResourceNotFound, initResourceResponse, initToolJsonResponse,
-    McpRegisterConfig, McpServerRegisterResourceArgs, McpServerRegisterResourceTemplateArgs, McpServerRegisterToolArgs
+    DESCRIPTION_DOCUMENT_ID, findDocument, initInvalidParams, initResourceNotFound, initResourceResponse,
+    initToolJsonResponse, McpRegisterConfig, McpServerRegisterResourceArgs, McpServerRegisterResourceTemplateArgs,
+    McpServerRegisterToolArgs, toOsFilePath
 } from "~/agent-tools/tools/support";
 import { toTableSummary } from "~/agent-tools/tools/tables";
+import { Database, DatabaseType } from "~/models/database";
 import { createDdl } from "~/models/create-ddl";
 import { toNextOrthogonalLines } from "~/features/canvas/support";
+import DatabaseSettingModel from "~/models/DatabaseSettingModel";
 import DisplayColumnStyle from "~/models/DisplayColumnStyle";
 import DisplayNameStyle from "~/models/DisplayNameStyle";
+import ErdDocument from "~/models/ErdDocument";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import { DragState } from "~/models/DragState";
 import SelectState from "~/models/SelectState";
@@ -31,6 +36,7 @@ export const mcpRegisterErdDocument = (documentResource: DocumentResource): McpR
             mcpListDocuments(documentResource),
             mcpFindDocument(documentResource),
             mcpFindDocumentByFilePath(documentResource),
+            mcpCreateDocument(documentResource),
             mcpUpdateDocument(documentResource),
             mcpMoveRectangle(documentResource),
             mcpExportDdl(documentResource)
@@ -347,6 +353,116 @@ const initCallbackForFindDocumentByFilepath = (
         const response = toDetail(budget);
         return initToolJsonResponse(response);
     };
+};
+
+// ==================== create-document ====================
+
+const databaseTypes = [...Database.allDatabaseTypes()] as [DatabaseType, ...DatabaseType[]];
+
+const databaseTypeGuide = databaseTypes
+    .map(databaseType => `  - '${databaseType}': ${Database.get(databaseType).name}`)
+    .join("\n");
+
+const descriptionCreateDocument = `\
+Creates a new empty ERD document as a .erd file and registers it in the current session.
+The created document contains no tables, relations or memos - add them with 'add-table' and the other tools
+using the documentId returned by this tool.
+
+REQUEST:
+- filePath: The path of the .erd file to create.
+  Accepts an absolute OS path (e.g., /path/to/document.erd) or a file URI (e.g., file:///path/to/document.erd).
+  The extension must be '.erd'.
+  The file must not exist yet - this tool never overwrites an existing document.
+  Its parent directory must already exist.
+- databaseType: The target RDBMS of the new document. Must be one of:
+${databaseTypeGuide}
+  This is required because the database type determines the available column types
+  and cannot be changed after the document is created.
+- documentName (optional): The name of the ER diagram.
+  Defaults to the file name without the '.erd' extension. Leading and trailing whitespace will be trimmed.
+
+RESPONSE:
+An object describing the created document, in the same format as one entry of the 'list-documents' response:
+- uri: The unique URI of the document (format: erd-designer://documents/{documentId}).
+- documentId: The unique identifier of the created document. Pass it to the other tools.
+- filePath: The file URI the document was written to.
+- documentName: The name of the document.
+- databaseName: The name of the database associated with the document.
+- lastUpdatedAt: The date and time when the document was created (ISO 8601 format).
+`;
+
+const createDocumentInputSchema = {
+    filePath: z.string()
+        .describe("The path of the .erd file to create. "
+            + "Accepts both absolute OS paths (e.g., /path/to/document.erd) "
+            + "and file URIs (e.g., file:///path/to/document.erd). "
+            + "The extension must be '.erd', the file must not exist yet, "
+            + "and its parent directory must already exist."),
+    databaseType: z.enum(databaseTypes)
+        .describe("The target RDBMS of the new document. "
+            + "Required because it determines the available column types and cannot be changed afterwards."),
+    documentName: z.string().optional()
+        .describe("The name of the ER diagram. Defaults to the file name without the '.erd' extension.")
+};
+
+// このツールだけは未作成のパスを受け取る。--file を既存ドキュメントとして解決するホスト(CLI)が参照する。
+export const CREATE_DOCUMENT_TOOL_NAME = "create-document";
+
+const mcpCreateDocument = (
+    documentResource: DocumentResource
+): McpServerRegisterToolArgs<typeof createDocumentInputSchema> => {
+    return [
+        CREATE_DOCUMENT_TOOL_NAME,
+        {
+            title: "Create a new ERD document",
+            description: descriptionCreateDocument,
+            inputSchema: createDocumentInputSchema
+        },
+        initCallbackForCreateDocument(documentResource)
+    ] as const;
+};
+
+const initCallbackForCreateDocument = (
+    documentResource: DocumentResource
+): ToolCallback<typeof createDocumentInputSchema> => {
+    return async ({ filePath, databaseType, documentName: inputDocumentName }) => {
+        const osFilePath = toOsFilePath(filePath);
+        if (osFilePath.endsWith(ERD_FILE_EXTENSION) === false) {
+            throw initInvalidParams(`The file path must end with '${ERD_FILE_EXTENSION}': ${filePath}`);
+        }
+
+        const documentName = toDocumentName(osFilePath, inputDocumentName);
+        const databaseSettingModel = DatabaseSettingModel.create(databaseType);
+        const erdDocument = ErdDocument.create({
+            documentName: documentName,
+            databaseSettingModel: databaseSettingModel
+        });
+
+        const created = await documentResource.create(osFilePath, erdDocument);
+
+        const response = {
+            uri: uriTemplates.documentFor(created.documentId),
+            documentId: created.documentId,
+            filePath: created.fileUri,
+            documentName: erdDocument.documentName,
+            databaseName: erdDocument.getDatabase().name,
+            lastUpdatedAt: erdDocument.lastUpdatedAt.toISOString()
+        };
+        return initToolJsonResponse(response);
+    };
+};
+
+const ERD_FILE_EXTENSION = ".erd";
+
+// ドキュメント名はキャンバス上の表示名でありファイル名と一致する必要はないが、
+// 未指定時にファイル名へ寄せておくと利用者が両者を対応付けやすい。
+const toDocumentName = (osFilePath: string, inputDocumentName: string | undefined): string => {
+    const trimmedName = (inputDocumentName != null) ? inputDocumentName.trim() : "";
+    if (trimmedName !== "") {
+        return trimmedName;
+    }
+
+    return path.basename(osFilePath, ERD_FILE_EXTENSION);
 };
 
 // ==================== update-document ====================

@@ -55,10 +55,15 @@ const createDocumentBudget = (erdDocument: ErdDocument): DocumentBudget => {
     });
 };
 
+const CREATED_FILE_URI = 'file:///test/created.erd';
+
 const createMockDocumentResource = (budget: DocumentBudget | null) => {
     return {
         findById: vi.fn((id: string) => (id === TEST_DOC_ID ? budget : null)),
         notify: vi.fn(),
+        create: vi.fn(async () => {
+            return { documentId: TEST_DOC_ID, fileUri: CREATED_FILE_URI };
+        }),
     } as unknown as DocumentResource;
 };
 
@@ -126,6 +131,74 @@ describe('documents MCP tools', () => {
                 .toBe(true);
             expect(nextDocument.erdSettingModel.displayColumnStyle.equals(erdDocument.erdSettingModel.displayColumnStyle))
                 .toBe(true);
+        });
+    });
+
+    describe('create-document', () => {
+        const fetchCreatedDocument = (resource: DocumentResource): ErdDocument => {
+            const createMock = resource.create as unknown as ReturnType<typeof vi.fn>;
+            return createMock.mock.calls[0][1] as ErdDocument;
+        };
+
+        test('documentName 未指定時は拡張子を除いたファイル名が使われる', async () => {
+            const callback = getToolCallback(documentResource, 'create-document');
+            await callback({ filePath: '/tmp/order_book.erd', databaseType: 'postgres' });
+
+            const createMock = documentResource.create as unknown as ReturnType<typeof vi.fn>;
+            expect(createMock.mock.calls[0][0]).toBe('/tmp/order_book.erd');
+            expect(fetchCreatedDocument(documentResource).documentName).toBe('order_book');
+        });
+
+        test('file URI で指定してもファイル名から documentName を導出する', async () => {
+            const callback = getToolCallback(documentResource, 'create-document');
+            await callback({ filePath: 'file:///tmp/order_book.erd', databaseType: 'postgres' });
+
+            const createMock = documentResource.create as unknown as ReturnType<typeof vi.fn>;
+            expect(createMock.mock.calls[0][0]).toBe('/tmp/order_book.erd');
+            expect(fetchCreatedDocument(documentResource).documentName).toBe('order_book');
+        });
+
+        test('documentName 指定時は前後の空白を除いた値が使われる', async () => {
+            const callback = getToolCallback(documentResource, 'create-document');
+            await callback({
+                filePath: '/tmp/order_book.erd',
+                databaseType: 'postgres',
+                documentName: '  Order Book  ',
+            });
+
+            expect(fetchCreatedDocument(documentResource).documentName).toBe('Order Book');
+        });
+
+        test('databaseType が新規ドキュメントに反映される', async () => {
+            const callback = getToolCallback(documentResource, 'create-document');
+            await callback({ filePath: '/tmp/analytics.erd', databaseType: 'bigquery' });
+
+            const createdDocument = fetchCreatedDocument(documentResource);
+            expect(createdDocument.databaseSettingModel.databaseType).toBe('bigquery');
+            expect(createdDocument.getDatabase().name).toBe('BigQuery');
+        });
+
+        test('作成したドキュメントは空で、レスポンスに documentId が含まれる', async () => {
+            const callback = getToolCallback(documentResource, 'create-document');
+            const result = await callback({
+                filePath: '/tmp/order_book.erd',
+                databaseType: 'mysql',
+            }) as { content: { text: string }[] };
+            const response = JSON.parse(result.content[0].text);
+
+            expect(fetchCreatedDocument(documentResource).getTableViewModels()).toHaveLength(0);
+            expect(response.documentId).toBe(TEST_DOC_ID);
+            expect(response.filePath).toBe(CREATED_FILE_URI);
+            expect(response.documentName).toBe('order_book');
+            expect(response.databaseName).toBe('MySQL');
+        });
+
+        test('拡張子が .erd でない場合はエラーになり、作成されない', async () => {
+            const callback = getToolCallback(documentResource, 'create-document');
+
+            await expect(callback({ filePath: '/tmp/order_book.txt', databaseType: 'mysql' }))
+                .rejects.toThrow();
+            expect(documentResource.create).not.toHaveBeenCalled();
         });
     });
 
