@@ -5,10 +5,8 @@ import {
 } from "@mui/material";
 
 import { Database, DatabaseType } from "~/models/database";
-import ErdDocument from "~/models/ErdDocument";
 import DatabaseSettingModel from "~/models/DatabaseSettingModel";
-import ErdSettingModel from "~/models/ErdSettingModel";
-import DbSchemaConfig from "~/models/DbSchemaConfig";
+import ErdDocument from "~/models/ErdDocument";
 
 type InitializeDatabaseDialogProps = {
     isOpen: boolean,
@@ -35,15 +33,10 @@ const InitializeDatabaseDialog = ({ isOpen, onCreate, onClose }: InitializeDatab
             return;
         }
 
-        const databaseSetting = DatabaseSettingModel.create(databaseType)
-        const erdSetting = ErdSettingModel.create(documentName);
-        const schemaConfig = DbSchemaConfig.create();
-
+        const databaseSettingModel = DatabaseSettingModel.create(databaseType);
         const erdDocument = ErdDocument.create({
             documentName: documentName,
-            erdSettingModel: erdSetting,
-            databaseSettingModel: databaseSetting,
-            schemaConfig: schemaConfig
+            databaseSettingModel: databaseSettingModel
         });
 
         onCreate(erdDocument);

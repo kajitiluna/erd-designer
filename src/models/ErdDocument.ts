@@ -38,9 +38,9 @@ type ReachableModelIds = {
 
 type ErdDocumentOptions = {
     documentName: string,
-    erdSettingModel: ErdSettingModel,
     databaseSettingModel: DatabaseSettingModel,
-    schemaConfig: DbSchemaConfig,
+    erdSettingModel?: ErdSettingModel,
+    schemaConfig?: DbSchemaConfig,
     tableViewModels?: readonly TableViewModel[],
     columnGroupModels?: readonly ColumnGroupModel[],
     columnModels?: readonly ColumnModel[],
@@ -91,7 +91,9 @@ export default class ErdDocument {
     }
 
     public static create({
-        documentName, erdSettingModel, databaseSettingModel, schemaConfig,
+        documentName, databaseSettingModel,
+        erdSettingModel = ErdSettingModel.create(documentName),
+        schemaConfig = DbSchemaConfig.create(),
         tableViewModels = [], columnGroupModels = [], structShareModels = [], columnModels = [], columnShareModels = [],
         relationViewModels = [], foregroundMemoViewModels = [], backgroundMemoViewModels = [],
         lastUpdatedAt = null

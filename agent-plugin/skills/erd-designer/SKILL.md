@@ -44,18 +44,23 @@ CLI=<directory of this SKILL.md>/scripts/erd-cli.cjs
 
 - Do NOT edit `.erd` JSON by hand; always go through the CLI so referential integrity
   (column/share/relation IDs) and the canvas layout stay consistent.
-- Omit `documentId` in `--args`; the CLI injects it from `--file` automatically.
+- Omit `documentId` and `filePath` in `--args`; the CLI injects them from `--file` automatically.
 - Only load the schemas you need via `describe`; do not dump all schemas at once.
 - Files are saved as 4-space-indented JSON, the same format the ERD Designer app writes.
 - The VSCode extension reflects CLI edits automatically while the file is open; no reload is
   needed. The browser app (IndexedDB) does not — re-import the file after CLI edits. The Google
   Drive app reflects CLI edits automatically too, but only when the user has enabled its
   "Sync Google Drive" toggle (see below).
-- Creating a brand-new `.erd` file is done in the ERD Designer app (it configures the target
-  database type). The CLI edits existing files.
+- Create a brand-new `.erd` file with `run create-document`, pointing `--file` at a path that does
+  not exist yet. `databaseType` is required and cannot be changed afterwards, so confirm the target
+  database with the user first. The tool never overwrites an existing file.
 
 ## Typical recipes
 
+- **Start a new diagram**: `run create-document --file <path/to/new.erd> --args
+  '{"databaseType":"postgres"}'` (`postgres`, `mysql`, `mariadb`, `ms_sqlserver`, `sqlite`,
+  `bigquery` or `snowflake`). `documentName` defaults to the file name without `.erd`.
+  The response carries the `documentId` for the tools that follow.
 - **Add a table with columns**: `run add-table`, then `run add-columns-to-table` with the
   returned `tableId`.
 - **Relate two tables**: look up ids via `run list-tables`, then `run create-relation`.
