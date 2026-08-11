@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.20260811] - 2026-08-11
+
 ### Added
 
 - **MCP Server / Agent plugin: create a new .erd file**:
@@ -13,8 +15,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   A new `create-document` tool creates a brand-new `.erd` file, so an AI assistant can start a diagram
   from scratch instead of asking you to make an empty file in the app first. It takes the file path and
   the target database, plus an optional diagram name that defaults to the file name. The database type
-  cannot be changed later, so it must be given explicitly. An existing file is never overwritten.
-  In VS Code the new file opens in the ERD editor right away.
+  cannot be changed later, so it must be given explicitly. An existing file is never overwritten, and the
+  parent directory must already exist. In VS Code the new file opens in the ERD editor right away.
+
+- **VS Code extension on Open VSX**:
+
+  The extension is now published to the Open VSX Registry alongside the Visual Studio Marketplace, so it
+  can be installed directly from editors such as VSCodium, Cursor, and Windsurf.
+
+### Changed
+
+- **CLI accepts file URIs and reports a missing file clearly**:
+
+  `erd-cli` now takes either an absolute OS path or a `file://` URI for `--file`. When a tool that edits an
+  existing document is pointed at a path that does not exist, the CLI now reports the missing file instead
+  of failing while reading it.
 
 ## [0.20260809] - 2026-08-09
 
