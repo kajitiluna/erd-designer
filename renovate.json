@@ -4,7 +4,7 @@
     "config:recommended"
   ],
   "repositories": ["kajitiluna/erd-designer"],
-  "minimumReleaseAge": "30 days",
+  "minimumReleaseAge": "10 days",
   "packageRules": [
     {
       "matchManagers": ["github-actions"],
