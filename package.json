@@ -135,6 +135,7 @@
     "eslint-plugin-testing-library": "^7.1.1",
     "globals": "^17.4.0",
     "jsdom": "^27.0.0",
+    "ovsx": "^1.1.0",
     "tsc-alias": "^1.8.16",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.18.2",
