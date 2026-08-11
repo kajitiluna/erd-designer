@@ -52,6 +52,16 @@
           }
         ],
         "priority": "default"
+      },
+      {
+        "viewType": "erdDesigner.ermImporter",
+        "displayName": "ERD Designer (import .erm)",
+        "selector": [
+          {
+            "filenamePattern": "*.erm"
+          }
+        ],
+        "priority": "default"
       }
     ],
     "configuration": {

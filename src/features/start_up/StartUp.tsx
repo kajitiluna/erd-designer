@@ -7,6 +7,7 @@ import {
 import { ThemeProvider } from "@mui/material/styles";
 
 import ErdDocument from "~/models/ErdDocument";
+import { convertErm, ErmLoadSummary } from "~/models/erm";
 import ErdDocumentSummary from "~/features/storage/ErdDocumentSummary";
 import ErdDocumentStorage from "~/features/storage/ErdDocumentStorage";
 import InitializeDatabaseDialog from "~/features/start_up/InitializeDatabaseDialog";
@@ -14,6 +15,7 @@ import HeroLayout from "~/features/start_up/HeroLayout";
 import DashboardLayout from "~/features/start_up/DashboardLayout";
 import startUpTheme from "~/features/start_up/StartUpTheme";
 import { StartUpActions } from "~/features/start_up/support";
+import ConversionReportAlert from "~/components/ConversionReportAlert";
 
 type StartUpProp = {
     documentStorage: ErdDocumentStorage,
@@ -161,6 +163,7 @@ const ELEMENT_FILE_ID = "input_erd_file";
 const LoadFileDialog = ({ isOpen, onLoadDocument, onClose }: LoadFileDialogProp) => {
     const [fileName, setFileName] = React.useState("");
     const [erdDocument, setErdDocument] = React.useState<ErdDocument | null>(null);
+    const [conversionSummaries, setConversionSummaries] = React.useState<ErmLoadSummary[]>([]);
     const [failureMessage, setFailureMessage] = React.useState("");
 
     const handleSelectFileDialog = () => {
@@ -172,8 +175,6 @@ const LoadFileDialog = ({ isOpen, onLoadDocument, onClose }: LoadFileDialogProp)
         element.click();
     };
 
-    const fileReader: FileReader = initFileReader(setErdDocument, setFailureMessage);
-
     const handleLoadFile = (event: React.ChangeEvent<HTMLInputElement>) => {
         const targetFiles = event.currentTarget.files;
         if ((targetFiles == null) || (targetFiles.length === 0)) {
@@ -182,6 +183,13 @@ const LoadFileDialog = ({ isOpen, onLoadDocument, onClose }: LoadFileDialogProp)
 
         const targetFile = targetFiles[0];
         setFileName(targetFile.name);
+
+        const onLoaded = initHandleFileLoaded(
+            targetFile.name, setErdDocument, setConversionSummaries, setFailureMessage
+        );
+
+        const fileReader = new FileReader();
+        fileReader.addEventListener("load", onLoaded);
         fileReader.readAsText(targetFile, "UTF-8");
     };
 
@@ -195,70 +203,112 @@ const LoadFileDialog = ({ isOpen, onLoadDocument, onClose }: LoadFileDialogProp)
 
         setFileName("");
         setErdDocument(null);
+        setConversionSummaries([]);
     };
 
-    return (
-        <>
-            <Dialog fullWidth maxWidth="md" open={isOpen} onClose={onClose}>
-                <DialogTitle>Load ER Diagram from ERD file.</DialogTitle>
-                <DialogContent>
-                    <Divider />
-                    <Stack spacing={3} style={{ margin: "20px" }}>
-                        <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "space-between" }}>
-                            <Typography variant="body1">{(fileName !== "" ? fileName : "Select JSON file.")}</Typography>
-                            <Button variant="contained" onClick={handleSelectFileDialog} >Select file</Button>
-                        </Stack>
+    return (<>
+        <Dialog fullWidth maxWidth="md" open={isOpen} onClose={onClose}>
+            <DialogTitle>Load ER Diagram from .erd / .erm file.</DialogTitle>
+            <DialogContent>
+                <Divider />
+                <Stack spacing={3} style={{ margin: "20px" }}>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "space-between" }}>
+                        <Typography variant="body1">
+                            {(fileName !== "" ? fileName : "Select .erd or .erm file.")}
+                        </Typography>
+                        <Button variant="contained" onClick={handleSelectFileDialog} >Select file</Button>
                     </Stack>
-                    {initDocumentSummary(erdDocument)}
-                    {(failureMessage !== "") && (
-                        <Alert severity="error">
-                            <AlertTitle>Failed to load file.</AlertTitle>
-                            {failureMessage}
-                        </Alert>
-                    )}
-                </DialogContent>
-                <DialogActions sx={{ margin: "15px", marginTop: "10px" }}>
-                    <Button variant="contained" fullWidth size="large"
-                        disabled={erdDocument == null} onClick={handleSubmit} >
-                        Start design ER Diagram.
-                    </Button>
-                </DialogActions>
-            </Dialog>
-            <div style={{ display: "none" }}>
-                <input id={ELEMENT_FILE_ID} type="file" accept=".erd" onChange={handleLoadFile} />
-            </div>
-        </>
-    );
+                </Stack>
+                {initDocumentSummary(erdDocument)}
+                {initConversionReport(conversionSummaries)}
+                {(failureMessage !== "") && (
+                    <Alert severity="error">
+                        <AlertTitle>Failed to load file.</AlertTitle>
+                        {failureMessage}
+                    </Alert>
+                )}
+            </DialogContent>
+            <DialogActions sx={{ margin: "15px", marginTop: "10px" }}>
+                <Button variant="contained" fullWidth size="large"
+                    disabled={erdDocument == null} onClick={handleSubmit} >
+                    Start design ER Diagram.
+                </Button>
+            </DialogActions>
+        </Dialog>
+        <div style={{ display: "none" }}>
+            <input id={ELEMENT_FILE_ID} type="file" accept=".erd,.erm" onChange={handleLoadFile} />
+        </div>
+    </>);
 };
 
-const initFileReader = (
+const initHandleFileLoaded = (
+    fileName: string,
     setErdDocument: (erdDocument: ErdDocument | null) => void,
+    setConversionSummaries: (summaries: ErmLoadSummary[]) => void,
     setFailureMessage: (message: string) => void
 ) => {
-    const fileReader = new FileReader();
-    fileReader.addEventListener("load", () => {
-        if (typeof fileReader.result !== "string") {
+    return (event: ProgressEvent<FileReader>) => {
+        const fileContent = event.target?.result;
+        if (typeof fileContent !== "string") {
             setErdDocument(null);
-            setFailureMessage("Not erd file.");
+            setConversionSummaries([]);
+            setFailureMessage("Not a supported file.");
+
             return;
         }
 
-        try {
-            const jsonContext = JSON.parse(fileReader.result);
-            const erdDocument = ErdDocument.toObject(jsonContext);
-
-            setFailureMessage("");
-            setErdDocument(erdDocument);
-        } catch (error) {
-            console.warn(`Failed to load json file. detail : ${error}`);
-
-            const message = (error instanceof Error) ? error.message : "Unexpected error occurred.";
-            setFailureMessage(message);
-            setErdDocument(null);
+        if (fileName.toLowerCase().endsWith(".erm")) {
+            handleLoadedErmFile(fileContent, fileName, setErdDocument, setConversionSummaries, setFailureMessage);
+            return;
         }
-    });
 
-    return fileReader;
+        handleLoadedErdFile(fileContent, setErdDocument, setConversionSummaries, setFailureMessage);
+    };
+};
+
+const handleLoadedErdFile = (
+    fileContent: string,
+    setErdDocument: (erdDocument: ErdDocument | null) => void,
+    setConversionSummaries: (summaries: ErmLoadSummary[]) => void,
+    setFailureMessage: (message: string) => void
+) => {
+    try {
+        const jsonContext = JSON.parse(fileContent);
+        const erdDocument = ErdDocument.toObject(jsonContext);
+
+        setFailureMessage("");
+        setConversionSummaries([]);
+        setErdDocument(erdDocument);
+    } catch (error) {
+        console.warn(`Failed to load json file. detail : ${error}`);
+
+        const message = (error instanceof Error) ? error.message : "Unexpected error occurred.";
+        setFailureMessage(message);
+        setConversionSummaries([]);
+        setErdDocument(null);
+    }
+};
+
+const handleLoadedErmFile = (
+    fileContent: string,
+    fileName: string,
+    setErdDocument: (erdDocument: ErdDocument | null) => void,
+    setConversionSummaries: (summaries: ErmLoadSummary[]) => void,
+    setFailureMessage: (message: string) => void
+) => {
+    const documentName = fileName.replace(/\.erm$/i, "");
+    const result = convertErm(documentName, fileContent);
+
+    setConversionSummaries(result.summaries);
+
+    if (result.result === "failure") {
+        setFailureMessage(result.failureMessage);
+        setErdDocument(null);
+        return;
+    }
+
+    setFailureMessage("");
+    setErdDocument(result.erdDocument);
 };
 
 const initDocumentSummary = (document: ErdDocument | null) => {
@@ -298,6 +348,16 @@ const initDocumentSummary = (document: ErdDocument | null) => {
                 </Grid>
             </Grid>
         </Stack>
+    );
+};
+
+// .erm 変換時のみ意味を持つ (通常の .erd 読み込みでは常に空)。
+// 非対応要素のスキップや型解決失敗など、ユーザーが確定前に確認すべき差分をここで提示する。
+const initConversionReport = (summaries: ErmLoadSummary[]) => {
+    const reportedSummaries = summaries.filter(summary => (summary.result !== "success"));
+
+    return (
+        <ConversionReportAlert items={reportedSummaries} sx={{ marginTop: "16px" }} />
     );
 };
 

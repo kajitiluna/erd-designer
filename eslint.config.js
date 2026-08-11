@@ -63,5 +63,18 @@ export default tseslint.config(
         }],
       }],
     },
+  },
+  {
+    // erm/ 内部モジュール (private 相当) は erm ディレクトリ内、またはバレル (index.ts) 経由でのみ参照可能とする
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["src/models/erm/**"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [{
+          group: ["**/erm/*"],
+          message: "erm internal modules are private. Import \"~/models/erm\" instead.",
+        }],
+      }],
+    },
   }
 );
