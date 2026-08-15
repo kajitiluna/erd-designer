@@ -10,6 +10,7 @@ import { overrideColumnName } from "~/models/database/support";
 import TableModel from "~/models/database/TableModel";
 import TableUniqueKeysModel from "~/models/database/TableUniqueKeysModel";
 import ErdDocument from "~/models/ErdDocument";
+import { initDdlComment } from "~/models/schema/ddl-comment";
 import { DdlCommentStyle } from "~/models/ExportDdlSettingModel";
 import { buildStructTypeExpression } from "~/models/struct-type-expression";
 import TableViewModel from "~/models/TableViewModel";
@@ -671,25 +672,12 @@ const snowflakeReservedWords = [
 
 // cSpell:enable
 
-const initComment = (physicalName: string, logicalName: string, description: string, option: DdlOption): string => {
-    if (option.withComment === false) {
-        return "";
-    }
-
-    if (option.commentStyle === "logical_name") {
-        return (logicalName !== physicalName) ? logicalName : "";
-    }
-
-    const comment = (description !== "") ? `${logicalName}${option.commentSeparator}${description}` : logicalName;
-    return (comment !== physicalName) ? comment : "";
-};
-
 const tableQuery = (query: string, tableModel: TableModel) => {
     return (tableModel.optionExpression !== "") ? `${query}\n${tableModel.optionExpression}` : query;
 };
 
 const tableQueryForMySql = (query: string, tableModel: TableModel, option: DdlOption) => {
-    const tableComment = initComment(tableModel.physicalName, tableModel.logicalName, tableModel.description, option);
+    const tableComment = initDdlComment(tableModel.physicalName, tableModel.logicalName, tableModel.description, option);
 
     const tableOptions = [
         (tableModel.characterSet !== "") ? `CHARACTER SET ${tableModel.characterSet}` : null,
@@ -704,7 +692,7 @@ const tableQueryForMySql = (query: string, tableModel: TableModel, option: DdlOp
 const columnQueryForMySql = (
     query: string, columnShare: ColumnShareModel, overrideName: OverrideName, option: DdlOption
 ) => {
-    const columnComment = initComment(
+    const columnComment = initDdlComment(
         overrideName.physicalName, overrideName.logicalName, columnShare.description, option
     );
 
@@ -712,7 +700,7 @@ const columnQueryForMySql = (
 };
 
 const tableQueryForBigQuery = (query: string, tableModel: TableModel, option: DdlOption) => {
-    const tableComment = initComment(tableModel.physicalName, tableModel.logicalName, tableModel.description, option);
+    const tableComment = initDdlComment(tableModel.physicalName, tableModel.logicalName, tableModel.description, option);
 
     const tableOptions = [
         (tableComment !== "") ? `OPTIONS(description="${escapeBigQueryOptionDescription(tableComment)}")` : null,
@@ -738,7 +726,7 @@ const structColumnQueryForBigQuery = (
 const initBigQueryDescriptionOption = (
     query: string, description: string, overrideName: OverrideName, option: DdlOption
 ) => {
-    const comment = initComment(overrideName.physicalName, overrideName.logicalName, description, option);
+    const comment = initDdlComment(overrideName.physicalName, overrideName.logicalName, description, option);
     return (comment !== "") ? `${query} OPTIONS(description="${escapeBigQueryOptionDescription(comment)}")` : query;
 };
 
@@ -767,7 +755,7 @@ const indexQueryForBigQuery = (args: IndexQueryArgs): string => {
 };
 
 const tableQueryForSnowflake = (query: string, tableModel: TableModel, option: DdlOption) => {
-    const tableComment = initComment(tableModel.physicalName, tableModel.logicalName, tableModel.description, option);
+    const tableComment = initDdlComment(tableModel.physicalName, tableModel.logicalName, tableModel.description, option);
 
     const tableOptions = [
         (tableComment !== "") ? `COMMENT = '${escapeComment(tableComment)}'` : null,
@@ -780,7 +768,7 @@ const tableQueryForSnowflake = (query: string, tableModel: TableModel, option: D
 const columnQueryForSnowflake = (
     query: string, columnShare: ColumnShareModel, overrideName: OverrideName, option: DdlOption
 ) => {
-    const columnComment = initComment(
+    const columnComment = initDdlComment(
         overrideName.physicalName, overrideName.logicalName, columnShare.description, option
     );
 
@@ -811,7 +799,7 @@ const commentQueryForPostgres = (
             .map(columnModel => initColumnCommentQueryForPostgres(columnModel, tableName, erdDocument, option, escape))
             .filter(comment => (comment != null));
 
-        const tableComment = initComment(tableModel.physicalName, tableModel.logicalName, tableModel.description, option);
+        const tableComment = initDdlComment(tableModel.physicalName, tableModel.logicalName, tableModel.description, option);
         if (tableComment !== "") {
             commentQueries.unshift(`COMMENT ON TABLE ${tableName} IS '${escapeComment(tableComment)}';`);
         }
@@ -832,7 +820,7 @@ const initColumnCommentQueryForPostgres = (
 ) => {
     const columnShare = erdDocument.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
     const overrideName = overrideColumnName(columnModel, columnShare);
-    const comment = initComment(overrideName.physicalName, overrideName.logicalName, columnShare.description, option);
+    const comment = initDdlComment(overrideName.physicalName, overrideName.logicalName, columnShare.description, option);
 
     if (comment === "") {
         return null;
@@ -870,7 +858,7 @@ const commentQueryForSqlite = (
             .map(columnModel => initColumnCommentQueryForSqlite(columnModel, tableName, erdDocument, option, escape))
             .filter(comment => (comment != null));
 
-        const tableComment = initComment(tableModel.physicalName, tableModel.logicalName, tableModel.description, option);
+        const tableComment = initDdlComment(tableModel.physicalName, tableModel.logicalName, tableModel.description, option);
         if (tableComment !== "") {
             commentQueries.unshift(`-- ${tableName}: ${escapeSqliteLineComment(tableComment)}`);
         }
@@ -891,7 +879,7 @@ const initColumnCommentQueryForSqlite = (
 ): string | null => {
     const columnShare = erdDocument.findColumnShareModel(columnModel.columnShareModelId) as ColumnShareModel;
     const overrideName = overrideColumnName(columnModel, columnShare);
-    const comment = initComment(overrideName.physicalName, overrideName.logicalName, columnShare.description, option);
+    const comment = initDdlComment(overrideName.physicalName, overrideName.logicalName, columnShare.description, option);
 
     if (comment === "") {
         return null;

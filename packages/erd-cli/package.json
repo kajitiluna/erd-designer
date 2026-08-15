@@ -1,0 +1,37 @@
+{
+  "name": "@kajitiluna/erd-cli",
+  "version": "0.0.0",
+  "description": "Verify that a designed ERD Designer .erd schema matches a live database or another .erd revision.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kajitiluna/erd-designer"
+  },
+  "bugs": {
+    "url": "https://github.com/kajitiluna/erd-designer/issues"
+  },
+  "keywords": [
+    "erd",
+    "database",
+    "schema-design",
+    "schema-drift",
+    "ci",
+    "postgresql",
+    "mysql",
+    "mariadb"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "erd-cli": "./erd-cli.cjs"
+  },
+  "files": [
+    "erd-cli.cjs",
+    "README.md"
+  ],
+  "optionalDependencies": {
+    "pg": "^8.16.0",
+    "mysql2": "^3.15.0"
+  }
+}

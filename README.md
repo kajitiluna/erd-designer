@@ -59,6 +59,17 @@ No installation, no account. Your diagrams stay in your browser.
 - **Specification documents** — Export table definitions as Excel files or Google Spreadsheets
 - **Image export** — Export as PNG, SVG, or interactive HTML with pan/zoom and perspective switching
 
+### Schema Verification (CLI)
+- **`erd-diff`** — Compare two `.erd` revisions and get a reviewable, schema-level summary of what
+  changed (added/removed tables and columns, type changes, index and foreign-key changes). No
+  database connection needed; works with every dialect ERD Designer supports
+- **`db-diff`** — Check that the design still matches a live PostgreSQL, MySQL, or MariaDB
+  database. Read-only (`SELECT` only), CI-friendly exit codes (`0`/`1`/`2`)
+- **`migrate-ddl`** — Generate `ALTER` statements that bring a database, or another `.erd` revision,
+  in line with the design. Nothing is applied automatically — the output is a draft to review before running it
+
+See [Schema Verification](#schema-verification) below for setup and CI examples
+
 ### Multi-Platform
 | | Browser | VSCode | Google Drive |
 |---|:---:|:---:|:---:|
@@ -140,7 +151,7 @@ copilot plugin marketplace add kajitiluna/erd-designer
 copilot plugin install erd-designer@erd-designer
 ```
 
-The plugin ships a skill and a self-contained CLI (`agent-plugin/skills/erd-designer/scripts/erd-cli.cjs`, requires Node.js 22+),
+The plugin ships a skill and a self-contained CLI (`agent-plugin/skills/erd-designer/scripts/erd-agent.cjs`, requires Node.js 22+),
 so the agent consumes almost no context until the skill is actually used.
 The skill folder follows the open Agent Skills format, so other skill-compatible agents may also use it.
 Files stored on Google Drive can be edited through the local path synced by
@@ -169,6 +180,125 @@ You can use the sample ERD file as a reference for your designs:
 **How to use:**
 - **Online Tool**: Download the file and import it into ERD Designer
 - **Google Drive App / VSCode Extension**: Open the downloaded file directly
+
+## Schema Verification
+
+Beyond the visual editor, ERD Designer ships a standalone CLI that answers a question the editor
+can't: **does the design still match reality?** `erd-diff` reviews schema changes in a PR without
+reading raw JSON diffs; `db-diff` catches drift between the `.erd` file and a live database that
+crept in through manual `ALTER`s or a separate migration tool; `migrate-ddl` drafts the SQL to fix
+that drift. None of the three ever writes to a database — `db-diff` only issues `SELECT`, and
+`migrate-ddl` only prints or writes a `.sql` file for you to review.
+
+### Getting the CLI
+
+| Distribution | Command | Notes |
+|---|---|---|
+| npm (recommended for CI) | `npx @kajitiluna/erd-cli erd-diff --file docs/schema.erd --from /tmp/base.erd` | `pg` / `mysql2` install automatically as needed for `db-diff` |
+| GitHub Release | `curl -sSL -o erd-cli.cjs https://github.com/kajitiluna/erd-designer/releases/latest/download/erd-cli.cjs && node erd-cli.cjs erd-diff ...` | Single file, no `npm install` |
+| Agent plugin (already installed above) | `node <SKILL.md dir>/scripts/erd-agent.cjs erd-diff ...` | Same commands, bundled alongside the agent tools |
+
+`db-diff` needs a database driver that isn't bundled — the npm package declares `pg` and `mysql2`
+as optional dependencies and installs them automatically, but the other two distributions require
+installing the driver yourself in the working directory (`npm install pg` or `npm install mysql2`).
+
+### `erd-diff` — review schema changes in a PR
+
+```sh
+git show origin/main:docs/schema.erd > /tmp/base.erd
+npx @kajitiluna/erd-cli erd-diff --file docs/schema.erd --from /tmp/base.erd --format markdown
+```
+
+No database connection is required, so this works in any CI environment.
+
+### `db-diff` — catch drift from the live database
+
+```sh
+export ERD_DB_URL='postgres://readonly@db.internal:5432/shop'   # prefer this over --dsn
+npx @kajitiluna/erd-cli db-diff --file docs/schema.erd --ignore-table '^flyway_schema_history$'
+```
+
+Pass the connection string via `ERD_DB_URL` rather than `--dsn` — command-line arguments end up in
+shell history, `ps` output, and CI logs. A read-only database user is recommended.
+
+If the database predates this workflow, its tables likely have no comments set yet — the first run
+will otherwise be all noise. Add `--no-comment` until comments are backfilled (or permanently, if
+comments simply aren't part of your team's convention).
+
+### `migrate-ddl` — draft the fix
+
+```sh
+npx @kajitiluna/erd-cli migrate-ddl --file docs/schema.erd --out /tmp/migrate.sql
+# review /tmp/migrate.sql, then apply it yourself
+```
+
+### CI example
+
+```yaml
+name: ERD schema check
+
+on:
+  pull_request:
+    paths:
+      - 'docs/schema.erd'
+  schedule:
+    # Drift from production happens independently of PRs, so also run on a schedule.
+    - cron: '0 0 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  erd-diff:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Diff against base branch
+        run: |
+          git show origin/${{ github.base_ref }}:docs/schema.erd > /tmp/base.erd
+          npx @kajitiluna/erd-cli erd-diff \
+            --file docs/schema.erd --from /tmp/base.erd --format markdown > /tmp/erd-diff.md
+      - name: Comment on PR
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('node:fs');
+            const body = fs.readFileSync('/tmp/erd-diff.md', 'utf-8');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body: body
+            });
+
+  db-diff:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Check schema drift
+        env:
+          ERD_DB_URL: ${{ secrets.ERD_DB_URL }}
+        run: |
+          npx @kajitiluna/erd-cli db-diff \
+            --file docs/schema.erd --ignore-table '^flyway_schema_history$'
+```
+
+The `db-diff` job is scheduled independently of PRs because drift from a manual `ALTER` has nothing
+to do with pull requests — only a recurring check catches it.
+
+Supported dialects: `db-diff` and `migrate-ddl` work with PostgreSQL, MySQL, and MariaDB; `erd-diff`
+works with every dialect ERD Designer supports, since it never connects to a database.
 
 ## Installation and Usage
 

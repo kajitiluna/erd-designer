@@ -52,15 +52,22 @@ export default tseslint.config(
   react.configs.flat["jsx-runtime"],
   { settings: { react: { version: "detect" } } },
   {
-    // ErdCanvas 内部モジュール (private 相当) は ErdCanvas ディレクトリ内からのみ参照可能とする
+    // コンポーネント/モジュール内部の private 相当ファイルは、そのディレクトリ内からのみ参照可能とする
     files: ["src/**/*.{ts,tsx}"],
-    ignores: ["src/features/canvas/ErdCanvas/**"],
+    ignores: ["src/features/canvas/ErdCanvas/**", "src/models/schema/schema-migration-ddl/**"],
     rules: {
       "no-restricted-imports": ["error", {
-        patterns: [{
-          group: ["**/ErdCanvas/*"],
-          message: "ErdCanvas internal modules are private. Import \"~/features/canvas/ErdCanvas\" instead.",
-        }],
+        patterns: [
+          {
+            group: ["**/ErdCanvas/*"],
+            message: "ErdCanvas internal modules are private. Import \"~/features/canvas/ErdCanvas\" instead.",
+          },
+          {
+            group: ["**/schema-migration-ddl/*"],
+            message: "schema-migration-ddl internal modules are private. "
+              + "Import \"~/models/schema/schema-migration-ddl\" instead.",
+          },
+        ],
       }],
     },
   },

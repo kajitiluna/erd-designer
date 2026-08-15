@@ -10,13 +10,14 @@ describe('Database', () => {
             const database = new Database(
                 'postgres', 'PostgreSQL',
                 uniqueKeySupport, indexSupport,
-                { supportsSchema: true, supportsTableCollate: false, collatePattern: /^.*$/ },
+                { supportsSchema: true, defaultSchemaName: 'public', supportsTableCollate: false, collatePattern: /^.*$/ },
                 { supportArray: true, supportStruct: false, editableCharacterSet: false, autoIncrementLabel: '' }
             );
 
             expect(database.databaseType).toBe('postgres');
             expect(database.name).toBe('PostgreSQL');
             expect(database.supportsSchema).toBe(true);
+            expect(database.defaultSchemaName).toBe('public');
             expect(database.uniqueKeySupport).toBe(uniqueKeySupport);
             expect(database.tableIndexSupport).toBe(indexSupport);
         });
@@ -170,9 +171,19 @@ describe('databases constant', () => {
         expect(postgres.supportsSchema).toBe(true);
     });
 
+    test('postgres should have "public" as its default schema name', () => {
+        const postgres = Database.get("postgres");
+        expect(postgres.defaultSchemaName).toBe('public');
+    });
+
     test('mysql should not support schema', () => {
         const mysql = Database.get("mysql");
         expect(mysql.supportsSchema).toBe(false);
+    });
+
+    test('mysql should have no default schema name', () => {
+        const mysql = Database.get("mysql");
+        expect(mysql.defaultSchemaName).toBe('');
     });
 
     test('ms_sqlserver should support schema', () => {
@@ -180,9 +191,19 @@ describe('databases constant', () => {
         expect(sqlServer.supportsSchema).toBe(true);
     });
 
+    test('ms_sqlserver should have "dbo" as its default schema name', () => {
+        const sqlServer = Database.get("ms_sqlserver");
+        expect(sqlServer.defaultSchemaName).toBe('dbo');
+    });
+
     test('mariadb should not support schema', () => {
         const mariadb = Database.get("mariadb");
         expect(mariadb.supportsSchema).toBe(false);
+    });
+
+    test('mariadb should have no default schema name', () => {
+        const mariadb = Database.get("mariadb");
+        expect(mariadb.defaultSchemaName).toBe('');
     });
 
     test('sqlite should not support schema', () => {
@@ -190,9 +211,19 @@ describe('databases constant', () => {
         expect(sqlite.supportsSchema).toBe(false);
     });
 
+    test('sqlite should have no default schema name', () => {
+        const sqlite = Database.get("sqlite");
+        expect(sqlite.defaultSchemaName).toBe('');
+    });
+
     test('snowflake should support schema', () => {
         const snowflake = Database.get("snowflake");
         expect(snowflake.supportsSchema).toBe(true);
+    });
+
+    test('snowflake should have "PUBLIC" as its default schema name', () => {
+        const snowflake = Database.get("snowflake");
+        expect(snowflake.defaultSchemaName).toBe('PUBLIC');
     });
 
     test('postgres should have non-orderable unique key support', () => {
@@ -340,6 +371,11 @@ describe('databases constant', () => {
     test('bigquery should support schema (dataset is treated as schema)', () => {
         const bigquery = Database.get("bigquery");
         expect(bigquery.supportsSchema).toBe(true);
+    });
+
+    test('bigquery should have no default schema name (dataset must be explicit)', () => {
+        const bigquery = Database.get("bigquery");
+        expect(bigquery.defaultSchemaName).toBe('');
     });
 
     test('bigquery should have non-orderable unique key support', () => {

@@ -1,13 +1,16 @@
 {
     "eslint.useFlatConfig": true,
-    "typescript.preferences.importModuleSpecifier": "non-relative",
+    "ts.preferences.importModuleSpecifier": "non-relative",
     "cSpell.words": [
         "exceljs",
         "fulltext",
         "Gdrive",
+        "introspector",
         "kajitiluna",
         "mcpserver",
         "modelcontextprotocol",
+        "nextval",
+        "nspname",
         "nvarchar",
         "officedocument",
         "openxmlformats",

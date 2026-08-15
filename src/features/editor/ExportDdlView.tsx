@@ -6,7 +6,7 @@ import {
 
 import download from "~/components/file-downloader";
 import ErdDocument from "~/models/ErdDocument";
-import { createDdl } from "~/models/create-ddl";
+import { createDdl } from "~/models/schema/create-ddl";
 import ErdSettingModel from "~/models/ErdSettingModel";
 import ExportDdlSettingModel, { DdlCommentStyle } from "~/models/ExportDdlSettingModel";
 import { ErdDocumentsHolder } from "~/context/ErdDocumentsHolderContext";

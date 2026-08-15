@@ -18,6 +18,9 @@ work/**
 agent-plugin/**
 out/cli/**
 
+# npm package definition for @kajitiluna/erd-cli (published separately, not part of the extension)
+packages/**
+
 node_modules/**
 
 .gitignore

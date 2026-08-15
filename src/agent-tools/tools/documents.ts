@@ -14,7 +14,7 @@ import {
 } from "~/agent-tools/tools/support";
 import { toTableSummary } from "~/agent-tools/tools/tables";
 import { Database, DatabaseType } from "~/models/database";
-import { createDdl } from "~/models/create-ddl";
+import { createDdl } from "~/models/schema/create-ddl";
 import { toNextOrthogonalLines } from "~/features/canvas/support";
 import DatabaseSettingModel from "~/models/DatabaseSettingModel";
 import DisplayColumnStyle from "~/models/DisplayColumnStyle";
