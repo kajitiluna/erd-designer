@@ -5,7 +5,8 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 
 import {
-    createSpreadSheet, findGdriveMetadata, findRemoteUpdated, GdriveRequestError, openGdriveFile, updateGdriveFile
+    createSpreadSheet, findGdriveMetadata, findRemoteUpdated, GdriveRequestError, openErdGdriveFile,
+    updateGdriveFile, verifyGdriveVersionOrThrow
 } from "~/features/gdrive/gdrive-file-support";
 import ErdApplicationShell from "~/features/ErdApplicationShell";
 import ErdDocument from "~/models/ErdDocument";
@@ -121,7 +122,7 @@ const GoogleDriveFile = ({ authorization: gdriveAuthorization }: GoogleDriveFile
             return;
         }
 
-        openGdriveFile({
+        openErdGdriveFile({
             accessToken: authorization.accessToken, fileId: gdriveFileId
         }).then(gdriveFile => {
             setSessionDocument({ erdDocument: gdriveFile.erdDocument, version: gdriveFile.version });
@@ -341,17 +342,20 @@ type DoUpdateDocumentArgs = {
 };
 
 const doUpdateDocument = async (args: DoUpdateDocumentArgs): Promise<string> => {
-    const latestMetadata = await findGdriveMetadata({ accessToken: args.accessToken, fileId: args.fileId });
-
-    if (args.currentVersion !== latestMetadata.version) {
-        console.warn("The document has been updated by another user."
-            + ` currentVersion = ${args.currentVersion}, gdriveVersion = ${latestMetadata.version}`);
+    try {
+        await verifyGdriveVersionOrThrow({
+            accessToken: args.accessToken, fileId: args.fileId, currentVersion: args.currentVersion
+        });
+    } catch (error) {
+        console.warn(`${error} currentVersion = ${args.currentVersion}`);
 
         args.setMessageToast(initConflictToast(args.nextDocument, args.setMessageToast, args.setSessionDocument));
 
         return args.currentVersion;
     }
 
+    // withName の判定にのみ必要なファイル名は楽観的排他チェックの関心事に含まれないため、別途取得する。
+    const latestMetadata = await findGdriveMetadata({ accessToken: args.accessToken, fileId: args.fileId });
     const withUpdateName = (`${args.nextDocument.documentName}.erd` !== latestMetadata.fileName);
     const result = await updateGdriveFile({
         accessToken: args.accessToken, fileId: args.fileId,

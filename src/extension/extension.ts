@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 
+import { ErmImportProvider, ERM_IMPORTER_VIEW_TYPE } from '~/extension/ErmImportProvider';
 import { ExtensionProvider } from '~/extension/ExtensionProvider';
 import { McpServerManager } from '~/extension/McpServerManager';
 import { showVsCodeMessage } from '~/extension/vscode-message';
@@ -22,6 +23,11 @@ export const activate = (context: vscode.ExtensionContext) => {
         }
     );
 
+    const ermProviderRegistration = vscode.window.registerCustomEditorProvider(
+        ERM_IMPORTER_VIEW_TYPE, new ErmImportProvider(),
+        { supportsMultipleEditorsPerDocument: false }
+    );
+
     // 設定変更の監視
     const configChangeWatcher = vscode.workspace.onDidChangeConfiguration(event => {
         if (event.affectsConfiguration("erdDesigner.mcpServer")) {
@@ -33,6 +39,7 @@ export const activate = (context: vscode.ExtensionContext) => {
     mcpManager.start(serverEnabled, serverPort);
 
     context.subscriptions.push(providerRegistration);
+    context.subscriptions.push(ermProviderRegistration);
     context.subscriptions.push(configChangeWatcher);
 
     console.info("ERD Designer extension has been activated.");
