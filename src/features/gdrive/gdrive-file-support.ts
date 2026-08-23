@@ -1,11 +1,93 @@
 import ErdDocument from "~/models/ErdDocument";
+import { convertErm, ErmLoadSummary } from "~/models/erm";
 
-export const openGdriveFile = async ({ accessToken, fileId }: OpenGdriveFileArgs) => {
-    const contentPromise = fetchGdriveContent({ accessToken, fileId });
+export type GdriveOpenResult = {
+    fileType: "erd", fileId: string, erdDocument: ErdDocument, version: string
+} | {
+    fileType: "erm-converted", ermFileId: string, ermFileName: string, documentName: string,
+    erdDocument: ErdDocument, summaries: ErmLoadSummary[], folderId: string | null
+} | {
+    fileType: "erm-failed", ermFileId: string, ermFileName: string, failureMessage: string
+};
+
+/**
+ * .erd はそのまま読み込む。.erm (ERMaster) の場合はここで変換まで済ませ、確定保存は
+ * 呼び出し側 (GoogleDriveInitializer) が既存 .erd の有無を確認したうえで行う。
+ */
+export const openGdriveFile = async ({ accessToken, fileId }: OpenGdriveFileArgs): Promise<GdriveOpenResult> => {
+    const metadataPromise = findGdriveMetadata({ accessToken, fileId });
+    const contentPromise = fetchGdriveContentText({ accessToken, fileId });
+    const [metadata, contentText] = await Promise.all([metadataPromise, contentPromise]);
+
+    // 通常の .erd ファイルが指定された場合の処理
+    if (metadata.fileName.toLowerCase().endsWith(".erm") === false) {
+        const erdDocument = ErdDocument.toObject(JSON.parse(contentText))
+        return { fileType: "erd", fileId, erdDocument, version: metadata.version };
+    }
+
+    const documentName = metadata.fileName.replace(/\.erm$/i, "");
+    const result = convertErm(documentName, contentText);
+    if (result.result === "failure") {
+        return {
+            fileType: "erm-failed", ermFileId: fileId, ermFileName: metadata.fileName,
+            failureMessage: result.failureMessage
+        };
+    }
+
+    return {
+        fileType: "erm-converted", ermFileId: fileId, ermFileName: metadata.fileName, documentName,
+        erdDocument: result.erdDocument, summaries: result.summaries, folderId: metadata.folderId
+    };
+};
+
+/**
+ * リロード後の再取得など、対象が必ず既存の .erd であると分かっている場合の読み込み。
+ * .erm 変換の分岐を経由しない分、常に並列フェッチできる。
+ * (openGdriveFile はファイル名を先に確認する必要があるため、本文とメタデータの取得を並列化できない)
+ */
+export const openErdGdriveFile = async ({ accessToken, fileId }: OpenGdriveFileArgs) => {
+    const contentPromise = fetchGdriveErdDocument({ accessToken, fileId });
     const metadataPromise = findGdriveMetadata({ accessToken, fileId });
 
     const [erdDocument, metadata] = await Promise.all([contentPromise, metadataPromise]);
     return { fileId, erdDocument, version: metadata.version };
+};
+
+/**
+ * 指定フォルダ内で、この Web アプリが作成またはオープンしたことのあるファイルから同名のものを探す。
+ * OAuth スコープが drive.file のため、他アプリが作成したファイルは(フォルダを直接開いていない限り) 検出対象に含まれない制約がある。
+ */
+export const findSiblingGdriveFile = async (
+    { accessToken, folderId, fileName }: { accessToken: string, folderId: string, fileName: string }
+): Promise<{ fileId: string, version: string } | null> => {
+    const escapedFileName = fileName.replaceAll("\\", "\\\\").replaceAll("'", "\\'");
+    const query = `name='${escapedFileName}' and '${folderId}' in parents and trashed=false`;
+    const listUri = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}`
+        + "&fields=files(id,modifiedTime)";
+    const headerInfo = { headers: { Authorization: `Bearer ${accessToken}` } };
+
+    const response = await doFetchGdrive(listUri, headerInfo);
+    if (response.ok === false) {
+        throw await toGdriveError(response, "Failed to search for an existing file.");
+    }
+
+    const result = await response.json();
+    const files = ("files" in result) ? result.files as { id: string, modifiedTime: string }[] : [];
+
+    return (files.length > 0) ? { fileId: files[0].id, version: files[0].modifiedTime } : null;
+};
+
+type VerifyGdriveVersionArgs = { accessToken: string, fileId: string, currentVersion: string };
+
+// doUpdateDocument (GoogleDriveFile) と finalizeErmImport (GoogleDriveInitializer) の両方が行う
+// 「Drive 上書き直前に最新バージョンを取得し保持中の版と比較する」楽観的排他チェックの共通実装。
+export const verifyGdriveVersionOrThrow = async (
+    { accessToken, fileId, currentVersion }: VerifyGdriveVersionArgs
+): Promise<void> => {
+    const latestMetadata = await findGdriveMetadata({ accessToken, fileId });
+    if (currentVersion !== latestMetadata.version) {
+        throw new Error("The document has been updated by another user.");
+    }
 };
 
 type FindRemoteArgs = { accessToken: string, fileId: string, currentVersion: string };
@@ -25,7 +107,7 @@ export const findRemoteUpdated = async ({
         return { updated: false, version: currentVersion };
     }
 
-    const erdDocument = await fetchGdriveContent({ accessToken, fileId });
+    const erdDocument = await fetchGdriveErdDocument({ accessToken, fileId });
 
     // version はここで再取得せず、差分検知の契機になった modifiedTime をそのまま採用する。
     // 本文取得中に別の書き込みが挟まっても、古い側の version を記録しておけば次回チェックで
@@ -38,7 +120,12 @@ type OpenGdriveFileArgs = {
     fileId: string
 };
 
-const fetchGdriveContent = async ({ accessToken, fileId }: OpenGdriveFileArgs): Promise<ErdDocument> => {
+const fetchGdriveErdDocument = async (args: OpenGdriveFileArgs): Promise<ErdDocument> => {
+    const contentText = await fetchGdriveContentText(args);
+    return ErdDocument.toObject(JSON.parse(contentText));
+};
+
+const fetchGdriveContentText = async ({ accessToken, fileId }: OpenGdriveFileArgs): Promise<string> => {
     const contentUri = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
     const headerInfo = { headers: { Authorization: `Bearer ${accessToken}` } };
 
@@ -47,12 +134,11 @@ const fetchGdriveContent = async ({ accessToken, fileId }: OpenGdriveFileArgs): 
         throw await toGdriveError(response, "Failed to open file.");
     }
 
-    const jsonContent = await response.json();
-    return ErdDocument.toObject(jsonContent);
+    return response.text();
 };
 
 export const findGdriveMetadata = async ({ accessToken, fileId }: OpenGdriveFileArgs) => {
-    const fileUri = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,modifiedTime`;
+    const fileUri = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,modifiedTime,parents`;
     const headerInfo = { headers: { Authorization: `Bearer ${accessToken}` } };
 
     const response = await doFetchGdrive(fileUri, headerInfo);
@@ -68,7 +154,12 @@ export const findGdriveMetadata = async ({ accessToken, fileId }: OpenGdriveFile
         throw new Error(`Failed to find modifiedTime in metadata. ${JSON.stringify(metadata)}`);
     }
 
-    return { fileName: metadata.name as string, version: metadata.modifiedTime as string };
+    const parents = ("parents" in metadata) ? metadata.parents as string[] : [];
+
+    return {
+        fileName: metadata.name as string, version: metadata.modifiedTime as string,
+        folderId: (parents.length > 0) ? parents[0] : null
+    };
 };
 
 /**

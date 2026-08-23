@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.20260824] - 2026-08-24
+
+### Added
+
+- **Import ERMaster (.erm) diagrams**:
+
+  Diagrams created with ERMaster can now be opened directly and are converted into an ERD Designer
+  diagram. Tables, columns, column groups, relations, indexes, unique keys, notes, categories
+  (as perspectives) and colors are carried over. MySQL, PostgreSQL, SQLite and SQL Server files are
+  supported; a file for any other database is reported as an error.
+
+  - Web app: the start screen button is now "Import from .erd / .erm file", and the import dialog
+    accepts both extensions.
+  - Google Drive: opening a `.erm` file from Drive asks for confirmation, stating whether a new
+    `<name>.erd` will be created in the same folder or an existing one overwritten, then opens the
+    result for editing.
+  - VS Code: opening a `.erm` file writes `<name>.erd` next to the original and opens it in the ERD
+    editor. You are asked before an existing `.erd` is overwritten. The `.erm` file itself is never
+    modified.
+
+
 ## [0.20260811] - 2026-08-11
 
 ### Added

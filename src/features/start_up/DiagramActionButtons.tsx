@@ -26,7 +26,7 @@ const DiagramActionButtons = ({ actions, direction, sx }: DiagramActionButtonsPr
             </Button>
             <Button variant="outlined" size="large" fullWidth={isFullWidth} sx={importButtonSx}
                 onClick={onOpenImportDialog}>
-                Import from .erd file
+                Import from .erd / .erm file
             </Button>
             <Button variant="outlined" size="large" fullWidth={isFullWidth} sx={sampleButtonSx}
                 onClick={onOpenSample}>
