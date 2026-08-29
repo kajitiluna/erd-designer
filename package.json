@@ -101,7 +101,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest",
-    "testrun": "vitest run"
+    "testrun": "vitest run",
+    "testrun:unit": "vitest run --project unit",
+    "testrun:db": "vitest run --project integration"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -128,6 +130,7 @@
     "@testing-library/react": "^16.2.0",
     "@types/express": "^5.0.5",
     "@types/node": "^26.3.0",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/vscode": "^1.105.0",
@@ -145,7 +148,9 @@
     "eslint-plugin-testing-library": "^7.1.1",
     "globals": "^17.4.0",
     "jsdom": "^27.0.0",
+    "mysql2": "^3.23.4",
     "ovsx": "^1.1.0",
+    "pg": "^8.23.0",
     "tsc-alias": "^1.8.16",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.18.2",

@@ -14,6 +14,7 @@ node_modules
 dist
 dist-ssr
 out
+coverage
 *.local
 
 # CI builds this from out/cli/erd-cli.cjs before publishing @kajitiluna/erd-cli; never commit it
