@@ -126,7 +126,7 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
     "@types/express": "^5.0.5",
-    "@types/node": "^22.10.2",
+    "@types/node": "^26.3.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/vscode": "^1.105.0",
@@ -152,7 +152,7 @@
     "vitest": "^4.1.8"
   },
   "volta": {
-    "node": "22.12.0"
+    "node": "26.8.1"
   },
   "overrides": {
     "inflight": "npm:@derhuerst/inflight@latest",
@@ -169,9 +169,6 @@
     "@hono/node-server": ">=2.0.5",
     "exceljs": {
       "uuid": "^11.1.1"
-    },
-    "minimatch@10.2.5": {
-      "brace-expansion": "^5.0.7"
     }
   },
   "allowScripts": {

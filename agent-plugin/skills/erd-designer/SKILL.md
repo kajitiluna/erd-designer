@@ -9,7 +9,7 @@ description: >
 # ERD Designer CLI
 
 Edit `.erd` files directly with the bundled CLI. No MCP server, VSCode or running app is required.
-Requires Node.js 20+.
+Requires Node.js 22+.
 
 The CLI ships with this skill at `scripts/erd-cli.cjs`, **relative to the directory containing
 this SKILL.md**. This skill is self-contained (Agent Skills format), so it works from any agent

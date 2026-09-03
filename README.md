@@ -140,7 +140,7 @@ copilot plugin marketplace add kajitiluna/erd-designer
 copilot plugin install erd-designer@erd-designer
 ```
 
-The plugin ships a skill and a self-contained CLI (`agent-plugin/skills/erd-designer/scripts/erd-cli.cjs`, requires Node.js 20+),
+The plugin ships a skill and a self-contained CLI (`agent-plugin/skills/erd-designer/scripts/erd-cli.cjs`, requires Node.js 22+),
 so the agent consumes almost no context until the skill is actually used.
 The skill folder follows the open Agent Skills format, so other skill-compatible agents may also use it.
 Files stored on Google Drive can be edited through the local path synced by
@@ -198,7 +198,7 @@ After starting the development server, open your browser and navigate to http://
 
 ## Development
 
-- Node.js Requirement: Ensure you have Node.js (version 22.12 or higher) installed.
+- Node.js Requirement: Ensure you have Node.js (version 26 or higher) installed.
 - Build the Project:
   ```sh
   npm run build
