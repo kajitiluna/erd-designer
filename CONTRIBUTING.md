@@ -17,7 +17,7 @@ project running locally and what a pull request is expected to look like.
 
 ## Development setup
 
-Node.js 22.12 or higher is required (the repo pins 22.12.0 via [Volta](https://volta.sh/)).
+Node.js 26 or higher is required (the repo pins 26.8.1 via [Volta](https://volta.sh/)).
 
 ```sh
 git clone https://github.com/kajitiluna/erd-designer.git
