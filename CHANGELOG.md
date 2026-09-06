@@ -6,6 +6,49 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **CLI: `erd-diff` command**:
+
+  `node erd-cli.cjs erd-diff --file <path.erd> --from <path.erd>` compares two `.erd` revisions and
+  reports schema-level differences (added/removed tables, columns, types, indexes, foreign keys, and more)
+  in a form a reviewer can read without diffing the raw JSON. No database connection is required, and it
+  works with all supported database dialects. Output can be `text` (default), `json`, or `markdown`
+  (for posting as a PR comment). Tables can be excluded with repeatable `--ignore-table <regex>`, and
+  individual comparison categories can be turned off with `--no-index` / `--no-foreign-key` / `--no-comment`
+  / `--no-schema`. The command always exits `0` regardless of whether differences were found; only a
+  read failure (missing file, invalid `.erd`) exits `2`.
+
+- **CLI: `db-diff` command**:
+
+  `node erd-cli.cjs db-diff --file <path.erd>` connects to a live PostgreSQL, MySQL, or MariaDB
+  database (read-only — it only issues `SELECT`) and checks that the schema matches the `.erd` design.
+  Connection is via `ERD_DB_URL` (preferred, so credentials never land in shell history or CI logs) or
+  `--dsn <url>`. Exit code is `0` (no drift), `1` (drift found), or `2` (execution error — connection
+  failure, missing `pg`/`mysql2` driver, or an unsupported dialect). Same `--ignore-table` / `--no-*` /
+  `--format` options as `erd-diff`, plus `--schema <name>` to target a schema (PostgreSQL) or override
+  the database name (MySQL/MariaDB). The `pg` and `mysql2` drivers are not bundled — the npm package
+  (`@kajitiluna/erd-cli`) declares them as optional dependencies and installs them automatically;
+  other distributions (GitHub Release, agent plugin) require installing them manually in the working
+  directory.
+
+- **CLI: `migrate-ddl` command**:
+
+  `node erd-cli.cjs migrate-ddl --file <path.erd> [--from <path.erd> | --dsn <url>]` generates
+  `ALTER` statements that bring a database or another `.erd` revision in line with the design.
+  Nothing is applied automatically — output is a draft to review, printed to stdout or written to
+  a file with `--out <path.sql>`. Destructive operations (`DROP COLUMN` / `DROP TABLE` / dropping
+  an index or constraint) are commented out by default; `--allow-destructive` emits them as
+  executable SQL. Differences that cannot be safely turned into SQL (adding a `NOT NULL` column
+  with no `DEFAULT`, a whole missing table) are marked `-- unsupported:` instead of silently
+  dropped or auto-generated.
+
+### Changed
+
+- **CLI: unknown options are now rejected instead of silently ignored**. `run` and `validate` no longer
+  accept arbitrary trailing flags; an unrecognized `--xxx` option now exits with an error instead of being
+  dropped without comment.
+
 ## [0.20260824] - 2026-08-24
 
 ### Added
@@ -25,7 +68,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - VS Code: opening a `.erm` file writes `<name>.erd` next to the original and opens it in the ERD
     editor. You are asked before an existing `.erd` is overwritten. The `.erm` file itself is never
     modified.
-
 
 ## [0.20260811] - 2026-08-11
 

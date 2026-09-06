@@ -78,8 +78,8 @@ Test files live in a `__tests__/` directory next to the source file
 ## Adding a new agent tool
 
 Agent tools are the API that AI agents use to edit diagrams. The MCP server
-(`src/extension/McpServerManager.ts`) and the standalone CLI (`src/cli/main.ts`) both read
-from one catalog, so a tool added correctly is immediately available to both — never register
+(`src/extension/McpServerManager.ts`) and the standalone agent CLI (`src/cli/erd-agent.ts`) both
+read from one catalog, so a tool added correctly is immediately available to both — never register
 a tool with a single host.
 
 1. Add the tool to the module in `src/agent-tools/tools/` that owns its resource
@@ -98,10 +98,19 @@ a tool with a single host.
 Verify the CLI end to end:
 
 ```sh
+npm run bundle:agent-cli
+node out/cli/erd-agent.cjs list-tools
+node out/cli/erd-agent.cjs describe <tool-name>
+node out/cli/erd-agent.cjs run <tool-name> --file samples/sample-ec_mysql.erd --args '{...}'
+```
+
+Schema verification commands (`erd-diff`, `db-diff`, `migrate-ddl`) live in `src/cli/commands/` and are
+shared between `erd-agent.cjs` (agent-plugin bundle, falls back to the schema commands for names it
+doesn't recognize) and `erd-cli.cjs` (npm package, schema commands only). Verify the lighter bundle too:
+
+```sh
 npm run bundle:cli
-node out/cli/erd-cli.cjs list-tools
-node out/cli/erd-cli.cjs describe <tool-name>
-node out/cli/erd-cli.cjs run <tool-name> --file samples/sample-ec_mysql.erd --args '{...}'
+node out/cli/erd-cli.cjs erd-diff --file samples/sample-ec_mysql.erd --from samples/sample-ec_mysql.erd
 ```
 
 ## Pull requests

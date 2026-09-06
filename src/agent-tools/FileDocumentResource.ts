@@ -68,7 +68,7 @@ export class FileDocumentResource implements DocumentResource {
      * @returns 登録したドキュメントの documentId
      * @throws ファイルが読み込めない、または内容が ErdDocument として解釈できない場合
      */
-    public register(filePath: string): string {
+    private register(filePath: string): string {
         const absolutePath = path.resolve(filePath);
         const content = fs.readFileSync(absolutePath, 'utf-8');
         const erdDocument = ErdDocument.toObject(JSON.parse(content));
@@ -76,6 +76,25 @@ export class FileDocumentResource implements DocumentResource {
         const created = this.doRegister(absolutePath, erdDocument);
 
         return created.documentId;
+    }
+
+    /**
+     * .erd ファイルを読み込んで登録し、ErdDocument を返す。
+     * 登録自体は後続の findById / findByUri から参照するために行うものであり、
+     * 呼び出し側は documentId を扱う必要がない(register との違い)。
+     *
+     * @param filePath .erd ファイルのパス
+     * @returns 読み込んだ ErdDocument
+     * @throws ファイルが読み込めない、または内容が ErdDocument として解釈できない場合
+     */
+    public load(filePath: string): ErdDocument {
+        const absolutePath = path.resolve(filePath);
+        const content = fs.readFileSync(absolutePath, 'utf-8');
+        const erdDocument = ErdDocument.toObject(JSON.parse(content));
+
+        this.doRegister(absolutePath, erdDocument);
+
+        return erdDocument;
     }
 
     private doRegister(absolutePath: string, erdDocument: ErdDocument): CreatedDocument {

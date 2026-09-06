@@ -11,27 +11,54 @@ import { FileDocumentResource } from "~/agent-tools/FileDocumentResource";
 import { initToolRegistrations } from "~/agent-tools/tools";
 import { CREATE_DOCUMENT_TOOL_NAME } from "~/agent-tools/tools/documents";
 import { McpServerRegisterToolArgs, toOsFilePath } from "~/agent-tools/tools/support";
+import { OptionSpec, parseOptions } from "~/cli/options";
+import CommandRunner from "~/cli/command-runner";
+import { ErdDocumentFile } from "~/cli/support";
+
+const RUN_OPTION_SPECS: readonly OptionSpec[] = [
+    { name: "--file", arity: "single" },
+    { name: "--args", arity: "single" }
+];
+
+const VALIDATE_OPTION_SPECS: readonly OptionSpec[] = [
+    { name: "--file", arity: "single" }
+];
 
 const USAGE = `\
-erd-cli : Edit ERD Designer (.erd) files from the command line.
+ERD Designer CLI : Edit and verify ERD Designer (.erd) files from the command line.
 
 USAGE:
-  node erd-cli.cjs list-tools
+  node erd-agent.cjs list-tools
       List all available tools with a one-line summary.
 
-  node erd-cli.cjs describe <tool-name>
+  node erd-agent.cjs describe <tool-name>
       Show the full description and the JSON schema of the tool arguments.
 
-  node erd-cli.cjs run <tool-name> --file <path.erd> [--args '<json>']
+  node erd-agent.cjs run <tool-name> --file <path.erd> [--args '<json>']
       Run a tool against the given .erd file. Mutating tools save the file in place.
       'documentId' and 'filePath' in the arguments are injected automatically from --file.
       --file accepts both an absolute OS path and a file:// URI.
 
       To create a new .erd file, point --file at a path that does not exist yet:
-        node erd-cli.cjs run create-document --file <new.erd> --args '{"databaseType":"postgres"}'
+        node erd-agent.cjs run create-document --file <new.erd> --args '{"databaseType":"postgres"}'
 
-  node erd-cli.cjs validate --file <path.erd>
+  node erd-agent.cjs validate --file <path.erd>
       Check that the file can be parsed as an ERD document.
+
+  node erd-agent.cjs erd-diff --file <path.erd> --from <path.erd> [options]
+      Compare two .erd revisions and report the schema-level differences.
+      --ignore-table <regex> / --no-index / --no-foreign-key / --no-comment / --no-schema
+      --format text|json|markdown
+
+  node erd-agent.cjs db-diff --file <path.erd> [options]
+      Check that the .erd design matches a live database. Requires 'pg' or 'mysql2' to be
+      installed in the current directory (not bundled). --dsn <url> or ERD_DB_URL (preferred).
+      Same --ignore-table / --no-* / --format options as erd-diff, plus --schema <name> (PostgreSQL only).
+
+  node erd-agent.cjs migrate-ddl --file <path.erd> [options]
+      Generate ALTER statements that bring a database (or another .erd revision) in line with
+      the design. Not applied automatically. --from <path.erd> or a database connection
+      (--dsn/ERD_DB_URL), --out <path.sql>, --allow-destructive, --ignore-table <regex>.
 `;
 
 const main = async (): Promise<number> => {
@@ -56,18 +83,24 @@ const main = async (): Promise<number> => {
         return runValidate(argv.slice(1));
     }
 
-    console.error(`Unknown command: ${command}\n`);
-    console.error(USAGE);
-    return 1;
+    const schemaCommand = CommandRunner.find(command);
+    if (schemaCommand == null) {
+        console.error(`Unknown command: ${command}\n`);
+        console.error(USAGE);
+        return 2;
+    }
+
+    const result = await CommandRunner.execute(schemaCommand, argv.slice(1));
+    return CommandRunner.toExitCode(result);
 };
 
-const initTools = (documentResource: DocumentResource): McpServerRegisterToolArgs[] => {
+const doInitializeTools = (documentResource: DocumentResource): McpServerRegisterToolArgs[] => {
     const registrations = initToolRegistrations(documentResource);
 
     return registrations.flatMap(config => config.tools);
 };
 
-const findTool = (
+const doFindTool = (
     tools: McpServerRegisterToolArgs[], toolName: string | undefined
 ): McpServerRegisterToolArgs | null => {
     if (toolName == null) {
@@ -79,7 +112,7 @@ const findTool = (
 
 const runListTools = (): number => {
     const documentResource = new FileDocumentResource();
-    const tools = initTools(documentResource);
+    const tools = doInitializeTools(documentResource);
 
     const lines = tools.map(tool => toSummaryLine(tool));
     console.log(lines.join("\n"));
@@ -97,11 +130,13 @@ const toSummaryLine = (tool: McpServerRegisterToolArgs): string => {
 
 const runDescribe = (toolName: string | undefined): number => {
     const documentResource = new FileDocumentResource();
-    const tools = initTools(documentResource);
+    const tools = doInitializeTools(documentResource);
 
-    const tool = findTool(tools, toolName);
+    const tool = doFindTool(tools, toolName);
     if (tool == null) {
-        console.error(`Tool not found: ${toolName ?? "(missing tool name)"}. Use 'list-tools' to see available tools.`);
+        console.error(`Tool not found: ${toolName ?? "(missing tool name)"}. `
+            + "Use 'list-tools' to see available tools.");
+
         return 1;
     }
 
@@ -120,7 +155,13 @@ const runDescribe = (toolName: string | undefined): number => {
 };
 
 const runTool = async (toolName: string | undefined, optionArgv: string[]): Promise<number> => {
-    const fileOption = readOption(optionArgv, "--file");
+    const parsedOptions = parseOptions(optionArgv, RUN_OPTION_SPECS);
+    if (parsedOptions.resultType === "invalid") {
+        console.error(parsedOptions.message);
+        return 1;
+    }
+
+    const fileOption = parsedOptions.options.findValue("--file");
     if (fileOption == null) {
         console.error("Missing required option: --file <path.erd>");
         return 1;
@@ -128,11 +169,13 @@ const runTool = async (toolName: string | undefined, optionArgv: string[]): Prom
     const filePath = toOsFilePath(fileOption);
 
     const documentResource = new FileDocumentResource();
-    const tools = initTools(documentResource);
+    const tools = doInitializeTools(documentResource);
 
-    const tool = findTool(tools, toolName);
+    const tool = doFindTool(tools, toolName);
     if (tool == null) {
-        console.error(`Tool not found: ${toolName ?? "(missing tool name)"}. Use 'list-tools' to see available tools.`);
+        console.error(`Tool not found: ${toolName ?? "(missing tool name)"}. `
+            + "Use 'list-tools' to see available tools.");
+
         return 1;
     }
 
@@ -150,7 +193,7 @@ const runTool = async (toolName: string | undefined, optionArgv: string[]): Prom
         return 1;
     }
 
-    const argsJson = readOption(optionArgv, "--args");
+    const argsJson = parsedOptions.options.findValue("--args");
     const toolArguments = parseToolArguments(argsJson);
     const mergedArguments = mergeFileArguments(toolArguments, inputSchemaShape, filePath, documentId);
 
@@ -232,23 +275,25 @@ const printToolResult = (result: CallToolResult): void => {
 };
 
 const runValidate = (optionArgv: string[]): number => {
-    const fileOption = readOption(optionArgv, "--file");
+    const parsedOptions = parseOptions(optionArgv, VALIDATE_OPTION_SPECS);
+    if (parsedOptions.resultType === "invalid") {
+        console.error(parsedOptions.message);
+        return 1;
+    }
+
+    const fileOption = parsedOptions.options.findValue("--file");
     if (fileOption == null) {
         console.error("Missing required option: --file <path.erd>");
         return 1;
     }
-    const filePath = toOsFilePath(fileOption);
 
-    const documentResource = new FileDocumentResource();
-    const documentId = documentResource.register(filePath);
-
-    const budget = documentResource.findById(documentId);
-    if (budget == null) {
-        console.error(`Failed to load document: ${filePath}`);
+    const loadResult = ErdDocumentFile.load(fileOption);
+    if (loadResult.resultType === "failed") {
+        console.error(loadResult.message);
         return 1;
     }
 
-    const document = budget.erdDocument.toJSON() as {
+    const document = loadResult.erdDocument.toJSON() as {
         tableViewModels?: unknown[];
         columnModels?: unknown[];
         relationViewModels?: unknown[];
@@ -257,23 +302,10 @@ const runValidate = (optionArgv: string[]): number => {
     const columnCount = document.columnModels?.length ?? 0;
     const relationCount = document.relationViewModels?.length ?? 0;
 
-    console.log(`OK: valid ERD document (tables: ${tableCount}, columns: ${columnCount}, relations: ${relationCount})`);
+    console.log("OK: valid ERD document "
+        + `(tables: ${tableCount}, columns: ${columnCount}, relations: ${relationCount})`);
 
     return 0;
-};
-
-const readOption = (argv: string[], optionName: string): string | null => {
-    const optionIndex = argv.indexOf(optionName);
-    if (optionIndex < 0) {
-        return null;
-    }
-
-    const value = argv[optionIndex + 1];
-    if ((value == null) || value.startsWith("--")) {
-        return null;
-    }
-
-    return value;
 };
 
 main().then(exitCode => {

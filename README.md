@@ -59,6 +59,19 @@ No installation, no account. Your diagrams stay in your browser.
 - **Specification documents** — Export table definitions as Excel files or Google Spreadsheets
 - **Image export** — Export as PNG, SVG, or interactive HTML with pan/zoom and perspective switching
 
+### Schema Verification (CLI)
+A separately installed command-line tool, `@kajitiluna/erd-cli`, that compares a `.erd` design
+against a live database or another revision. Install it and the commands below become available
+in a terminal or a CI job, so the difference from production — and what a pull request actually
+changes — can be traced mechanically instead of by eye.
+
+- **`erd-diff`** — Summarize what changed between two `.erd` revisions, without diffing the raw JSON
+- **`db-diff`** — Report where a live database has drifted from the design. Read-only (`SELECT` only)
+- **`migrate-ddl`** — Draft the `ALTER` statements that close the gap. Nothing is applied automatically
+
+See **[packages/erd-cli/README.md](packages/erd-cli/README.md)** for installation, all options,
+and a GitHub Actions workflow
+
 ### Multi-Platform
 | | Browser | VSCode | Google Drive |
 |---|:---:|:---:|:---:|
@@ -140,7 +153,7 @@ copilot plugin marketplace add kajitiluna/erd-designer
 copilot plugin install erd-designer@erd-designer
 ```
 
-The plugin ships a skill and a self-contained CLI (`agent-plugin/skills/erd-designer/scripts/erd-cli.cjs`, requires Node.js 22+),
+The plugin ships a skill and a self-contained CLI (`agent-plugin/skills/erd-designer/scripts/erd-agent.cjs`, requires Node.js 22+),
 so the agent consumes almost no context until the skill is actually used.
 The skill folder follows the open Agent Skills format, so other skill-compatible agents may also use it.
 Files stored on Google Drive can be edited through the local path synced by

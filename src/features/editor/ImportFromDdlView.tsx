@@ -6,7 +6,7 @@ import {
 
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ErdDocument from "~/models/ErdDocument";
-import { DdlLoadResult, importDdl, loadDdl } from "~/models/ddl-loader";
+import { DdlLoadResult, importDdl, loadDdl } from "~/models/schema/ddl-loader";
 import { LocalSettingContext } from "~/context/LocalSettingContext";
 import TableViewModel from "~/models/TableViewModel";
 import RelationViewModel from "~/models/RelationViewModel";

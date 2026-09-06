@@ -1,0 +1,148 @@
+services:
+  # psql -h 127.0.0.1 -p 15432 -U db_user sample_db < `path_to_sql_file`
+  postgres15:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: db_user
+      POSTGRES_PASSWORD: db_password
+      POSTGRES_DB: sample_db
+    ports:
+      - "15432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U db_user -d sample_db"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  postgres16:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: db_user
+      POSTGRES_PASSWORD: db_password
+      POSTGRES_DB: sample_db
+    ports:
+      - "15433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U db_user -d sample_db"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  postgres17:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: db_user
+      POSTGRES_PASSWORD: db_password
+      POSTGRES_DB: sample_db
+    ports:
+      - "15434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U db_user -d sample_db"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  # mysql -h 127.0.0.1 -P 13306 -u db_user -p -D sample_db < `path_to_sql_file`
+  mysql80:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_USER: db_user
+      MYSQL_PASSWORD: db_password
+      MYSQL_DATABASE: sample_db
+    ports:
+      - "13306:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -proot_password"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  mysql84:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_USER: db_user
+      MYSQL_PASSWORD: db_password
+      MYSQL_DATABASE: sample_db
+    ports:
+      - "13307:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -proot_password"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  mysql9:
+    image: mysql:9
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_USER: db_user
+      MYSQL_PASSWORD: db_password
+      MYSQL_DATABASE: sample_db
+    ports:
+      - "13308:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -proot_password"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  # mysql -h 127.0.0.1 -P 13406 -u db_user -p -D sample_db < `path_to_sql_file`
+  mariadb1011:
+    image: mariadb:10.11
+    environment:
+      MARIADB_ROOT_PASSWORD: root_password
+      MARIADB_USER: db_user
+      MARIADB_PASSWORD: db_password
+      MARIADB_DATABASE: sample_db
+    ports:
+      - "13406:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  mariadb114:
+    image: mariadb:11.4
+    environment:
+      MARIADB_ROOT_PASSWORD: root_password
+      MARIADB_USER: db_user
+      MARIADB_PASSWORD: db_password
+      MARIADB_DATABASE: sample_db
+    ports:
+      - "13407:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  mariadb11:
+    image: mariadb:11
+    environment:
+      MARIADB_ROOT_PASSWORD: root_password
+      MARIADB_USER: db_user
+      MARIADB_PASSWORD: db_password
+      MARIADB_DATABASE: sample_db
+    ports:
+      - "13408:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  # db-diff / migrate-ddl は MS SQL Server 未対応(DbDriver.SUPPORTED_DATABASE_TYPES 参照)。
+  # 手動確認専用のため既定の `docker compose up` からは除外する。
+  # sqlcmd -S 127.0.0.1,11433 -U sa -P 'DB_password' -C
+  mssqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    profiles: ["mssql"]
+    environment:
+      ACCEPT_EULA: Y
+      MSSQL_SA_PASSWORD: DB_password
+      MSSQL_ENCRYPT: "false"
+    ports:
+      - "11433:1433"

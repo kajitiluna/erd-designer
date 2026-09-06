@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest';
 
-import { createDdl } from '~/models/create-ddl';
+import { createDdl } from '~/models/schema/create-ddl';
 import ColorValue from '~/models/ColorValue';
 import DatabaseSettingModel from '~/models/DatabaseSettingModel';
 import DbSchemaConfig from '~/models/DbSchemaConfig';

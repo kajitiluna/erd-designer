@@ -11,7 +11,7 @@ import SimpleColumnModel from '~/models/database/SimpleColumnModel';
 import StructColumnShareModel from '~/models/database/StructColumnShareModel';
 import DbSchemaModel from '~/models/database/DbSchemaModel';
 import DisplayNameStyle from '~/models/DisplayNameStyle';
-import RelationModel from '~/models/database/RelationModel';
+import RelationModel, { CardinalityType } from '~/models/database/RelationModel';
 import RelationPair from '~/models/database/RelationPair';
 import { overrideColumnName } from '~/models/database/support';
 import TableIndexModel from '~/models/database/TableIndexModel';
@@ -659,7 +659,7 @@ export default class ErdDocument {
     }
 
     private doUpdateRelationWithPrimaryKeyChanged(
-        relationViewModels: RelationViewModel[],
+        relationViews: RelationViewModel[],
         tableViewMap: Map<string, TableViewModel>,
         updatingColumnModelMap: Map<string, ColumnModel>,
         addingPrimaryKeys: SimpleColumnModel[],
@@ -668,78 +668,80 @@ export default class ErdDocument {
     ) {
         const nextTableViewMap = new Map(tableViewMap);
         const nextColumnModelMap = new Map(updatingColumnModelMap);
-        const updatingRelationModels = new Map<string, RelationModel>();
+        const updatingRelationMap = new Map<string, RelationModel>();
         const deletingRelationIds = new Set<string>();
 
         // PK に指定したカラムが削除された場合、該当カラムを利用したリレーション定義を削除する
         if (deletingPrimaryKeyIds.length > 0) {
-            for (const relationViewModel of relationViewModels) {
-                const previousRelationModel = relationViewModel.relationModel;
-                const nextPairs = previousRelationModel.relationPairs
+            for (const relationView of relationViews) {
+                const previousRelation = relationView.relationModel;
+                const nextPairs = previousRelation.relationPairs
                     .filter(pair => deletingPrimaryKeyIds.includes(pair.parentColumnModelId) === false);
 
                 // リレーション定義に変更がない場合は何もしない
-                if (previousRelationModel.relationPairs.length === nextPairs.length) {
+                if (previousRelation.relationPairs.length === nextPairs.length) {
                     continue;
                 }
 
                 // リレーション定義がなくなった場合は削除候補 (PK追加により、削除されない場合もある)
                 if (nextPairs.length === 0) {
-                    deletingRelationIds.add(relationViewModel.relationId);
+                    deletingRelationIds.add(relationView.relationId);
                 }
 
-                const nextRelationModel = new RelationModel({
-                    ...relationViewModel.relationModel,
+                const nextRelation = new RelationModel({
+                    ...relationView.relationModel,
                     relationPairs: nextPairs
                 });
-                updatingRelationModels.set(nextRelationModel.relationModelId, nextRelationModel);
+                updatingRelationMap.set(nextRelation.relationModelId, nextRelation);
             }
         }
 
         // PK にカラムが追加される場合、子テーブルに新規にカラムを追加する
         if (addingPrimaryKeys.length > 0) {
-            for (const beforeViewModel of relationViewModels) {
-                const previousRelationModel = updatingRelationModels.get(beforeViewModel.relationId)
-                    || beforeViewModel.relationModel;
+            for (const beforeView of relationViews) {
+                const previousRelation = updatingRelationMap.get(beforeView.relationId)
+                    || beforeView.relationModel;
 
-                const childTableViewModel = nextTableViewMap.get(previousRelationModel.childTableModelId)
-                    || this.tableViewModelMap.get(previousRelationModel.childTableModelId);
-                if (childTableViewModel == null) {
+                const childTableView = nextTableViewMap.get(previousRelation.childTableModelId)
+                    || this.tableViewModelMap.get(previousRelation.childTableModelId);
+                if (childTableView == null) {
                     continue;
                 }
 
                 // 子テーブルにも同じカラムグループが存在するならば、同じカラムグループを利用する
                 const hasSameGroupColumn = (updatingColumnGroupModel === null) ? false
-                    : childTableViewModel.tableModel.columnEntries
+                    : childTableView.tableModel.columnEntries
                         .some(column => (column.modelType === "group")
                             && (column.columnGroupId === updatingColumnGroupModel.columnGroupId));
                 if (hasSameGroupColumn) {
                     const nextRelationPairs = [
-                        ...previousRelationModel.relationPairs,
+                        ...previousRelation.relationPairs,
                         ...addingPrimaryKeys.map(addingColumn => new RelationPair({
                             parentColumnModelId: addingColumn.columnModelId,
                             childColumnModelId: addingColumn.columnModelId
                         }))
                     ];
 
-                    const nextRelationModel = new RelationModel({
-                        ...previousRelationModel,
+                    const nextRelation = new RelationModel({
+                        ...previousRelation,
                         relationPairs: nextRelationPairs
                     });
 
-                    updatingRelationModels.set(nextRelationModel.relationModelId, nextRelationModel);
-                    deletingRelationIds.delete(nextRelationModel.relationModelId);
+                    updatingRelationMap.set(nextRelation.relationModelId, nextRelation);
+                    deletingRelationIds.delete(nextRelation.relationModelId);
                     continue;
                 }
 
-                // 子テーブルに同じカラムグループが存在しない場合は、子テーブルに新規にカラムを追加する
+                // 子テーブルに同じカラムグループが存在しない場合は、子テーブルに新規にカラムを追加する。
+                // 新規作成なので、updateRelation と同じ基準(childCardinality)でNOT NULLを決める。
+                const isChildMandatory = isMandatoryCardinality(previousRelation.childCardinality);
                 const addingObjects = addingPrimaryKeys.map(addingParentColumn => {
                     const addingChildColumnModel = new SimpleColumnModel({
                         columnModelId: uuidV4(),
                         columnShareModelId: addingParentColumn.columnShareModelId,
                         physicalName: addingParentColumn.physicalName,
                         logicalName: addingParentColumn.logicalName,
-                        notNull: true
+                        notNull: isChildMandatory
                     });
 
                     return {
@@ -754,17 +756,17 @@ export default class ErdDocument {
                 const addingColumnModels = addingObjects.map(addingObj => addingObj.columnModel);
                 const addingRelationPairs = addingObjects.map(addingObj => addingObj.relationPair);
 
-                addingColumnModels.forEach(addingColumnModel => {
-                    nextColumnModelMap.set(addingColumnModel.columnModelId, addingColumnModel);
+                addingColumnModels.forEach(addingColumn => {
+                    nextColumnModelMap.set(addingColumn.columnModelId, addingColumn);
                 });
 
-                const childTableModel = childTableViewModel.tableModel;
-                const nextChildTableViewModel = new TableViewModel({
-                    ...childTableViewModel,
+                const childTable = childTableView.tableModel;
+                const nextChildTableView = new TableViewModel({
+                    ...childTableView,
                     tableModel: new TableModel({
-                        ...childTableModel,
+                        ...childTable,
                         columnEntries: [
-                            ...childTableModel.columnEntries,
+                            ...childTable.columnEntries,
                             ...addingColumnModels.map(columnModel => (
                                 {
                                     modelType: "single",
@@ -774,24 +776,24 @@ export default class ErdDocument {
                         ]
                     })
                 });
-                nextTableViewMap.set(nextChildTableViewModel.tableId, nextChildTableViewModel);
+                nextTableViewMap.set(nextChildTableView.tableId, nextChildTableView);
 
-                const nextRelationPairs = [...previousRelationModel.relationPairs, ...addingRelationPairs];
-                const nextRelationModel = new RelationModel({
-                    ...previousRelationModel,
+                const nextRelationPairs = [...previousRelation.relationPairs, ...addingRelationPairs];
+                const nextRelation = new RelationModel({
+                    ...previousRelation,
                     relationPairs: nextRelationPairs
                 });
-                updatingRelationModels.set(nextRelationModel.relationModelId, nextRelationModel);
-                deletingRelationIds.delete(nextRelationModel.relationModelId);
+                updatingRelationMap.set(nextRelation.relationModelId, nextRelation);
+                deletingRelationIds.delete(nextRelation.relationModelId);
             }
         }
 
-        deletingRelationIds.forEach(deletingId => updatingRelationModels.delete(deletingId));
+        deletingRelationIds.forEach(deletingId => updatingRelationMap.delete(deletingId));
 
         return {
             nextTableViewMap, nextColumnModelMap,
             nextRelationViewModelStorage: this.relationViewModelStorage
-                .updateRelationModel(Array.from(updatingRelationModels.values()))
+                .updateRelationModel(Array.from(updatingRelationMap.values()))
                 .deleteRelation(Array.from(deletingRelationIds))
         };
     }
@@ -1312,7 +1314,10 @@ export default class ErdDocument {
             }
         });
 
-        const isNotNullOption = ["1", "1..N"].includes(updatingModel.childCardinality)
+        // 子カラムを新規作成する場合に限り、カーディナリティから NOT NULL を決める。
+        // 既存カラムに紐づける場合は、そのカラムの NOT NULL を一切変更しない
+        // (relationName や参照アクションだけを変えるつもりの更新が、無関係な既存カラムの
+        // NOT NULL を書き換えてしまう副作用を防ぐため)。
         const nextAddingColumnModels = detailPairs
             .filter(pair => pair.childColumnModel == null)
             .map(pair => {
@@ -1323,18 +1328,9 @@ export default class ErdDocument {
                     columnShareModelId: parentColumnModel.columnShareModelId,
                     physicalName: parentColumnModel.physicalName,
                     logicalName: parentColumnModel.logicalName,
-                    notNull: isNotNullOption
+                    notNull: isMandatoryCardinality(updatingModel.childCardinality)
                 });
             });
-
-        const nextUpdatingColumnModels = detailPairs
-            .filter((pair): pair is {
-                parentColumnModelId: string,
-                childColumnModelId: string,
-                childColumnModel: SimpleColumnModel
-            } => (pair.childColumnModel != null) && ColumnModel.isSimpleColumn(pair.childColumnModel)
-                && (pair.childColumnModel.notNull === false))
-            .map(pair => new SimpleColumnModel({ ...pair.childColumnModel, notNull: isNotNullOption }));
 
         let nextTableViewModelMap: Map<string, TableViewModel>;
         if (nextAddingColumnModels.length > 0) {
@@ -1353,10 +1349,9 @@ export default class ErdDocument {
         }
 
         let nextColumnModelMap: Map<string, ColumnModel>;
-        if ((nextAddingColumnModels.length > 0) || (nextUpdatingColumnModels.length > 0)) {
+        if (nextAddingColumnModels.length > 0) {
             nextColumnModelMap = new Map(this.columnModelMap);
             nextAddingColumnModels.forEach(model => nextColumnModelMap.set(model.columnModelId, model));
-            nextUpdatingColumnModels.forEach(model => nextColumnModelMap.set(model.columnModelId, model));
         } else {
             nextColumnModelMap = this.columnModelMap;
         }
@@ -1968,4 +1963,11 @@ const doReuseModelMap = <MODEL>(
     });
 
     return allReused ? previousModels : new Map(entries);
+};
+
+/**
+ * このカーディナリティが「子は必ず1件存在する」ことを表すか(子カラムのNOT NULL可否の判定に使う)。
+ */
+const isMandatoryCardinality = (cardinality: CardinalityType): boolean => {
+    return (cardinality === "1") || (cardinality === "1..N");
 };

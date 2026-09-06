@@ -16,6 +16,7 @@ import DashboardLayout from "~/features/start_up/DashboardLayout";
 import startUpTheme from "~/features/start_up/StartUpTheme";
 import { StartUpActions } from "~/features/start_up/support";
 import ConversionReportAlert from "~/components/ConversionReportAlert";
+import sampleErdUrl from "../../../samples/sample-ec_mysql.erd?url";
 
 type StartUpProp = {
     documentStorage: ErdDocumentStorage,
@@ -112,8 +113,13 @@ const StartUp = ({ documentStorage, onOpenDocument }: StartUpProp) => {
 };
 
 const loadSampleDocument = async (): Promise<ErdDocument> => {
-    const sampleModule = await import("../../../samples/sample-ec_mysql.erd?raw");
-    return ErdDocument.toObject(JSON.parse(sampleModule.default));
+    const response = await fetch(sampleErdUrl);
+    if (response.ok === false) {
+        throw new Error(`Failed to fetch sample erd document. status : ${response.status}`);
+    }
+
+    const sampleObject = await response.json();
+    return ErdDocument.toObject(sampleObject);
 };
 
 type InitViewArgs = {
