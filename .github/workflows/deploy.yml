@@ -75,7 +75,7 @@ jobs:
         run: npm version "${APP_VERSION}" --no-git-tag-version
 
       - name: Build Application
-        run: npm run build && npm run package && npm run bundle:agent-cli && npm run bundle:cli
+        run: npm run build && npm run package
 
       - name: Commit back agent CLI
         run: |

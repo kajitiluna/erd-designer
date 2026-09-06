@@ -8,10 +8,21 @@
 images/**
 !images/icon.png
 docs/**
-public/favicon.ico
 samples/**
 src/**
 work/**
+
+# public/ is the Vite source asset directory; the extension only ever reads dist/.
+public/**
+
+# GitHub Pages assets that Vite copies into dist/, and the sample .erd bundled for the
+# web app's "open sample" action. The webview loads only index.html and assets/*.js|css:
+# og:image/favicon resolve against the Pages origin, and StartUp.tsx (the only caller of
+# the sample) is never mounted inside the webview.
+dist/og-image.png
+dist/favicon.ico
+dist/404.html
+dist/assets/*.erd
 
 # Agent plugin files (distributed via git, not part of the extension)
 .claude-plugin/**
@@ -31,9 +42,9 @@ renovate.json
 tsconfig.json
 tsconfig.app.json
 tsconfig.node.json
-tsconfig.extension.json
+tsconfig.bundle.json
 vite.config.ts
-vitest.setup.ts
+vitest*.ts
 **/.DS_Store
 index.html
 *.md

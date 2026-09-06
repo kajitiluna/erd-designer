@@ -34,14 +34,14 @@ jobs:
       - name: Type check
         run: npx tsc -b
 
-      - name: Check extension tsconfig
-        run: npm run check:extension
+      - name: Check bundle tsconfig
+        run: npm run check:bundle
 
       - name: Run lint
         run: npm run lint
 
       - name: Bundle CLI
-        run: npm run bundle:cli
+        run: npm run bundle:cli && npm run bundle:agent-cli
 
       - name: Run unit tests
         run: npx vitest run --project unit --coverage
