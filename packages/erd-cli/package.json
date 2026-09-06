@@ -5,7 +5,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kajitiluna/erd-designer"
+    "url": "git+https://github.com/kajitiluna/erd-designer.git"
   },
   "bugs": {
     "url": "https://github.com/kajitiluna/erd-designer/issues"
@@ -24,7 +24,7 @@
     "node": ">=20"
   },
   "bin": {
-    "erd-cli": "./erd-cli.cjs"
+    "erd-cli": "erd-cli.cjs"
   },
   "files": [
     "erd-cli.cjs",

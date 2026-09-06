@@ -260,14 +260,6 @@ jobs:
               --generate-notes
           fi
 
-  # 初回 publish の前提(このジョブは以下が未整備の間は失敗し続ける):
-  #   1. npmjs.com で @kajitiluna ユーザーを作成する(手動、一度きり、対応済み)。
-  #   2. npmjs.com の Trusted Publisher 設定で、この GitHub リポジトリ・ワークフローファイル(deploy.yml)・
-  #      environment "npm" からの publish を信頼する設定を登録する(OIDC、NPM_TOKEN不要)。
-  #   3. GitHub 環境 "npm"(下記 environment: name)を作成し、必要ならレビュー必須等の保護を設定する。
-  # 誤ったバージョンを publish してしまった場合、npm は unpublish に強い制限があるため
-  # (公開から72時間以内かつ他パッケージから依存されていない場合のみ削除可能)、
-  # 通常は次バージョンで即座に修正するか `npm deprecate` で該当バージョンに警告を付ける運用とする。
   publish-npm:
     runs-on: ubuntu-latest
     needs: [build, generate_version]

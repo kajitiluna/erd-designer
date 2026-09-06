@@ -46,6 +46,18 @@ Inspired by [ERMaster](https://ermaster.sourceforge.net/index.html), built for t
 - **Specification documents** — Export table definitions as Excel files
 - **Image export** — Export as PNG, SVG, or interactive HTML with pan/zoom and perspective switching
 
+### Schema Verification (CLI)
+A standalone CLI answers what the editor can't: does the design still match reality?
+Wire it into CI to catch drift and review schema changes mechanically.
+- **`erd-diff`** — Compare two `.erd` revisions and get a schema-level summary of what changed,
+without diffing the raw JSON. No database connection needed
+- **`db-diff`** — Check that the design still matches a live PostgreSQL, MySQL, or MariaDB database.
+Read-only (`SELECT` only), with CI-friendly exit codes
+- **`migrate-ddl`** — Generate `ALTER` statements that close the gap. Nothing is applied automatically
+
+See the [CLI reference](https://github.com/kajitiluna/erd-designer/blob/main/packages/erd-cli/README.md)
+for installation and all options.
+
 ### AI Agent Integration
 - **Agent plugin (CLI + skill)** — A plugin with a bundled CLI (for Claude Code and GitHub Copilot CLI)
 lets coding agents edit `.erd` files directly, with lower token overhead and no need to keep VS Code running.
