@@ -3,7 +3,8 @@ name: erd-designer
 description: >
   Create and edit ERD Designer .erd files (database entity-relationship diagrams).
   Use when the user asks to design database tables, add or modify tables, columns,
-  relations, indexes or memos in a .erd file, or to export DDL from a .erd file.
+  relations, indexes or memos in a .erd file, to export DDL from a .erd file, or to check
+  whether a .erd design matches another revision or a live database.
 ---
 
 # ERD Designer CLI
@@ -11,13 +12,13 @@ description: >
 Edit `.erd` files directly with the bundled CLI. No MCP server, VSCode or running app is required.
 Requires Node.js 22+.
 
-The CLI ships with this skill at `scripts/erd-cli.cjs`, **relative to the directory containing
+The CLI ships with this skill at `scripts/erd-agent.cjs`, **relative to the directory containing
 this SKILL.md**. This skill is self-contained (Agent Skills format), so it works from any agent
 that supports skills — e.g. Claude Code and GitHub Copilot CLI. In the examples below, `$CLI`
 stands for the resolved path:
 
 ```
-CLI=<directory of this SKILL.md>/scripts/erd-cli.cjs
+CLI=<directory of this SKILL.md>/scripts/erd-agent.cjs
 ```
 
 ## Workflow
@@ -38,6 +39,11 @@ CLI=<directory of this SKILL.md>/scripts/erd-cli.cjs
 4. **Validate** a `.erd` file (e.g. after external changes):
    ```
    node $CLI validate --file <path/to/file.erd>
+   ```
+5. **Check the design against reality** (optional, no MCP tools involved — see below):
+   ```
+   node $CLI erd-diff --file <path/to/file.erd> --from <path/to/other-revision.erd>
+   node $CLI db-diff --file <path/to/file.erd>   # needs ERD_DB_URL or --dsn, and pg/mysql2 installed
    ```
 
 ## Rules
@@ -66,6 +72,28 @@ CLI=<directory of this SKILL.md>/scripts/erd-cli.cjs
 - **Relate two tables**: look up ids via `run list-tables`, then `run create-relation`.
 - **Review a design**: `run list-tables` (summaries) or `run find-table` (full detail).
 - **Generate SQL**: `run export-ddl`.
+- **Review what changed since a base revision**: `erd-diff --file <current.erd> --from <base.erd>
+  --format markdown` (see below; not an `run <tool-name>` call, and not a source of truth for
+  `documentId` — use `list-documents` / `find-document-by-filepath` for that).
+- **Check drift against a live database**: `db-diff --file <file.erd>` (`ERD_DB_URL` or `--dsn`
+  required; `pg`/`mysql2` must be installed in the working directory — not bundled).
+
+## Schema verification (erd-diff / db-diff / migrate-ddl)
+
+These are separate top-level commands, not agent tools — they don't go through `run`, don't take
+`--args`, and don't touch `documentId`. They compare `.erd` schemas against another revision or a
+live database rather than editing a diagram.
+
+- `node $CLI erd-diff --file <path.erd> --from <path.erd> [--format text|json|markdown]` —
+  schema-level diff between two `.erd` revisions. No database connection needed.
+- `node $CLI db-diff --file <path.erd>` — checks the design against a live PostgreSQL/MySQL/MariaDB
+  database. Read-only. Requires `ERD_DB_URL` (preferred) or `--dsn <url>`, and the `pg` or `mysql2`
+  driver installed in the current working directory (not bundled with this skill).
+- `node $CLI migrate-ddl --file <path.erd> [--from <path.erd> | --dsn <url>] [--out <path.sql>]` —
+  drafts `ALTER` statements to close the gap. Never applies them; review the output before running it.
+
+Use `erd-diff`/`db-diff` when the user asks "what changed" or "is this in sync with the database" —
+don't try to answer that by reading the raw JSON.
 
 ## .erd format (background only)
 

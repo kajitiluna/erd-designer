@@ -6,6 +6,47 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.20260906] - 2026-09-06
+
+### Added
+
+- **Schema verification from the command line**:
+
+  A new CLI checks whether a `.erd` design still matches reality, from a terminal or a CI job.
+  Install it with `npm install -g @kajitiluna/erd-cli`, or download `erd-cli.cjs` from the GitHub Release.
+
+  - **`erd-diff`** — Summarize what changed between two `.erd` revisions, without diffing the raw JSON.
+    Output as text, JSON, or markdown to post as a pull request comment
+  - **`db-diff`** — Report where a live PostgreSQL, MySQL, or MariaDB database has drifted from the
+    design. Read-only, and exits with a distinct code when drift is found so CI can gate on it
+  - **`migrate-ddl`** — Draft the `ALTER` statements that close the gap. Nothing is applied
+    automatically, and destructive statements stay commented out unless explicitly allowed
+
+  See [packages/erd-cli/README.md](packages/erd-cli/README.md) for connection settings, all options,
+  and a GitHub Actions example.
+
+### Changed
+
+- **Agent plugin: the bundled CLI is now `erd-agent.cjs`**:
+
+  The script shipped with the skill moved from `scripts/erd-cli.cjs` to `scripts/erd-agent.cjs`, since
+  `erd-cli` now names the separately installed verification tool. It also runs the three commands above,
+  so an agent can answer "what changed" or "is this in sync with the database" directly. Update anything
+  that refers to the old path.
+
+- **CLI: unknown options are rejected instead of silently ignored**:
+
+  `run` and `validate` no longer accept arbitrary trailing flags; an unrecognized `--xxx` now reports an
+  error instead of being dropped without comment.
+
+### Fixed
+
+- **Editing a relation no longer rewrites NOT NULL on existing child columns**:
+
+  Updating a relation — even to change only its name or a referential action — used to force the child
+  columns' NOT NULL to follow the cardinality, silently changing columns the edit was not about.
+  Cardinality now decides NOT NULL only for child columns the relation creates for the first time.
+
 ## [0.20260824] - 2026-08-24
 
 ### Added
@@ -25,7 +66,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - VS Code: opening a `.erm` file writes `<name>.erd` next to the original and opens it in the ERD
     editor. You are asked before an existing `.erd` is overwritten. The `.erm` file itself is never
     modified.
-
 
 ## [0.20260811] - 2026-08-11
 

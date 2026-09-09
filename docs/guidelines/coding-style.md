@@ -135,17 +135,28 @@ Exceptions:
 
 Not enforced by ESLint — manual review rule.
 
-## 10. Component-private modules stay inside the component directory
+## 10. A directory's `index` re-exports only — no implementation
 
-Functions tightly coupled to a component (`initXxx`, `doXxx`) are private. When splitting them into files, place them under the component's directory (`ComponentName/index.ts` + internal modules) and forbid deep imports from outside.
+When a module's public surface is a directory rather than a single file, `index.ts`/`index.tsx` contains
+nothing but re-export statements. All implementation — including private helpers tightly coupled to the
+module (`initXxx`, `doXxx`) — lives in sibling files inside the directory, which are forbidden to be
+imported from outside except through the index.
 
 ```
-src/features/canvas/ErdCanvas/
-├── index.ts         // public API: default export + ERD_CANVAS_ID only
-└── *.ts(x)          // internal modules — import only within this directory
+src/models/schema/schema-migration-ddl/
+├── index.ts             // the entire file is re-exports; no implementation
+├── migration-ddl.ts      // implementation
+└── *.ts                 // other internal modules — import only within this directory
 ```
 
-ESLint: `no-restricted-imports` with `patterns: ["**/ErdCanvas/*"]`, ignoring the component directory itself.
+```ts
+// index.ts — this is the whole file, nothing else
+export type { DestructivePolicy } from "~/models/schema/schema-migration-ddl/migration-statement";
+export type { MigrationDdl } from "~/models/schema/schema-migration-ddl/migration-ddl";
+export { migrationDdlBuilder } from "~/models/schema/schema-migration-ddl/migration-ddl";
+```
+
+ESLint: `no-restricted-imports` with a `patterns` entry for the directory (e.g. `["**/schema-migration-ddl/*"]`), ignoring the directory itself.
 
 ## 11. No reverse-direction imports between parent and nested models
 
@@ -292,5 +303,64 @@ import { SOME_CONSTANT } from "~/extension/vscode-message";
 // OK — shared constant lives in a common module
 import { SOME_CONSTANT } from "~/components/constant";
 ```
+
+Not enforced by ESLint — manual review rule.
+
+## 19. Publish capability through a named contract, not bare function exports
+
+Do not `export` functions directly with no declared contract — a file that keeps exporting functions this way
+accumulates an unreadable, unbounded export list. Declare the module's public surface as a named contract
+instead. Two shapes are both correct; choose by design, not mechanically:
+
+- **`type` + one exported `const` object** implementing it (a name-only `type` for multiple operations, a named
+  function-type alias for a single one).
+- **A class whose `public`/`public static` members are the contract** — including a stateless class with a
+  `private constructor()`, when grouping related static operations under one name reads better than an object
+  literal.
+
+```ts
+// NG — functions exported directly; no declared contract, and the export list grows unchecked
+export const formatColumnAttributes = (column: ColumnSnapshot, unsignedSuffix: string): string => { ... };
+export const formatDefaultLiteral = (defaultValue: string): string => { ... };
+
+// OK — type + const object
+type DialectSql = {
+    columnAttributes: (column: ColumnSnapshot, unsignedSuffix: string) => string;
+    defaultLiteral: (defaultValue: string) => string;
+};
+const formatColumnAttributes = (column: ColumnSnapshot, unsignedSuffix: string): string => { ... };
+const formatDefaultLiteral = (defaultValue: string): string => { ... };
+export const dialectSql: DialectSql = {
+    columnAttributes: formatColumnAttributes, defaultLiteral: formatDefaultLiteral
+} as const;
+
+// OK — a single operation still gets a named type, not a bare export
+export type MigrationDdlBuilder = { build: (args: BuildMigrationDdlArgs) => MigrationDdl };
+const buildMigrationDdl = (args: BuildMigrationDdlArgs): MigrationDdl => { ... };
+export const migrationDdlBuilder: MigrationDdlBuilder = { build: buildMigrationDdl } as const;
+
+// OK — a stateless class as the contract; public static members are the public surface
+export default class TableDifference {
+    private constructor() { /* do nothing */ }
+    public static toStatements(expected: TableSnapshot, actual: TableSnapshot): TableStatements { ... }
+}
+
+// OK — instance state (regexes) makes a class the right shape regardless of this rule
+export class TableFilter {
+    private readonly regexes: readonly RegExp[];
+    private constructor(regexes: readonly RegExp[]) { this.regexes = regexes; }
+    public static parse(patterns: readonly string[]): TableFilterResult { ... }
+    public filterTables(snapshot: SchemaSnapshot): SchemaSnapshot { ... }
+}
+```
+
+Do not `export` a type or constant that no other directory imports, either — arguments/return types used only
+internally (e.g. `BuildMigrationDdlArgs`) stay unexported; callers pass an object literal and let the return
+value be inferred. Helpers shared only inside one directory live in that directory's `support.ts` (or a
+`support/` directory), not re-exported through the public contract.
+
+Exception: a module that exports only types is exempt — types cannot be wrapped in a value export. Keep such
+a module's imports to the minimum the type definitions themselves require, so it stays a neutral dependency
+(e.g. `schema-snapshot.ts`, `schema-difference.ts`).
 
 Not enforced by ESLint — manual review rule.

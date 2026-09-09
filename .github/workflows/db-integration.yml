@@ -1,0 +1,87 @@
+name: DB Integration Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/pull_request_template.md'
+      - '.github/dependabot.yml'
+      - '.vscode/**'
+      - 'samples/**'
+      - '*.md'
+      - 'LICENSE'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    # ポートはローカルの docker-compose.yml の postgres17/mysql9/mariadb11 と同じ値に合わせている。
+    # integration-database.ts の defaultDsn がこの値を前提にしており、環境変数での上書きなしに解決できる。
+    services:
+      postgres17:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: db_user
+          POSTGRES_PASSWORD: db_password
+          POSTGRES_DB: sample_db
+        ports:
+          - 15434:5432
+        options: >-
+          --health-cmd "pg_isready -U db_user -d sample_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
+      mysql9:
+        image: mysql:9
+        env:
+          MYSQL_ROOT_PASSWORD: root_password
+          MYSQL_USER: db_user
+          MYSQL_PASSWORD: db_password
+          MYSQL_DATABASE: sample_db
+        ports:
+          - 13308:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -proot_password"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
+      mariadb11:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: root_password
+          MARIADB_USER: db_user
+          MARIADB_PASSWORD: db_password
+          MARIADB_DATABASE: sample_db
+        ports:
+          - 13408:3306
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22.12.0"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run DB integration tests
+        env:
+          # コンテナは services: が既に起動・healthy 確認済みのため、globalSetup の docker compose 起動は行わない。
+          ERD_TEST_SKIP_COMPOSE: "1"
+          ERD_TEST_DB_TARGETS: "postgres17,mysql9,mariadb11"
+        run: npm run testrun:db

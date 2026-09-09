@@ -34,7 +34,7 @@
             "outFiles": [
                 "${workspaceFolder}/out/**/*.js"
             ],
-            "preLaunchTask": "npm: watch:extension"
+            "preLaunchTask": "npm: watch:bundle"
         }
     ]
 }
