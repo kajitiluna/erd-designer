@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-## [0.20260906] - 2026-09-06
+## [0.20260910] - 2026-09-10
 
 ### Added
 
@@ -46,6 +46,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Updating a relation — even to change only its name or a referential action — used to force the child
   columns' NOT NULL to follow the cardinality, silently changing columns the edit was not about.
   Cardinality now decides NOT NULL only for child columns the relation creates for the first time.
+
+- **Shift + mouse wheel did not scroll the diagram horizontally on Windows and Linux**:
+
+  Holding Shift while turning the mouse wheel left the canvas in place on Windows and Linux, while
+  the same operation scrolled horizontally on macOS. Horizontal scrolling now behaves the same on
+  every platform.
 
 ## [0.20260824] - 2026-08-24
 
