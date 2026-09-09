@@ -15,7 +15,7 @@ export const mySqlDialect: DialectFactory = (policy, withComment) => {
     // commentValue は呼び出し元が決める: 新規列は withComment===false なら常に空(保全すべき既存値が無い)、
     // 既存列は withComment===false なら actual(DB の現在値)を再掲する。
     const formatColumnClause = (column: ColumnSnapshot, commentValue: string): string => {
-        const attributes = DialectSql.columnAttributes(column, " UNSIGNED");
+        const attributes = DialectSql.columnAttributes(column, " UNSIGNED", true);
         const autoIncrementClause = column.autoIncrement ? " AUTO_INCREMENT" : "";
         const commentClause = (commentValue !== "") ? ` COMMENT '${commentValue.replaceAll("'", "''")}'` : "";
 

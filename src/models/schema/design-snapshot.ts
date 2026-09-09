@@ -305,22 +305,16 @@ const toIndexSnapshotsForTable = (
         .map(indexModel => {
             const columnNames = indexModel.indexColumnModels
                 .map(entry => nameByColumnModelId.get(entry.columnModelId))
-                .filter((name): name is string => (name != null));
+                .filter(name => (name != null));
+            const indexType = toIndexType(indexModel.indexType, indexModel.indexOption, databaseType);
 
             return {
                 indexName: indexModel.physicalName,
                 columnNames,
                 indexOption: indexModel.indexOption,
-                indexType: toIndexType(indexModel.indexType, indexModel.indexOption, databaseType)
+                indexType
             };
         });
-};
-
-// USING を省略した CREATE INDEX は postgres/mysql/mariadb のいずれも常に btree として作成される。
-// design 側で未指定(空文字)のままだと DB 側の明示表現と恒常的に不一致になるため、比較のためだけに既定値を補う。
-// FULLTEXT/SPATIAL は索引方式(indexType)を持たない別の索引実装のため対象外。
-const DEFAULT_INDEX_TYPES: { [key in DatabaseType]?: TableIndexType } = {
-    postgres: "BTREE", mysql: "BTREE", mariadb: "BTREE"
 };
 
 const toIndexType = (
@@ -330,5 +324,18 @@ const toIndexType = (
         return indexType;
     }
 
-    return DEFAULT_INDEX_TYPES[databaseType] ?? "";
+    return DEFAULT_INDEX_TYPES[databaseType];
+};
+
+// USING を省略した CREATE INDEX は postgres/mysql/mariadb のいずれも常に btree として作成される。
+// design 側で未指定(空文字)のままだと DB 側の明示表現と恒常的に不一致になるため、比較のためだけに既定値を補う。
+// FULLTEXT/SPATIAL は索引方式(indexType)を持たない別の索引実装のため対象外。
+const DEFAULT_INDEX_TYPES: { [key in DatabaseType]: TableIndexType } = {
+    postgres: "BTREE",
+    mysql: "BTREE",
+    mariadb: "BTREE",
+    ms_sqlserver: "",
+    sqlite: "",
+    bigquery: "",
+    snowflake: ""
 };

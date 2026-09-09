@@ -151,7 +151,7 @@ const toComparableDefaultValue = (value: string): string => {
     return unquoted.trim().toUpperCase();
 }
 
-const TYPE_CAST_PATTERN = /::[A-Za-z_][A-Za-z0-9_ ]*(\[\])?$/;
+const TYPE_CAST_PATTERN = /::([A-Za-z_][A-Za-z0-9_]*\.)?[A-Za-z_][A-Za-z0-9_ ]*(\[\])?$/;
 
 const stripSurroundingQuotes = (value: string): string => {
     const trimmed = value.trim();

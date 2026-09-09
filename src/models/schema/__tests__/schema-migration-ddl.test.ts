@@ -359,6 +359,113 @@ describe('buildMigrationDdl (multi-schema and case-fold table matching)', () => 
     });
 });
 
+describe('buildMigrationDdl (column name case sensitivity is DBMS-dependent)', () => {
+    test('MySQL treats a column name differing only in case as the same column (unsupported notice only)', () => {
+        const expectedTable = baseTable({ columns: [baseColumn({ columnName: 'UserName' })] });
+        const actualTable = baseTable({ columns: [baseColumn({ columnName: 'username' })] });
+
+        const result = build('mysql', [expectedTable], [actualTable], 'emit');
+
+        expect(result.statements).toHaveLength(1);
+        expect(result.statements[0].kind).toBe('unsupported');
+    });
+
+    test('MariaDB treats a column name differing only in case as the same column (unsupported notice only)', () => {
+        const expectedTable = baseTable({ columns: [baseColumn({ columnName: 'UserName' })] });
+        const actualTable = baseTable({ columns: [baseColumn({ columnName: 'username' })] });
+
+        const result = build('mariadb', [expectedTable], [actualTable], 'emit');
+
+        expect(result.statements).toHaveLength(1);
+        expect(result.statements[0].kind).toBe('unsupported');
+    });
+
+    test('PostgreSQL treats a column name differing only in case as distinct columns (ADD + DROP)', () => {
+        const expectedTable = baseTable({ columns: [baseColumn({ columnName: 'UserName', notNull: false })] });
+        const actualTable = baseTable({ columns: [baseColumn({ columnName: 'username', notNull: false })] });
+
+        const result = build('postgres', [expectedTable], [actualTable], 'emit');
+
+        const kinds = result.statements.map(statement => statement.kind);
+        expect(kinds).toContain('addColumn');
+        expect(kinds).toContain('dropColumn');
+        expect(kinds).not.toContain('unsupported');
+    });
+});
+
+describe('buildMigrationDdl (matchByColumns treats same-shaped elements as a multiset, not a set)', () => {
+    const sameShapeIndex = (indexName: string) => {
+        return { indexName, columnNames: ['a'], indexOption: '' as const, indexType: 'BTREE' as const };
+    };
+
+    test('two expected indexes with identical shape leave only the unmatched one as missing', () => {
+        const expectedTable = baseTable({ indexes: [sameShapeIndex('idx_1'), sameShapeIndex('idx_2')] });
+        const actualTable = baseTable({ indexes: [sameShapeIndex('idx_1')] });
+
+        const result = build('mysql', [expectedTable], [actualTable], 'emit');
+
+        const createIndexStatements = result.statements.filter(statement => (statement.kind === 'createIndex'));
+        expect(createIndexStatements).toHaveLength(1);
+    });
+
+    test('one extra actual index of the same shape is dropped, not silently ignored', () => {
+        const expectedTable = baseTable({ indexes: [sameShapeIndex('idx_1')] });
+        const actualTable = baseTable({ indexes: [sameShapeIndex('idx_1'), sameShapeIndex('idx_2')] });
+
+        const result = build('mysql', [expectedTable], [actualTable], 'emit');
+
+        const dropIndexStatements = result.statements.filter(statement => (statement.kind === 'dropIndex'));
+        expect(dropIndexStatements).toHaveLength(1);
+    });
+
+    test('equal counts on both sides produce no statement at all', () => {
+        const expectedTable = baseTable({ indexes: [sameShapeIndex('idx_1'), sameShapeIndex('idx_2')] });
+        const actualTable = baseTable({ indexes: [sameShapeIndex('idx_1'), sameShapeIndex('idx_2')] });
+
+        const result = build('mysql', [expectedTable], [actualTable], 'emit');
+
+        expect(result.statements).toEqual([]);
+    });
+});
+
+describe('buildMigrationDdl (default value literal escaping is DBMS-dependent)', () => {
+    test('MySQL escapes a backslash in a DEFAULT string literal', () => {
+        const expectedTable = baseTable({
+            columns: [baseColumn({ typeExpression: 'VARCHAR(255)', notNull: false, defaultValue: 'C:\\path' })]
+        });
+        const actualTable = baseTable({ columns: [] });
+
+        const result = build('mysql', [expectedTable], [actualTable]);
+
+        expect(result.statements[0].sql).toContain("DEFAULT 'C:\\\\path'");
+    });
+
+    test('PostgreSQL does not escape a backslash in a DEFAULT string literal', () => {
+        const expectedTable = baseTable({
+            columns: [baseColumn({ typeExpression: 'VARCHAR(255)', notNull: false, defaultValue: 'C:\\path' })]
+        });
+        const actualTable = baseTable({ columns: [] });
+
+        const result = build('postgres', [expectedTable], [actualTable]);
+
+        expect(result.statements[0].sql).toContain("DEFAULT 'C:\\path'");
+    });
+
+    test('"CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP" is treated as a keyword, not quoted as a string', () => {
+        const expectedTable = baseTable({
+            columns: [baseColumn({
+                typeExpression: 'TIMESTAMP', notNull: false, defaultValue: 'CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'
+            })]
+        });
+        const actualTable = baseTable({ columns: [] });
+
+        const result = build('mysql', [expectedTable], [actualTable]);
+
+        expect(result.statements[0].sql).toContain('DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
+        expect(result.statements[0].sql).not.toContain("'CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'");
+    });
+});
+
 describe('buildMigrationDdl (whole tables)', () => {
     test('a table missing entirely from actual is reported as unsupported, not auto-generated', () => {
         const result = build('mysql', [baseTable({ tableName: 'new_table' })], []);

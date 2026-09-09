@@ -173,15 +173,30 @@ const toTableRows = (rawRows: MySqlRawRows): MySqlTableRow[] => {
         };
     });
 
+    const columnRowsByTableName = groupByTableName(columnRows);
+    const indexColumnRowsByTableName = groupByTableName(indexColumnRows);
+    const foreignKeyRowsByTableName = groupByTableName(foreignKeyRows);
+
     return tableRows.map(tableRow => {
         return {
             tableName: tableRow.tableName,
             tableComment: tableRow.tableComment,
-            columns: columnRows.filter(row => (row.tableName === tableRow.tableName)),
-            indexColumnRows: indexColumnRows.filter(row => (row.tableName === tableRow.tableName)),
-            foreignKeyRows: foreignKeyRows.filter(row => (row.tableName === tableRow.tableName))
+            columns: columnRowsByTableName.get(tableRow.tableName) ?? [],
+            indexColumnRows: indexColumnRowsByTableName.get(tableRow.tableName) ?? [],
+            foreignKeyRows: foreignKeyRowsByTableName.get(tableRow.tableName) ?? []
         };
     });
+}
+
+const groupByTableName = <TYPE extends { tableName: string }>(rows: readonly TYPE[]): Map<string, TYPE[]> => {
+    const rowsByTableName = new Map<string, TYPE[]>();
+    rows.forEach(row => {
+        const existing = rowsByTableName.get(row.tableName) ?? [];
+        existing.push(row);
+        rowsByTableName.set(row.tableName, existing);
+    });
+
+    return rowsByTableName;
 }
 
 const toColumnRow = (raw: SqlQueryRow): MySqlColumnRow & { tableName: string } => {

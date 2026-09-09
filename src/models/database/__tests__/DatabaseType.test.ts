@@ -11,7 +11,10 @@ describe('Database', () => {
                 'postgres', 'PostgreSQL',
                 uniqueKeySupport, indexSupport,
                 { supportsSchema: true, defaultSchemaName: 'public', supportsTableCollate: false, collatePattern: /^.*$/ },
-                { supportArray: true, supportStruct: false, editableCharacterSet: false, autoIncrementLabel: '' }
+                {
+                    supportArray: true, supportStruct: false, editableCharacterSet: false, autoIncrementLabel: '',
+                    caseSensitiveColumnName: true
+                }
             );
 
             expect(database.databaseType).toBe('postgres');
@@ -431,6 +434,41 @@ describe('databases constant', () => {
     test('bigquery should support struct types', () => {
         const bigquery = Database.get("bigquery");
         expect(bigquery.supportsStructType).toBe(true);
+    });
+
+    test('postgres should have case-sensitive column names (quoted identifiers preserve case)', () => {
+        const postgres = Database.get("postgres");
+        expect(postgres.caseSensitiveColumnName).toBe(true);
+    });
+
+    test('mysql should have case-insensitive column names (documented DBMS behavior)', () => {
+        const mysql = Database.get("mysql");
+        expect(mysql.caseSensitiveColumnName).toBe(false);
+    });
+
+    test('mariadb should have case-insensitive column names (inherits MySQL identifier rules)', () => {
+        const mariadb = Database.get("mariadb");
+        expect(mariadb.caseSensitiveColumnName).toBe(false);
+    });
+
+    test('ms_sqlserver should have case-insensitive column names (default collation)', () => {
+        const sqlServer = Database.get("ms_sqlserver");
+        expect(sqlServer.caseSensitiveColumnName).toBe(false);
+    });
+
+    test('sqlite should have case-insensitive column names', () => {
+        const sqlite = Database.get("sqlite");
+        expect(sqlite.caseSensitiveColumnName).toBe(false);
+    });
+
+    test('bigquery should have case-insensitive column names (documented DBMS behavior)', () => {
+        const bigquery = Database.get("bigquery");
+        expect(bigquery.caseSensitiveColumnName).toBe(false);
+    });
+
+    test('snowflake should have case-sensitive column names (quoted identifiers preserve case)', () => {
+        const snowflake = Database.get("snowflake");
+        expect(snowflake.caseSensitiveColumnName).toBe(true);
     });
 
     test('allDatabaseTypes should return all database types', () => {

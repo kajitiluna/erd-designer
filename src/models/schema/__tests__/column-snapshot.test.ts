@@ -65,6 +65,14 @@ describe('ColumnSnapshots.ofDatabaseColumn defaultValue normalization', () => {
         expect(snapshot.defaultValue).toBe('ABC');
     });
 
+    test('strips a schema-qualified PostgreSQL type cast suffix (e.g. user-defined enum types)', () => {
+        const snapshot = ColumnSnapshots.ofDatabaseColumn(
+            baseDatabaseFacts({ defaultValue: "'active'::public.status_enum" })
+        );
+
+        expect(snapshot.defaultValue).toBe('ACTIVE');
+    });
+
     test('strips surrounding single quotes and unescapes doubled quotes', () => {
         const snapshot = ColumnSnapshots.ofDatabaseColumn(baseDatabaseFacts({ defaultValue: "'it''s here'" }));
 

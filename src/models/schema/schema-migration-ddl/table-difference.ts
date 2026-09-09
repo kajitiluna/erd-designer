@@ -9,19 +9,27 @@ export default class TableDifference {
         // do nothing.
     }
 
-    public static toStatements(
-        expected: TableSnapshot, actual: TableSnapshot, dialect: DialectFormatter, withComment: boolean
-    ): TableStatements {
-        return buildTableStatements(expected, actual, dialect, withComment);
+    public static toStatements(args: ToStatementArgs): TableStatements {
+        return buildTableStatements(args);
     }
+};
+
+type ToStatementArgs = {
+    expectedTable: TableSnapshot;
+    actualTable: TableSnapshot;
+    dialect: DialectFormatter;
+    withComment: boolean;
+    isCaseSensitiveColumnName: boolean
 };
 
 type TableStatements = { additive: MigrationStatement[], destructive: MigrationStatement[] };
 
-const buildTableStatements = (
-    expectedTable: TableSnapshot, actualTable: TableSnapshot, dialect: DialectFormatter, withComment: boolean
-): TableStatements => {
-    const columnResult = ColumnDifference.toStatements(expectedTable, actualTable, dialect, withComment);
+const buildTableStatements = ({
+    expectedTable, actualTable, dialect, withComment, isCaseSensitiveColumnName
+}: ToStatementArgs): TableStatements => {
+    const columnResult = ColumnDifference.toStatements({
+        expectedTable, actualTable, dialect, withComment, isCaseSensitive: isCaseSensitiveColumnName
+    });
     const uniqueResult = buildUniqueKeyStatements(expectedTable, actualTable, dialect);
     const indexResult = buildIndexStatements(expectedTable, actualTable, dialect);
     const foreignKeyResult = buildForeignKeyStatements(expectedTable, actualTable, dialect);
@@ -97,21 +105,44 @@ const buildForeignKeyStatements = (
 
 // migrate-ddl は「レビューしてから実行する」草案生成であり、SchemaComparison.compare のような名前の割り当ては行わないが、
 // 列構成だけでなく toMatchKey が表す主要な属性(FK の参照/アクション、index の種別等)の一致も見て突き合わせる。
+// 「同一構成の要素が複数存在する」場合に個数まで対応させるため、存在判定(Set)ではなく
+// 消費可能な個数を数える多重集合として missing/unexpected を独立に求める。
 const matchByColumns = <TYPE>(
     expectedItems: readonly TYPE[], actualItems: readonly TYPE[], toMatchKey: (item: TYPE) => string
 ): { missing: readonly TYPE[], unexpected: readonly TYPE[] } => {
-    const actualKeys = new Set(actualItems.map(actual => toMatchKey(actual)));
-    const expectedKeys = new Set(expectedItems.map(expected => toMatchKey(expected)));
-
+    const remainingActualCounts = toKeyCounts(actualItems, toMatchKey);
     const missing = expectedItems.filter(expectedItem => {
         const matchKey = toMatchKey(expectedItem);
-        return (actualKeys.has(matchKey) === false);
+        const remainingCount = remainingActualCounts.get(matchKey) ?? 0;
+        if (remainingCount === 0) {
+            return true;
+        }
+
+        remainingActualCounts.set(matchKey, remainingCount - 1);
+        return false;
     });
 
+    const remainingExpectedCounts = toKeyCounts(expectedItems, toMatchKey);
     const unexpected = actualItems.filter(actualItem => {
         const matchKey = toMatchKey(actualItem);
-        return (expectedKeys.has(matchKey) === false);
+        const remainingCount = remainingExpectedCounts.get(matchKey) ?? 0;
+        if (remainingCount === 0) {
+            return true;
+        }
+
+        remainingExpectedCounts.set(matchKey, remainingCount - 1);
+        return false;
     });
 
     return { missing, unexpected };
+};
+
+const toKeyCounts = <TYPE>(items: readonly TYPE[], toMatchKey: (item: TYPE) => string): Map<string, number> => {
+    const counts = new Map<string, number>();
+    items.forEach(item => {
+        const matchKey = toMatchKey(item);
+        counts.set(matchKey, (counts.get(matchKey) ?? 0) + 1);
+    });
+
+    return counts;
 };

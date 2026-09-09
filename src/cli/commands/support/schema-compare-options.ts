@@ -2,7 +2,7 @@ import process from 'node:process';
 
 import { CommandOptions, OptionSpec } from "~/cli/options";
 import { SnapshotTarget } from "~/cli/introspect/db-driver";
-import { DatabaseType } from "~/models/database/DatabaseType";
+import { Database, DatabaseType } from "~/models/database/DatabaseType";
 import { DdlCommentStyle } from "~/models/ExportDdlSettingModel";
 import { SchemaDiffDirection, SchemaDiffFormat } from "~/models/schema/schema-difference";
 import { SchemaCompareScope } from "~/models/schema/schema-snapshot";
@@ -62,13 +62,14 @@ export class SchemaCompareOptions {
 
     /**
      * イントロスペクション対象を決める。
-     * `--schema` を解釈するのは postgres のみで、 mysql/mariadb では名前空間が存在しないため無視する。
+     * `--schema` を解釈できるかは Database.supportsSchema (DBMS がスキーマ概念を持つか) で判定する。
      */
     public static toSnapshotTarget(
         options: CommandOptions, databaseType: DatabaseType, designSchemaNames: readonly string[]
     ): SnapshotTarget {
         const schemaOption = options.findValue("--schema") ?? "";
-        const supportsSchemaOption = (databaseType !== "mysql") && (databaseType !== "mariadb");
+        const database = Database.get(databaseType);
+        const supportsSchemaOption = database.supportsSchema;
 
         if ((supportsSchemaOption === false) && (schemaOption !== "")) {
             console.warn(`warn: --schema is ignored for ${databaseType}.`

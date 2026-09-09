@@ -28,12 +28,20 @@ type FetchDatabaseSnapshotResult =
     | { resultType: "failed", message: string };
 
 // 第1段階の対応方言。pg / mysql2 という枯れたドライバがある2系統から実用性を確認する
-const SUPPORTED_DATABASE_TYPES: readonly DatabaseType[] = ["postgres", "mysql", "mariadb"] as const;
+const INTROSPECTION_SUPPORT: { [key in DatabaseType]: boolean } = {
+    postgres: true,
+    mysql: true,
+    mariadb: true,
+    ms_sqlserver: false,
+    sqlite: false,
+    bigquery: false,
+    snowflake: false
+};
 
 export default class DbDriver {
 
     public static supports(databaseType: DatabaseType): boolean {
-        return SUPPORTED_DATABASE_TYPES.includes(databaseType);
+        return INTROSPECTION_SUPPORT[databaseType];
     }
 
     /** 方言別のイントロスペクタへディスパッチする。未対応方言は呼び出し側(db-diff コマンド)が先に弾く。 */

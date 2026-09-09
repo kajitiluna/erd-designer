@@ -83,6 +83,35 @@ describe('SchemaCompareOptions.toDiffFormat', () => {
     });
 });
 
+describe('SchemaCompareOptions.toSnapshotTarget', () => {
+    test('--schema is honored for a DBMS that supports schemas (postgres)', () => {
+        const parsed = parseOptions(['--schema', 'app'], [{ name: '--schema', arity: 'single' }]);
+        const options = (parsed.resultType === 'parsed') ? parsed.options : null;
+
+        const target = SchemaCompareOptions.toSnapshotTarget(options!, 'postgres', ['app']);
+
+        expect(target).toEqual({ schemaOption: 'app', designSchemaNames: ['app'] });
+    });
+
+    test('--schema is ignored for a DBMS with no schema concept (mysql)', () => {
+        const parsed = parseOptions(['--schema', 'app'], [{ name: '--schema', arity: 'single' }]);
+        const options = (parsed.resultType === 'parsed') ? parsed.options : null;
+
+        const target = SchemaCompareOptions.toSnapshotTarget(options!, 'mysql', ['app']);
+
+        expect(target).toEqual({ schemaOption: '', designSchemaNames: ['app'] });
+    });
+
+    test('--schema is ignored for a DBMS with no schema concept (sqlite)', () => {
+        const parsed = parseOptions(['--schema', 'app'], [{ name: '--schema', arity: 'single' }]);
+        const options = (parsed.resultType === 'parsed') ? parsed.options : null;
+
+        const target = SchemaCompareOptions.toSnapshotTarget(options!, 'sqlite', []);
+
+        expect(target).toEqual({ schemaOption: '', designSchemaNames: [] });
+    });
+});
+
 describe('SchemaCompareOptions.findConnectionUrl', () => {
     let originalErdDbUrl: string | undefined;
 

@@ -46,6 +46,10 @@ export class Database {
         return this.columnOption.editableCharacterSet;
     }
 
+    public get caseSensitiveColumnName(): boolean {
+        return this.columnOption.caseSensitiveColumnName;
+    }
+
     public get collatePattern(): RegExp {
         return this.tableOption.collatePattern;
     }
@@ -66,7 +70,8 @@ type ColumnOption = {
     autoIncrementLabel: string,
     editableCharacterSet: boolean,
     supportArray: boolean,
-    supportStruct: boolean
+    supportStruct: boolean,
+    caseSensitiveColumnName: boolean
 };
 
 // cSpell: ignore SPGIST FULLTEXT
@@ -85,7 +90,7 @@ const databases: { [key in DatabaseType]: Database } = {
         } as const,
         {
             autoIncrementLabel: "Generated Always As Identity", editableCharacterSet: false,
-            supportArray: true, supportStruct: false
+            supportArray: true, supportStruct: false, caseSensitiveColumnName: true
         } as const
     ),
     "mysql": new Database(
@@ -101,7 +106,7 @@ const databases: { [key in DatabaseType]: Database } = {
         } as const,
         {
             autoIncrementLabel: "Auto Increment", editableCharacterSet: true,
-            supportArray: false, supportStruct: false
+            supportArray: false, supportStruct: false, caseSensitiveColumnName: false
         } as const
     ),
     "mariadb": new Database(
@@ -117,7 +122,7 @@ const databases: { [key in DatabaseType]: Database } = {
         } as const,
         {
             autoIncrementLabel: "Auto Increment", editableCharacterSet: true,
-            supportArray: false, supportStruct: false
+            supportArray: false, supportStruct: false, caseSensitiveColumnName: false
         } as const
     ),
     "ms_sqlserver": new Database(
@@ -134,7 +139,7 @@ const databases: { [key in DatabaseType]: Database } = {
         } as const,
         {
             autoIncrementLabel: "Identity", editableCharacterSet: false,
-            supportArray: false, supportStruct: false
+            supportArray: false, supportStruct: false, caseSensitiveColumnName: false
         } as const
     ),
     "sqlite": new Database(
@@ -150,7 +155,7 @@ const databases: { [key in DatabaseType]: Database } = {
         } as const,
         {
             autoIncrementLabel: "", editableCharacterSet: false,
-            supportArray: false, supportStruct: false
+            supportArray: false, supportStruct: false, caseSensitiveColumnName: false
         } as const
     ),
     "bigquery": new Database(
@@ -163,7 +168,7 @@ const databases: { [key in DatabaseType]: Database } = {
         } as const,
         {
             autoIncrementLabel: "", editableCharacterSet: false,
-            supportArray: true, supportStruct: true
+            supportArray: true, supportStruct: true, caseSensitiveColumnName: false
         } as const
     ),
     "snowflake": new Database(
@@ -176,7 +181,7 @@ const databases: { [key in DatabaseType]: Database } = {
         } as const,
         {
             autoIncrementLabel: "Autoincrement", editableCharacterSet: false,
-            supportArray: false, supportStruct: false
+            supportArray: false, supportStruct: false, caseSensitiveColumnName: true
         } as const
     ),
 };

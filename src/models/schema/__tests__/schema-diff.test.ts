@@ -271,7 +271,7 @@ describe('compareSchemas (columns)', () => {
         ]);
     });
 
-    test('a column name differing only in case is matched, with a warning', () => {
+    test('a column name differing only in case is matched, with a warning (MySQL: case-insensitive)', () => {
         const expected = baseSnapshot([baseTable({ columns: [baseColumn({ columnName: 'UserName' })] })]);
         const actual = baseSnapshot([baseTable({ columns: [baseColumn({ columnName: 'username' })] })]);
 
@@ -279,6 +279,23 @@ describe('compareSchemas (columns)', () => {
 
         expect(diff.differences).toEqual([]);
         expect(diff.warnings).toContainEqual(expect.objectContaining({ category: 'name.caseFolded' }));
+    });
+
+    test('a column name differing only in case is treated as missing/unexpected (PostgreSQL: case-sensitive)', () => {
+        const expected = baseSnapshot(
+            [baseTable({ columns: [baseColumn({ columnName: 'UserName' })] })], { databaseType: 'postgres' }
+        );
+        const actual = baseSnapshot(
+            [baseTable({ columns: [baseColumn({ columnName: 'username' })] })], { databaseType: 'postgres' }
+        );
+
+        const diff = SchemaComparison.compare(expected, actual, FULL_SCOPE);
+
+        expect(diff.differences).toEqual(expect.arrayContaining([
+            expect.objectContaining({ category: 'column.missing', targetName: 'UserName' }),
+            expect.objectContaining({ category: 'column.unexpected', targetName: 'username' })
+        ]));
+        expect(diff.warnings).not.toContainEqual(expect.objectContaining({ category: 'name.caseFolded' }));
     });
 
     test('a column order difference produces a warning, not a difference', () => {

@@ -41,7 +41,7 @@ const initAddColumnFormatter = (
 ) => {
     // PostgreSQL には列挿入位置を指定する構文が無いため、previousColumnName は参照しない。
     return (table: TableSnapshot, column: ColumnSnapshot): MigrationStatement[] => {
-        const definition = DialectSql.columnAttributes(column, "");
+        const definition = DialectSql.columnAttributes(column, "", false);
         const columnStatement: MigrationStatement = {
             kind: "addColumn", schemaName: table.schemaName, tableName: table.tableName,
             // PostgreSQL に列挿入位置を指定する構文は無く、常に末尾に追加される。
@@ -93,7 +93,7 @@ const initModifyColumnFormatter = (
 
         if (expected.defaultValue !== actual.defaultValue) {
             const clause = (expected.defaultValue !== "")
-                ? `SET DEFAULT ${DialectSql.defaultLiteral(expected.defaultValue)}` : "DROP DEFAULT";
+                ? `SET DEFAULT ${DialectSql.defaultLiteral(expected.defaultValue, false)}` : "DROP DEFAULT";
             const sql = `ALTER TABLE ${tableRef(table)} ALTER COLUMN ${escapeName(expected.columnName)} ${clause};`;
 
             const statement = initStatement(table, sql);

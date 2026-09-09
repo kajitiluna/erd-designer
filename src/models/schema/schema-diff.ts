@@ -1,3 +1,4 @@
+import { Database } from "~/models/database/DatabaseType";
 import { DifferenceCategory, DifferenceValue, SchemaDiff, SchemaDifference } from "~/models/schema/schema-difference";
 import {
     ColumnSnapshot, ForeignKeySnapshot, IndexSnapshot, SchemaCompareScope, SchemaSnapshot, SchemaWarning,
@@ -18,6 +19,8 @@ export class SchemaComparison {
      */
     public static compare(expected: SchemaSnapshot, actual: SchemaSnapshot, scope: SchemaCompareScope): SchemaDiff {
         const tableMatch = TableMatcher.match(expected.tables, actual.tables, scope.withSchema);
+        const actualDatabase = Database.get(actual.databaseType);
+        const isCaseSensitiveColumnName = actualDatabase.caseSensitiveColumnName;
 
         const schemaDifferences = compareSchemaNames(expected.schemaNames, actual.schemaNames);
         const tableMissingExpects = tableMatch.missingExpected.map(table =>
@@ -28,7 +31,9 @@ export class SchemaComparison {
             toDifference("table.unexpected", table.schemaName, table.tableName, table.tableName,
                 ABSENT_VALUE, PRESENT_VALUE)
         );
-        const tablePairResults = tableMatch.pairs.map(pair => compareTablePair(pair.expected, pair.actual, scope));
+        const tablePairResults = tableMatch.pairs.map(pair =>
+            compareTablePair(pair.expected, pair.actual, scope, isCaseSensitiveColumnName)
+        );
         const caseFoldedTableWarnings = tableMatch.caseFoldedPairs.map(pair => toCaseFoldedTableWarning(pair));
 
         const differences = [
@@ -67,7 +72,8 @@ const compareSchemaNames = (expectedNames: readonly string[], actualNames: reado
 type TablePairResult = { differences: SchemaDifference[], warnings: SchemaWarning[] };
 
 const compareTablePair = (
-    expectedTable: TableSnapshot, actualTable: TableSnapshot, scope: SchemaCompareScope
+    expectedTable: TableSnapshot, actualTable: TableSnapshot, scope: SchemaCompareScope,
+    isCaseSensitiveColumnName: boolean
 ): TablePairResult => {
     const schemaName = expectedTable.schemaName;
     const tableName = expectedTable.tableName;
@@ -77,7 +83,9 @@ const compareTablePair = (
             toValueOrBlank(expectedTable.comment), toValueOrBlank(actualTable.comment))
     ] : [];
 
-    const columnResult = compareColumns(expectedTable.columns, actualTable.columns, scope, schemaName, tableName);
+    const columnResult = compareColumns(
+        expectedTable.columns, actualTable.columns, scope, schemaName, tableName, isCaseSensitiveColumnName
+    );
     const primaryKeyDiffers = comparePrimaryKey(expectedTable.primaryKeyColumnNames, actualTable.primaryKeyColumnNames,
         schemaName, tableName);
     const uniqueKeyDiffers = compareUniqueKeys(expectedTable.uniqueKeys, actualTable.uniqueKeys, schemaName, tableName);
@@ -98,7 +106,7 @@ type ColumnCompareResult = { differences: SchemaDifference[], warnings: SchemaWa
 // compareColumns も matchTables と同じ理由で状態を持つ蓄積になる(ルール5の例外)。
 const compareColumns = (
     expectedColumns: readonly ColumnSnapshot[], actualColumns: readonly ColumnSnapshot[],
-    scope: SchemaCompareScope, schemaName: string, tableName: string
+    scope: SchemaCompareScope, schemaName: string, tableName: string, isCaseSensitive: boolean
 ): ColumnCompareResult => {
     const actualByName = new Map(actualColumns.map(column => [column.columnName, column]));
     const actualByCaseFoldedName = new Map(actualColumns.map(column => [column.columnName.toUpperCase(), column]));
@@ -115,7 +123,7 @@ const compareColumns = (
         const caseFoldedCandidate = actualByCaseFoldedName.get(expectedColumn.columnName.toUpperCase());
 
         const caseFoldedMatch = (
-            (exactMatch == null) && (caseFoldedCandidate != null)
+            (isCaseSensitive === false) && (exactMatch == null) && (caseFoldedCandidate != null)
             && (matchedActualNames.has(caseFoldedCandidate.columnName) === false)
         ) ? caseFoldedCandidate : null;
 

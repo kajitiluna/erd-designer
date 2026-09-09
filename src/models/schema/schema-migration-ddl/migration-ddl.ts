@@ -1,4 +1,4 @@
-import { DatabaseType } from "~/models/database/DatabaseType";
+import { Database, DatabaseType } from "~/models/database/DatabaseType";
 import { SchemaSnapshot, TableSnapshot } from "~/models/schema/schema-snapshot";
 import TableMatcher, { TableMatchPair } from "~/models/schema/table-matcher";
 import {
@@ -76,14 +76,19 @@ type BuildMigrationDdlArgs = {
 };
 
 const buildMigrationDdl = (dialect: DialectFormatter, args: BuildMigrationDdlArgs): MigrationDdl => {
-    const { expected, actual, withComment } = args;
+    const { expected, actual, withComment, databaseType } = args;
+    const database = Database.get(databaseType);
+    const isCaseSensitiveColumnName = database.caseSensitiveColumnName;
 
     // migrate-ddl は usage 文言のとおり常にスキーマ修飾するため withSchema は固定で true にする
     // (--no-schema はここでは受理されるだけで効果を持たない)。
     const tableMatch = TableMatcher.match(expected.tables, actual.tables, true);
 
     const tableResults = tableMatch.pairs.map(pair =>
-        TableDifference.toStatements(pair.expected, pair.actual, dialect, withComment)
+        TableDifference.toStatements({
+            expectedTable: pair.expected, actualTable: pair.actual,
+            dialect, withComment, isCaseSensitiveColumnName
+        })
     );
 
     const additive = tableResults.flatMap(result => result.additive);
