@@ -29,5 +29,5 @@
     "types": ["vitest/globals"]
   },
   "exclude": ["node_modules"],
-  "include": ["src", "vitest.setup.ts"]
+  "include": ["src", "vitest.setup.ts", "vitest.global-setup.db.ts"]
 }

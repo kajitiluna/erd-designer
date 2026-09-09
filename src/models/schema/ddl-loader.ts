@@ -10,8 +10,9 @@ import { Parser as BigQueryParser } from "node-sql-parser/build/bigquery";
 import { Alter, AST, Create, DataType, Parser, ValueExpr } from "node-sql-parser";
 
 import {
-    Database, DatabaseType, findDatabaseColumns, IndexColumnModel, TableReferenceActionType
+    Database, DatabaseType, IndexColumnModel, TableReferenceActionType
 } from "~/models/database";
+import { DeclaredColumnType } from "~/models/schema/column-type-match";
 import ErdDocument from "~/models/ErdDocument";
 import { TableIndexOption, TableIndexType } from "~/models/database/TableIndexSupport";
 import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
@@ -314,7 +315,7 @@ const parseOptions: { [key in DatabaseType]: { database: string } } = {
     "snowflake": { database: "Snowflake" },
 };
 
-export type DdlLoadSummary = {
+type DdlLoadSummary = {
     result: "success" | "warning" | "failure" | "skipped";
     message: string;
     sql: string;
@@ -358,7 +359,7 @@ type ColumnBaseDefinition = {
     columnOption: string;
 };
 
-export type DdlTableDefinition = { columnDefinitions: ColumnDefinition[] } & TableBaseDefinition;
+type DdlTableDefinition = { columnDefinitions: ColumnDefinition[] } & TableBaseDefinition;
 
 type ColumnDefinition = ColumnBaseDefinition & { columnShareModel: ColumnShareModel };
 
@@ -1004,7 +1005,7 @@ const loadCreateIndexDdl = (query: Create): (
     ];
 };
 
-export type DdlRelationDefinition = {
+type DdlRelationDefinition = {
     constraintName: string;
     parentTableName: string;
     childTableName: string;
@@ -1365,33 +1366,7 @@ class ColumnTypeResolver {
             return target;
         }
 
-        const columnTypes = findDatabaseColumns(this.database.databaseType);
-        const targetColumnType = columnTypes.find(target => {
-            const columnTypeName = target.baseQuery.replace("[[PARAM]]", "").toUpperCase();
-            const definedColumnType = (columnDefinition.columnType
-                + ((columnDefinition.timezone !== "") ? ` ${columnDefinition.timezone}` : "")
-                // MS SQL Server の場合、`NVARCHAR(MAX)` 型などは precision に `max` が指定される
-                + ((columnDefinition.precision === "max") ? "(MAX)" : "")).toUpperCase();
-
-            if (columnTypeName !== definedColumnType) {
-                return false;
-            }
-
-            // MS SQL Server の `NVARCHAR(MAX)` 型などは、以降のチェックは不要
-            if (columnDefinition.precision === "max") {
-                return true;
-            }
-
-            if ((columnDefinition.precision != null) && (target.withPrecision === false)) {
-                return false;
-            }
-            if ((columnDefinition.scale != null) && (target.withScale === false)) {
-                return false;
-            }
-
-            return true;
-        });
-
+        const targetColumnType = DeclaredColumnType.find(this.database.databaseType, columnDefinition);
         if (targetColumnType == null) {
             return null;
         }

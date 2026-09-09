@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { pathToFileURL } from 'url';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
 import { FileDocumentResource } from '~/agent-tools/FileDocumentResource';
@@ -83,5 +84,37 @@ describe('FileDocumentResource.tryRegister', () => {
         const resource = new FileDocumentResource();
 
         expect(resource.tryRegister(path.join(workDirectory, 'absent.erd'))).toBeNull();
+    });
+});
+
+describe('FileDocumentResource.load', () => {
+    test('ファイルを読み込んで ErdDocument を返し、findById でも同じドキュメントを参照できる', async () => {
+        const resource = new FileDocumentResource();
+        const filePath = path.join(workDirectory, 'shop.erd');
+        await resource.create(filePath, initTestDocument('shop', 'postgres'));
+
+        const anotherResource = new FileDocumentResource();
+        const erdDocument = anotherResource.load(filePath);
+
+        expect(erdDocument.documentName).toBe('shop');
+        expect(erdDocument.databaseSettingModel.databaseType).toBe('postgres');
+
+        const fileUri = pathToFileURL(path.resolve(filePath)).href;
+        const budget = anotherResource.findByUri(fileUri);
+        expect(budget?.erdDocument).toBe(erdDocument);
+    });
+
+    test('存在しないファイルでは throw する', () => {
+        const resource = new FileDocumentResource();
+
+        expect(() => resource.load(path.join(workDirectory, 'absent.erd'))).toThrow();
+    });
+
+    test('壊れた JSON では throw する', () => {
+        const resource = new FileDocumentResource();
+        const filePath = path.join(workDirectory, 'broken.erd');
+        fs.writeFileSync(filePath, '{not valid json');
+
+        expect(() => resource.load(filePath)).toThrow();
     });
 });
