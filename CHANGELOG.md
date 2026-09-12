@@ -17,10 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
   - **`erd-diff`** — Summarize what changed between two `.erd` revisions, without diffing the raw JSON.
     Output as text, JSON, or markdown to post as a pull request comment
-  - **`db-diff`** — Report where a live PostgreSQL, MySQL, or MariaDB database has drifted from the
-    design. Read-only, and exits with a distinct code when drift is found so CI can gate on it
-  - **`migrate-ddl`** — Draft the `ALTER` statements that close the gap. Nothing is applied
-    automatically, and destructive statements stay commented out unless explicitly allowed
+  - **`db-diff`** — Report where a live PostgreSQL, MySQL, or MariaDB database has drifted from the design.
+    Read-only, and exits with a distinct code when drift is found so CI can gate on it
+  - **`migrate-ddl`** — Draft the `ALTER` statements that close the gap.
+    Nothing is applied automatically, and destructive statements stay commented out unless explicitly allowed
 
   See [packages/erd-cli/README.md](packages/erd-cli/README.md) for connection settings, all options,
   and a GitHub Actions example.
@@ -29,15 +29,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Agent plugin: the bundled CLI is now `erd-agent.cjs`**:
 
-  The script shipped with the skill moved from `scripts/erd-cli.cjs` to `scripts/erd-agent.cjs`, since
-  `erd-cli` now names the separately installed verification tool. It also runs the three commands above,
-  so an agent can answer "what changed" or "is this in sync with the database" directly. Update anything
-  that refers to the old path.
+  The script shipped with the skill moved from `scripts/erd-cli.cjs` to `scripts/erd-agent.cjs`,
+  since `erd-cli` now names the separately installed verification tool. It also runs the three commands above,
+  so an agent can answer "what changed" or "is this in sync with the database" directly.
+  Update anything that refers to the old path.
 
 - **CLI: unknown options are rejected instead of silently ignored**:
 
-  `run` and `validate` no longer accept arbitrary trailing flags; an unrecognized `--xxx` now reports an
-  error instead of being dropped without comment.
+  `run` and `validate` no longer accept arbitrary trailing flags;
+  an unrecognized `--xxx` now reports an error instead of being dropped without comment.
 
 ### Fixed
 
@@ -49,9 +49,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Shift + mouse wheel did not scroll the diagram horizontally on Windows and Linux**:
 
-  Holding Shift while turning the mouse wheel left the canvas in place on Windows and Linux, while
-  the same operation scrolled horizontally on macOS. Horizontal scrolling now behaves the same on
-  every platform.
+  Holding Shift while turning the mouse wheel left the canvas in place on Windows and Linux,
+  while the same operation scrolled horizontally on macOS.
+  Horizontal scrolling now behaves the same on every platform.
+  (Contributed by @okugawa3210 - [#242](https://github.com/kajitiluna/erd-designer/pull/242))
+
 
 ## [0.20260824] - 2026-08-24
 
@@ -59,19 +61,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Import ERMaster (.erm) diagrams**:
 
-  Diagrams created with ERMaster can now be opened directly and are converted into an ERD Designer
-  diagram. Tables, columns, column groups, relations, indexes, unique keys, notes, categories
-  (as perspectives) and colors are carried over. MySQL, PostgreSQL, SQLite and SQL Server files are
-  supported; a file for any other database is reported as an error.
+  Diagrams created with ERMaster can now be opened directly and are converted into an ERD Designer diagram.
+  Tables, columns, column groups, relations, indexes, unique keys, notes, categories (as perspectives)
+  and colors are carried over.
+  MySQL, PostgreSQL, SQLite and SQL Server files are supported; a file for any other database is reported as an error.
 
-  - Web app: the start screen button is now "Import from .erd / .erm file", and the import dialog
-    accepts both extensions.
-  - Google Drive: opening a `.erm` file from Drive asks for confirmation, stating whether a new
-    `<name>.erd` will be created in the same folder or an existing one overwritten, then opens the
-    result for editing.
-  - VS Code: opening a `.erm` file writes `<name>.erd` next to the original and opens it in the ERD
-    editor. You are asked before an existing `.erd` is overwritten. The `.erm` file itself is never
-    modified.
+  - Web app: the start screen button is now "Import from .erd / .erm file", and the import dialog accepts both extensions.
+  - Google Drive: opening a `.erm` file from Drive asks for confirmation, stating whether a new `<name>.erd`
+    will be created in the same folder or an existing one overwritten, then opens the result for editing.
+  - VS Code: opening a `.erm` file writes `<name>.erd` next to the original and opens it in the ERD editor.
+    You are asked before an existing `.erd` is overwritten. The `.erm` file itself is never modified.
+
 
 ## [0.20260811] - 2026-08-11
 
@@ -80,23 +80,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **MCP Server / Agent plugin: create a new .erd file**:
 
   A new `create-document` tool creates a brand-new `.erd` file, so an AI assistant can start a diagram
-  from scratch instead of asking you to make an empty file in the app first. It takes the file path and
-  the target database, plus an optional diagram name that defaults to the file name. The database type
-  cannot be changed later, so it must be given explicitly. An existing file is never overwritten, and the
-  parent directory must already exist. In VS Code the new file opens in the ERD editor right away.
+  from scratch instead of asking you to make an empty file in the app first.
+  It takes the file path and the target database, plus an optional diagram name that defaults to the file name.
+  The database type cannot be changed later, so it must be given explicitly. An existing file is never overwritten,
+  and the parent directory must already exist. In VS Code the new file opens in the ERD editor right away.
 
 - **VS Code extension on Open VSX**:
 
-  The extension is now published to the Open VSX Registry alongside the Visual Studio Marketplace, so it
-  can be installed directly from editors such as VSCodium, Cursor, and Windsurf.
+  The extension is now published to the Open VSX Registry alongside the Visual Studio Marketplace,
+  so it can be installed directly from editors such as VSCodium, Cursor, and Windsurf.
 
 ### Changed
 
 - **CLI accepts file URIs and reports a missing file clearly**:
 
-  `erd-cli` now takes either an absolute OS path or a `file://` URI for `--file`. When a tool that edits an
-  existing document is pointed at a path that does not exist, the CLI now reports the missing file instead
-  of failing while reading it.
+  `erd-cli` now takes either an absolute OS path or a `file://` URI for `--file`.
+  When a tool that edits an existing document is pointed at a path that does not exist,
+  the CLI now reports the missing file instead of failing while reading it.
+
 
 ## [0.20260809] - 2026-08-09
 
