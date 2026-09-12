@@ -227,7 +227,6 @@ Contributions are welcome! See **[CONTRIBUTING.md](CONTRIBUTING.md)** for how to
 project, what the review expects, and how to add a new agent tool.
 
 - **Bug reports and feature requests** — open an [Issue](https://github.com/kajitiluna/erd-designer/issues)
-- **Questions and ideas** — start a [Discussion](https://github.com/kajitiluna/erd-designer/discussions)
 - **Pull requests** — please open an issue first to discuss significant changes
 
 This project follows a [Code of Conduct](CODE_OF_CONDUCT.md).
