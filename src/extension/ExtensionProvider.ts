@@ -87,7 +87,9 @@ const initHandleDocumentChanged = (
             return;
         }
 
-        notifyExternalChangedDocument(webviewPanel.webview, textDocument, jsonContent);
+        // TextDocument の変更は呼び出された時点で既にファイルへ書き込まれているため、
+        // webview 側の echo 抑止 (保存し返さない) の対象にしてよい。
+        notifyExternalChangedDocument(webviewPanel.webview, textDocument, jsonContent, true);
 
         console.info(`Notified external document change to webview: ${documentUri}`);
     };
@@ -125,8 +127,9 @@ const initHandleReceivedMessage = (
             const jsonContent = textDocument.getText().trim();
 
             const handleChangeView = (updating: string) => {
-                // 自身の操作以外で更新された場合は WebView に変更を通知する
-                notifyExternalChangedDocument(webviewPanel.webview, textDocument, updating);
+                // MCP ツール経由の変更はまだファイルへ書き込まれていないため、webview からの
+                // 保存往復を経て初めて永続化される (alreadyPersisted: false)
+                notifyExternalChangedDocument(webviewPanel.webview, textDocument, updating, false);
             };
             const unregister = documentResource.register(textDocument, jsonContent, handleChangeView);
             onRegistered(unregister);

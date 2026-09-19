@@ -9,11 +9,12 @@ import {
     updateGdriveFile, verifyGdriveVersionOrThrow
 } from "~/features/gdrive/gdrive-file-support";
 import ErdApplicationShell from "~/features/ErdApplicationShell";
+import ExternalDocumentChangeDispatcher from "~/components/ExternalDocumentChangeDispatcher";
 import ErdDocument from "~/models/ErdDocument";
 import GoogleDriveNoticeLayout from "~/features/gdrive/GoogleDriveNoticeLayout";
 import exportSpreadSheetFormatSpecification from "~/features/spec/GoogleSpreadSheetFormatSpecification";
 import { containedButtonStyle, descriptionStyle } from "~/features/start_up/start-up-styles";
-import { EXTERNAL_DOCUMENT_CHANGED_EVENT, REMOTE_SYNC_REQUESTED_EVENT } from "~/components/constant";
+import { REMOTE_SYNC_REQUESTED_EVENT } from "~/components/constant";
 import { AuthorizationToken, GdriveAuthorization } from "~/features/gdrive/gdrive-authorization";
 
 type SessionDocument = {
@@ -35,7 +36,7 @@ const GoogleDriveFile = ({ authorization: gdriveAuthorization }: GoogleDriveFile
     const [messageToast, setMessageToast] = React.useState<MessageToast | null>(null);
     const updateQueueRef = React.useRef<Promise<string>>(Promise.resolve(""));
     const latestDocumentRef = React.useRef<ErdDocument | null>(null);
-    const importedDocumentRef = React.useRef<ErdDocument | null>(null);
+    const changeDispatcherRef = React.useRef(new ExternalDocumentChangeDispatcher());
     const pendingDocumentRef = React.useRef<ErdDocument | null>(null);
     const syncStateRef = React.useRef<RemoteSyncState>("idle");
 
@@ -55,7 +56,7 @@ const GoogleDriveFile = ({ authorization: gdriveAuthorization }: GoogleDriveFile
         if ((sessionDocument == null) || (gdriveFileId == null)) {
             return;
         }
-        if (importedDocumentRef.current === erdDocument) {
+        if (changeDispatcherRef.current.isEcho(erdDocument)) {
             return;
         }
 
@@ -226,7 +227,7 @@ const GoogleDriveFile = ({ authorization: gdriveAuthorization }: GoogleDriveFile
 
         const handleSyncRequest = initHandleSyncRemoteRequest({
             authorization, authorize, fileId: gdriveFileId,
-            latestDocumentRef, importedDocumentRef, syncStateRef,
+            latestDocumentRef, changeDispatcherRef, syncStateRef,
             enqueueUpdateTask, setMessageToast
         });
 
@@ -455,7 +456,7 @@ type HandleSyncRemoteRequestArgs = {
     authorize: () => void,
     fileId: string,
     latestDocumentRef: React.RefObject<ErdDocument | null>,
-    importedDocumentRef: React.RefObject<ErdDocument | null>,
+    changeDispatcherRef: React.RefObject<ExternalDocumentChangeDispatcher>,
     syncStateRef: React.RefObject<RemoteSyncState>,
     enqueueUpdateTask: (task: UpdateTask, taskName: string) => void,
     setMessageToast: React.Dispatch<React.SetStateAction<MessageToast | null>>
@@ -490,7 +491,7 @@ const initRemoteSyncTask = (args: HandleSyncRemoteRequestArgs): UpdateTask => {
                 fileId: args.fileId,
                 currentVersion,
                 latestDocumentRef: args.latestDocumentRef,
-                importedDocumentRef: args.importedDocumentRef,
+                changeDispatcherRef: args.changeDispatcherRef,
                 onImported: initHandleImported(args.setMessageToast)
             });
 
@@ -562,7 +563,7 @@ type ImportRemoteUpdateArgs = {
     fileId: string,
     currentVersion: string,
     latestDocumentRef: React.RefObject<ErdDocument | null>,
-    importedDocumentRef: React.RefObject<ErdDocument | null>,
+    changeDispatcherRef: React.RefObject<ExternalDocumentChangeDispatcher>,
     onImported: () => void
 };
 
@@ -588,28 +589,10 @@ const doImportRemoteUpdate = async (args: ImportRemoteUpdateArgs): Promise<strin
         return remoteUpdate.version;
     }
 
-    dispatchExternalDocumentChanged(args.importedDocumentRef, importedDocument);
+    args.changeDispatcherRef.current.dispatch(importedDocument);
     args.onImported();
 
     return remoteUpdate.version;
-};
-
-/**
- * 履歴管理は MainView の documentsHolder が担うため CustomEvent へ委譲する。
- * dispatch は同期実行されるため、その区間だけ取り込み対象を保持して
- * 直後に誘発される同一内容の保存を打ち消す。
- */
-const dispatchExternalDocumentChanged = (
-    importedDocumentRef: React.RefObject<ErdDocument | null>, erdDocument: ErdDocument
-) => {
-    importedDocumentRef.current = erdDocument;
-
-    try {
-        const customEvent = new CustomEvent(EXTERNAL_DOCUMENT_CHANGED_EVENT, { detail: { erdDocument } });
-        window.dispatchEvent(customEvent);
-    } finally {
-        importedDocumentRef.current = null;
-    }
 };
 
 export default GoogleDriveFile;
