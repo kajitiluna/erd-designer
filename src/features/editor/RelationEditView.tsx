@@ -1,11 +1,12 @@
 import { v4 as uuidV4 } from 'uuid';
 import React from "react";
 import {
-    Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
+    Alert, Box, Button, DialogActions, DialogContent, DialogTitle, Divider,
     FormControl, Grid, InputLabel, MenuItem, Paper, Select, SelectChangeEvent, Stack,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography
 } from "@mui/material";
 
+import DraggableDialog from "~/components/DraggableDialog";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import RelationModel, { CardinalityType, TableReferenceActionType } from "~/models/database/RelationModel";
 import RelationPair from "~/models/database/RelationPair";
@@ -120,7 +121,7 @@ const RelationEditView = ({
     const handleEnterDown = initHandleEnterKeyDown(handleCompleted);
 
     return (
-        <Dialog fullWidth maxWidth="md" sx={{ userSelect: "none" }}
+        <DraggableDialog layoutName="relation-edit" fullWidth maxWidth="md" sx={{ userSelect: "none" }}
             open={isOpen} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>Edit Relation</DialogTitle>
             <DialogContent>
@@ -154,7 +155,7 @@ const RelationEditView = ({
                 <Button onClick={onClose}>Cancel</Button>
                 <Button variant="contained" disabled={!editValueValidated} onClick={handleCompleted}>OK</Button>
             </DialogActions>
-        </Dialog>
+        </DraggableDialog>
     );
 };
 

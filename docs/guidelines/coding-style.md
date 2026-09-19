@@ -364,3 +364,25 @@ a module's imports to the minimum the type definitions themselves require, so it
 (e.g. `schema-snapshot.ts`, `schema-difference.ts`).
 
 Not enforced by ESLint — manual review rule.
+
+## 20. JSDoc is English; ordinary comments may be Japanese
+
+A JSDoc block (`/** ... */`) documents the public interface of a component, function, or type —
+write it in English so the API contract reads consistently across the codebase. Ordinary comments
+(`//`, or `/* */` that is not a JSDoc block) capture implementation notes and may be written in
+either language.
+
+```ts
+// NG — JSDoc in Japanese
+/** 指定すると、この名前に紐づけて位置とサイズをタブ内で記憶する。 */
+layoutName?: string;
+
+// OK — JSDoc in English
+/** When provided, position and size are remembered, keyed by this name. */
+layoutName?: string;
+
+// OK — ordinary comment, Japanese is fine
+// 比率は不変なので、ビューポートを更新して再描画するだけで四辺の比率が保たれる。
+```
+
+Not enforced by ESLint — manual review rule.

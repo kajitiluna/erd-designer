@@ -6,6 +6,7 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 
+import DraggableDialog from "~/components/DraggableDialog";
 import EdgedIconButton from '~/components/EdgedIconButton';
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
@@ -214,7 +215,7 @@ const StructColumnEditDialog = ({
     };
 
     return (
-        <Dialog fullWidth maxWidth="xl" sx={{ userSelect: "none" }}
+        <DraggableDialog layoutName="struct-column-edit" fullWidth maxWidth="xl" sx={{ userSelect: "none" }}
             open={isOpen} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>Edit struct column{structNestCount > 0 ? ` (${structNestCount + 1})` : ""}</DialogTitle>
             <DialogContent>
@@ -229,7 +230,7 @@ const StructColumnEditDialog = ({
                 <Button variant="contained" disabled={!validatedValue}
                     onClick={() => handleCompleted(overriddenName)}>OK</Button>
             </DialogActions>
-        </Dialog>
+        </DraggableDialog>
     );
 };
 

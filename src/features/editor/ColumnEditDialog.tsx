@@ -8,6 +8,7 @@ import {
 import SearchIcon from "@mui/icons-material/Search";
 import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined';
 
+import DraggableDialog from "~/components/DraggableDialog";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
 import SimpleColumnModel from "~/models/database/SimpleColumnModel";
 import ColumnType from "~/models/database/ColumnType";
@@ -228,7 +229,7 @@ const ColumnEditDialog = ({
     const defaultValueCandidates = initDefaultValueCandidates(columnTypeAttribute)
 
     return (
-        <Dialog fullWidth maxWidth="md" sx={{ userSelect: "none" }}
+        <DraggableDialog layoutName="column-edit" fullWidth maxWidth="md" sx={{ userSelect: "none" }}
             open={isOpen} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>Edit {database.supportsStructType ? "single" : "table"} column</DialogTitle>
             <DialogContent>
@@ -250,7 +251,7 @@ const ColumnEditDialog = ({
                 <Button variant="contained" disabled={!validatedValue}
                     onClick={() => handleCompleted(overriddenName)}>OK</Button>
             </DialogActions>
-        </Dialog>
+        </DraggableDialog>
     );
 };
 
