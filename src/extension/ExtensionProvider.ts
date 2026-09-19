@@ -34,9 +34,19 @@ const handleResolvingTextEditor = (
         ]
     };
 
-    // ファイル変更 (WebView 保存 / 外部 CLI 等) を検知し、documentResource へ一方向に反映する
+    // ファイル変更 (WebView 保存 / 外部 CLI 等) を検知し、documentResource へ一方向に反映する。
+    // ただし同一プロセス (このウィンドウ) 内の TextDocument に対する変更にしか反応しないため、
+    // 別ウィンドウでの保存はこれだけでは捕捉できない。
     const handleDocumentChanged = initHandleDocumentChanged(documentResource, textDocument, webviewPanel);
-    const watcher = vscode.workspace.onDidChangeTextDocument(handleDocumentChanged);
+    const documentWatcher = vscode.workspace.onDidChangeTextDocument(handleDocumentChanged);
+
+    // 別ウィンドウが同じファイルへ保存した場合は、そちらの TextDocument 経由の変更通知が
+    // このプロセスへ届かないため、ファイルシステムを直接監視して補う。VSCode 自身が
+    // 未編集 (dirty でない) TextDocument をディスクの内容へ追従させた場合はここと二重に
+    // 検知しうるが、後続の通知は内容が変わらなければ webview 側で無害に無視される。
+    const fileWatcher = vscode.workspace.createFileSystemWatcher(textDocument.uri.fsPath);
+    const handleFileChangedOnDisk = initHandleFileChangedOnDisk(documentResource, textDocument, webviewPanel);
+    fileWatcher.onDidChange(handleFileChangedOnDisk);
 
     // register (ready 受信時) が完了するまでは、このパネル自身の登録解除手段を持たない
     let unregisterPanel: (() => void) | null = null;
@@ -50,7 +60,8 @@ const handleResolvingTextEditor = (
 
     // Webviewが閉じられたときのクリーンアップ。同じ URI を開く他パネルの登録には触れない
     webviewPanel.onDidDispose(() => {
-        watcher.dispose();
+        documentWatcher.dispose();
+        fileWatcher.dispose();
         unregisterPanel?.();
     });
 };
@@ -70,22 +81,58 @@ const initHandleDocumentChanged = (
         }
 
         const jsonContent = event.document.getText().trim();
-        const parsedContent = tryParseJson(jsonContent);
-        if (parsedContent == null) {
-            console.warn(`Skipped notifying invalid external change: ${documentUri}`);
-            return;
-        }
-
-        // MCP サーバー側が保持するドキュメントも最新化する
-        const updated = documentResource.update(event.document, parsedContent);
-        if (updated === false) {
-            return;
-        }
-
-        notifyExternalChangedDocument(webviewPanel.webview, textDocument, jsonContent);
-
-        console.info(`Notified external document change to webview: ${documentUri}`);
+        applyExternalContentChange(documentResource, textDocument, webviewPanel, jsonContent);
     };
+};
+
+/**
+ * 別ウィンドウがディスク上のファイルを直接書き換えた場合を捕捉する。このプロセスの
+ * TextDocument は経由しないため、変更のたびにファイル本体を読み直して比較する。
+ */
+const initHandleFileChangedOnDisk = (
+    documentResource: VsCodeDocumentResource, textDocument: vscode.TextDocument, webviewPanel: vscode.WebviewPanel
+) => {
+    return async () => {
+        let jsonContent: string;
+        try {
+            const diskBytes = await vscode.workspace.fs.readFile(textDocument.uri);
+            jsonContent = Buffer.from(diskBytes).toString('utf-8').trim();
+        } catch (error) {
+            console.warn(`Failed to read externally changed file: ${textDocument.uri.toString()}`, error);
+            return;
+        }
+
+        // このウィンドウの TextDocument が既に (VSCode 自身の自動追従、または自分自身の保存で)
+        // 同じ内容になっている場合は、onDidChangeTextDocument 側の経路に任せて何もしない。
+        if (jsonContent === textDocument.getText().trim()) {
+            return;
+        }
+
+        applyExternalContentChange(documentResource, textDocument, webviewPanel, jsonContent);
+    };
+};
+
+const applyExternalContentChange = (
+    documentResource: VsCodeDocumentResource, textDocument: vscode.TextDocument, webviewPanel: vscode.WebviewPanel,
+    jsonContent: string
+) => {
+    const documentUri = textDocument.uri.toString();
+
+    const parsedContent = tryParseJson(jsonContent);
+    if (parsedContent == null) {
+        console.warn(`Skipped notifying invalid external change: ${documentUri}`);
+        return;
+    }
+
+    // MCP サーバー側が保持するドキュメントも最新化する
+    const updated = documentResource.update(textDocument, parsedContent);
+    if (updated === false) {
+        return;
+    }
+
+    notifyExternalChangedDocument(webviewPanel.webview, textDocument, jsonContent);
+
+    console.info(`Notified external document change to webview: ${documentUri}`);
 };
 
 const tryParseJson = (content: string): Record<string, unknown> | null => {
