@@ -19,7 +19,10 @@ export default defineConfig({
       {
         resolve: {
           alias: {
-            '~': '/src'
+            '~': '/src',
+            // vscode は拡張ホストが実行時に注入するモジュールで、npm パッケージとしては存在せず
+            // vitest からは解決できない。単体テストに限り空モジュールへ差し替える。
+            'vscode': '/src/extension/__tests__/vscode-stub.ts'
           }
         },
         test: {
