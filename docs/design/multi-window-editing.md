@@ -3,6 +3,42 @@
 1 台のローカルマシン上で、同一ドキュメントを複数ウィンドウ (タブ / エディタパネル) で開き、
 一方の編集が他方へ即時反映される状態を目指すための調査と実現方式の比較。
 
+## 0. 実装状況
+
+方式A (§4) を採用し、3 シェル全てに実装済み。
+
+| 段階 (§7) | 内容 | 状態 |
+|---|---|---|
+| 0 | VSCode 複数パネル登録の不具合修正 | 完了 (`VsCodeDocumentResource.ts`, `ExtensionProvider.ts`) |
+| 1 | `ExternalDocumentChangeDispatcher` (echo 抑止の共通化) | 完了 (`src/components/ExternalDocumentChangeDispatcher.ts`) |
+| 2 | VSCode 同一ウィンドウ内の複数パネル | 完了 (段階 0 の修正でカバー) |
+| 3 | ブラウザ版 (IndexedDB CAS + BroadcastChannel) | 完了 (`ErdDocumentStorage.ts`, `LocalDocumentSyncChannel.ts`, `LocalApplication.tsx`) |
+| 4 | GDrive 版 (BroadcastChannel + `navigator.locks`) | 完了 (`GoogleDriveFile.tsx`) |
+| 5 | VSCode ウィンドウ跨ぎ (`createFileSystemWatcher`) | 完了 (`ExtensionProvider.ts`) |
+
+実装時に判明した、本調査の時点では見えていなかった論点:
+
+- **VSCode の echo 抑止は 2 種類の「外部変更」を区別する必要があった。** MCP ツール経由の変更
+  (`VsCodeDocumentResource.notify`) はメモリ上の更新のみでファイルへは書き込まれておらず、
+  webview からの保存往復で初めて永続化される。一方、他パネル/他ウィンドウ/ファイル監視経由の変更は
+  既にファイルへ書き込み済みである。どちらも同じ `changeDocument` メッセージ・同じ
+  `EXTERNAL_DOCUMENT_CHANGED_EVENT` に載っていたため、当初の実装は前者まで一律に echo 扱いし、
+  MCP ツールの変更が保存されずに消える回帰を起こした。`ChangeDocumentMessage` に
+  `alreadyPersisted: boolean` を追加し、MCP 経由は `false` (echo 抑止を経由しない生の dispatch)、
+  それ以外は `true` (`ExternalDocumentChangeDispatcher` 経由) で区別して解消した
+  (`vscode-message-resolver.ts`)。
+- **MainView 自体は無変更で済んだ。** §5 で当初 `MainView.tsx` の `handleOnSave` を書き換える設計を
+  示していたが、実装では `onSave` prop と `EXTERNAL_DOCUMENT_CHANGED_EVENT` という既存の 2 つの
+  フックがシェル注入ポイントとして十分だったため、同期ロジックは全て各シェル
+  (`LocalApplication.tsx` / `GoogleDriveFile.tsx` / `VsCodeExtensionApplication.tsx`) 側に閉じ込められた。
+- **IndexedDB の compare-and-swap は 1 トランザクション内の get→put で実現できた** (`readwrite`
+  トランザクションはスコープの重なるものを並行実行しないという IndexedDB 仕様どおり)。§8 で
+  「実機確認が必要」としていたが、これは追加検証を要さない標準仕様として扱ってよいと判断した。
+- **VSCode のウィンドウ跨ぎ検知 (段階5) は「保険」のまま。** VSCode 自身が dirty でない
+  TextDocument をディスク変更に追従させる挙動が既にこのケースをカバーしている可能性が高いが、
+  実際のマルチウィンドウ VSCode セッションでの検証はこの環境では行えなかったため、
+  `createFileSystemWatcher` を併設する形で確実性を優先した。
+
 ## 1. 要件
 
 | # | 要件 | 備考 |
