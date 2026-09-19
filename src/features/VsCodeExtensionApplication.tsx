@@ -28,7 +28,9 @@ const VsCodeExtensionApplication = (prop: { vscodeApi: VsCodeApi }) => {
     // ErdApplicationShell は React.memo でラップされているため、
     // onSave の参照が render のたびに変わると memo が素通りし MainView 以下が再構築される。useCallback で安定化する。
     const handleSaveDocument = React.useCallback((erdDocument: ErdDocument, message: string) => {
-        // 同一ウィンドウ内の他パネルが行った変更の取り込みを、そのまま拡張機能へ保存し返さない
+        // 他パネル/他ウィンドウの保存や外部プロセスによる書き換えなど、既にファイルへ反映済みの
+        // 変更を、そのまま拡張機能へ保存し返さない (MCP 経由の未反映の変更はこの対象に含まれない。
+        // vscode-message-resolver.onExternalChangedDocument 参照)
         if (changeDispatcher.isEcho(erdDocument)) {
             return;
         }

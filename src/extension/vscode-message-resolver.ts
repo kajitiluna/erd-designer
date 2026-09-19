@@ -2,6 +2,7 @@ import type * as vscode from 'vscode';
 import { RectangleType } from '~/agent-tools/DocumentBudget';
 
 import { ExternalDocumentChangeDispatcher } from '~/components/ExternalDocumentChangeDispatcher';
+import { EXTERNAL_DOCUMENT_CHANGED_EVENT } from '~/components/constant';
 import ErdDocument from '~/models/ErdDocument';
 import RectangleViewModel from '~/models/RectangleViewModel';
 
@@ -84,13 +85,20 @@ type ChangeDocumentMessage = {
     messageType: "changeDocument";
     documentUri: string;
     jsonContext: string;
+    /**
+     * true: 別パネル/別ウィンドウの保存や外部プロセスによる書き換えなど、ファイルへ既に反映済みの変更。
+     * webview はこの内容を保存し返す必要がない (echo 抑止の対象)。
+     * false: MCP ツール等、メモリ上でのみ更新されファイルへはまだ書き込まれていない変更。
+     * webview からの保存往復を経て初めてファイルへ反映されるため、echo 抑止で保存を止めてはならない。
+     */
+    alreadyPersisted: boolean;
 };
 
 /**
  * 自身の操作以外で更新された場合は WebView に変更を通知する。
  */
 export const notifyExternalChangedDocument = (
-    webview: vscode.Webview, textDocument: vscode.TextDocument, updating: string
+    webview: vscode.Webview, textDocument: vscode.TextDocument, updating: string, alreadyPersisted: boolean
 ) => {
     const documentUri = textDocument.uri.toString();
 
@@ -98,7 +106,8 @@ export const notifyExternalChangedDocument = (
         eventSource: ERD_MESSAGE_EVENT_SOURCE,
         messageType: "changeDocument",
         documentUri: documentUri,
-        jsonContext: updating
+        jsonContext: updating,
+        alreadyPersisted
     };
 
     webview.postMessage(message);
@@ -122,7 +131,13 @@ export const onExternalChangedDocument = (
         return { succeeded: false, error: error };
     }
 
-    changeDispatcher.dispatch(erdDocument);
+    if (message.alreadyPersisted) {
+        changeDispatcher.dispatch(erdDocument);
+    } else {
+        // まだファイルへ書き込まれていないため、echo 抑止を適用すると保存されないまま失われる。
+        window.dispatchEvent(new CustomEvent(EXTERNAL_DOCUMENT_CHANGED_EVENT, { detail: { erdDocument } }));
+    }
+
     return { succeeded: true };
 };
 
