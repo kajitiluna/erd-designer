@@ -31,7 +31,6 @@ type GoogleDriveFileProp = {
 };
 
 const GoogleDriveFile = ({ authorization: gdriveAuthorization }: GoogleDriveFileProp) => {
-    const { authorization, authorize } = gdriveAuthorization;
     const [sessionDocument, setSessionDocument] = React.useState<SessionDocument | null>(initSessionDocument);
     const [messageToast, setMessageToast] = React.useState<MessageToast | null>(null);
     const updateQueueRef = React.useRef<Promise<string>>(Promise.resolve(""));
@@ -40,10 +39,16 @@ const GoogleDriveFile = ({ authorization: gdriveAuthorization }: GoogleDriveFile
     const pendingDocumentRef = React.useRef<ErdDocument | null>(null);
     const syncStateRef = React.useRef<RemoteSyncState>("idle");
 
+    const { authorization, authorize } = gdriveAuthorization;
     const gdriveFileId = sessionStorage.getItem("gdriveFileId");
 
-    const enqueueUpdateTask = React.useCallback((task: UpdateTask, taskName: string) => {
-        const safeTask = initSafeUpdateTask(task, taskName);
+    // 同一マシン上でこのファイルを開いている他タブへ、保存が起きたことだけを知らせるチャネル。
+    // 内容は運ばず、受け取った側は既存の REMOTE_SYNC_REQUESTED_EVENT (10秒間隔のポーリングと同じ経路) を即座に発火させるだけなので、
+    // 実際の取り込みロジックを重複させずに済む。
+    const broadcastChannelRef = React.useRef<BroadcastChannel | null>(null);
+
+    const enqueueUpdateTask = React.useCallback((updateTask: UpdateTask, taskName: string) => {
+        const safeTask = initSafeUpdateTask(updateTask, taskName, broadcastChannelRef);
         updateQueueRef.current = updateQueueRef.current.then(safeTask);
     }, []);
 
@@ -72,6 +77,7 @@ const GoogleDriveFile = ({ authorization: gdriveAuthorization }: GoogleDriveFile
                 currentVersion, nextDocument: erdDocument, loggingMessage: message,
                 setMessageToast, setSessionDocument
             };
+
             return doUpdateDocument(updateArgs);
         };
 
@@ -111,6 +117,10 @@ const GoogleDriveFile = ({ authorization: gdriveAuthorization }: GoogleDriveFile
             setMessageToast(failedToast);
         });
     }, [authorization.accessToken]);
+
+    React.useEffect(() => {
+        return initGdriveBroadcastChannelEffect(gdriveFileId, broadcastChannelRef);
+    }, [gdriveFileId]);
 
     // 再読み込みされた場合の制御
     React.useEffect(() => {
@@ -323,6 +333,31 @@ const initSessionDocument = (): (SessionDocument | null) => {
     };
 };
 
+// 開くのと閉じるのを同一 effect の setup / cleanup 対で行う。cleanup だけを持つ effect にすると、
+// StrictMode の setup → cleanup → setup で閉じたまま復活せず、通知が一切飛ばなくなる。
+// 送信と受信で同じ実体を使う点も重要で、BroadcastChannel は自分自身の post を受け取らないため、
+// 保存したタブ自身が無駄な取り込みチェックを走らせずに済む。
+const initGdriveBroadcastChannelEffect = (
+    gdriveFileId: string | null, broadcastChannelRef: React.RefObject<BroadcastChannel | null>
+) => {
+    if ((gdriveFileId == null) || (typeof BroadcastChannel === "undefined")) {
+        return () => { };
+    }
+
+    const channel = new BroadcastChannel(`erd-designer:gdrive-file:${gdriveFileId}`);
+    channel.onmessage = () => {
+        const event = new CustomEvent(REMOTE_SYNC_REQUESTED_EVENT);
+        window.dispatchEvent(event);
+    };
+
+    broadcastChannelRef.current = channel;
+
+    return () => {
+        broadcastChannelRef.current = null;
+        channel.close();
+    };
+};
+
 type MessageToast = {
     severity: "info" | "success" | "warning" | "error",
     message: string,
@@ -342,7 +377,20 @@ type DoUpdateDocumentArgs = {
     setSessionDocument: React.Dispatch<React.SetStateAction<SessionDocument | null>>
 };
 
-const doUpdateDocument = async (args: DoUpdateDocumentArgs): Promise<string> => {
+// verify (check) から update (act) までを 1 つの Web Locks ロックで囲み、同一マシン上の他タブとの競合を防ぐ。
+// Drive API 自体は compare-and-swap を提供しないため、この区間の排他はクライアント側で保証する必要がある
+// (タブ内の直列化は updateQueueRef が担うが、タブを跨ぐ直列化はこのロックのみ)
+const doUpdateDocument = (args: DoUpdateDocumentArgs): Promise<string> => {
+    const operation = () => doUpdateDocumentUnderLock(args);
+
+    if ((typeof navigator === "undefined") || (("locks" in navigator) === false)) {
+        return operation();
+    }
+
+    return navigator.locks.request(`erd-designer:gdrive-file:${args.fileId}`, operation);
+};
+
+const doUpdateDocumentUnderLock = async (args: DoUpdateDocumentArgs): Promise<string> => {
     try {
         await verifyGdriveVersionOrThrow({
             accessToken: args.accessToken, fileId: args.fileId, currentVersion: args.currentVersion
@@ -400,15 +448,43 @@ const initConflictToast = (
 type UpdateTask = (currentVersion: string) => Promise<string>;
 
 // チェーンが reject すると以降のタスクが一切実行されなくなるため、タスクは失敗しても必ず現行 version を返して解決させる。
-const initSafeUpdateTask = (task: UpdateTask, taskName: string): UpdateTask => {
+const initSafeUpdateTask = (
+    updateTask: UpdateTask, taskName: string, broadcastChannelRef: React.RefObject<BroadcastChannel | null>
+): UpdateTask => {
     return async (currentVersion: string) => {
         try {
-            return await task(currentVersion);
+            const nextVersion = await updateTask(currentVersion);
+
+            // リモートの取り込み結果 (sync remote update) を再度ブロードキャストすると、
+            // 発端のタブへ折り返すだけの無駄な往復になるため、自分が書き込んだ場合のみ知らせる。
+            if ((taskName !== "sync remote update") && (nextVersion !== currentVersion)) {
+                notifyOtherTabsSaved(broadcastChannelRef.current);
+            }
+
+            return nextVersion;
         } catch (error) {
             console.warn(`Failed to ${taskName}. ${error}`);
             return currentVersion;
         }
     };
+};
+
+/**
+ * 通知の成否は保存の成否と無関係なので、失敗はここで完結させる。
+ * 外へ throw すると呼び出し元の catch が更新後ではなく現行 version を返してしまい、
+ * 以降の保存が毎回 version のずれを検出して偽の競合になるため、握り潰す必要がある。
+ * 未購読 (マウント前後) の場合は 10 秒間隔のポーリングが拾うため、通知を諦めてよい。
+ */
+const notifyOtherTabsSaved = (broadcastChannel: BroadcastChannel | null) => {
+    if (broadcastChannel == null) {
+        return;
+    }
+
+    try {
+        broadcastChannel.postMessage(null);
+    } catch (error) {
+        console.warn(`Failed to notify other tabs about the save. ${error}`);
+    }
 };
 
 // 無音更新はユーザ操作に便乗するため、放置されている間は走らない。
