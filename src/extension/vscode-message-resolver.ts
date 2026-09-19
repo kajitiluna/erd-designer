@@ -1,7 +1,7 @@
 import type * as vscode from 'vscode';
 import { RectangleType } from '~/agent-tools/DocumentBudget';
 
-import { EXTERNAL_DOCUMENT_CHANGED_EVENT } from '~/components/constant';
+import { ExternalDocumentChangeDispatcher } from '~/components/ExternalDocumentChangeDispatcher';
 import ErdDocument from '~/models/ErdDocument';
 import RectangleViewModel from '~/models/RectangleViewModel';
 
@@ -106,8 +106,13 @@ export const notifyExternalChangedDocument = (
 
 /**
  * React アプリケーションにて、外部で変更されたドキュメントを受信したときの制御。
+ * ドキュメントの履歴管理は MainView 管理の documentHolder で行うため、changeDispatcher 経由で
+ * MainView に変更を通知する。changeDispatcher は呼び出し元 (VsCodeExtensionApplication) が
+ * 保存処理の echo 判定にも使う、同一インスタンスであることを前提とする。
  */
-export const onExternalChangedDocument = (message: ChangeDocumentMessage) => {
+export const onExternalChangedDocument = (
+    message: ChangeDocumentMessage, changeDispatcher: ExternalDocumentChangeDispatcher
+) => {
     const jsonContext = message.jsonContext as string;
 
     let erdDocument: ErdDocument;
@@ -117,14 +122,7 @@ export const onExternalChangedDocument = (message: ChangeDocumentMessage) => {
         return { succeeded: false, error: error };
     }
 
-    const customEvent = new CustomEvent(EXTERNAL_DOCUMENT_CHANGED_EVENT, {
-        detail: {
-            erdDocument: erdDocument
-        }
-    });
-
-    // ドキュメントの履歴管理は MainView 管理の documentHolder で行うため、MainView に変更を通知する
-    window.dispatchEvent(customEvent);
+    changeDispatcher.dispatch(erdDocument);
     return { succeeded: true };
 };
 

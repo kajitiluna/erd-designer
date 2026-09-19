@@ -1,6 +1,7 @@
 import React from "react";
 import { CircularProgress } from "@mui/material";
 
+import { ExternalDocumentChangeDispatcher } from "~/components/ExternalDocumentChangeDispatcher";
 import ErdDocument from "~/models/ErdDocument";
 import InitializeDatabaseDialog from "~/features/start_up/InitializeDatabaseDialog";
 import ErdApplicationShell from "~/features/ErdApplicationShell";
@@ -14,16 +15,26 @@ import { CANVAS_RECTANGLES_DRAWN_EVENT } from "~/components/constant";
 const VsCodeExtensionApplication = (prop: { vscodeApi: VsCodeApi }) => {
     const vscodeApi = prop.vscodeApi;
 
+    // 拡張機能側からの変更取り込みと、保存処理からの echo 判定を同一インスタンスで共有する。
+    // setter を呼ばないため実体は初回描画時から不変だが、render 中に ref.current を読む
+    // (react-hooks/refs 違反) のを避けるため useState の遅延初期化で保持する。
+    const [changeDispatcher] = React.useState(() => new ExternalDocumentChangeDispatcher());
+
     // 初期化処理
-    const { documentUri, initDocument, setInitDocument, loadResult } = useInitialize();
+    const { documentUri, initDocument, setInitDocument, loadResult } = useInitialize(changeDispatcher);
     // Canvas 上に描画されたテーブルの矩形情報を受信し、拡張機能に伝搬する。
     useSyncRectangles(vscodeApi, documentUri);
 
     // ErdApplicationShell は React.memo でラップされているため、
     // onSave の参照が render のたびに変わると memo が素通りし MainView 以下が再構築される。useCallback で安定化する。
     const handleSaveDocument = React.useCallback((erdDocument: ErdDocument, message: string) => {
+        // 同一ウィンドウ内の他パネルが行った変更の取り込みを、そのまま拡張機能へ保存し返さない
+        if (changeDispatcher.isEcho(erdDocument)) {
+            return;
+        }
+
         notifySaveDocument(vscodeApi, documentUri)(erdDocument, message);
-    }, [vscodeApi, documentUri]);
+    }, [vscodeApi, documentUri, changeDispatcher]);
 
     // 初期化処理が終わっていない場合は、読み込み中であることを示す
     if (documentUri === "") {
@@ -60,7 +71,7 @@ const VsCodeExtensionApplication = (prop: { vscodeApi: VsCodeApi }) => {
     );
 };
 
-const useInitialize = () => {
+const useInitialize = (changeDispatcher: ExternalDocumentChangeDispatcher) => {
     const [documentUri, setDocumentUri] = React.useState<string>("");
     const [loadResult, setLoadResult] = React.useState<"" | "failure">("");
     const [initDocument, setInitDocument] = React.useState<ErdDocument | null>(null);
@@ -106,7 +117,7 @@ const useInitialize = () => {
         }
 
         if (message.messageType === "changeDocument") {
-            const result = onExternalChangedDocument(message);
+            const result = onExternalChangedDocument(message, changeDispatcher);
             if (result.succeeded === false) {
                 console.warn(`Failed to parse externally changed document: ${result.error}`);
                 return;
@@ -117,7 +128,7 @@ const useInitialize = () => {
 
             return;
         }
-    }, [documentUri]);
+    }, [documentUri, changeDispatcher]);
 
 
     // 初期化処理
