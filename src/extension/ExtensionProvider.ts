@@ -38,16 +38,20 @@ const handleResolvingTextEditor = (
     const handleDocumentChanged = initHandleDocumentChanged(documentResource, textDocument, webviewPanel);
     const watcher = vscode.workspace.onDidChangeTextDocument(handleDocumentChanged);
 
-    const handleReceivedMessage = initHandleReceivedMessage(documentResource, textDocument, webviewPanel);
+    // register (ready 受信時) が完了するまでは、このパネル自身の登録解除手段を持たない
+    let unregisterPanel: (() => void) | null = null;
+    const handleReceivedMessage = initHandleReceivedMessage(
+        documentResource, textDocument, webviewPanel, unregister => { unregisterPanel = unregister; }
+    );
 
     // HTMLコンテンツ、およびメッセージ受信時の制御の設定
     webviewPanel.webview.html = initWebViewHtml(context, webviewPanel.webview);
     webviewPanel.webview.onDidReceiveMessage(handleReceivedMessage);
 
-    // Webviewが閉じられたときのクリーンアップ
+    // Webviewが閉じられたときのクリーンアップ。同じ URI を開く他パネルの登録には触れない
     webviewPanel.onDidDispose(() => {
         watcher.dispose();
-        documentResource.remove(textDocument);
+        unregisterPanel?.();
     });
 };
 
@@ -97,7 +101,8 @@ const tryParseJson = (content: string): Record<string, unknown> | null => {
 };
 
 const initHandleReceivedMessage = (
-    documentResource: VsCodeDocumentResource, textDocument: vscode.TextDocument, webviewPanel: vscode.WebviewPanel
+    documentResource: VsCodeDocumentResource, textDocument: vscode.TextDocument, webviewPanel: vscode.WebviewPanel,
+    onRegistered: (unregister: () => void) => void
 ) => {
     const documentUri = textDocument.uri.toString();
 
@@ -118,7 +123,8 @@ const initHandleReceivedMessage = (
                 // 自身の操作以外で更新された場合は WebView に変更を通知する
                 notifyExternalChangedDocument(webviewPanel.webview, textDocument, updating);
             };
-            documentResource.register(textDocument, jsonContent, handleChangeView);
+            const unregister = documentResource.register(textDocument, jsonContent, handleChangeView);
+            onRegistered(unregister);
 
             // React アプリケーションの準備が完了してから、ファイルの内容を React アプリケーションに渡す
             initializeDocument(message, webviewPanel.webview, textDocument, jsonContent);
