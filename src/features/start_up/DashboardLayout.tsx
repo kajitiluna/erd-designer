@@ -6,14 +6,13 @@ import CreatePanel from "~/features/start_up/CreatePanel";
 import RegalFooter from "~/features/regal/RegalFooter";
 import GitHubLinkButton from "~/features/start_up/GitHubLinkButton";
 import ErdDocumentStorage from "~/features/storage/ErdDocumentStorage";
-import ErdDocument from "~/models/ErdDocument";
 import ErdDocumentSummary from "~/features/storage/ErdDocumentSummary";
-import { StartUpActions } from "~/features/start_up/support";
+import { OnOpenLocalDocument, StartUpActions } from "~/features/start_up/support";
 
 type DashboardLayoutProp = {
     documentStorage: ErdDocumentStorage;
     erdSummaries: ErdDocumentSummary[];
-    onOpenDocument: (openDocument: ErdDocument, onSave: (document: ErdDocument, message: string) => void) => void;
+    onOpenDocument: OnOpenLocalDocument;
     onSummariesUpdated: (summaries: ErdDocumentSummary[]) => void;
     actions: StartUpActions;
 };

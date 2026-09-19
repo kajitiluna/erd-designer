@@ -1,4 +1,4 @@
-import ErdDocumentStorage from "~/features/storage/ErdDocumentStorage";
+import ErdDocumentStorage, { FoundDocument, SaveResult } from "~/features/storage/ErdDocumentStorage";
 import ErdDocumentSummary from "~/features/storage/ErdDocumentSummary";
 import { INDEXED_DB_NAME, INDEXED_DB_VERSION, INDEXED_OBJECT_ERD_DOCUMENT } from "~/features/storage/IndexedDBConst";
 import ErdDocument from "~/models/ErdDocument";
@@ -10,6 +10,8 @@ type InternalDocument = {
     lastUpdatedAt: Date;
     databaseType?: string;
     document: object;
+    // 未保存のまま作られた既存ファイルとの後方互換のため、欠落時は revision 0 として扱う
+    revision?: number;
 };
 
 const initializeErdDocumentDB = () => {
@@ -90,8 +92,8 @@ class IndexedDBStorage implements ErdDocumentStorage {
         });
     }
 
-    find(key: string): Promise<ErdDocument | null> {
-        return new Promise<ErdDocument | null>((resolve, reject) => {
+    find(key: string): Promise<FoundDocument | null> {
+        return new Promise<FoundDocument | null>((resolve, reject) => {
             const transaction = this.database.transaction([INDEXED_OBJECT_ERD_DOCUMENT], "readonly");
             const objectStore = transaction.objectStore(INDEXED_OBJECT_ERD_DOCUMENT);
             const request = objectStore.get(key);
@@ -104,9 +106,10 @@ class IndexedDBStorage implements ErdDocumentStorage {
 
                 const baseDocument = request.result as InternalDocument;
                 const erdDocument = ErdDocument.toObject(baseDocument.document);
+                const revision = toRevision(baseDocument);
                 console.debug(`Succeed to find document. document : ${JSON.stringify(baseDocument.document)}`);
 
-                resolve(erdDocument);
+                resolve({ erdDocument, revision });
             };
 
             request.onerror = (event) => {
@@ -115,32 +118,58 @@ class IndexedDBStorage implements ErdDocumentStorage {
         });
     }
 
-    save(key: string, erdDocument: ErdDocument, loggingMessage: string): Promise<void> {
-        return new Promise<void>((resolve, reject) => {
-            const jsonDocument: InternalDocument = {
-                key: key,
-                documentName: erdDocument.documentName,
-                lastUpdatedAt: erdDocument.lastUpdatedAt,
-                databaseType: erdDocument.databaseSettingModel.databaseType,
-                document: erdDocument.toJSON(),
-            };
-
+    /**
+     * expectedRevision が保存先の現在の revision と一致する場合のみ書き込む。
+     * get → put を単一の readwrite トランザクション内で行うことで、他ウィンドウの保存と
+     * 競合しない compare-and-swap にしている (IndexedDB はスコープの重なる readwrite
+     * トランザクションを並行実行しないため、この間に割り込む書き込みは起こり得ない)。
+     */
+    save(key: string, erdDocument: ErdDocument, loggingMessage: string, expectedRevision: number): Promise<SaveResult> {
+        return new Promise<SaveResult>((resolve, reject) => {
             const transaction = this.database.transaction([INDEXED_OBJECT_ERD_DOCUMENT], "readwrite");
             const objectStore = transaction.objectStore(INDEXED_OBJECT_ERD_DOCUMENT);
-            const updateRequest = objectStore.put(jsonDocument);
+            const getRequest = objectStore.get(key);
 
-            updateRequest.onsuccess = () => {
-                console.info(`Succeed to save document (${JSON.stringify(
-                    jsonDocument, ["key", "documentName", "lastUpdatedAt"])}): ${loggingMessage}`);
-                resolve();
+            getRequest.onsuccess = () => {
+                const existing = getRequest.result as InternalDocument | undefined;
+                const existingRevision = (existing != null) ? toRevision(existing) : 0;
+
+                if ((existing != null) && (existingRevision !== expectedRevision)) {
+                    const latest = ErdDocument.toObject(existing.document);
+                    console.warn(`Conflict on save. key: ${key}, expected: ${expectedRevision}, actual: ${existingRevision}. ${loggingMessage}`);
+
+                    resolve({ result: "conflict", latest, latestRevision: existingRevision });
+                    return;
+                }
+
+                const nextRevision = expectedRevision + 1;
+                const jsonDocument: InternalDocument = {
+                    key: key,
+                    documentName: erdDocument.documentName,
+                    lastUpdatedAt: erdDocument.lastUpdatedAt,
+                    databaseType: erdDocument.databaseSettingModel.databaseType,
+                    document: erdDocument.toJSON(),
+                    revision: nextRevision
+                };
+
+                const putRequest = objectStore.put(jsonDocument);
+                putRequest.onsuccess = () => {
+                    console.info(`Succeed to save document (${JSON.stringify(
+                        jsonDocument, ["key", "documentName", "lastUpdatedAt", "revision"])}): ${loggingMessage}`);
+                    resolve({ result: "saved", revision: nextRevision });
+                };
+
+                putRequest.onerror = (event) => {
+                    const request = event.target as IDBRequest | null;
+                    const error = putRequest.error || request?.error || event;
+                    console.error(`Failed to save document. ${loggingMessage}`, error);
+
+                    reject(error);
+                };
             };
 
-            updateRequest.onerror = (event) => {
-                const request = event.target as IDBRequest | null;
-                const error = updateRequest.error || request?.error || event;
-                console.error(`Failed to save document. ${loggingMessage}`, error);
-
-                reject(error);
+            getRequest.onerror = (event) => {
+                reject(event);
             };
         });
     }
@@ -167,6 +196,10 @@ class IndexedDBStorage implements ErdDocumentStorage {
     }
 }
 
+const toRevision = (baseDocument: InternalDocument): number => {
+    return (baseDocument.revision != null) ? baseDocument.revision : 0;
+};
+
 class NoOperationStorage implements ErdDocumentStorage {
 
     isAvailable(): boolean {
@@ -178,13 +211,13 @@ class NoOperationStorage implements ErdDocumentStorage {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    find(_key: string): Promise<ErdDocument | null> {
+    find(_key: string): Promise<FoundDocument | null> {
         return Promise.resolve(null);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    save(_key: string, _erdDocument: ErdDocument, _loggingMessage: string): Promise<void> {
-        return Promise.resolve();
+    // 永続化先が無いため衝突は起こり得ず、常に採用したものとして扱う
+    save(_key: string, _erdDocument: ErdDocument, _loggingMessage: string, expectedRevision: number): Promise<SaveResult> {
+        return Promise.resolve({ result: "saved", revision: expectedRevision + 1 });
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

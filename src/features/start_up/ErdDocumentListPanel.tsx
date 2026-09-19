@@ -15,13 +15,13 @@ import SnowflakeIcon from "~/components/icons/SnowflakeIcon";
 import BigQueryIcon from "~/components/icons/BigQueryIcon";
 import { DatabaseType } from "~/models/database";
 import ErdDocumentStorage from "~/features/storage/ErdDocumentStorage";
-import ErdDocument from "~/models/ErdDocument";
 import ErdDocumentSummary from "~/features/storage/ErdDocumentSummary";
+import { OnOpenLocalDocument } from "~/features/start_up/support";
 
 type ErdDocumentListPanelProp = {
     documentStorage: ErdDocumentStorage;
     erdSummaries: ErdDocumentSummary[];
-    onOpenDocument: (openDocument: ErdDocument, onSave: (document: ErdDocument, message: string) => void) => void;
+    onOpenDocument: OnOpenLocalDocument;
     onSummariesUpdated: (summaries: ErdDocumentSummary[]) => void;
 };
 
@@ -29,16 +29,13 @@ const ErdDocumentListPanel = ({ documentStorage, erdSummaries, onOpenDocument, o
     const [deletingDocument, setDeletingDocument] = React.useState<ErdDocumentSummary | null>(null);
 
     const handleOpenDocument = (key: string) => {
-        documentStorage.find(key).then(document => {
-            if (document === null) {
+        documentStorage.find(key).then(found => {
+            if (found === null) {
                 console.warn(`Not found document. key : ${key}`);
                 return;
             }
 
-            const handleOnSave = (updating: ErdDocument, loggingMessage: string) =>
-                documentStorage.save(key, updating, loggingMessage);
-
-            onOpenDocument(document, handleOnSave);
+            onOpenDocument(key, found.erdDocument, found.revision);
         });
     };
 

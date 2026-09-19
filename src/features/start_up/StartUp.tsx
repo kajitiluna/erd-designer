@@ -14,13 +14,13 @@ import InitializeDatabaseDialog from "~/features/start_up/InitializeDatabaseDial
 import HeroLayout from "~/features/start_up/HeroLayout";
 import DashboardLayout from "~/features/start_up/DashboardLayout";
 import startUpTheme from "~/features/start_up/StartUpTheme";
-import { StartUpActions } from "~/features/start_up/support";
+import { OnOpenLocalDocument, StartUpActions } from "~/features/start_up/support";
 import ConversionReportAlert from "~/components/ConversionReportAlert";
 import sampleErdUrl from "../../../samples/sample-ec_mysql.erd?url";
 
 type StartUpProp = {
     documentStorage: ErdDocumentStorage,
-    onOpenDocument: (openDocument: ErdDocument, onSave: (document: ErdDocument, message: string) => void) => void
+    onOpenDocument: OnOpenLocalDocument
 };
 
 type DialogName = "new_file" | "load_file" | "";
@@ -67,12 +67,10 @@ const StartUp = ({ documentStorage, onOpenDocument }: StartUpProp) => {
 
     const handleSaveAndOpenDocument = (erdDocument: ErdDocument, savingMessage: string) => {
         const documentKey = uuidV4();
-        documentStorage.save(documentKey, erdDocument, savingMessage);
 
-        const handleOnSave = (updating: ErdDocument, loggingMessage: string) =>
-            documentStorage.save(documentKey, updating, loggingMessage);
-
-        onOpenDocument(erdDocument, handleOnSave);
+        // 新規キーのため revision 0 での保存が競合することはなく、結果を待たずに開いてよい
+        documentStorage.save(documentKey, erdDocument, savingMessage, 0);
+        onOpenDocument(documentKey, erdDocument, 1);
     };
 
     const mainPanel = initStartView({
@@ -125,7 +123,7 @@ const loadSampleDocument = async (): Promise<ErdDocument> => {
 type InitViewArgs = {
     documentStorage: ErdDocumentStorage,
     erdSummaries: ErdDocumentSummary[],
-    onOpenDocument: (openDocument: ErdDocument, onSave: (document: ErdDocument, message: string) => void) => void,
+    onOpenDocument: OnOpenLocalDocument,
     onSummariesUpdated: (summaries: ErdDocumentSummary[]) => void,
     onOpenDialog: (dialogName: "new_file" | "load_file") => void,
     onOpenSample: () => void
