@@ -1,8 +1,11 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+
 import { RectangleType } from '~/agent-tools/DocumentBudget';
 import { VsCodeDocumentResource } from '~/extension/VsCodeDocumentResource';
-import { ERD_MESSAGE_EVENT_SOURCE, initializeDocument, notifyExternalChangedDocument, onSaveDocument } from '~/extension/vscode-message-resolver';
+import {
+    ERD_MESSAGE_EVENT_SOURCE, initializeDocument, notifyExternalChangedDocument, onSaveDocument
+} from '~/extension/vscode-message-resolver';
 
 export class ExtensionProvider implements vscode.CustomTextEditorProvider {
 
@@ -34,9 +37,19 @@ const handleResolvingTextEditor = (
         ]
     };
 
-    // ファイル変更 (WebView 保存 / 外部 CLI 等) を検知し、documentResource へ一方向に反映する
+    // ファイル変更 (WebView 保存 / 外部 CLI 等) を検知し、documentResource へ一方向に反映する。
+    // ただし同一プロセス (このウィンドウ) 内の TextDocument に対する変更にしか反応しないため、
+    // 別ウィンドウでの保存はこれだけでは捕捉できない。
     const handleDocumentChanged = initHandleDocumentChanged(documentResource, textDocument, webviewPanel);
-    const watcher = vscode.workspace.onDidChangeTextDocument(handleDocumentChanged);
+    const documentWatcher = vscode.workspace.onDidChangeTextDocument(handleDocumentChanged);
+
+    // 別ウィンドウが同じファイルへ保存した場合は、そちらの TextDocument 経由の変更通知がこのプロセスへ届かないため、
+    // ファイルシステムを直接監視して補う。
+    // VSCode 自身が未編集 (dirty でない) TextDocument をディスクの内容へ追従させた場合はここと二重に検知しうるが、
+    // 後続の通知は内容が変わらなければ webview 側で無害に無視される。
+    const fileWatcher = vscode.workspace.createFileSystemWatcher(textDocument.uri.fsPath);
+    const handleFileChangedOnDisk = initHandleFileChangedOnDisk(documentResource, textDocument, webviewPanel);
+    fileWatcher.onDidChange(handleFileChangedOnDisk);
 
     // register (ready 受信時) が完了するまでは、このパネル自身の登録解除手段を持たない
     let unregisterPanel: (() => void) | null = null;
@@ -52,7 +65,8 @@ const handleResolvingTextEditor = (
 
     // Webviewが閉じられたときのクリーンアップ。同じ URI を開く他パネルの登録には触れない
     webviewPanel.onDidDispose(() => {
-        watcher.dispose();
+        documentWatcher.dispose();
+        fileWatcher.dispose();
 
         if (unregisterPanel != null) {
             unregisterPanel();
@@ -75,24 +89,60 @@ const initHandleDocumentChanged = (
         }
 
         const jsonContent = event.document.getText().trim();
-        const parsedContent = tryParseJson(jsonContent);
-        if (parsedContent == null) {
-            console.warn(`Skipped notifying invalid external change: ${documentUri}`);
-            return;
-        }
-
-        // MCP サーバー側が保持するドキュメントも最新化する
-        const updated = documentResource.update(event.document, parsedContent);
-        if (updated === false) {
-            return;
-        }
-
-        // TextDocument の変更は呼び出された時点で既にファイルへ書き込まれているため、
-        // webview 側の echo 抑止 (保存し返さない) の対象にしてよい。
-        notifyExternalChangedDocument(webviewPanel.webview, textDocument, jsonContent, true);
-
-        console.info(`Notified external document change to webview: ${documentUri}`);
+        applyExternalContentChange(documentResource, textDocument, webviewPanel, jsonContent);
     };
+};
+
+/**
+ * 別ウィンドウがディスク上のファイルを直接書き換えた場合を捕捉する。このプロセスの
+ * TextDocument は経由しないため、変更のたびにファイル本体を読み直して比較する。
+ */
+const initHandleFileChangedOnDisk = (
+    documentResource: VsCodeDocumentResource, textDocument: vscode.TextDocument, webviewPanel: vscode.WebviewPanel
+) => {
+    return async () => {
+        let jsonContent: string;
+        try {
+            const diskBytes = await vscode.workspace.fs.readFile(textDocument.uri);
+            jsonContent = Buffer.from(diskBytes).toString('utf-8').trim();
+        } catch (error) {
+            console.warn(`Failed to read externally changed file: ${textDocument.uri.toString()}`, error);
+            return;
+        }
+
+        // このウィンドウの TextDocument が既に (VSCode 自身の自動追従、または自分自身の保存で)
+        // 同じ内容になっている場合は、onDidChangeTextDocument 側の経路に任せて何もしない。
+        if (jsonContent === textDocument.getText().trim()) {
+            return;
+        }
+
+        applyExternalContentChange(documentResource, textDocument, webviewPanel, jsonContent);
+    };
+};
+
+const applyExternalContentChange = (
+    documentResource: VsCodeDocumentResource, textDocument: vscode.TextDocument, webviewPanel: vscode.WebviewPanel,
+    jsonContent: string
+) => {
+    const documentUri = textDocument.uri.toString();
+
+    const parsedContent = tryParseJson(jsonContent);
+    if (parsedContent == null) {
+        console.warn(`Skipped notifying invalid external change: ${documentUri}`);
+        return;
+    }
+
+    // MCP サーバー側が保持するドキュメントも最新化する
+    const updated = documentResource.update(textDocument, parsedContent);
+    if (updated === false) {
+        return;
+    }
+
+    // TextDocument の変更・ファイル監視のどちらの経路で来た内容も、呼び出された時点で既にファイルへ
+    // 書き込まれているため、webview 側の echo 抑止 (保存し返さない) の対象にしてよい。
+    notifyExternalChangedDocument(webviewPanel.webview, textDocument, jsonContent, true);
+
+    console.info(`Notified external document change to webview: ${documentUri}`);
 };
 
 const tryParseJson = (content: string): Record<string, unknown> | null => {
@@ -131,6 +181,7 @@ const initHandleReceivedMessage = (
                 // 保存往復を経て初めて永続化される (alreadyPersisted: false)
                 notifyExternalChangedDocument(webviewPanel.webview, textDocument, updating, false);
             };
+
             const unregister = documentResource.register(textDocument, jsonContent, handleChangeView);
             onRegistered(unregister);
 
