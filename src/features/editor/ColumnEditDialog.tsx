@@ -233,8 +233,8 @@ const ColumnEditDialog = ({
     const defaultValueCandidates = initDefaultValueCandidates(columnTypeAttribute)
 
     return (
-        <DraggableDialog layoutName="column-edit" fullWidth maxWidth={withLogicalName ? "md" : "sm"}
-            sx={{ userSelect: "none" }}
+        <DraggableDialog layoutName="column-edit"
+            fullWidth maxWidth={withLogicalName ? "md" : "sm"} sx={{ userSelect: "none" }}
             open={isOpen} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>Edit {database.supportsStructType ? "single" : "table"} column</DialogTitle>
             <DialogContent>
@@ -322,7 +322,7 @@ type ColumnModelPanelProps = {
 };
 
 const ColumnModelPanel = ({ columnShareModelId, associateColumnModel, unlinkColumnModel }: ColumnModelPanelProps) => {
-    const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const documentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { columnShareStorage } = React.useContext(ColumnShareModelStorageContext);
     const [isOpenDialog, setOpenDialog] = React.useState<"search" | "unlink" | "">("");
 
@@ -417,8 +417,7 @@ const ColumnModelPanel = ({ columnShareModelId, associateColumnModel, unlinkColu
     return (
         <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
             <Typography variant="body2">Associated with :</Typography>
-            <Chip variant="outlined" color="primary" label={associatedName}
-                onDelete={handleOpenUnlinkDialog} />
+            <Chip variant="outlined" color="primary" label={associatedName} onDelete={handleOpenUnlinkDialog} />
             {searchButton}
             {unlinkDialog}
         </Stack>

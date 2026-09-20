@@ -121,9 +121,7 @@ export const useOverrideNamePanel = ({ physicalName, logicalName, onCompleted }:
         () => onCompleted(overriddenName)
     );
 
-    const defaultExpanded = initDefaultExpandedOverride(
-        withLogicalName, overriddenPhysicalName, overriddenLogicalName
-    );
+    const defaultExpanded = initDefaultExpandedOverride(withLogicalName, overriddenPhysicalName, overriddenLogicalName);
 
     const overriddenPanel = (
         <Accordion disableGutters defaultExpanded={defaultExpanded}>

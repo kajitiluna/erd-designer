@@ -219,8 +219,8 @@ const StructColumnEditDialog = ({
     };
 
     return (
-        <DraggableDialog layoutName="struct-column-edit" fullWidth maxWidth={withLogicalName ? "xl" : "lg"}
-            sx={{ userSelect: "none" }}
+        <DraggableDialog layoutName="struct-column-edit"
+            fullWidth maxWidth={withLogicalName ? "xl" : "lg"} sx={{ userSelect: "none" }}
             open={isOpen} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>Edit struct column{structNestCount > 0 ? ` (${structNestCount + 1})` : ""}</DialogTitle>
             <DialogContent>
@@ -267,10 +267,8 @@ const StructColumnModelPanel = ({
 
     const erdDocument = documentsHolder.current();
     const withLogicalName = erdDocument.getDisplayNameStyle().withLogicalName();
-    const handleFiltering =
-        useInitFilteringHandler(erdDocument, columnShareStorage, columnStorage, withLogicalName);
-    const initRecord =
-        useInitRecordInitializer(erdDocument, columnShareStorage, columnStorage, withLogicalName);
+    const handleFiltering = useInitFilteringHandler(erdDocument, columnShareStorage, columnStorage, withLogicalName);
+    const initRecord = useInitRecordInitializer(erdDocument, columnShareStorage, columnStorage, withLogicalName);
 
     const tableHeader = React.useMemo(() => initSearchTableHeader(withLogicalName), [withLogicalName]);
 
@@ -338,8 +336,7 @@ const StructColumnModelPanel = ({
     return (
         <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
             <Typography variant="body2">Associated with :</Typography>
-            <Chip variant="outlined" color="primary" label={associatedName}
-                onDelete={handleOpenUnlinkDialog} />
+            <Chip variant="outlined" color="primary" label={associatedName} onDelete={handleOpenUnlinkDialog} />
             {searchButton}
             {unlinkDialog}
         </Stack>

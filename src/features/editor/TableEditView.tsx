@@ -132,8 +132,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
                 setValue={handleChangePhysicalName} onEnterAction={handleCompleted} />
             {withLogicalName && (
                 <TableNamePanel label="LogicalName" value={logicalTableName}
-                    setValue={event => setLogicalTableName(event.target.value)}
-                    onEnterAction={handleCompleted} />
+                    setValue={event => setLogicalTableName(event.target.value)} onEnterAction={handleCompleted} />
             )}
         </Stack>
     );
@@ -143,8 +142,8 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             columnShareStorage: columnShareStorage, updateShareStorage: setColumnShareStorage,
             columnStorage: columnStorage, updateColumnStorage: setColumnStorage
         }}>
-            <DraggableDialog layoutName="table-edit" fullWidth maxWidth={withLogicalName ? "lg" : "md"}
-                sx={{ userSelect: "none" }}
+            <DraggableDialog layoutName="table-edit"
+                fullWidth maxWidth={withLogicalName ? "lg" : "md"} sx={{ userSelect: "none" }}
                 open={isOpen} onClose={initHandleCloseDialog(onClose)}>
                 <DialogTitle>Edit Table</DialogTitle>
                 <DialogContent>
