@@ -31,24 +31,34 @@ const TitlePanel = ({ remoteSync = false }: TitlePanelProps) => {
     const documentsHolder = React.useContext(ErdDocumentsHolderContext);
     const erdDocument = documentsHolder.current();
 
-    const [title, setTitle] = React.useState<string>(erdDocument.documentName);
+    // 入力中だけ編集値を持ち、それ以外はドキュメントの値をそのまま映す。
+    // 初期値として控えた文字列を持ち続けると、他ウィンドウや外部プロセスでの改名を取り込んでも
+    // 表示が古いままになるうえ、その状態で入力欄を離れるだけで古い名前を書き戻してしまう。
+    const [editingTitle, setEditingTitle] = React.useState<string | null>(null);
+    const displayTitle = (editingTitle != null) ? editingTitle : erdDocument.documentName;
 
     const erdSetting = erdDocument.erdSettingModel;
     const database = erdDocument.getDatabase();
     const databaseIcon = databaseTypeIcons[database.databaseType];
 
     const handleOnSave = () => {
+        if (editingTitle == null) {
+            return;
+        }
+
+        setEditingTitle(null);
+
         const loggingMessage = "Update document name. " +
-            JSON.stringify({ before: erdDocument.documentName, after: title });
-        documentsHolder.updateDocumentName(title, loggingMessage);
+            JSON.stringify({ before: erdDocument.documentName, after: editingTitle });
+        documentsHolder.updateDocumentName(editingTitle, loggingMessage);
     }
 
     return (
         <Stack direction="row" spacing={1} sx={TITLE_PANEL_STYLE}>
             {databaseIcon}
             <Box sx={TITLE_INPUT_AREA_STYLE}>
-                <InputBase value={title} sx={TITLE_INPUT_STYLE}
-                    onChange={event => setTitle(event.target.value)} onBlur={handleOnSave} />
+                <InputBase value={displayTitle} sx={TITLE_INPUT_STYLE}
+                    onChange={event => setEditingTitle(event.target.value)} onBlur={handleOnSave} />
                 {(remoteSync && erdSetting.syncRemoteChanges) && (<RemoteSyncIndicator />)}
             </Box>
             <PreferenceMenu remoteSync={remoteSync} />
