@@ -45,16 +45,33 @@ const GoogleDriveFile = ({ authorization: gdriveAuthorization }: GoogleDriveFile
     // 同一マシン上でこのファイルを開いている他タブへ、保存が起きたことだけを知らせるチャネル。
     // 内容は運ばず、受け取った側は既存の REMOTE_SYNC_REQUESTED_EVENT (10秒間隔のポーリングと同じ経路)
     // を即座に発火させるだけなので、実際の取り込みロジックを重複させずに済む。
-    const [gdriveBroadcastChannel] = React.useState(() => openGdriveBroadcastChannel(gdriveFileId));
+    const broadcastChannelRef = React.useRef<BroadcastChannel | null>(null);
 
+    // 開くのと閉じるのを同一 effect の setup / cleanup 対で行う。cleanup だけを持つ effect にすると、
+    // StrictMode の setup → cleanup → setup で閉じたまま復活せず、通知が一切飛ばなくなる。
+    // 送信と受信で同じ実体を使う点も重要で、BroadcastChannel は自分自身の post を受け取らないため、
+    // 保存したタブ自身が無駄な取り込みチェックを走らせずに済む。
     React.useEffect(() => {
-        return () => gdriveBroadcastChannel?.close();
-    }, [gdriveBroadcastChannel]);
+        const channel = openGdriveBroadcastChannel(gdriveFileId);
+        if (channel == null) {
+            return;
+        }
+
+        channel.onmessage = () => {
+            window.dispatchEvent(new CustomEvent(REMOTE_SYNC_REQUESTED_EVENT));
+        };
+        broadcastChannelRef.current = channel;
+
+        return () => {
+            broadcastChannelRef.current = null;
+            channel.close();
+        };
+    }, [gdriveFileId]);
 
     const enqueueUpdateTask = React.useCallback((task: UpdateTask, taskName: string) => {
-        const safeTask = initSafeUpdateTask(task, taskName, gdriveBroadcastChannel);
+        const safeTask = initSafeUpdateTask(task, taskName, broadcastChannelRef);
         updateQueueRef.current = updateQueueRef.current.then(safeTask);
-    }, [gdriveBroadcastChannel]);
+    }, []);
 
     // ErdApplicationShell は React.memo でラップされているため、
     // handleSave/exportSpecification の参照が render のたびに変わると memo が素通りし MainView 以下が再構築される。
@@ -337,16 +354,7 @@ const openGdriveBroadcastChannel = (gdriveFileId: string | null): BroadcastChann
         return null;
     }
 
-    const channel = new BroadcastChannel(`erd-designer:gdrive-file:${gdriveFileId}`);
-
-    // 同一マシン上の他タブが保存したら、10 秒間隔のポーリングを待たずに即座に取り込みへ回す。
-    // useState の遅延初期化から呼ぶため、React 管理下に置かれる前のこの時点で組み立てておく
-    // (react-hooks/immutability: state 化された値への直接代入は禁止されている)。
-    channel.onmessage = () => {
-        window.dispatchEvent(new CustomEvent(REMOTE_SYNC_REQUESTED_EVENT));
-    };
-
-    return channel;
+    return new BroadcastChannel(`erd-designer:gdrive-file:${gdriveFileId}`);
 };
 
 type MessageToast = {
@@ -442,7 +450,7 @@ type UpdateTask = (currentVersion: string) => Promise<string>;
 
 // チェーンが reject すると以降のタスクが一切実行されなくなるため、タスクは失敗しても必ず現行 version を返して解決させる。
 const initSafeUpdateTask = (
-    task: UpdateTask, taskName: string, broadcastChannel: BroadcastChannel | null
+    task: UpdateTask, taskName: string, broadcastChannelRef: React.RefObject<BroadcastChannel | null>
 ): UpdateTask => {
     return async (currentVersion: string) => {
         try {
@@ -451,7 +459,7 @@ const initSafeUpdateTask = (
             // リモートの取り込み結果 (sync remote update) を再度ブロードキャストすると、
             // 発端のタブへ折り返すだけの無駄な往復になるため、自分が書き込んだ場合のみ知らせる。
             if ((taskName !== "sync remote update") && (nextVersion !== currentVersion)) {
-                broadcastChannel?.postMessage(null);
+                notifyOtherTabsSaved(broadcastChannelRef.current);
             }
 
             return nextVersion;
@@ -460,6 +468,24 @@ const initSafeUpdateTask = (
             return currentVersion;
         }
     };
+};
+
+/**
+ * 通知の成否は保存の成否と無関係なので、失敗はここで完結させる。
+ * 外へ throw すると呼び出し元の catch が更新後ではなく現行 version を返してしまい、
+ * 以降の保存が毎回 version のずれを検出して偽の競合になるため、握り潰す必要がある。
+ * 未購読 (マウント前後) の場合は 10 秒間隔のポーリングが拾うため、通知を諦めてよい。
+ */
+const notifyOtherTabsSaved = (broadcastChannel: BroadcastChannel | null) => {
+    if (broadcastChannel == null) {
+        return;
+    }
+
+    try {
+        broadcastChannel.postMessage(null);
+    } catch (error) {
+        console.warn(`Failed to notify other tabs about the save. ${error}`);
+    }
 };
 
 // 無音更新はユーザ操作に便乗するため、放置されている間は走らない。

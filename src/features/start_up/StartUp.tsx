@@ -68,9 +68,15 @@ const StartUp = ({ documentStorage, onOpenDocument }: StartUpProp) => {
     const handleSaveAndOpenDocument = (erdDocument: ErdDocument, savingMessage: string) => {
         const documentKey = uuidV4();
 
-        // 新規キーのため revision 0 での保存が競合することはなく、結果を待たずに開いてよい
-        documentStorage.save(documentKey, erdDocument, savingMessage, 0);
-        onOpenDocument(documentKey, erdDocument, 1);
+        // 保存後の revision を決め打ちすると、書き込みに失敗した場合に最初の編集が偽の競合になる。
+        // 新規キーなので競合はしないが、実際に採番された revision を待ってから開く。
+        documentStorage.save(documentKey, erdDocument, savingMessage, 0).then(saveResult => {
+            const initialRevision = (saveResult.result === "saved") ? saveResult.revision : 0;
+            onOpenDocument(documentKey, erdDocument, initialRevision);
+        }).catch(error => {
+            console.warn(`Failed to save new document. key: ${documentKey}, detail: ${error}`);
+            onOpenDocument(documentKey, erdDocument, 0);
+        });
     };
 
     const mainPanel = initStartView({

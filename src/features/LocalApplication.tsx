@@ -6,7 +6,7 @@ import initializeErdDocumentDB from "~/features/storage/IndexedErdDocumentStorag
 import StartUp from "~/features/start_up/StartUp";
 import ErdDocumentStorage from "~/features/storage/ErdDocumentStorage";
 import ErdApplicationShell from "~/features/ErdApplicationShell";
-import { localDocumentSyncChannelFactory } from "~/features/storage/LocalDocumentSyncChannel";
+import useLocalDocumentSync from "~/features/storage/useLocalDocumentSync";
 
 type OpenLocalDocument = {
     documentKey: string,
@@ -99,32 +99,17 @@ type LocalDocumentEditorProps = {
 const LocalDocumentEditor = ({
     documentStorage, documentKey, erdDocument, initialRevision, onReloadRequested
 }: LocalDocumentEditorProps) => {
-    const [channel] = React.useState(() => {
-        return localDocumentSyncChannelFactory.create(documentStorage, documentKey, erdDocument, initialRevision);
+    const { onSave, conflictDetected, dismissConflict } = useLocalDocumentSync({
+        documentStorage, documentKey, erdDocument, initialRevision
     });
-    const [conflictDetected, setConflictDetected] = React.useState(false);
-
-    React.useEffect(() => {
-        return () => channel.close();
-    }, [channel]);
-
-    const handleSave = React.useCallback((updating: ErdDocument, loggingMessage: string) => {
-        channel.publish(updating, loggingMessage).then(result => {
-            if (result.result === "conflict") {
-                setConflictDetected(true);
-            }
-        }).catch(error => {
-            console.warn(`Failed to save document. key: ${documentKey}, detail: ${error}`);
-        });
-    }, [channel, documentKey]);
 
     const handleReload = () => {
-        setConflictDetected(false);
+        dismissConflict();
         onReloadRequested();
     };
 
     return (<>
-        <ErdApplicationShell erdDocument={erdDocument} onSave={handleSave} />
+        <ErdApplicationShell erdDocument={erdDocument} onSave={onSave} />
         {conflictDetected && (
             <Snackbar open anchorOrigin={{ vertical: "top", horizontal: "right" }}>
                 <Alert severity="error" variant="filled" sx={{ whiteSpace: "pre-line" }}
