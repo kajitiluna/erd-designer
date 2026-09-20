@@ -30,6 +30,8 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
     );
     const [description, setDescription] = React.useState<string>(columnGroup.description);
 
+    const withLogicalName = erdDocument.getDisplayNameStyle().withLogicalName();
+
     const editValueValidated = (groupName.trim().length > 0) && (columnWrapModels.length > 0);
 
     const handleCompleted = () => {
@@ -71,7 +73,8 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
             columnShareStorage: columnShareStorage, updateShareStorage: setColumnShareStorage,
             columnStorage: columnStorage, updateColumnStorage: setColumnStorage
         }}>
-            <DraggableDialog layoutName="column-group-edit" fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
+            <DraggableDialog layoutName="column-group-edit" fullWidth maxWidth={withLogicalName ? "lg" : "md"}
+                sx={{ userSelect: "none" }}
                 open={isOpen} onClose={initHandleCloseDialog(onClose)}>
                 <DialogTitle>Edit Column Group</DialogTitle>
                 <DialogContent>

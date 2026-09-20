@@ -9,6 +9,7 @@ import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined';
 import { GRID_CELL_STYLE } from "~/components/constant";
 import ForeignKeyIcon from "~/components/icons/ForeignKeyIcon";
 import PrimaryKeyIcon from "~/components/icons/PrimaryKeyIcon";
+import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import {
     initHandleChangePattern, initHandleChangePhysicalName, initHandleEnterKeyDown
 } from "~/features/editor/support";
@@ -95,8 +96,11 @@ type OverrideNamePanelProps = {
 };
 
 export const useOverrideNamePanel = ({ physicalName, logicalName, onCompleted }: OverrideNamePanelProps) => {
+    const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const [overriddenPhysicalName, setOverriddenPhysicalName] = React.useState<string>(physicalName);
     const [overriddenLogicalName, setOverriddenLogicalName] = React.useState<string>(logicalName);
+
+    const withLogicalName = documentsHolder.current().getDisplayNameStyle().withLogicalName();
 
     const initClearButton = (value: string, setValue: (value: string) => void) => {
         return value == "" ? {} : {
@@ -117,8 +121,12 @@ export const useOverrideNamePanel = ({ physicalName, logicalName, onCompleted }:
         () => onCompleted(overriddenName)
     );
 
+    const defaultExpanded = initDefaultExpandedOverride(
+        withLogicalName, overriddenPhysicalName, overriddenLogicalName
+    );
+
     const overriddenPanel = (
-        <Accordion disableGutters defaultExpanded={(overriddenPhysicalName != "") || (overriddenLogicalName != "")}>
+        <Accordion disableGutters defaultExpanded={defaultExpanded}>
             <AccordionSummary id="override-names-header"
                 aria-controls="override-names-content" expandIcon={<ExpandMoreIcon />}>
                 <Stack direction="row" spacing={2} sx={{ alignItems: "center", width: "100%" }}>
@@ -136,16 +144,29 @@ export const useOverrideNamePanel = ({ physicalName, logicalName, onCompleted }:
                         slotProps={initClearButton(overriddenPhysicalName, setOverriddenPhysicalName)}
                         value={overriddenPhysicalName} onKeyDown={handleEnterDown}
                         onChange={initHandleChangePhysicalName(setOverriddenPhysicalName)} />
-                    <TextField label="Logical Name" fullWidth variant="outlined" size="small"
-                        slotProps={initClearButton(overriddenLogicalName, setOverriddenLogicalName)}
-                        value={overriddenLogicalName} onKeyDown={handleEnterDown}
-                        onChange={event => setOverriddenLogicalName(event.target.value)} />
+                    {withLogicalName && (
+                        <TextField label="Logical Name" fullWidth variant="outlined" size="small"
+                            slotProps={initClearButton(overriddenLogicalName, setOverriddenLogicalName)}
+                            value={overriddenLogicalName} onKeyDown={handleEnterDown}
+                            onChange={event => setOverriddenLogicalName(event.target.value)} />
+                    )}
                 </Stack>
             </AccordionDetails>
         </Accordion>
     );
 
     return { overriddenPanel, overriddenName };
+};
+
+// 論理名を隠している間に論理名だけの上書きで開くと、空欄ひとつのアコーディオンが理由なく開いてしまう。
+const initDefaultExpandedOverride = (
+    withLogicalName: boolean, overriddenPhysicalName: string, overriddenLogicalName: string
+): boolean => {
+    if (withLogicalName === false) {
+        return (overriddenPhysicalName !== "");
+    }
+
+    return (overriddenPhysicalName !== "") || (overriddenLogicalName !== "");
 };
 
 const messageForOverrideNames =

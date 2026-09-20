@@ -256,4 +256,45 @@ describe('update-column MCP tool', () => {
             expect(updated.notNull).toBe(true);
         });
     });
+
+    // 論理名欄を隠している画面からは空の論理名を直せないため、境界で物理名を入れておく。
+    describe('空文字の論理名', () => {
+        test('add-columns-to-table は空の論理名を物理名で補完する', async () => {
+            const callback = getColumnToolCallback(documentResource, 'add-columns-to-table');
+
+            await callback({
+                documentId: TEST_DOC_ID,
+                tableId: TEST_TABLE_ID,
+                columns: [{
+                    column: {
+                        columnShare: {
+                            columnName: { physical: 'added_field', logical: '' },
+                            columnTypeId: INT64_COLUMN_TYPE_ID
+                        }
+                    },
+                    position: { type: 'end' }
+                }]
+            });
+
+            const columnShares = erdDocument.getColumnShareModelStorage().getColumnShareModels();
+            const addedShare = columnShares.find(share => (share.physicalName === 'added_field'));
+            expect(addedShare).toBeDefined();
+            expect(addedShare?.logicalName).toBe('added_field');
+        });
+
+        test('update-column-share は空の論理名を物理名で補完する', async () => {
+            const callback = getColumnToolCallback(documentResource, 'update-column-share');
+            const targetColumn = erdDocument.findColumnModel(column1.columnModelId)!;
+            if (targetColumn.entityType !== 'simple') { throw new Error('Expected a simple column fixture.'); }
+
+            await callback({
+                documentId: TEST_DOC_ID,
+                columnShareId: targetColumn.columnShareModelId,
+                columnShare: { columnName: { logical: '' } }
+            });
+
+            const updatedShare = erdDocument.findColumnShareModel(targetColumn.columnShareModelId)!;
+            expect(updatedShare.logicalName).toBe(updatedShare.physicalName);
+        });
+    });
 });

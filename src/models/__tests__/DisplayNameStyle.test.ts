@@ -24,6 +24,22 @@ describe('DisplayStyle', () => {
         });
     });
 
+    describe('withLogicalName', () => {
+        test('PHYSICAL should not include the logical name', () => {
+            expect(DisplayNameStyle.PHYSICAL.withLogicalName()).toBe(false);
+        });
+
+        test('LOGICAL and BOTH should include the logical name', () => {
+            expect(DisplayNameStyle.LOGICAL.withLogicalName()).toBe(true);
+            expect(DisplayNameStyle.BOTH.withLogicalName()).toBe(true);
+        });
+
+        test('only one style should omit the logical name', () => {
+            const styles = DisplayNameStyle.values().filter(style => style.withLogicalName());
+            expect(styles).toHaveLength(2);
+        });
+    });
+
     describe('values', () => {
         test('should return all display styles', () => {
             const values = DisplayNameStyle.values();

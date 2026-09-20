@@ -19,6 +19,7 @@ import RelationModel from "~/models/database/RelationModel";
 import RelationPair from "~/models/database/RelationPair";
 import RelationViewModel from "~/models/RelationViewModel";
 import SimpleColumnModel from "~/models/database/SimpleColumnModel";
+import { resolveLogicalName } from "~/models/database/support";
 import TableIndexModel, { IndexColumnModel } from "~/models/database/TableIndexModel";
 import TableModel from "~/models/database/TableModel";
 import TableUniqueKeysModel, { UniqueKeysColumnModel } from "~/models/database/TableUniqueKeysModel";
@@ -133,7 +134,7 @@ class ErmImporter {
         const tableModel = new TableModel({
             tableModelId,
             physicalName: table.physicalName,
-            logicalName: table.logicalName,
+            logicalName: resolveLogicalName(table.physicalName, table.logicalName),
             schemaId,
             columnEntries,
             uniqueKeysModels,
@@ -192,8 +193,9 @@ class ErmImporter {
     }
 
     private doResolveColumnShare(column: ErmColumnDefinition): ColumnShareModel {
+        const logicalName = resolveLogicalName(column.physicalName, column.logicalName);
         const dedupeKey = JSON.stringify([
-            column.physicalName, column.logicalName, column.columnType.id,
+            column.physicalName, logicalName, column.columnType.id,
             column.precision, column.scale, column.unsigned, column.description
         ]);
 
@@ -205,7 +207,7 @@ class ErmImporter {
         const columnShare = new ColumnShareModel({
             columnShareModelId: uuidV4(),
             physicalName: column.physicalName,
-            logicalName: column.logicalName,
+            logicalName: logicalName,
             columnType: column.columnType,
             precision: column.precision,
             scale: column.scale,

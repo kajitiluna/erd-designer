@@ -15,7 +15,7 @@ import {
 import { toNextOrthogonalLines } from "~/features/canvas/support";
 import ColorValue from "~/models/ColorValue";
 import { Database } from "~/models/database";
-import { overrideColumnName } from "~/models/database/support";
+import { overrideColumnName, resolveLogicalName } from "~/models/database/support";
 import TableIndexModel, { IndexColumnModel } from "~/models/database/TableIndexModel";
 import TableModel from "~/models/database/TableModel";
 import TableUniqueKeysModel, { UniqueKeysColumnModel } from "~/models/database/TableUniqueKeysModel";
@@ -612,9 +612,12 @@ const initCallbackForAddTable = (documentResource: DocumentResource): ToolCallba
 
         const [columnEntries, columnShares] = buildAddingColumnPairs(erdBudget, table.columns);
 
+        const physicalName = table.tableName.physical;
+        const logicalName = resolveLogicalName(physicalName, table.tableName.logical || "");
+
         const addTable = new TableModel({
-            physicalName: table.tableName.physical,
-            logicalName: table.tableName.logical || table.tableName.physical,
+            physicalName: physicalName,
+            logicalName: logicalName,
             schemaId: schemaId,
             description: table.description || "",
             checkExpression: table.checkExpression || "",
@@ -760,10 +763,14 @@ const initCallbackForUpdateTable = (documentResource: DocumentResource): ToolCal
         const previousTable = previousTableView.tableModel;
 
         const nextSchemaId = validateSchemaId(erdBudget, table.schemaId, previousTable.schemaId);
+        const nextPhysicalName = table.tableName?.physical || previousTable.physicalName;
+        const updatingLogicalName = table.tableName?.logical || previousTable.logicalName;
+        const nextLogicalName = resolveLogicalName(nextPhysicalName, updatingLogicalName);
+
         const nextTable = new TableModel({
             ...previousTable,
-            physicalName: table.tableName?.physical || previousTable.physicalName,
-            logicalName: table.tableName?.logical || previousTable.logicalName,
+            physicalName: nextPhysicalName,
+            logicalName: nextLogicalName,
             schemaId: nextSchemaId,
             description: table.description || previousTable.description,
             checkExpression: table.checkExpression ?? previousTable.checkExpression,
