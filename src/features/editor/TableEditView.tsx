@@ -1,9 +1,10 @@
 import React from "react";
 import {
-    Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
+    Alert, Button, DialogActions, DialogContent, DialogTitle, Divider,
     FormControl, InputLabel, MenuItem, Select, SelectChangeEvent, Stack, Tab, Tabs, TextField, Typography
 } from "@mui/material";
 
+import DraggableDialog from "~/components/DraggableDialog";
 import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import ColumnEntry from "~/models/database/ColumnEntry";
 import ColumnModel from "~/models/database/ColumnModel";
@@ -138,7 +139,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             columnShareStorage: columnShareStorage, updateShareStorage: setColumnShareStorage,
             columnStorage: columnStorage, updateColumnStorage: setColumnStorage
         }}>
-            <Dialog fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
+            <DraggableDialog layoutName="table-edit" fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
                 open={isOpen} onClose={initHandleCloseDialog(onClose)}>
                 <DialogTitle>Edit Table</DialogTitle>
                 <DialogContent>
@@ -155,7 +156,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
                     <Button onClick={onClose}>Cancel</Button>
                     <Button variant="contained" disabled={!editValueValidated} onClick={handleCompleted}>OK</Button>
                 </DialogActions>
-            </Dialog >
+            </DraggableDialog>
         </ColumnShareModelStorageContext.Provider>
     );
 };

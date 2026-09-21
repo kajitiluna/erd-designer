@@ -1,9 +1,10 @@
 import React from "react";
 import {
-    Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Stack,
+    Button, Checkbox, DialogActions, DialogContent, DialogTitle, Divider, Stack,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow
 } from "@mui/material";
 
+import DraggableDialog from "~/components/DraggableDialog";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { initHandleCloseDialog } from "~/features/editor/support";
 import ErdDocument from "~/models/ErdDocument";
@@ -114,7 +115,7 @@ const PerspectiveSettingView = ({ isOpen, targetId, onClose }: PerspectiveSettin
     };
 
     return (
-        <Dialog fullWidth maxWidth="md" sx={{ userSelect: "none" }}
+        <DraggableDialog layoutName="perspective-setting" fullWidth maxWidth="md" sx={{ userSelect: "none" }}
             open={isOpen} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>Setting Perspective</DialogTitle>
             <DialogContent>
@@ -127,7 +128,7 @@ const PerspectiveSettingView = ({ isOpen, targetId, onClose }: PerspectiveSettin
                 <Button onClick={onClose}>Cancel</Button>
                 <Button variant="contained" onClick={handleCompleted}>OK</Button>
             </DialogActions>
-        </Dialog>
+        </DraggableDialog>
     );
 };
 

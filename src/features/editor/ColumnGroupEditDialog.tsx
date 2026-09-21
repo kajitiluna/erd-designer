@@ -1,6 +1,7 @@
 import React from "react";
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Stack, TextField } from "@mui/material";
+import { Button, DialogActions, DialogContent, DialogTitle, Divider, Stack, TextField } from "@mui/material";
 
+import DraggableDialog from "~/components/DraggableDialog";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import ColumnModel from "~/models/database/ColumnModel";
@@ -70,7 +71,7 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
             columnShareStorage: columnShareStorage, updateShareStorage: setColumnShareStorage,
             columnStorage: columnStorage, updateColumnStorage: setColumnStorage
         }}>
-            <Dialog fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
+            <DraggableDialog layoutName="column-group-edit" fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
                 open={isOpen} onClose={initHandleCloseDialog(onClose)}>
                 <DialogTitle>Edit Column Group</DialogTitle>
                 <DialogContent>
@@ -95,7 +96,7 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
                     <Button onClick={onClose}>Cancel</Button>
                     <Button variant="contained" disabled={!editValueValidated} onClick={handleCompleted}>OK</Button>
                 </DialogActions>
-            </Dialog>
+            </DraggableDialog>
         </ColumnShareModelStorageContext.Provider>
     );
 };

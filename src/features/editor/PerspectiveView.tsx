@@ -1,7 +1,6 @@
 import React from "react";
 import {
-    Alert, Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle,
-    Divider, Stack, TextField, Typography
+    Alert, Box, Button, Checkbox, DialogActions, DialogContent, DialogTitle, Divider, Stack, TextField, Typography
 } from "@mui/material";
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -9,6 +8,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
+import DraggableDialog from "~/components/DraggableDialog";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ErdDocument from "~/models/ErdDocument";
 import ColorValue from "~/models/ColorValue";
@@ -393,7 +393,7 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
     };
 
     return (
-        <Dialog fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
+        <DraggableDialog layoutName="perspective-view" fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
             open={isOpen} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>Perspective</DialogTitle>
             <DialogContent>
@@ -413,7 +413,7 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
                 onUpdatePerspective={setPerspectiveModels}
                 onClose={() => setOpenEditDialog(false)}
             />}
-        </Dialog>
+        </DraggableDialog>
     );
 };
 
@@ -528,7 +528,7 @@ const PerspectiveEditDialog = ({
     const handleEnterDown = initHandleEnterKeyDown(handleCompleted);
 
     return (
-        <Dialog fullWidth maxWidth="sm" sx={{ userSelect: "none" }}
+        <DraggableDialog layoutName="perspective-edit" fullWidth maxWidth="sm" sx={{ userSelect: "none" }}
             open={isOpen} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>Edit Perspective</DialogTitle>
             <DialogContent>
@@ -549,7 +549,7 @@ const PerspectiveEditDialog = ({
                 <Button variant="contained" disabled={!editValueValidated}
                     onClick={handleCompleted}>OK</Button>
             </DialogActions>
-        </Dialog>
+        </DraggableDialog>
     );
 };
 

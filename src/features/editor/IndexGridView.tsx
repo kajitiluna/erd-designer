@@ -1,19 +1,18 @@
 import { v4 as uuidV4 } from 'uuid';
 import React from "react";
 import {
-    Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
-    FormControl, FormControlLabel, InputLabel, MenuItem, Select, SelectChangeEvent, Stack,
-    TableCell, TextField
+    Button, Checkbox, DialogActions, DialogContent, DialogTitle, Divider,
+    FormControl, FormControlLabel, InputLabel, MenuItem, Select, SelectChangeEvent, Stack, TableCell, TextField
 } from "@mui/material";
 
+import DraggableDialog from "~/components/DraggableDialog";
 import ColumnModel from "~/models/database/ColumnModel";
 import SimpleColumnModel from "~/models/database/SimpleColumnModel";
 import TableIndexModel, { IndexColumnModel } from "~/models/database/TableIndexModel";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import TableIndexSupport, { TableIndexOption, TableIndexType } from "~/models/database/TableIndexSupport";
 import {
-    ColumnWrapModel, initHandleChangePhysicalName,
-    initHandleCloseDialog, initHandleEnterKeyDown
+    ColumnWrapModel, initHandleChangePhysicalName, initHandleCloseDialog, initHandleEnterKeyDown
 } from "~/features/editor/support";
 import ColumnShareModel from '~/models/database/ColumnShareModel';
 import { overrideColumnName } from '~/models/database/support';
@@ -329,7 +328,7 @@ const IndexEditDialog = ({
     };
 
     return (
-        <Dialog fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
+        <DraggableDialog layoutName="index-edit" fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
             open={isOpen} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>Edit table index</DialogTitle>
             <DialogContent>
@@ -353,7 +352,7 @@ const IndexEditDialog = ({
                 <Button onClick={() => onClose()}>Cancel</Button>
                 <Button variant="contained" disabled={!editValueValidated} onClick={handleCompleted}>OK</Button>
             </DialogActions>
-        </Dialog>
+        </DraggableDialog>
     );
 };
 

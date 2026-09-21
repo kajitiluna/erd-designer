@@ -1,11 +1,12 @@
 import { v4 as uuidV4 } from 'uuid';
 import React from 'react';
 import {
-    Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl,
+    Button, DialogActions, DialogContent, DialogTitle, Divider, FormControl,
     InputLabel, MenuItem, Select, SelectChangeEvent, Stack, TableCell, TextField
 } from '@mui/material';
 
 import BaseGridView from '~/components/BaseGridView';
+import DraggableDialog from '~/components/DraggableDialog';
 import { ColumnShareModelStorageContext } from '~/context/ColumnShareModelStorageContext';
 import ColumnModel from '~/models/database/ColumnModel';
 import ColumnShareModel from '~/models/database/ColumnShareModel';
@@ -270,7 +271,7 @@ const UniqueKeysEditDialog = ({
     };
 
     return (
-        <Dialog fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
+        <DraggableDialog layoutName="unique-keys-edit" fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
             open={isOpen} onClose={onClose}>
             <DialogTitle>Edit unique key constraint</DialogTitle>
             <DialogContent>
@@ -290,7 +291,7 @@ const UniqueKeysEditDialog = ({
                 <Button onClick={() => onClose()}>Cancel</Button>
                 <Button variant="contained" disabled={!editValueValidated} onClick={handleCompleted}>OK</Button>
             </DialogActions>
-        </Dialog>
+        </DraggableDialog>
     );
 };
 
