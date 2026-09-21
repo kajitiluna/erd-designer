@@ -19,13 +19,13 @@ type InnerErdBudget = {
     uri: vscode.Uri;
     erdDocument: ErdDocument;
     drawnRectangles: Map<string, RectangleType>;
-    onUpdateDocument: (updating: string) => void;
+    onUpdateDocumentHandlers: Set<(updating: string) => void>;
 } | {
     status: "empty";
     documentId: string;
     uri: vscode.Uri;
     drawnRectangles: Map<string, RectangleType>;
-    onUpdateDocument: (updating: string) => void;
+    onUpdateDocumentHandlers: Set<(updating: string) => void>;
 };
 
 export class VsCodeDocumentResource implements DocumentResource {
@@ -79,34 +79,74 @@ export class VsCodeDocumentResource implements DocumentResource {
 
     /**
      * ドキュメント管理者が該当ドキュメントを登録する。
+     * 同一 URI を別パネルが既に開いている場合は、既存のドキュメント状態はそのままに、通知先としてこのパネルのハンドラを追加する。
      *
      * @param textDocument ファイル参照
      * @param content ドキュメント本文
      * @param onUpdateDocument ドキュメント所有者以外からの更新操作を通知するコールバック関数
+     * @returns このパネルの登録を取り消す関数。パネルが閉じたときに呼び出す
      */
     public register(
-        textDocument: vscode.TextDocument, content: string,
-        onUpdateDocument: (updating: string) => void
-    ) {
+        textDocument: vscode.TextDocument, content: string, onUpdateDocument: (updating: string) => void
+    ): () => void {
+        const uri = textDocument.uri;
+        const documentId = generateDocumentId(uri.toString());
+
+        const existingBudget = this.idToBudgetMap.get(documentId);
+        if (existingBudget != null) {
+            existingBudget.onUpdateDocumentHandlers.add(onUpdateDocument);
+            this.uriToIdMap.set(uri.toString(), documentId);
+
+            console.info("VsCodeDocumentResource added handler to existing document: "
+                + `${uri.toString()} (id: ${documentId})`);
+
+            return () => this.doUnregisterHandler(documentId, onUpdateDocument);
+        }
+
         let erdDocument: ErdDocument | null = null;
         if (content.length > 0) {
             erdDocument = parseErdDocument(content);
             if (erdDocument == null) {
-                return;
+                return () => { };
             }
         }
 
-        const uri = textDocument.uri;
-        const documentId = generateDocumentId(uri.toString());
         const drawnRectangles = new Map<string, RectangleType>();
+        const onUpdateDocumentHandlers = new Set([onUpdateDocument]);
         const budget: InnerErdBudget = erdDocument
-            ? { status: "ready", documentId, uri, drawnRectangles, onUpdateDocument, erdDocument }
-            : { status: "empty", documentId, uri, drawnRectangles, onUpdateDocument };
+            ? { status: "ready", documentId, uri, drawnRectangles, onUpdateDocumentHandlers, erdDocument }
+            : { status: "empty", documentId, uri, drawnRectangles, onUpdateDocumentHandlers };
 
         this.uriToIdMap.set(uri.toString(), documentId);
         this.idToBudgetMap.set(documentId, budget);
 
         console.info(`VsCodeDocumentResource registered document: ${uri.toString()} (id: ${documentId})`);
+        return () => this.doUnregisterHandler(documentId, onUpdateDocument);
+    }
+
+    /**
+     * パネル 1 枚分の通知先ハンドラを取り消す。
+     * 最後の 1 枚だった場合のみ、ドキュメントそのものを管理対象から除外する。
+     *
+     * @param documentId ドキュメントID
+     * @param onUpdateDocument register で渡したハンドラと同一の関数参照
+     */
+    private doUnregisterHandler(documentId: string, onUpdateDocument: (updating: string) => void) {
+        const budget = this.idToBudgetMap.get(documentId);
+        if (budget == null) {
+            return;
+        }
+
+        budget.onUpdateDocumentHandlers.delete(onUpdateDocument);
+        if (budget.onUpdateDocumentHandlers.size > 0) {
+            return;
+        }
+
+        this.idToBudgetMap.delete(documentId);
+        this.uriToIdMap.delete(budget.uri.toString());
+
+        console.info("VsCodeDocumentResource removed document "
+            + `(last panel closed): ${budget.uri.toString()}, (id: ${documentId})`);
     }
 
     private doFindBudget(textDocument: vscode.TextDocument) {
@@ -166,25 +206,8 @@ export class VsCodeDocumentResource implements DocumentResource {
     }
 
     /**
-     * 該当ドキュメントを管理対象から除外する。
-     * 
-     * @param textDocument ファイル参照
-     */
-    public remove(textDocument: vscode.TextDocument) {
-        const documentId = this.uriToIdMap.get(textDocument.uri.toString());
-        if (documentId == null) {
-            return;
-        }
-
-        this.idToBudgetMap.delete(documentId);
-        this.uriToIdMap.delete(textDocument.uri.toString());
-
-        console.info(`VsCodeDocumentResource removed document: ${textDocument.uri.toString()} (id: ${documentId})`);
-    }
-
-    /**
-     * ドキュメントの更新を依頼する。
-     * 
+     * ドキュメントの更新を依頼する。開いている全パネルへ通知する。
+     *
      * @param documentId ドキュメントID
      * @param erdDocument 更新内容
      */
@@ -202,7 +225,8 @@ export class VsCodeDocumentResource implements DocumentResource {
         const nextBudget: InnerErdBudget = { ...erdBudget, status: "ready", erdDocument };
         this.idToBudgetMap.set(documentId, nextBudget);
 
-        erdBudget.onUpdateDocument(JSON.stringify(erdDocument.toJSON()));
+        const jsonContent = JSON.stringify(erdDocument.toJSON());
+        erdBudget.onUpdateDocumentHandlers.forEach(handler => handler(jsonContent));
     }
 
     public fetchDocuments(): DocumentBudget[] {

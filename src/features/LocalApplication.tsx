@@ -1,16 +1,24 @@
 import React from "react";
-import { Container, Paper, Typography } from "@mui/material";
+import { Alert, Button, Container, Paper, Snackbar, Typography } from "@mui/material";
 
 import ErdDocument from "~/models/ErdDocument";
 import initializeErdDocumentDB from "~/features/storage/IndexedErdDocumentStorage";
 import StartUp from "~/features/start_up/StartUp";
 import ErdDocumentStorage from "~/features/storage/ErdDocumentStorage";
 import ErdApplicationShell from "~/features/ErdApplicationShell";
+import useLocalDocumentSync from "~/features/storage/useLocalDocumentSync";
+
+type OpenLocalDocument = {
+    documentKey: string,
+    erdDocument: ErdDocument,
+    initialRevision: number,
+    // 競合後の再読み込みで同じ documentKey のまま LocalDocumentEditor を作り直すための世代番号
+    generation: number
+};
 
 const LocalApplication = () => {
     const [documentStorage, setDocumentStorage] = React.useState<ErdDocumentStorage | null>(null);
-    const [erdDocument, setErdDocument] = React.useState<ErdDocument | null>(null);
-    const [storageHandler, setStorageHandler] = React.useState<StorageHandler>({ handle: () => { } });
+    const [openDocument, setOpenDocument] = React.useState<OpenLocalDocument | null>(null);
 
     React.useEffect(() => {
         initializeErdDocumentDB().then(storage => setDocumentStorage(storage));
@@ -33,26 +41,85 @@ const LocalApplication = () => {
         );
     }
 
-    const handleOpenDocument = (
-        openDocument: ErdDocument, onSave: (document: ErdDocument, loggingMessage: string) => void
-    ) => {
-        setStorageHandler({ handle: onSave });
-        setErdDocument(openDocument);
+    const handleOpenDocument = (documentKey: string, document: ErdDocument, initialRevision: number) => {
+        setOpenDocument({ documentKey, erdDocument: document, initialRevision, generation: 0 });
     };
 
-    if (erdDocument == null) {
+    // 競合で「後者はエラー」扱いになった編集を破棄し、保存済みの最新内容から開き直す。
+    // documentKey は変わらないため、generation を進めて LocalDocumentEditor を強制的に作り直す。
+    const handleReloadAfterConflict = (documentKey: string) => {
+        documentStorage.find(documentKey).then(found => {
+            if (found == null) {
+                console.warn(`Document was removed elsewhere. key: ${documentKey}`);
+                setOpenDocument(null);
+                return;
+            }
+
+            setOpenDocument(current => {
+                return {
+                    documentKey,
+                    erdDocument: found.erdDocument,
+                    initialRevision: found.revision,
+                    generation: (current?.generation ?? 0) + 1
+                };
+            });
+        });
+    };
+
+    if (openDocument == null) {
         return (
             <StartUp documentStorage={documentStorage} onOpenDocument={handleOpenDocument} />
         );
     }
 
     return (
-        <ErdApplicationShell erdDocument={erdDocument} onSave={storageHandler.handle} />
+        <LocalDocumentEditor
+            key={`${openDocument.documentKey}:${openDocument.generation}`}
+            documentStorage={documentStorage}
+            documentKey={openDocument.documentKey}
+            erdDocument={openDocument.erdDocument}
+            initialRevision={openDocument.initialRevision}
+            onReloadRequested={() => handleReloadAfterConflict(openDocument.documentKey)}
+        />
     );
 };
 
-type StorageHandler = {
-    handle: (updating: ErdDocument, loggingMessage: string) => void
+type LocalDocumentEditorProps = {
+    documentStorage: ErdDocumentStorage,
+    documentKey: string,
+    erdDocument: ErdDocument,
+    initialRevision: number,
+    onReloadRequested: () => void
+};
+
+/**
+ * 1 ドキュメントぶんの編集セッション。documentKey + generation で LocalApplication から
+ * key 付けされ、競合による再読み込み時は丸ごと作り直されることで channel の張り直しを保証する。
+ */
+const LocalDocumentEditor = ({
+    documentStorage, documentKey, erdDocument, initialRevision, onReloadRequested
+}: LocalDocumentEditorProps) => {
+    const { onSave, conflictDetected, dismissConflict } = useLocalDocumentSync({
+        documentStorage, documentKey, erdDocument, initialRevision
+    });
+
+    const handleReload = () => {
+        dismissConflict();
+        onReloadRequested();
+    };
+
+    return (<>
+        <ErdApplicationShell erdDocument={erdDocument} onSave={onSave} />
+        {conflictDetected && (
+            <Snackbar open anchorOrigin={{ vertical: "top", horizontal: "right" }}>
+                <Alert severity="error" variant="filled" sx={{ whiteSpace: "pre-line" }}
+                    action={<Button color="inherit" size="small" onClick={handleReload}>Reload</Button>}>
+                    {"Another window has saved changes that conflict with yours.\n"
+                        + "Please reload the latest version of the content."}
+                </Alert>
+            </Snackbar>
+        )}
+    </>);
 };
 
 export default LocalApplication;
