@@ -30,6 +30,8 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
     );
     const [description, setDescription] = React.useState<string>(columnGroup.description);
 
+    const withLogicalName = erdDocument.getDisplayNameStyle().withLogicalName();
+
     const editValueValidated = (groupName.trim().length > 0) && (columnWrapModels.length > 0);
 
     const handleCompleted = () => {
@@ -71,22 +73,22 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
             columnShareStorage: columnShareStorage, updateShareStorage: setColumnShareStorage,
             columnStorage: columnStorage, updateColumnStorage: setColumnStorage
         }}>
-            <DraggableDialog layoutName="column-group-edit" fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
+            <DraggableDialog layoutName="column-group-edit"
+                fullWidth maxWidth={withLogicalName ? "lg" : "md"} sx={{ userSelect: "none" }}
                 open={isOpen} onClose={initHandleCloseDialog(onClose)}>
                 <DialogTitle>Edit Column Group</DialogTitle>
                 <DialogContent>
                     <Stack spacing={3}>
                         <Divider />
-                        <TextField fullWidth required variant="outlined" label="GroupName"
-                            value={groupName} onChange={event => setGroupName(event.target.value)}
-                            onKeyDown={handleEnterDown} />
+                        <TextField fullWidth required variant="outlined" label="GroupName" value={groupName}
+                            onChange={event => setGroupName(event.target.value)} onKeyDown={handleEnterDown} />
                         <ColumnViewTable
                             columnWrapModels={columnWrapModels}
                             availableColumnGroup={false}
                             isChildRelation={() => false}
                             isEditableColumnType={() => true}
                             onUpdateColumnWrapModels={setColumnWrapModels}
-                            onUpdateCheckExpression={() => {}} />
+                            onUpdateCheckExpression={() => { }} />
                         <TextField variant="outlined" id="description" label="Description" multiline rows={3}
                             sx={{ '& .MuiInputBase-root': { resize: 'vertical', overflow: 'auto' } }}
                             value={description} onChange={(event) => setDescription(event.target.value)} />

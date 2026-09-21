@@ -24,6 +24,8 @@ const ColumnGroupView = ({ isOpen, viewMode, onSelect = () => { }, onClose }: Co
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const erdDocument: ErdDocument = documentsHolder.current();
 
+    const withLogicalName = erdDocument.getDisplayNameStyle().withLogicalName();
+
     const { listPanel, selectedItem, editMode, reset } = useItemListPanel({
         viewMode,
         items: erdDocument.getColumnGroupModels(),
@@ -112,7 +114,7 @@ const ColumnGroupView = ({ isOpen, viewMode, onSelect = () => { }, onClose }: Co
     );
 
     return (<>
-        <Dialog fullWidth maxWidth="xl" sx={{ userSelect: "none" }}
+        <Dialog fullWidth maxWidth={withLogicalName ? "xl" : "lg"} sx={{ userSelect: "none" }}
             open={isOpen} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>{(viewMode === "select" ? "Select Column Group" : "Column Groups")}</DialogTitle>
             <DialogContent>

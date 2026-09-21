@@ -1,18 +1,23 @@
 
 export default class DisplayNameStyle {
 
-    public static readonly PHYSICAL =
+    public static readonly PHYSICAL = new DisplayNameStyle(
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        new DisplayNameStyle("Physical", (physicalName: string, _: string) => physicalName);
+        "Physical", (physicalName: string, _: string) => physicalName, false
+    );
 
-    public static readonly LOGICAL = new DisplayNameStyle("Logical", (_: string, logicalName: string) => logicalName);
+    public static readonly LOGICAL = new DisplayNameStyle(
+        "Logical", (_: string, logicalName: string) => logicalName, true
+    );
 
-    public static readonly BOTH =
-        new DisplayNameStyle("Both", (physicalName: string, logicalName: string) => `${logicalName} / ${physicalName}`);
+    public static readonly BOTH = new DisplayNameStyle(
+        "Both", (physicalName: string, logicalName: string) => `${logicalName} / ${physicalName}`, true
+    );
 
     private constructor(
         public readonly name: string,
-        private readonly displayFunction: (physicalName: string, logicalName: string) => string
+        private readonly displayFunction: (physicalName: string, logicalName: string) => string,
+        private readonly logicalNameIncluded: boolean
     ) { }
 
     public static values(): readonly DisplayNameStyle[] {
@@ -21,6 +26,11 @@ export default class DisplayNameStyle {
 
     public displayName(physicalName: string, logicalName: string): string {
         return this.displayFunction(physicalName, logicalName);
+    }
+
+    /** Whether this style shows the logical name, so callers can drop logical-name UI when it does not. */
+    public withLogicalName(): boolean {
+        return this.logicalNameIncluded;
     }
 
     public toJSON(): Record<string, string> {
@@ -33,7 +43,7 @@ export default class DisplayNameStyle {
         }
 
         const styleName = obj.styleName as string;
-        for (const style of Object.values(DisplayNameStyle)) {
+        for (const style of DisplayNameStyle.values()) {
             if (style.name === styleName) {
                 return style;
             }

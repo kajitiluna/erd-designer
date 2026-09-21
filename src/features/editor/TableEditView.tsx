@@ -46,6 +46,8 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
     const [logicalTableName, setLogicalTableName] = React.useState<string>(tableModel.logicalName);
     const [description, setDescription] = React.useState<string>(tableModel.description);
 
+    const withLogicalName = erdDocument.getDisplayNameStyle().withLogicalName();
+
     // 論理名が物理名と合致もしくは論理名が空の場合は、論理名に物理名の値を設定する
     const handleChangePhysicalName = initHandleChangeWithSyncPhysicalName({
         physicalName: physicalTableName, setPhysicalName: setPhysicalTableName,
@@ -128,9 +130,10 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             )}
             <TableNamePanel label="PhysicalName" value={physicalTableName}
                 setValue={handleChangePhysicalName} onEnterAction={handleCompleted} />
-            <TableNamePanel label="LogicalName" value={logicalTableName}
-                setValue={event => setLogicalTableName(event.target.value)}
-                onEnterAction={handleCompleted} />
+            {withLogicalName && (
+                <TableNamePanel label="LogicalName" value={logicalTableName}
+                    setValue={event => setLogicalTableName(event.target.value)} onEnterAction={handleCompleted} />
+            )}
         </Stack>
     );
 
@@ -139,7 +142,8 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
             columnShareStorage: columnShareStorage, updateShareStorage: setColumnShareStorage,
             columnStorage: columnStorage, updateColumnStorage: setColumnStorage
         }}>
-            <DraggableDialog layoutName="table-edit" fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
+            <DraggableDialog layoutName="table-edit"
+                fullWidth maxWidth={withLogicalName ? "lg" : "md"} sx={{ userSelect: "none" }}
                 open={isOpen} onClose={initHandleCloseDialog(onClose)}>
                 <DialogTitle>Edit Table</DialogTitle>
                 <DialogContent>

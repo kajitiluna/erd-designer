@@ -55,6 +55,11 @@ const ColumnViewTable = ({
     const erdDocument = documentsHolder.current();
     const database = erdDocument.getDatabase();
 
+    const withLogicalName = erdDocument.getDisplayNameStyle().withLogicalName();
+    // 名前列 + Type + NotNull + Unique。空行はさらに選択セル (と PK/FK) を跨ぐ。
+    const groupRowSpan = withLogicalName ? 5 : 4;
+    const emptyRowSpan = groupRowSpan + (availableKeyConstraints ? 3 : 1);
+
     const selectedIndex: number = (selectedWrappedModel == null) ? -1
         : columnWrapModels.findIndex(wrappedModel => {
             if (wrappedModel.modelType !== selectedWrappedModel.modelType) {
@@ -179,7 +184,7 @@ const ColumnViewTable = ({
                     <TableCell sx={{ width: "10px" }} align="center">FK</TableCell>
                 </>)}
                 <TableCell>Physical Name</TableCell>
-                <TableCell>Logical Name</TableCell>
+                {withLogicalName && (<TableCell>Logical Name</TableCell>)}
                 <TableCell>Type</TableCell>
                 <TableCell sx={{ width: "50px" }} align="center">NotNull</TableCell>
                 <TableCell sx={{ width: "50px" }} align="center">Unique</TableCell>
@@ -203,7 +208,7 @@ const ColumnViewTable = ({
                 <TableCell align="center">{inChildRelation && <ForeignKeyIcon />}</TableCell>
             </>)}
             <TableCell>{overrideName.physicalName}</TableCell>
-            <TableCell>{overrideName.logicalName}</TableCell>
+            {withLogicalName && (<TableCell>{overrideName.logicalName}</TableCell>)}
             <TableCell>{columnShareModel.specifiedColumnType(inChildRelation)}</TableCell>
             <TableCell align="center">{columnModel.notNull && <CheckIcon fontSize="small" />}</TableCell>
             <TableCell align="center">{columnModel.unique && <CheckIcon fontSize="small" />}</TableCell>
@@ -216,7 +221,7 @@ const ColumnViewTable = ({
                 <TableCell align="center"></TableCell>
                 <TableCell align="center"></TableCell>
             </>)}
-            <TableCell colSpan={5}>{columnGroupModel.groupName}</TableCell>
+            <TableCell colSpan={groupRowSpan}>{columnGroupModel.groupName}</TableCell>
         </>);
     }
 
@@ -235,7 +240,7 @@ const ColumnViewTable = ({
                 <TableCell align="center"></TableCell>
             </>)}
             <TableCell>{overrideName.physicalName}</TableCell>
-            <TableCell>{overrideName.logicalName}</TableCell>
+            {withLogicalName && (<TableCell>{overrideName.logicalName}</TableCell>)}
             <TableCell>{structShare.simpleColumnType()}</TableCell>
             <TableCell align="center">{columnModel.notNull && <CheckIcon fontSize="small" />}</TableCell>
             <TableCell align="center"></TableCell>
@@ -380,7 +385,7 @@ const ColumnViewTable = ({
                                 initColumnModelRow(columnWrapModel, index))
                             : (
                                 <TableRow>
-                                    <TableCell colSpan={availableKeyConstraints ? 8 : 6} align="center" sx={{ p: 2 }}>
+                                    <TableCell colSpan={emptyRowSpan} align="center" sx={{ p: 2 }}>
                                         (No columns)
                                     </TableCell>
                                 </TableRow>

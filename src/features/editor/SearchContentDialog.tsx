@@ -5,6 +5,7 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 
+import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { initHandleCloseDialog, SELECTED_CELL_COLOR } from "~/features/editor/support";
 
 type InitializeSearchDialogProps<ENTITY> = {
@@ -29,6 +30,7 @@ type SearchDialogProps<ENTITY> = {
 const SearchContentDialog = <ENTITY,>({
     dialogTitle, tableHeader, identity, onFiltering, initRecord, isOpen, onCompleted, onClose
 }: InitializeSearchDialogProps<ENTITY> & SearchDialogProps<ENTITY>) => {
+    const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const focusRef = React.useRef<HTMLInputElement | null>(null);
     const [timeoutId, setTimeoutId] = React.useState<NodeJS.Timeout | null>(null);
     const [filtering, setFiltering] = React.useState<string>("");
@@ -152,8 +154,10 @@ const SearchContentDialog = <ENTITY,>({
         return () => clearTimeout(timeoutId);
     }, [isOpen]);
 
+    const withLogicalName = documentsHolder.current().getDisplayNameStyle().withLogicalName();
+
     return (
-        <Dialog fullWidth maxWidth="xl" sx={{ userSelect: "none" }}
+        <Dialog fullWidth maxWidth={withLogicalName ? "xl" : "lg"} sx={{ userSelect: "none" }}
             open={isOpen} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>{dialogTitle}</DialogTitle>
             <DialogContent>
