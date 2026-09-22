@@ -8,6 +8,7 @@ import SearchIcon from "@mui/icons-material/Search";
 
 import DraggableDialog from "~/components/DraggableDialog";
 import EdgedIconButton from '~/components/EdgedIconButton';
+import useAutoFocusInput from '~/components/useAutoFocusInput';
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import {
@@ -57,6 +58,7 @@ const StructColumnEditDialog = ({
         initColumnWrapModels(erdDocument, columnShareStorage, columnStorage, structColumn)
     );
     const [description, setDescription] = React.useState<string>(structShare ? structShare.description : "");
+    const physicalNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
 
     const withLogicalName = erdDocument.getDisplayNameStyle().withLogicalName();
 
@@ -168,8 +170,9 @@ const StructColumnEditDialog = ({
 
     const structShareNamePanel = (
         <Stack direction="row" spacing={1}>
-            <TextField label="Physical Name" required fullWidth variant="outlined" sx={{ flex: 5 }}
-                value={physicalName} onChange={handleChangePhysicalName} onKeyDown={handleEnterDown} />
+            <TextField inputRef={physicalNameRef} required fullWidth variant="outlined" sx={{ flex: 5 }}
+                label="Physical Name" value={physicalName}
+                onChange={handleChangePhysicalName} onKeyDown={handleEnterDown} />
             {withLogicalName && (
                 <TextField label="Logical Name" required fullWidth variant="outlined" sx={{ flex: 5 }}
                     value={logicalName} onChange={event => setLogicalName(event.target.value)}

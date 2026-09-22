@@ -93,17 +93,20 @@ const validatePattern = (org: string, pattern: RegExp) => {
  */
 export const initHandleEnterKeyDown = (onEnterAction: () => void) => {
     return (event: React.KeyboardEvent) => {
-        event.stopPropagation();
-
         // IME変換中はイベント処理をスキップ
         if (event.nativeEvent.isComposing) {
             return;
         }
 
-        if (event.key === "Enter") {
-            event.preventDefault();
-            onEnterAction();
+        // Enter 以外(Escape 等)はそのまま伝播させる。止めると MUI Dialog の
+        // Escape クローズ(ルート要素の onKeyDown でバブリングを見る実装)が働かなくなる。
+        if (event.key !== "Enter") {
+            return;
         }
+
+        event.stopPropagation();
+        event.preventDefault();
+        onEnterAction();
     };
 };
 

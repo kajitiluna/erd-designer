@@ -2,7 +2,8 @@ import { v4 as uuidV4 } from 'uuid';
 import React from "react";
 import {
     Alert, Autocomplete, Box, Button, Checkbox, Chip,
-    Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider, FormControlLabel, Grid, Paper,
+    Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider,
+    type FilterOptionsState, FormControlLabel, Grid, Paper,
     Stack, Tab, TableCell, TableHead, TableRow, Tabs, TextField, Tooltip, Typography
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
@@ -16,6 +17,7 @@ import { Database } from '~/models/database';
 import DatabaseSettingModel from '~/models/DatabaseSettingModel';
 import ErdDocument from '~/models/ErdDocument';
 import EdgedIconButton from '~/components/EdgedIconButton';
+import useAutoFocusInput from '~/components/useAutoFocusInput';
 import { ColumnShareModelStorageContext } from '~/context/ColumnShareModelStorageContext';
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from '~/context/ErdDocumentsHolderContext';
 import {
@@ -74,6 +76,7 @@ const ColumnEditDialog = ({
     const [logicalName, setLogicalName] = React.useState<string>(columnShareModel ? columnShareModel.logicalName : "");
     const [columnTypeAttribute, setColumnTypeAttribute] =
         React.useState<ColumnTypeAttribute>(toColumnTypeAttribute(columnShareModel, database));
+    const physicalNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
 
     const withLogicalName = erdDocument.getDisplayNameStyle().withLogicalName();
 
@@ -216,8 +219,8 @@ const ColumnEditDialog = ({
                     associateColumnModel={associateColumnModel}
                     unlinkColumnModel={() => setColumnShareModelId("")} />
                 <Stack direction="row" spacing={1}>
-                    <TextField label="Physical Name" required fullWidth variant="outlined" value={physicalName}
-                        onChange={handleChangePhysicalName} onKeyDown={handleEnterDown} />
+                    <TextField inputRef={physicalNameRef} label="Physical Name" required fullWidth variant="outlined"
+                        value={physicalName} onChange={handleChangePhysicalName} onKeyDown={handleEnterDown} />
                     {withLogicalName && (
                         <TextField label="Logical Name" required fullWidth variant="outlined" value={logicalName}
                             onChange={event => setLogicalName(event.target.value)} onKeyDown={handleEnterDown} />
@@ -579,19 +582,20 @@ const useBaseEditPanel = ({ attribute, disabled, updateColumnType, onEnterAction
         });
     };
 
+    const columnTypeOptions: ColumnTypeOption[] = databaseSetting.columnTypes.map(candidateType => {
+        return { label: candidateType.name, id: candidateType.id };
+    });
+
     return (
         <Stack spacing={3}>
             <Grid container spacing={1}>
                 <Grid size={{ xs: 12, md: 5 }}>
-                    <Autocomplete disableClearable disabled={disabled}
+                    <Autocomplete disableClearable autoHighlight disabled={disabled}
                         renderInput={params => <TextField  {...params} label="Column Type" />}
-                        options={databaseSetting.columnTypes.map(columnType => {
-                            return { label: columnType.name, id: columnType.id }
-                        })}
+                        options={columnTypeOptions} filterOptions={filterColumnTypeOptions}
                         value={columnType ? { label: columnType.name, id: columnType.id } : { label: "", id: 0 }}
                         isOptionEqualToValue={(option, value) => option.id === value.id}
-                        onChange={(_event, newValue) => handleChangeColumnType(newValue.id)}
-                    />
+                        onChange={(_event, newValue) => handleChangeColumnType(newValue.id)} />
                 </Grid>
                 <Grid size={{ xs: 3, md: 2 }}>
                     <TextField variant="outlined" label="Precision" type="number"
@@ -640,6 +644,42 @@ const useBaseEditPanel = ({ attribute, disabled, updateColumnType, onEnterAction
                 value={attribute.description} onChange={handleChangeDescription} />
         </Stack>
     );
+};
+
+type ColumnTypeOption = { label: string, id: number };
+
+// 部分一致のままだと "int" で tinyint が先頭に来るため、autoHighlight が誤った型を確定しないよう、完全一致・前方一致を先に並べる。
+const filterColumnTypeOptions = (
+    options: ColumnTypeOption[], state: FilterOptionsState<ColumnTypeOption>
+): ColumnTypeOption[] => {
+    const keyword = state.inputValue.trim().toLowerCase();
+    if (keyword === "") {
+        return options;
+    }
+
+    const matchedOptions = options.filter(option => {
+        return option.label.toLowerCase().includes(keyword);
+    });
+
+    return matchedOptions.sort((leftOption, rightOption) => {
+        const leftRank = rankColumnTypeMatch(leftOption.label, keyword);
+        const rightRank = rankColumnTypeMatch(rightOption.label, keyword);
+
+        return leftRank - rightRank;
+    });
+};
+
+const rankColumnTypeMatch = (label: string, keyword: string) => {
+    const loweredLabel = label.toLowerCase();
+    if (loweredLabel === keyword) {
+        return 0;
+    }
+
+    if (loweredLabel.startsWith(keyword)) {
+        return 1;
+    }
+
+    return 2;
 };
 
 const messageForForeignColumn =

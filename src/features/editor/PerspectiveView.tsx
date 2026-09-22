@@ -9,6 +9,7 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 import DraggableDialog from "~/components/DraggableDialog";
+import useAutoFocusInput from "~/components/useAutoFocusInput";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ErdDocument from "~/models/ErdDocument";
 import ColorValue from "~/models/ColorValue";
@@ -501,6 +502,7 @@ const PerspectiveEditDialog = ({
 
     const [perspectiveName, setPerspectiveName] = React.useState<string>(perspective ? perspective.perspectiveName : "");
     const [description, setDescription] = React.useState<string>(perspective ? perspective.description : "");
+    const perspectiveNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
 
     const editValueValidated = (perspectiveName.length > 0);
 
@@ -534,10 +536,9 @@ const PerspectiveEditDialog = ({
             <DialogContent>
                 <Stack spacing={3}>
                     <Divider />
-                    <TextField required fullWidth variant="outlined"
+                    <TextField inputRef={perspectiveNameRef} required fullWidth variant="outlined"
                         label="Perspective Name" value={perspectiveName}
-                        onChange={event => setPerspectiveName(event.target.value)}
-                        onKeyDown={handleEnterDown} />
+                        onChange={event => setPerspectiveName(event.target.value)} onKeyDown={handleEnterDown} />
                     <TextField variant="outlined" label="Description" multiline rows={3}
                         slotProps={{ input: { style: { resize: 'vertical' } } }}
                         value={description}

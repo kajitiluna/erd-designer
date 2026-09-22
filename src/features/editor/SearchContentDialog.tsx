@@ -5,7 +5,8 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 
-import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
+import useAutoFocusInput from "~/components/useAutoFocusInput";
+import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { initHandleCloseDialog, SELECTED_CELL_COLOR } from "~/features/editor/support";
 
 type InitializeSearchDialogProps<ENTITY> = {
@@ -30,13 +31,15 @@ type SearchDialogProps<ENTITY> = {
 const SearchContentDialog = <ENTITY,>({
     dialogTitle, tableHeader, identity, onFiltering, initRecord, isOpen, onCompleted, onClose
 }: InitializeSearchDialogProps<ENTITY> & SearchDialogProps<ENTITY>) => {
-    const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
-    const focusRef = React.useRef<HTMLInputElement | null>(null);
+    const documentsHolder = React.useContext(ErdDocumentsHolderContext);
     const [timeoutId, setTimeoutId] = React.useState<NodeJS.Timeout | null>(null);
     const [filtering, setFiltering] = React.useState<string>("");
     const [inSearching, setSearching] = React.useState<boolean>(false);
     const [filteredModels, setFilteredModels] = React.useState<ENTITY[]>(onFiltering([]));
     const [selectedModel, setSelectedModel] = React.useState<ENTITY | null>(null);
+    const keywordsRef = useAutoFocusInput<HTMLInputElement>(isOpen);
+
+    const erdDocument = documentsHolder.current();
 
     const handleFiltering = (nextFiltering: string) => {
         if (nextFiltering.trim() === "") {
@@ -73,8 +76,8 @@ const SearchContentDialog = <ENTITY,>({
             <div style={{ flex: 8 }}></div>
             <Box sx={{ display: "flex", alignItems: "center", flex: 4 }}>
                 <SearchIcon sx={{ color: "action.active", mr: 1, my: 0.5 }} />
-                <TextField inputRef={focusRef} label="keywords" size="small" fullWidth
-                    value={filtering} onChange={handleChangeValue} />
+                <TextField inputRef={keywordsRef} size="small" fullWidth
+                    label="keywords" value={filtering} onChange={handleChangeValue} />
             </Box>
         </Stack>
     );
@@ -139,22 +142,7 @@ const SearchContentDialog = <ENTITY,>({
         onClose();
     };
 
-    // Dialog が開いた時に physicalName フィールドにフォーカスを当てる
-    React.useEffect(() => {
-        if (isOpen === false) {
-            return;
-        }
-
-        const timeoutId = setTimeout(() => {
-            if (focusRef.current) {
-                focusRef.current.focus();
-            }
-        }, 500);
-
-        return () => clearTimeout(timeoutId);
-    }, [isOpen]);
-
-    const withLogicalName = documentsHolder.current().getDisplayNameStyle().withLogicalName();
+    const withLogicalName = erdDocument.getDisplayNameStyle().withLogicalName();
 
     return (
         <Dialog fullWidth maxWidth={withLogicalName ? "xl" : "lg"} sx={{ userSelect: "none" }}

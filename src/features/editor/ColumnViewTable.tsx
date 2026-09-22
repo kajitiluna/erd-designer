@@ -84,6 +84,9 @@ const ColumnViewTable = ({
             return false;
         });
 
+    // Tab 移動で止まる行は常に1つ(未選択なら先頭行)。行数ぶん Tab 停止が増えるのを避けるための roving tabindex。
+    const focusableIndex = (selectedIndex < 0) ? 0 : selectedIndex;
+
     const initRowStyle = (targetIndex: number) => {
         const rowStyle = (selectedIndex === targetIndex)
             ? { backgroundColor: SELECTED_CELL_COLOR, height: "43px" } : BASE_ROW_STYLE;
@@ -161,14 +164,27 @@ const ColumnViewTable = ({
             setDraggingOverIndex(null);
         };
 
+        const selectRowAt = (nextIndex: number) => {
+            const wrapModel = columnWrapModels[nextIndex];
+            if (wrapModel != null) {
+                setSelectedWrappedModel(wrapModel);
+            }
+        };
+
+        const handleKeyDown = initHandleRowKeyDown({
+            targetIndex, lastIndex: columnWrapModels.length - 1,
+            toggleRow: handleRowClicked, editRow: handleEditColumn, selectRowAt
+        });
+
         return (
             <TableRow key={`column-view-${targetIndex}`}
                 sx={initRowStyle(targetIndex)} style={{ cursor: 'pointer' }}
                 draggable={columnWrapModels.length > 1}
+                tabIndex={(targetIndex === focusableIndex) ? 0 : -1}
                 onDragStart={handleDragStart} onDragOver={handleDragOver}
                 onDragLeave={() => setDraggingOverIndex(null)}
                 onDrop={handleDrop} onDragEnd={handleDragEnd}
-                onClick={handleRowClicked} onDoubleClick={handleEditColumn}>
+                onClick={handleRowClicked} onDoubleClick={handleEditColumn} onKeyDown={handleKeyDown}>
                 <TableCell align="center">{(selectedIndex === targetIndex) && "✔"}</TableCell>
                 {cells}
             </TableRow>
@@ -339,7 +355,8 @@ const ColumnViewTable = ({
                 onClick={initHandleShiftColumn(-1)}>
                 <ArrowUpwardIcon fontSize="small" />
             </EdgedIconButton>
-            <EdgedIconButton tooltip="Move down" disabled={(selectedIndex < 0) || (selectedIndex === columnWrapModels.length - 1)}
+            <EdgedIconButton tooltip="Move down"
+                disabled={(selectedIndex < 0) || (selectedIndex === columnWrapModels.length - 1)}
                 onClick={initHandleShiftColumn(1)}>
                 <ArrowDownwardIcon fontSize="small" />
             </EdgedIconButton>
@@ -426,6 +443,45 @@ const ColumnViewTable = ({
             )}
         </>
     );
+};
+
+type RowKeyDownDeps = {
+    targetIndex: number,
+    lastIndex: number,
+    toggleRow: () => void,
+    editRow: () => void,
+    selectRowAt: (targetIndex: number) => void
+};
+
+// roving tabindex: Enter で編集、Space で選択トグル、↑↓ で隣の行へ選択とフォーカスを移す。
+// フォーカス移動は ref を経由せず、イベントが運んでくる現在行 (currentTarget) から DOM 上の隣接行を辿る。
+const initHandleRowKeyDown = ({ targetIndex, lastIndex, toggleRow, editRow, selectRowAt }: RowKeyDownDeps) => {
+    return (event: React.KeyboardEvent<HTMLTableRowElement>) => {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            editRow();
+            return;
+        }
+
+        if (event.key === " ") {
+            event.preventDefault();
+            toggleRow();
+            return;
+        }
+
+        if (event.key === "ArrowDown") {
+            event.preventDefault();
+            selectRowAt(Math.min(targetIndex + 1, lastIndex));
+            (event.currentTarget.nextElementSibling as HTMLElement | null)?.focus();
+            return;
+        }
+
+        if (event.key === "ArrowUp") {
+            event.preventDefault();
+            selectRowAt(Math.max(targetIndex - 1, 0));
+            (event.currentTarget.previousElementSibling as HTMLElement | null)?.focus();
+        }
+    };
 };
 
 const TO_EDIT_MODE: { [key in ColumnWrapModel["modelType"]]: ColumnEditModeType } = {
