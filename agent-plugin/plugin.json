@@ -2,7 +2,7 @@
     "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
     "name": "erd-designer",
     "description": "Design and edit ERD Designer (.erd) files with an agent. Provides a bundled CLI and a skill so agents can add tables, columns and relations, and export DDL without the MCP server.",
-    "version": "0.260910.53435",
+    "version": "0.260922.143727",
     "author": {
         "name": "kajitiluna"
     },
