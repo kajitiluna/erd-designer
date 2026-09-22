@@ -6,6 +6,7 @@ import {
 } from "@mui/material";
 
 import DraggableDialog from "~/components/DraggableDialog";
+import useAutoFocusInput from "~/components/useAutoFocusInput";
 import ColumnModel from "~/models/database/ColumnModel";
 import SimpleColumnModel from "~/models/database/SimpleColumnModel";
 import TableIndexModel, { IndexColumnModel } from "~/models/database/TableIndexModel";
@@ -168,6 +169,7 @@ const IndexEditDialog = ({
         )
     );
     const [description, setDescription] = React.useState<string>(tableIndexModel.description);
+    const physicalNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
 
     const tableIndexSupport: TableIndexSupport = database.tableIndexSupport;
 
@@ -336,8 +338,9 @@ const IndexEditDialog = ({
                     <Divider />
                     {indexOptionPanel}
                     <Stack direction="row" spacing={2} sx={{ justifyContent: "center", alignItems: "center" }}>
-                        <TextField id="physicalName" label="Physical Name" required fullWidth
-                            variant="outlined" sx={{ flex: 1 }} value={physicalName}
+                        <TextField id="physicalName" inputRef={physicalNameRef}
+                            required fullWidth variant="outlined" sx={{ flex: 1 }}
+                            label="Physical Name" value={physicalName}
                             onChange={initHandleChangePhysicalName(setPhysicalName)}
                             onKeyDown={initHandleEnterKeyDown(handleCompleted)} />
                         {tableIndexForm}

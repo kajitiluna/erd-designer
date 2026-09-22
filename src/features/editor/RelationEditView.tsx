@@ -7,6 +7,7 @@ import {
 } from "@mui/material";
 
 import DraggableDialog from "~/components/DraggableDialog";
+import useAutoFocusInput from "~/components/useAutoFocusInput";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import RelationModel, { CardinalityType, TableReferenceActionType } from "~/models/database/RelationModel";
 import RelationPair from "~/models/database/RelationPair";
@@ -51,6 +52,7 @@ const RelationEditView = ({
     const [childCardinality, setChildCardinality] = React.useState<CardinalityType>(relationModel.childCardinality);
     const [updateActionType, setUpdateActionType] = React.useState<TableReferenceActionType>(relationModel.onUpdateAction);
     const [deleteActionType, setDeleteActionType] = React.useState<TableReferenceActionType>(relationModel.onDeleteAction);
+    const relationNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
 
     const existedPairs = React.useMemo(() => {
         return new Set(
@@ -127,9 +129,9 @@ const RelationEditView = ({
             <DialogContent>
                 <Stack direction="column" spacing={3}>
                     <Divider />
-                    <TextField variant="outlined" id="relationName" label="Relation Name"
-                        value={relationName} onChange={initHandleChangePhysicalName(setRelationName)}
-                        onKeyDown={handleEnterDown} />
+                    <TextField id="relationName" inputRef={relationNameRef} variant="outlined"
+                        label="Relation Name" value={relationName}
+                        onChange={initHandleChangePhysicalName(setRelationName)} onKeyDown={handleEnterDown} />
                     <RelationReferencesPanel
                         erdDocument={erdDocument}
                         parentTableModel={parentTableModel}

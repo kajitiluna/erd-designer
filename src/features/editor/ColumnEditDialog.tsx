@@ -16,6 +16,7 @@ import { Database } from '~/models/database';
 import DatabaseSettingModel from '~/models/DatabaseSettingModel';
 import ErdDocument from '~/models/ErdDocument';
 import EdgedIconButton from '~/components/EdgedIconButton';
+import useAutoFocusInput from '~/components/useAutoFocusInput';
 import { ColumnShareModelStorageContext } from '~/context/ColumnShareModelStorageContext';
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from '~/context/ErdDocumentsHolderContext';
 import {
@@ -74,6 +75,7 @@ const ColumnEditDialog = ({
     const [logicalName, setLogicalName] = React.useState<string>(columnShareModel ? columnShareModel.logicalName : "");
     const [columnTypeAttribute, setColumnTypeAttribute] =
         React.useState<ColumnTypeAttribute>(toColumnTypeAttribute(columnShareModel, database));
+    const physicalNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
 
     const withLogicalName = erdDocument.getDisplayNameStyle().withLogicalName();
 
@@ -216,8 +218,8 @@ const ColumnEditDialog = ({
                     associateColumnModel={associateColumnModel}
                     unlinkColumnModel={() => setColumnShareModelId("")} />
                 <Stack direction="row" spacing={1}>
-                    <TextField label="Physical Name" required fullWidth variant="outlined" value={physicalName}
-                        onChange={handleChangePhysicalName} onKeyDown={handleEnterDown} />
+                    <TextField inputRef={physicalNameRef} label="Physical Name" required fullWidth variant="outlined"
+                        value={physicalName} onChange={handleChangePhysicalName} onKeyDown={handleEnterDown} />
                     {withLogicalName && (
                         <TextField label="Logical Name" required fullWidth variant="outlined" value={logicalName}
                             onChange={event => setLogicalName(event.target.value)} onKeyDown={handleEnterDown} />

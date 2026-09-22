@@ -5,6 +5,7 @@ import {
 } from "@mui/material";
 
 import download from "~/components/file-downloader";
+import useAutoFocusInput from "~/components/useAutoFocusInput";
 import ErdDocument from "~/models/ErdDocument";
 import { createDdl } from "~/models/schema/create-ddl";
 import ErdSettingModel from "~/models/ErdSettingModel";
@@ -31,6 +32,7 @@ const ExportDdlView = ({ documentsHolder, isViewOpen, onClose }: ExportDdlViewPr
     const [withComment, setWithComment] = React.useState<boolean>(exportSetting.withComment);
     const [commentStyle, setCommentStyle] = React.useState<DdlCommentStyle>(exportSetting.commentStyle);
     const [commentSeparator, setCommentSeparator] = React.useState<string>(exportSetting.commentSeparator);
+    const fileNameRef = useAutoFocusInput<HTMLInputElement>(isViewOpen);
 
     const database = erdDocument.getDatabase();
     const invalidMessages = initInvalidMessages(erdDocument);
@@ -136,9 +138,9 @@ const ExportDdlView = ({ documentsHolder, isViewOpen, onClose }: ExportDdlViewPr
             <DialogContent>
                 <Stack spacing={3}>
                     <Divider />
-                    <TextField fullWidth required variant="outlined" label="DDL File Name"
-                        value={fileName} onChange={(event) => setFileName(event.target.value)}
-                        onKeyDown={handleEnterDown} />
+                    <TextField inputRef={fileNameRef} fullWidth required variant="outlined"
+                        label="DDL File Name" value={fileName}
+                        onChange={(event) => setFileName(event.target.value)} onKeyDown={handleEnterDown} />
                     {optionPanel}
                     {(invalidMessages.length > 0) && (
                         <Alert severity="error">

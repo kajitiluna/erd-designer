@@ -10,6 +10,7 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 
 import DraggableDialog from "~/components/DraggableDialog";
+import useAutoFocusInput from "~/components/useAutoFocusInput";
 import DbSchemaModel from "~/models/database/DbSchemaModel";
 import DbSchemaConfig from "~/models/DbSchemaConfig";
 import ErdDocument from "~/models/ErdDocument";
@@ -288,6 +289,7 @@ const DbSchemaEditDialog = ({
 
     const [schemaName, setSchemaName] = React.useState(schemaModel?.schemaName || "");
     const [description, setDescription] = React.useState(schemaModel?.description || "");
+    const schemaNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
 
     const editValueValidated = (schemaName.length > 0);
 
@@ -320,7 +322,7 @@ const DbSchemaEditDialog = ({
             <DialogContent>
                 <Stack spacing={3}>
                     <Divider />
-                    <TextField required fullWidth variant="outlined"
+                    <TextField inputRef={schemaNameRef} required fullWidth variant="outlined"
                         label="Schema Name" value={schemaName}
                         onChange={initHandleChangePhysicalName(setSchemaName)}
                         onKeyDown={handleEnterDown} />

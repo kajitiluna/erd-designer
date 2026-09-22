@@ -2,6 +2,7 @@ import React from "react";
 import { Button, DialogActions, DialogContent, DialogTitle, Divider, Stack, TextField } from "@mui/material";
 
 import DraggableDialog from "~/components/DraggableDialog";
+import useAutoFocusInput from "~/components/useAutoFocusInput";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import ColumnModel from "~/models/database/ColumnModel";
@@ -29,6 +30,7 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
         initColumnWrapModels(erdDocument, columnGroup)
     );
     const [description, setDescription] = React.useState<string>(columnGroup.description);
+    const groupNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
 
     const withLogicalName = erdDocument.getDisplayNameStyle().withLogicalName();
 
@@ -80,7 +82,8 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
                 <DialogContent>
                     <Stack spacing={3}>
                         <Divider />
-                        <TextField fullWidth required variant="outlined" label="GroupName" value={groupName}
+                        <TextField inputRef={groupNameRef}
+                            fullWidth required variant="outlined" label="GroupName" value={groupName}
                             onChange={event => setGroupName(event.target.value)} onKeyDown={handleEnterDown} />
                         <ColumnViewTable
                             columnWrapModels={columnWrapModels}
