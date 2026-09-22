@@ -55,6 +55,11 @@ const ColumnViewTable = ({
     const erdDocument = documentsHolder.current();
     const database = erdDocument.getDatabase();
 
+    const withLogicalName = erdDocument.getDisplayNameStyle().withLogicalName();
+    // 名前列 + Type + NotNull + Unique。空行はさらに選択セル (と PK/FK) を跨ぐ。
+    const groupRowSpan = withLogicalName ? 5 : 4;
+    const emptyRowSpan = groupRowSpan + (availableKeyConstraints ? 3 : 1);
+
     const selectedIndex: number = (selectedWrappedModel == null) ? -1
         : columnWrapModels.findIndex(wrappedModel => {
             if (wrappedModel.modelType !== selectedWrappedModel.modelType) {
@@ -78,6 +83,9 @@ const ColumnViewTable = ({
 
             return false;
         });
+
+    // Tab 移動で止まる行は常に1つ(未選択なら先頭行)。行数ぶん Tab 停止が増えるのを避けるための roving tabindex。
+    const focusableIndex = (selectedIndex < 0) ? 0 : selectedIndex;
 
     const initRowStyle = (targetIndex: number) => {
         const rowStyle = (selectedIndex === targetIndex)
@@ -156,14 +164,27 @@ const ColumnViewTable = ({
             setDraggingOverIndex(null);
         };
 
+        const selectRowAt = (nextIndex: number) => {
+            const wrapModel = columnWrapModels[nextIndex];
+            if (wrapModel != null) {
+                setSelectedWrappedModel(wrapModel);
+            }
+        };
+
+        const handleKeyDown = initHandleRowKeyDown({
+            targetIndex, lastIndex: columnWrapModels.length - 1,
+            toggleRow: handleRowClicked, editRow: handleEditColumn, selectRowAt
+        });
+
         return (
             <TableRow key={`column-view-${targetIndex}`}
                 sx={initRowStyle(targetIndex)} style={{ cursor: 'pointer' }}
                 draggable={columnWrapModels.length > 1}
+                tabIndex={(targetIndex === focusableIndex) ? 0 : -1}
                 onDragStart={handleDragStart} onDragOver={handleDragOver}
                 onDragLeave={() => setDraggingOverIndex(null)}
                 onDrop={handleDrop} onDragEnd={handleDragEnd}
-                onClick={handleRowClicked} onDoubleClick={handleEditColumn}>
+                onClick={handleRowClicked} onDoubleClick={handleEditColumn} onKeyDown={handleKeyDown}>
                 <TableCell align="center">{(selectedIndex === targetIndex) && "✔"}</TableCell>
                 {cells}
             </TableRow>
@@ -179,7 +200,7 @@ const ColumnViewTable = ({
                     <TableCell sx={{ width: "10px" }} align="center">FK</TableCell>
                 </>)}
                 <TableCell>Physical Name</TableCell>
-                <TableCell>Logical Name</TableCell>
+                {withLogicalName && (<TableCell>Logical Name</TableCell>)}
                 <TableCell>Type</TableCell>
                 <TableCell sx={{ width: "50px" }} align="center">NotNull</TableCell>
                 <TableCell sx={{ width: "50px" }} align="center">Unique</TableCell>
@@ -203,7 +224,7 @@ const ColumnViewTable = ({
                 <TableCell align="center">{inChildRelation && <ForeignKeyIcon />}</TableCell>
             </>)}
             <TableCell>{overrideName.physicalName}</TableCell>
-            <TableCell>{overrideName.logicalName}</TableCell>
+            {withLogicalName && (<TableCell>{overrideName.logicalName}</TableCell>)}
             <TableCell>{columnShareModel.specifiedColumnType(inChildRelation)}</TableCell>
             <TableCell align="center">{columnModel.notNull && <CheckIcon fontSize="small" />}</TableCell>
             <TableCell align="center">{columnModel.unique && <CheckIcon fontSize="small" />}</TableCell>
@@ -216,7 +237,7 @@ const ColumnViewTable = ({
                 <TableCell align="center"></TableCell>
                 <TableCell align="center"></TableCell>
             </>)}
-            <TableCell colSpan={5}>{columnGroupModel.groupName}</TableCell>
+            <TableCell colSpan={groupRowSpan}>{columnGroupModel.groupName}</TableCell>
         </>);
     }
 
@@ -235,7 +256,7 @@ const ColumnViewTable = ({
                 <TableCell align="center"></TableCell>
             </>)}
             <TableCell>{overrideName.physicalName}</TableCell>
-            <TableCell>{overrideName.logicalName}</TableCell>
+            {withLogicalName && (<TableCell>{overrideName.logicalName}</TableCell>)}
             <TableCell>{structShare.simpleColumnType()}</TableCell>
             <TableCell align="center">{columnModel.notNull && <CheckIcon fontSize="small" />}</TableCell>
             <TableCell align="center"></TableCell>
@@ -334,7 +355,8 @@ const ColumnViewTable = ({
                 onClick={initHandleShiftColumn(-1)}>
                 <ArrowUpwardIcon fontSize="small" />
             </EdgedIconButton>
-            <EdgedIconButton tooltip="Move down" disabled={(selectedIndex < 0) || (selectedIndex === columnWrapModels.length - 1)}
+            <EdgedIconButton tooltip="Move down"
+                disabled={(selectedIndex < 0) || (selectedIndex === columnWrapModels.length - 1)}
                 onClick={initHandleShiftColumn(1)}>
                 <ArrowDownwardIcon fontSize="small" />
             </EdgedIconButton>
@@ -380,7 +402,7 @@ const ColumnViewTable = ({
                                 initColumnModelRow(columnWrapModel, index))
                             : (
                                 <TableRow>
-                                    <TableCell colSpan={availableKeyConstraints ? 8 : 6} align="center" sx={{ p: 2 }}>
+                                    <TableCell colSpan={emptyRowSpan} align="center" sx={{ p: 2 }}>
                                         (No columns)
                                     </TableCell>
                                 </TableRow>
@@ -421,6 +443,45 @@ const ColumnViewTable = ({
             )}
         </>
     );
+};
+
+type RowKeyDownDeps = {
+    targetIndex: number,
+    lastIndex: number,
+    toggleRow: () => void,
+    editRow: () => void,
+    selectRowAt: (targetIndex: number) => void
+};
+
+// roving tabindex: Enter で編集、Space で選択トグル、↑↓ で隣の行へ選択とフォーカスを移す。
+// フォーカス移動は ref を経由せず、イベントが運んでくる現在行 (currentTarget) から DOM 上の隣接行を辿る。
+const initHandleRowKeyDown = ({ targetIndex, lastIndex, toggleRow, editRow, selectRowAt }: RowKeyDownDeps) => {
+    return (event: React.KeyboardEvent<HTMLTableRowElement>) => {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            editRow();
+            return;
+        }
+
+        if (event.key === " ") {
+            event.preventDefault();
+            toggleRow();
+            return;
+        }
+
+        if (event.key === "ArrowDown") {
+            event.preventDefault();
+            selectRowAt(Math.min(targetIndex + 1, lastIndex));
+            (event.currentTarget.nextElementSibling as HTMLElement | null)?.focus();
+            return;
+        }
+
+        if (event.key === "ArrowUp") {
+            event.preventDefault();
+            selectRowAt(Math.max(targetIndex - 1, 0));
+            (event.currentTarget.previousElementSibling as HTMLElement | null)?.focus();
+        }
+    };
 };
 
 const TO_EDIT_MODE: { [key in ColumnWrapModel["modelType"]]: ColumnEditModeType } = {

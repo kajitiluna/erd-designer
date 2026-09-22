@@ -6,7 +6,9 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 
+import DraggableDialog from "~/components/DraggableDialog";
 import EdgedIconButton from '~/components/EdgedIconButton';
+import useAutoFocusInput from '~/components/useAutoFocusInput';
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import {
@@ -56,6 +58,9 @@ const StructColumnEditDialog = ({
         initColumnWrapModels(erdDocument, columnShareStorage, columnStorage, structColumn)
     );
     const [description, setDescription] = React.useState<string>(structShare ? structShare.description : "");
+    const physicalNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
+
+    const withLogicalName = erdDocument.getDisplayNameStyle().withLogicalName();
 
     const validateNonRecursive = initializeValidateNonRecursive(erdDocument, columnShareStorage, columnStorage);
 
@@ -165,11 +170,14 @@ const StructColumnEditDialog = ({
 
     const structShareNamePanel = (
         <Stack direction="row" spacing={1}>
-            <TextField label="Physical Name" required fullWidth variant="outlined" sx={{ flex: 5 }}
-                value={physicalName} onChange={handleChangePhysicalName} onKeyDown={handleEnterDown} />
-            <TextField label="Logical Name" required fullWidth variant="outlined" sx={{ flex: 5 }}
-                value={logicalName} onChange={event => setLogicalName(event.target.value)}
-                onKeyDown={handleEnterDown} />
+            <TextField inputRef={physicalNameRef} required fullWidth variant="outlined" sx={{ flex: 5 }}
+                label="Physical Name" value={physicalName}
+                onChange={handleChangePhysicalName} onKeyDown={handleEnterDown} />
+            {withLogicalName && (
+                <TextField label="Logical Name" required fullWidth variant="outlined" sx={{ flex: 5 }}
+                    value={logicalName} onChange={event => setLogicalName(event.target.value)}
+                    onKeyDown={handleEnterDown} />
+            )}
             <FormControlLabel label="isArray" sx={{ flex: 2 }} control={
                 <Checkbox checked={isArray} onChange={event => setArray(event.target.checked)} />} />
         </Stack>
@@ -214,7 +222,8 @@ const StructColumnEditDialog = ({
     };
 
     return (
-        <Dialog fullWidth maxWidth="xl" sx={{ userSelect: "none" }}
+        <DraggableDialog layoutName="struct-column-edit"
+            fullWidth maxWidth={withLogicalName ? "xl" : "lg"} sx={{ userSelect: "none" }}
             open={isOpen} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>Edit struct column{structNestCount > 0 ? ` (${structNestCount + 1})` : ""}</DialogTitle>
             <DialogContent>
@@ -229,7 +238,7 @@ const StructColumnEditDialog = ({
                 <Button variant="contained" disabled={!validatedValue}
                     onClick={() => handleCompleted(overriddenName)}>OK</Button>
             </DialogActions>
-        </Dialog>
+        </DraggableDialog>
     );
 };
 
@@ -260,12 +269,15 @@ const StructColumnModelPanel = ({
     const [isOpenDialog, setOpenDialog] = React.useState<"search" | "unlink" | "">("");
 
     const erdDocument = documentsHolder.current();
-    const handleFiltering = useInitFilteringHandler(erdDocument, columnShareStorage, columnStorage);
-    const initRecord = useInitRecordInitializer(erdDocument, columnShareStorage, columnStorage);
+    const withLogicalName = erdDocument.getDisplayNameStyle().withLogicalName();
+    const handleFiltering = useInitFilteringHandler(erdDocument, columnShareStorage, columnStorage, withLogicalName);
+    const initRecord = useInitRecordInitializer(erdDocument, columnShareStorage, columnStorage, withLogicalName);
+
+    const tableHeader = React.useMemo(() => initSearchTableHeader(withLogicalName), [withLogicalName]);
 
     const searchDialog = useInitializeSearchDialog({
         dialogTitle: "Search struct column model",
-        tableHeader: searchTableHeader,
+        tableHeader: tableHeader,
         identity: toStructShareId,
         onFiltering: handleFiltering,
         initRecord: initRecord
@@ -322,35 +334,39 @@ const StructColumnModelPanel = ({
         </Dialog>
     );
 
+    const associatedName = withLogicalName ? structShare.logicalName : structShare.physicalName;
+
     return (
         <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
             <Typography variant="body2">Associated with :</Typography>
-            <Chip variant="outlined" color="primary" label={structShare.logicalName}
-                onDelete={handleOpenUnlinkDialog} />
+            <Chip variant="outlined" color="primary" label={associatedName} onDelete={handleOpenUnlinkDialog} />
             {searchButton}
             {unlinkDialog}
         </Stack>
     );
 };
 
-const searchTableHeader = (
-    <TableHead>
-        <TableRow>
-            <TableCell sx={{ width: "12px" }} align="center"></TableCell>
-            <TableCell>Physical Struct Name</TableCell>
-            <TableCell>Logical Struct Name</TableCell>
-            <TableCell>Physical Field Name</TableCell>
-            <TableCell>Logical Field Name</TableCell>
-            <TableCell>Type</TableCell>
-            <TableCell>Description</TableCell>
-        </TableRow>
-    </TableHead>
-);
+const initSearchTableHeader = (withLogicalName: boolean) => {
+    return (
+        <TableHead>
+            <TableRow>
+                <TableCell sx={{ width: "12px" }} align="center"></TableCell>
+                <TableCell>Physical Struct Name</TableCell>
+                {withLogicalName && (<TableCell>Logical Struct Name</TableCell>)}
+                <TableCell>Physical Field Name</TableCell>
+                {withLogicalName && (<TableCell>Logical Field Name</TableCell>)}
+                <TableCell>Type</TableCell>
+                <TableCell>Description</TableCell>
+            </TableRow>
+        </TableHead>
+    );
+};
 
 const toStructShareId = (structShare: StructColumnShareModel) => structShare.structShareModelId;
 
 const useInitFilteringHandler = (
-    erdDocument: ErdDocument, columnShareStorage: ColumnShareModelStorage, columnStorage: ColumnModelStorage
+    erdDocument: ErdDocument, columnShareStorage: ColumnShareModelStorage, columnStorage: ColumnModelStorage,
+    withLogicalName: boolean
 ) => {
     const structShareModels = columnShareStorage.getStructShareModels();
 
@@ -425,16 +441,19 @@ const useInitFilteringHandler = (
 
             return searchEntries.some(entry => {
                 return keywords.some(keyword => {
-                    return entry.physicalName.includes(keyword) || entry.logicalName.includes(keyword)
+                    const matchesLogicalName = withLogicalName && entry.logicalName.includes(keyword);
+
+                    return entry.physicalName.includes(keyword) || matchesLogicalName
                         || entry.columnType.includes(keyword) || entry.description.includes(keyword);
                 });
             });
         });
-    }, [structShareModels, searchingEntryMap]);
+    }, [structShareModels, searchingEntryMap, withLogicalName]);
 };
 
 const useInitRecordInitializer = (
-    erdDocument: ErdDocument, columnShareStorage: ColumnShareModelStorage, columnStorage: ColumnModelStorage
+    erdDocument: ErdDocument, columnShareStorage: ColumnShareModelStorage, columnStorage: ColumnModelStorage,
+    withLogicalName: boolean
 ) => {
 
     const initInnerColumnRecord = React.useCallback((
@@ -455,7 +474,7 @@ const useInitRecordInitializer = (
             return [(
                 <TableRow key={`search-struct_struct-${column.columnModelId}`} {...attributes} >
                     <TableCell>{overrideName.physicalName}</TableCell>
-                    <TableCell>{overrideName.logicalName}</TableCell>
+                    {withLogicalName && (<TableCell>{overrideName.logicalName}</TableCell>)}
                     <TableCell>{structShare.simpleColumnType()}</TableCell>
                     <TableCell>{structShare.description}</TableCell>
                 </TableRow>
@@ -471,12 +490,12 @@ const useInitRecordInitializer = (
         return [(
             <TableRow key={`search-struct_simple-${column.columnModelId}`} {...attributes} >
                 <TableCell>{overrideName.physicalName}</TableCell>
-                <TableCell>{overrideName.logicalName}</TableCell>
+                {withLogicalName && (<TableCell>{overrideName.logicalName}</TableCell>)}
                 <TableCell>{columnShare.specifiedColumnType()}</TableCell>
                 <TableCell>{columnShare.description}</TableCell>
             </TableRow>
         )];
-    }, [columnShareStorage, columnStorage, erdDocument]);
+    }, [columnShareStorage, columnStorage, erdDocument, withLogicalName]);
 
     return React.useCallback((
         structShare: StructColumnShareModel, selected: boolean, attributes: React.ComponentProps<typeof TableRow>
@@ -500,16 +519,16 @@ const useInitRecordInitializer = (
             <TableRow key={`search-struct_${structShare.structShareModelId}`} {...attributes} >
                 <TableCell align="center" rowSpan={spanSize}>{selected && "✔"}</TableCell>
                 <TableCell rowSpan={spanSize}>{structShare.physicalName}</TableCell>
-                <TableCell rowSpan={spanSize}>{structShare.logicalName}</TableCell>
+                {withLogicalName && (<TableCell rowSpan={spanSize}>{structShare.logicalName}</TableCell>)}
                 <TableCell></TableCell>
-                <TableCell></TableCell>
+                {withLogicalName && (<TableCell></TableCell>)}
                 <TableCell>{structShare.simpleColumnType()}</TableCell>
                 <TableCell>{structShare.description}</TableCell>
             </TableRow>
         );
 
         return [structRow, ...innerColumns];
-    }, [erdDocument, initInnerColumnRecord]);
+    }, [erdDocument, initInnerColumnRecord, withLogicalName]);
 };
 
 export default StructColumnEditDialog;

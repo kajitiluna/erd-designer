@@ -14,6 +14,7 @@ import ColumnEntry from "~/models/database/ColumnEntry";
 import ColumnModel from "~/models/database/ColumnModel";
 import StructColumnModel from "~/models/database/StructColumnModel";
 import StructColumnShareModel from "~/models/database/StructColumnShareModel";
+import { resolveLogicalName } from "~/models/database/support";
 import TableModel from "~/models/database/TableModel";
 import ErdDocument from "~/models/ErdDocument";
 import TableViewModel from "~/models/TableViewModel";
@@ -297,9 +298,12 @@ const initCallbackForCreateStructColumnShare = (
         const { columnEntries, addingWrapperColumns } =
             buildStructMemberEntries(previousDocument, structInput.columns);
 
+        const physicalName = structInput.columnName.physical;
+        const logicalName = resolveLogicalName(physicalName, structInput.columnName.logical ?? "");
+
         const newStruct = new StructColumnShareModel({
-            physicalName: structInput.columnName.physical,
-            logicalName: structInput.columnName.logical ?? "",
+            physicalName: physicalName,
+            logicalName: logicalName,
             isArray: structInput.isArray ?? false,
             columnEntries: columnEntries,
             description: structInput.description ?? ""
@@ -486,10 +490,14 @@ const initCallbackForUpdateStructColumnShare = (
             ? buildStructMemberEntries(previousDocument, structInput.columns)
             : { columnEntries: previousStruct.columnEntries, addingWrapperColumns: [] as StructColumnModel[] };
 
+        const nextPhysicalName = structInput.columnName?.physical ?? previousStruct.physicalName;
+        const updatingLogicalName = structInput.columnName?.logical ?? previousStruct.logicalName;
+        const nextLogicalName = resolveLogicalName(nextPhysicalName, updatingLogicalName);
+
         const nextStruct = new StructColumnShareModel({
             structShareModelId: previousStruct.structShareModelId,
-            physicalName: structInput.columnName?.physical ?? previousStruct.physicalName,
-            logicalName: structInput.columnName?.logical ?? previousStruct.logicalName,
+            physicalName: nextPhysicalName,
+            logicalName: nextLogicalName,
             isArray: structInput.isArray ?? previousStruct.isArray,
             columnEntries: memberEntries.columnEntries,
             description: structInput.description ?? previousStruct.description

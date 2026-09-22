@@ -1,11 +1,13 @@
 import { v4 as uuidV4 } from 'uuid';
 import React from "react";
 import {
-    Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
+    Alert, Box, Button, DialogActions, DialogContent, DialogTitle, Divider,
     FormControl, Grid, InputLabel, MenuItem, Paper, Select, SelectChangeEvent, Stack,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography
 } from "@mui/material";
 
+import DraggableDialog from "~/components/DraggableDialog";
+import useAutoFocusInput from "~/components/useAutoFocusInput";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import RelationModel, { CardinalityType, TableReferenceActionType } from "~/models/database/RelationModel";
 import RelationPair from "~/models/database/RelationPair";
@@ -50,6 +52,7 @@ const RelationEditView = ({
     const [childCardinality, setChildCardinality] = React.useState<CardinalityType>(relationModel.childCardinality);
     const [updateActionType, setUpdateActionType] = React.useState<TableReferenceActionType>(relationModel.onUpdateAction);
     const [deleteActionType, setDeleteActionType] = React.useState<TableReferenceActionType>(relationModel.onDeleteAction);
+    const relationNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
 
     const existedPairs = React.useMemo(() => {
         return new Set(
@@ -120,15 +123,15 @@ const RelationEditView = ({
     const handleEnterDown = initHandleEnterKeyDown(handleCompleted);
 
     return (
-        <Dialog fullWidth maxWidth="md" sx={{ userSelect: "none" }}
+        <DraggableDialog layoutName="relation-edit" fullWidth maxWidth="md" sx={{ userSelect: "none" }}
             open={isOpen} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>Edit Relation</DialogTitle>
             <DialogContent>
                 <Stack direction="column" spacing={3}>
                     <Divider />
-                    <TextField variant="outlined" id="relationName" label="Relation Name"
-                        value={relationName} onChange={initHandleChangePhysicalName(setRelationName)}
-                        onKeyDown={handleEnterDown} />
+                    <TextField id="relationName" inputRef={relationNameRef} variant="outlined"
+                        label="Relation Name" value={relationName}
+                        onChange={initHandleChangePhysicalName(setRelationName)} onKeyDown={handleEnterDown} />
                     <RelationReferencesPanel
                         erdDocument={erdDocument}
                         parentTableModel={parentTableModel}
@@ -154,7 +157,7 @@ const RelationEditView = ({
                 <Button onClick={onClose}>Cancel</Button>
                 <Button variant="contained" disabled={!editValueValidated} onClick={handleCompleted}>OK</Button>
             </DialogActions>
-        </Dialog>
+        </DraggableDialog>
     );
 };
 

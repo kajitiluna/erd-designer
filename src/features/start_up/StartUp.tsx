@@ -14,13 +14,13 @@ import InitializeDatabaseDialog from "~/features/start_up/InitializeDatabaseDial
 import HeroLayout from "~/features/start_up/HeroLayout";
 import DashboardLayout from "~/features/start_up/DashboardLayout";
 import startUpTheme from "~/features/start_up/StartUpTheme";
-import { StartUpActions } from "~/features/start_up/support";
+import { OnOpenLocalDocument, StartUpActions } from "~/features/start_up/support";
 import ConversionReportAlert from "~/components/ConversionReportAlert";
 import sampleErdUrl from "../../../samples/sample-ec_mysql.erd?url";
 
 type StartUpProp = {
     documentStorage: ErdDocumentStorage,
-    onOpenDocument: (openDocument: ErdDocument, onSave: (document: ErdDocument, message: string) => void) => void
+    onOpenDocument: OnOpenLocalDocument
 };
 
 type DialogName = "new_file" | "load_file" | "";
@@ -67,12 +67,16 @@ const StartUp = ({ documentStorage, onOpenDocument }: StartUpProp) => {
 
     const handleSaveAndOpenDocument = (erdDocument: ErdDocument, savingMessage: string) => {
         const documentKey = uuidV4();
-        documentStorage.save(documentKey, erdDocument, savingMessage);
 
-        const handleOnSave = (updating: ErdDocument, loggingMessage: string) =>
-            documentStorage.save(documentKey, updating, loggingMessage);
-
-        onOpenDocument(erdDocument, handleOnSave);
+        // 保存後の revision を決め打ちすると、書き込みに失敗した場合に最初の編集が偽の競合になる。
+        // 新規キーなので競合はしないが、実際に採番された revision を待ってから開く。
+        documentStorage.save(documentKey, erdDocument, 0, savingMessage).then(saveResult => {
+            const initialRevision = (saveResult.result === "saved") ? saveResult.revision : 0;
+            onOpenDocument(documentKey, erdDocument, initialRevision);
+        }).catch(error => {
+            console.warn(`Failed to save new document. key: ${documentKey}, detail: ${error}`);
+            onOpenDocument(documentKey, erdDocument, 0);
+        });
     };
 
     const mainPanel = initStartView({
@@ -125,7 +129,7 @@ const loadSampleDocument = async (): Promise<ErdDocument> => {
 type InitViewArgs = {
     documentStorage: ErdDocumentStorage,
     erdSummaries: ErdDocumentSummary[],
-    onOpenDocument: (openDocument: ErdDocument, onSave: (document: ErdDocument, message: string) => void) => void,
+    onOpenDocument: OnOpenLocalDocument,
     onSummariesUpdated: (summaries: ErdDocumentSummary[]) => void,
     onOpenDialog: (dialogName: "new_file" | "load_file") => void,
     onOpenSample: () => void

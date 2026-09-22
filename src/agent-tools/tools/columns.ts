@@ -16,7 +16,7 @@ import { Database } from "~/models/database";
 import ColumnModel from "~/models/database/ColumnModel";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
 import ErdDocument from "~/models/ErdDocument";
-import { overrideColumnName } from '~/models/database/support';
+import { overrideColumnName, resolveLogicalName } from '~/models/database/support';
 import DocumentBudget, { uriTemplates } from '~/agent-tools/DocumentBudget';
 import SimpleColumnModel from "~/models/database/SimpleColumnModel";
 import StructColumnModel from "~/models/database/StructColumnModel";
@@ -1003,10 +1003,14 @@ const initCallbackForUpdatingColumnShare = (
             }
         }
 
+        const nextPhysicalName = updating.columnName?.physical ?? previous.physicalName;
+        const updatingLogicalName = updating.columnName?.logical ?? previous.logicalName;
+        const nextLogicalName = resolveLogicalName(nextPhysicalName, updatingLogicalName);
+
         const nextColumnShare = new ColumnShareModel({
             ...previous,
-            physicalName: updating.columnName?.physical ?? previous.physicalName,
-            logicalName: updating.columnName?.logical ?? previous.logicalName,
+            physicalName: nextPhysicalName,
+            logicalName: nextLogicalName,
             columnType: nextColumnType,
             ...(nextColumnType.withPrecision && { precision: updating.precision ?? previous.precision }),
             ...(nextColumnType.withScale && { scale: updating.scale ?? previous.scale }),
@@ -1389,7 +1393,7 @@ const buildColumnShare = (
     }
 
     const physicalName = input.columnName.physical;
-    const logicalName = input.columnName.logical ?? physicalName;
+    const logicalName = resolveLogicalName(physicalName, input.columnName.logical ?? "");
 
     if (columnType.withPrecision && (input.precision == null)) {
         throw initInvalidParams(`Precision must be specified for the selected column type : ${columnType.name}`);

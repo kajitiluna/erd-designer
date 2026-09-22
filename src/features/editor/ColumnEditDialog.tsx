@@ -2,12 +2,14 @@ import { v4 as uuidV4 } from 'uuid';
 import React from "react";
 import {
     Alert, Autocomplete, Box, Button, Checkbox, Chip,
-    Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider, FormControlLabel, Grid, Paper,
+    Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider,
+    type FilterOptionsState, FormControlLabel, Grid, Paper,
     Stack, Tab, TableCell, TableHead, TableRow, Tabs, TextField, Tooltip, Typography
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import HelpOutlineOutlinedIcon from '@mui/icons-material/HelpOutlineOutlined';
 
+import DraggableDialog from "~/components/DraggableDialog";
 import ColumnShareModel from "~/models/database/ColumnShareModel";
 import SimpleColumnModel from "~/models/database/SimpleColumnModel";
 import ColumnType from "~/models/database/ColumnType";
@@ -15,6 +17,7 @@ import { Database } from '~/models/database';
 import DatabaseSettingModel from '~/models/DatabaseSettingModel';
 import ErdDocument from '~/models/ErdDocument';
 import EdgedIconButton from '~/components/EdgedIconButton';
+import useAutoFocusInput from '~/components/useAutoFocusInput';
 import { ColumnShareModelStorageContext } from '~/context/ColumnShareModelStorageContext';
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from '~/context/ErdDocumentsHolderContext';
 import {
@@ -73,6 +76,9 @@ const ColumnEditDialog = ({
     const [logicalName, setLogicalName] = React.useState<string>(columnShareModel ? columnShareModel.logicalName : "");
     const [columnTypeAttribute, setColumnTypeAttribute] =
         React.useState<ColumnTypeAttribute>(toColumnTypeAttribute(columnShareModel, database));
+    const physicalNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
+
+    const withLogicalName = erdDocument.getDisplayNameStyle().withLogicalName();
 
     // 論理名が物理名と合致もしくは論理名が空の場合は、論理名に物理名の値を設定する
     const handleChangePhysicalName: ((event: React.ChangeEvent<HTMLInputElement>) => void)
@@ -213,10 +219,12 @@ const ColumnEditDialog = ({
                     associateColumnModel={associateColumnModel}
                     unlinkColumnModel={() => setColumnShareModelId("")} />
                 <Stack direction="row" spacing={1}>
-                    <TextField label="Physical Name" required fullWidth variant="outlined" value={physicalName}
-                        onChange={handleChangePhysicalName} onKeyDown={handleEnterDown} />
-                    <TextField label="Logical Name" required fullWidth variant="outlined" value={logicalName}
-                        onChange={event => setLogicalName(event.target.value)} onKeyDown={handleEnterDown} />
+                    <TextField inputRef={physicalNameRef} label="Physical Name" required fullWidth variant="outlined"
+                        value={physicalName} onChange={handleChangePhysicalName} onKeyDown={handleEnterDown} />
+                    {withLogicalName && (
+                        <TextField label="Logical Name" required fullWidth variant="outlined" value={logicalName}
+                            onChange={event => setLogicalName(event.target.value)} onKeyDown={handleEnterDown} />
+                    )}
                 </Stack>
                 <ColumnTypeEditPanel
                     attribute={columnTypeAttribute} disabled={!editableColumnType}
@@ -228,7 +236,8 @@ const ColumnEditDialog = ({
     const defaultValueCandidates = initDefaultValueCandidates(columnTypeAttribute)
 
     return (
-        <Dialog fullWidth maxWidth="md" sx={{ userSelect: "none" }}
+        <DraggableDialog layoutName="column-edit"
+            fullWidth maxWidth={withLogicalName ? "md" : "sm"} sx={{ userSelect: "none" }}
             open={isOpen} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>Edit {database.supportsStructType ? "single" : "table"} column</DialogTitle>
             <DialogContent>
@@ -250,7 +259,7 @@ const ColumnEditDialog = ({
                 <Button variant="contained" disabled={!validatedValue}
                     onClick={() => handleCompleted(overriddenName)}>OK</Button>
             </DialogActions>
-        </Dialog>
+        </DraggableDialog>
     );
 };
 
@@ -316,29 +325,40 @@ type ColumnModelPanelProps = {
 };
 
 const ColumnModelPanel = ({ columnShareModelId, associateColumnModel, unlinkColumnModel }: ColumnModelPanelProps) => {
+    const documentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { columnShareStorage } = React.useContext(ColumnShareModelStorageContext);
     const [isOpenDialog, setOpenDialog] = React.useState<"search" | "unlink" | "">("");
 
     const columnShareModels = columnShareStorage.getColumnShareModels();
+    const withLogicalName = documentsHolder.current().getDisplayNameStyle().withLogicalName();
 
+    // 隠している論理名でヒットすると、一致した箇所が表に出ず理由の分からない検索結果になる。
     const handleFiltering = React.useCallback((keywords: string[]) => {
         if (keywords.length === 0) {
             return columnShareModels;
         }
 
         return columnShareModels.filter(columnShare => {
+            const logicalNames = withLogicalName ? [columnShare.logicalName] : [];
             const targets = [
-                columnShare.physicalName, columnShare.logicalName,
+                columnShare.physicalName, ...logicalNames,
                 columnShare.specifiedColumnType(), columnShare.description
             ];
 
             return targets.some(target => keywords.some(keyword => target.includes(keyword)));
         });
-    }, [columnShareModels]);
+    }, [columnShareModels, withLogicalName]);
+
+    const tableHeader = React.useMemo(() => initSearchTableHeader(withLogicalName), [withLogicalName]);
+    const initRecord = React.useCallback((
+        columnShare: ColumnShareModel, selected: boolean, attributes: React.ComponentProps<typeof TableRow>
+    ) => {
+        return initSearchRecord(withLogicalName, columnShare, selected, attributes);
+    }, [withLogicalName]);
 
     const searchDialog = useInitializeSearchDialog({
         dialogTitle: "Search column model",
-        tableHeader: searchTableHeader,
+        tableHeader: tableHeader,
         identity: toColumnShareId,
         onFiltering: handleFiltering,
         initRecord: initRecord
@@ -395,39 +415,43 @@ const ColumnModelPanel = ({ columnShareModelId, associateColumnModel, unlinkColu
         </Dialog>
     );
 
+    const associatedName = withLogicalName ? columnShare.logicalName : columnShare.physicalName;
+
     return (
         <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
             <Typography variant="body2">Associated with :</Typography>
-            <Chip variant="outlined" color="primary" label={columnShare.logicalName}
-                onDelete={handleOpenUnlinkDialog} />
+            <Chip variant="outlined" color="primary" label={associatedName} onDelete={handleOpenUnlinkDialog} />
             {searchButton}
             {unlinkDialog}
         </Stack>
     );
 };
 
-const searchTableHeader = (
-    <TableHead>
-        <TableRow>
-            <TableCell sx={{ width: "12px" }} align="center"></TableCell>
-            <TableCell>Physical Name</TableCell>
-            <TableCell>Logical Name</TableCell>
-            <TableCell>Type</TableCell>
-            <TableCell>Description</TableCell>
-        </TableRow>
-    </TableHead>
-);
+const initSearchTableHeader = (withLogicalName: boolean) => {
+    return (
+        <TableHead>
+            <TableRow>
+                <TableCell sx={{ width: "12px" }} align="center"></TableCell>
+                <TableCell>Physical Name</TableCell>
+                {withLogicalName && (<TableCell>Logical Name</TableCell>)}
+                <TableCell>Type</TableCell>
+                <TableCell>Description</TableCell>
+            </TableRow>
+        </TableHead>
+    );
+};
 
 const toColumnShareId = (columnShare: ColumnShareModel) => columnShare.columnShareModelId;
 
-const initRecord = (
-    columnShare: ColumnShareModel, selected: boolean, attributes: React.ComponentProps<typeof TableRow>
+const initSearchRecord = (
+    withLogicalName: boolean, columnShare: ColumnShareModel, selected: boolean,
+    attributes: React.ComponentProps<typeof TableRow>
 ) => {
     return (
         <TableRow key={`search-column_${columnShare.columnShareModelId}`} {...attributes} >
             <TableCell align="center">{selected && "✔"}</TableCell>
             <TableCell>{columnShare.physicalName}</TableCell>
-            <TableCell>{columnShare.logicalName}</TableCell>
+            {withLogicalName && (<TableCell>{columnShare.logicalName}</TableCell>)}
             <TableCell>{columnShare.specifiedColumnType()}</TableCell>
             <TableCell>{columnShare.description}</TableCell>
         </TableRow>
@@ -558,19 +582,20 @@ const useBaseEditPanel = ({ attribute, disabled, updateColumnType, onEnterAction
         });
     };
 
+    const columnTypeOptions: ColumnTypeOption[] = databaseSetting.columnTypes.map(candidateType => {
+        return { label: candidateType.name, id: candidateType.id };
+    });
+
     return (
         <Stack spacing={3}>
             <Grid container spacing={1}>
                 <Grid size={{ xs: 12, md: 5 }}>
-                    <Autocomplete disableClearable disabled={disabled}
+                    <Autocomplete disableClearable autoHighlight disabled={disabled}
                         renderInput={params => <TextField  {...params} label="Column Type" />}
-                        options={databaseSetting.columnTypes.map(columnType => {
-                            return { label: columnType.name, id: columnType.id }
-                        })}
+                        options={columnTypeOptions} filterOptions={filterColumnTypeOptions}
                         value={columnType ? { label: columnType.name, id: columnType.id } : { label: "", id: 0 }}
                         isOptionEqualToValue={(option, value) => option.id === value.id}
-                        onChange={(_event, newValue) => handleChangeColumnType(newValue.id)}
-                    />
+                        onChange={(_event, newValue) => handleChangeColumnType(newValue.id)} />
                 </Grid>
                 <Grid size={{ xs: 3, md: 2 }}>
                     <TextField variant="outlined" label="Precision" type="number"
@@ -619,6 +644,42 @@ const useBaseEditPanel = ({ attribute, disabled, updateColumnType, onEnterAction
                 value={attribute.description} onChange={handleChangeDescription} />
         </Stack>
     );
+};
+
+type ColumnTypeOption = { label: string, id: number };
+
+// 部分一致のままだと "int" で tinyint が先頭に来るため、autoHighlight が誤った型を確定しないよう、完全一致・前方一致を先に並べる。
+const filterColumnTypeOptions = (
+    options: ColumnTypeOption[], state: FilterOptionsState<ColumnTypeOption>
+): ColumnTypeOption[] => {
+    const keyword = state.inputValue.trim().toLowerCase();
+    if (keyword === "") {
+        return options;
+    }
+
+    const matchedOptions = options.filter(option => {
+        return option.label.toLowerCase().includes(keyword);
+    });
+
+    return matchedOptions.sort((leftOption, rightOption) => {
+        const leftRank = rankColumnTypeMatch(leftOption.label, keyword);
+        const rightRank = rankColumnTypeMatch(rightOption.label, keyword);
+
+        return leftRank - rightRank;
+    });
+};
+
+const rankColumnTypeMatch = (label: string, keyword: string) => {
+    const loweredLabel = label.toLowerCase();
+    if (loweredLabel === keyword) {
+        return 0;
+    }
+
+    if (loweredLabel.startsWith(keyword)) {
+        return 1;
+    }
+
+    return 2;
 };
 
 const messageForForeignColumn =

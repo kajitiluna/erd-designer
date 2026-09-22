@@ -6,6 +6,50 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.20260922] - 2026-09-22
+
+### Added
+
+- **Draggable and resizable edit dialogs**:
+
+  Table, column, struct-column, column-group, and search dialogs can now be repositioned by
+  dragging their header and resized from any edge or corner. Some dialogs remember their last
+  position and size for the session.
+
+- **Keyboard-only navigation in edit dialogs**:
+
+  Opening an edit dialog now focuses its first field automatically. In column lists, arrow keys
+  move the row selection and Enter opens the edit dialog for the focused row.
+
+### Changed
+
+- **Physical display-name style hides logical-name fields**:
+
+  When the document's display name style is set to Physical, the logical name field/column is
+  now hidden in the table, column, struct-column, and column-group edit dialogs and in search results
+  — matching the canvas, which already hid logical names under this style.
+
+- **.erd documents stay in sync across multiple windows and tabs**:
+
+  Editing a document in one browser tab, VS Code panel, or another synced window now reflects
+  in the others without manual reload. This covers local documents (via BroadcastChannel),
+  Google Drive documents (near-immediate on the same machine),
+  and VS Code panels open on the same `.erd` file, including document rename.
+
+### Fixed
+
+- **Column type filter no longer commits the wrong type on Enter**:
+
+  Typing a column type such as `int` and pressing Enter used to risk confirming an unrelated match (e.g. `tinyint`)
+  because the filtered list wasn't ranked. Matches are now ranked exact, then prefix, then substring,
+  and the top match is highlighted so Enter commits the expected type.
+
+- **Escape no longer fails to close edit dialogs**:
+
+  Pressing Escape inside a dialog's text field stopped closing the dialog once fields began auto-focusing on open.
+  Only Enter now stops event propagation, so Escape reaches the dialog's close handler again.
+
+
 ## [0.20260910] - 2026-09-10
 
 ### Added

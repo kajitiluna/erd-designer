@@ -1,12 +1,14 @@
 {
   "name": "erd-designer",
   "displayName": "ERD Designer",
-  "description": "Visually design database ER diagrams in VSCode — DDL import/export for 7 databases, Excel specification documents, and a built-in MCP server so AI assistants can edit the same diagram",
+  "description": "ER diagram (ERD) designer for database design — draw tables and relations on a canvas, import and export DDL for 7 databases, generate Excel specification documents, and let your AI agent edit the same ER diagrams.",
   "license": "Apache-2.0",
   "keywords": [
     "erd",
+    "er diagram",
     "er-diagram",
-    "entity-relationship-diagram",
+    "entity relationship diagram",
+    "database diagram",
     "database",
     "database-design",
     "schema-design",
@@ -29,8 +31,7 @@
   },
   "icon": "images/icon.png",
   "categories": [
-    "Visualization",
-    "Other"
+    "Visualization"
   ],
   "engines": {
     "vscode": "^1.105.0"

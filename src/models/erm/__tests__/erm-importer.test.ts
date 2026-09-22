@@ -16,6 +16,19 @@ const convertSample = () => {
     return result;
 };
 
+// ERMaster は logical_name を空のまま書き出せる。DDL インポートと同じく物理名で補完されること。
+const convertSampleWithoutLogicalNames = () => {
+    const blankedErm = readFixture('sample.erm')
+        .replace(/<logical_name>[^<]*<\/logical_name>/g, '<logical_name></logical_name>');
+
+    const result = convertErm('sample', blankedErm);
+    if (result.result === "failure") {
+        throw new Error(`Expected the blanked sample fixture to convert successfully. summaries: ${JSON.stringify(result.summaries)}`);
+    }
+
+    return result;
+};
+
 const convertErmasterPostgresSample = () => {
     const result = convertErm('ermaster_postgres', readFixture('ermaster_postgres.erm'));
     if (result.result === "failure") {
@@ -69,6 +82,25 @@ describe('convertErm', () => {
         const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
         expect(columnShareModel?.physicalName).toBe('name');
         expect(columnShareModel?.precision).toBe('100');
+    });
+
+    test('should fall back to the physical name when the erm carries no logical name', () => {
+        const { erdDocument } = convertSampleWithoutLogicalNames();
+        const users = erdDocument.getTableViewModels().find(view => (view.tableModel.physicalName === 'users'))!;
+
+        expect(users.tableModel.logicalName).toBe('users');
+
+        const nameEntry = users.tableModel.columnEntries[1];
+        expect(nameEntry.modelType).toBe('single');
+        if (nameEntry.modelType !== 'single') { return; }
+
+        const columnModel = erdDocument.findColumnModel(nameEntry.columnModelId);
+        expect(columnModel).not.toBeNull();
+        if ((columnModel == null) || (columnModel.entityType !== 'simple')) { return; }
+
+        const columnShareModel = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
+        expect(columnShareModel?.physicalName).toBe('name');
+        expect(columnShareModel?.logicalName).toBe('name');
     });
 
     test('should build the column group and reference it from the table', () => {

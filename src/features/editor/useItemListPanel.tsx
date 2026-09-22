@@ -133,12 +133,16 @@ const useItemListPanel = <ITEM,>({ viewMode, items, create, toKey, toTitle }: It
 };
 
 export const initColumnTableHelper = (erdDocument: ErdDocument, withPrimaryKey: boolean) => {
+    const withLogicalName = erdDocument.getDisplayNameStyle().withLogicalName();
+    // 名前列 + Type + NotNull + Unique
+    const groupRowSpan = withLogicalName ? 5 : 4;
+
     const tableHeader = (
         <TableHead>
             <TableRow>
                 {withPrimaryKey && (<TableCell sx={{ width: "10px" }} align="center">PK</TableCell>)}
                 <TableCell>Physical Name</TableCell>
-                <TableCell>Logical Name</TableCell>
+                {withLogicalName && (<TableCell>Logical Name</TableCell>)}
                 <TableCell>Type</TableCell>
                 <TableCell sx={{ width: "50px" }} align="center">NotNull</TableCell>
                 <TableCell sx={{ width: "50px" }} align="center">Unique</TableCell>
@@ -171,7 +175,7 @@ export const initColumnTableHelper = (erdDocument: ErdDocument, withPrimaryKey: 
                     </TableCell>
                 )}
                 <TableCell>{overrideName.physicalName}</TableCell>
-                <TableCell>{overrideName.logicalName}</TableCell>
+                {withLogicalName && (<TableCell>{overrideName.logicalName}</TableCell>)}
                 <TableCell>{columnShareModel.specifiedColumnType()}</TableCell>
                 <TableCell align="center">{columnModel.notNull && <CheckIcon fontSize="small" />}</TableCell>
                 <TableCell align="center">{columnModel.unique && <CheckIcon fontSize="small" />}</TableCell>
@@ -191,7 +195,7 @@ export const initColumnTableHelper = (erdDocument: ErdDocument, withPrimaryKey: 
             <TableRow key={`column-view-${columnModel.columnModelId}`}>
                 {withPrimaryKey && (<TableCell align="center" sx={{ height: "26px" }}></TableCell>)}
                 <TableCell>{overrideName.physicalName}</TableCell>
-                <TableCell>{overrideName.logicalName}</TableCell>
+                {withLogicalName && (<TableCell>{overrideName.logicalName}</TableCell>)}
                 <TableCell>{structColumnShareModel.simpleColumnType()}</TableCell>
                 <TableCell align="center">{columnModel.notNull && <CheckIcon fontSize="small" />}</TableCell>
                 <TableCell align="center"></TableCell>
@@ -208,7 +212,7 @@ export const initColumnTableHelper = (erdDocument: ErdDocument, withPrimaryKey: 
         return (
             <TableRow key={`column-view-${columnGroupId}`}>
                 {withPrimaryKey && (<TableCell align="center" sx={{ height: "26px" }}></TableCell>)}
-                <TableCell colSpan={5}>{columnGroup.groupName}</TableCell>
+                <TableCell colSpan={groupRowSpan}>{columnGroup.groupName}</TableCell>
             </TableRow>
         );
     };

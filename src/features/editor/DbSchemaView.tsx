@@ -1,6 +1,6 @@
 import React from "react";
 import {
-    Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Stack,
+    Button, Checkbox, DialogActions, DialogContent, DialogTitle, Divider, Stack,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField
 } from "@mui/material";
 import AddIcon from '@mui/icons-material/Add';
@@ -9,6 +9,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 
+import DraggableDialog from "~/components/DraggableDialog";
+import useAutoFocusInput from "~/components/useAutoFocusInput";
 import DbSchemaModel from "~/models/database/DbSchemaModel";
 import DbSchemaConfig from "~/models/DbSchemaConfig";
 import ErdDocument from "~/models/ErdDocument";
@@ -245,7 +247,7 @@ const DbSchemaView = ({ isOpen, onClose }: DbSchemaViewProps) => {
     };
 
     return (
-        <Dialog fullWidth maxWidth="md" sx={{ userSelect: "none" }}
+        <DraggableDialog layoutName="db-schema-view" fullWidth maxWidth="md" sx={{ userSelect: "none" }}
             open={isOpen} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>Schema</DialogTitle>
             <DialogContent>
@@ -265,7 +267,7 @@ const DbSchemaView = ({ isOpen, onClose }: DbSchemaViewProps) => {
                 onUpdateSchema={setSchemaModels}
                 onClose={() => setOpenEditDialog(false)}
             />}
-        </Dialog>
+        </DraggableDialog>
     );
 };
 
@@ -287,6 +289,7 @@ const DbSchemaEditDialog = ({
 
     const [schemaName, setSchemaName] = React.useState(schemaModel?.schemaName || "");
     const [description, setDescription] = React.useState(schemaModel?.description || "");
+    const schemaNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
 
     const editValueValidated = (schemaName.length > 0);
 
@@ -313,13 +316,13 @@ const DbSchemaEditDialog = ({
     const handleEnterDown = initHandleEnterKeyDown(handleCompleted);
 
     return (
-        <Dialog fullWidth maxWidth="sm" sx={{ userSelect: "none" }}
+        <DraggableDialog layoutName="db-schema-edit" fullWidth maxWidth="sm" sx={{ userSelect: "none" }}
             open={isOpen} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>Edit Schema</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>
                     <Divider />
-                    <TextField required fullWidth variant="outlined"
+                    <TextField inputRef={schemaNameRef} required fullWidth variant="outlined"
                         label="Schema Name" value={schemaName}
                         onChange={initHandleChangePhysicalName(setSchemaName)}
                         onKeyDown={handleEnterDown} />
@@ -334,7 +337,7 @@ const DbSchemaEditDialog = ({
                 <Button variant="contained" disabled={!editValueValidated}
                     onClick={handleCompleted}>OK</Button>
             </DialogActions>
-        </Dialog>
+        </DraggableDialog>
     );
 };
 

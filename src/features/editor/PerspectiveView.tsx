@@ -1,7 +1,6 @@
 import React from "react";
 import {
-    Alert, Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle,
-    Divider, Stack, TextField, Typography
+    Alert, Box, Button, Checkbox, DialogActions, DialogContent, DialogTitle, Divider, Stack, TextField, Typography
 } from "@mui/material";
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -9,6 +8,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
+import DraggableDialog from "~/components/DraggableDialog";
+import useAutoFocusInput from "~/components/useAutoFocusInput";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ErdDocument from "~/models/ErdDocument";
 import ColorValue from "~/models/ColorValue";
@@ -393,7 +394,7 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
     };
 
     return (
-        <Dialog fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
+        <DraggableDialog layoutName="perspective-view" fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
             open={isOpen} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>Perspective</DialogTitle>
             <DialogContent>
@@ -413,7 +414,7 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
                 onUpdatePerspective={setPerspectiveModels}
                 onClose={() => setOpenEditDialog(false)}
             />}
-        </Dialog>
+        </DraggableDialog>
     );
 };
 
@@ -501,6 +502,7 @@ const PerspectiveEditDialog = ({
 
     const [perspectiveName, setPerspectiveName] = React.useState<string>(perspective ? perspective.perspectiveName : "");
     const [description, setDescription] = React.useState<string>(perspective ? perspective.description : "");
+    const perspectiveNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
 
     const editValueValidated = (perspectiveName.length > 0);
 
@@ -528,16 +530,15 @@ const PerspectiveEditDialog = ({
     const handleEnterDown = initHandleEnterKeyDown(handleCompleted);
 
     return (
-        <Dialog fullWidth maxWidth="sm" sx={{ userSelect: "none" }}
+        <DraggableDialog layoutName="perspective-edit" fullWidth maxWidth="sm" sx={{ userSelect: "none" }}
             open={isOpen} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>Edit Perspective</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>
                     <Divider />
-                    <TextField required fullWidth variant="outlined"
+                    <TextField inputRef={perspectiveNameRef} required fullWidth variant="outlined"
                         label="Perspective Name" value={perspectiveName}
-                        onChange={event => setPerspectiveName(event.target.value)}
-                        onKeyDown={handleEnterDown} />
+                        onChange={event => setPerspectiveName(event.target.value)} onKeyDown={handleEnterDown} />
                     <TextField variant="outlined" label="Description" multiline rows={3}
                         slotProps={{ input: { style: { resize: 'vertical' } } }}
                         value={description}
@@ -549,7 +550,7 @@ const PerspectiveEditDialog = ({
                 <Button variant="contained" disabled={!editValueValidated}
                     onClick={handleCompleted}>OK</Button>
             </DialogActions>
-        </Dialog>
+        </DraggableDialog>
     );
 };
 

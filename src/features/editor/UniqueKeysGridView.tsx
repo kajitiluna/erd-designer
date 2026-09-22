@@ -1,11 +1,13 @@
 import { v4 as uuidV4 } from 'uuid';
 import React from 'react';
 import {
-    Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl,
+    Button, DialogActions, DialogContent, DialogTitle, Divider, FormControl,
     InputLabel, MenuItem, Select, SelectChangeEvent, Stack, TableCell, TextField
 } from '@mui/material';
 
 import BaseGridView from '~/components/BaseGridView';
+import DraggableDialog from '~/components/DraggableDialog';
+import useAutoFocusInput from '~/components/useAutoFocusInput';
 import { ColumnShareModelStorageContext } from '~/context/ColumnShareModelStorageContext';
 import ColumnModel from '~/models/database/ColumnModel';
 import ColumnShareModel from '~/models/database/ColumnShareModel';
@@ -156,9 +158,7 @@ const UniqueKeysEditDialog = ({
     const [physicalName, setPhysicalName] = React.useState<string>(tableUniqueKeysModel.physicalName);
     const [uniqueKeysColumns, setUniqueKeysColumns] = React.useState<UniqueKeysModelAttribute[]>(
         tableUniqueKeysModel.uniqueKeysColumnModels.filter(model =>
-            columnModels.some(columnModel =>
-                (columnModel.columnModelId === model.columnModelId)
-            )
+            columnModels.some(columnModel => (columnModel.columnModelId === model.columnModelId))
         ).map(model => {
             return {
                 columnModelId: model.columnModelId,
@@ -167,6 +167,7 @@ const UniqueKeysEditDialog = ({
         })
     );
     const [description, setDescription] = React.useState<string>(tableUniqueKeysModel.description);
+    const physicalNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
 
     const handleNewUniqueKeysColumn = (columnModelId: string): UniqueKeysModelAttribute => {
         return {
@@ -270,14 +271,14 @@ const UniqueKeysEditDialog = ({
     };
 
     return (
-        <Dialog fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
+        <DraggableDialog layoutName="unique-keys-edit" fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
             open={isOpen} onClose={onClose}>
             <DialogTitle>Edit unique key constraint</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>
                     <Divider />
-                    <TextField id="physicalName" label="Physical Name" fullWidth
-                        variant="outlined" sx={{ flex: 1 }} value={physicalName}
+                    <TextField id="physicalName" inputRef={physicalNameRef}
+                        label="Physical Name" value={physicalName} fullWidth variant="outlined" sx={{ flex: 1 }}
                         onChange={initHandleChangePhysicalName(setPhysicalName)}
                         onKeyDown={initHandleEnterKeyDown(handleCompleted)} />
                     {transferPanel}
@@ -290,7 +291,7 @@ const UniqueKeysEditDialog = ({
                 <Button onClick={() => onClose()}>Cancel</Button>
                 <Button variant="contained" disabled={!editValueValidated} onClick={handleCompleted}>OK</Button>
             </DialogActions>
-        </Dialog>
+        </DraggableDialog>
     );
 };
 

@@ -93,13 +93,24 @@ jobs:
           node -e '
             const fs = require("fs");
             const pluginJsonPath = "agent-plugin/.claude-plugin/plugin.json";
+            const rootPluginJsonPath = "agent-plugin/plugin.json";
+            // APP_VERSION は 0.YYMMDD.HHMMSS 形式で、時刻が 1 桁台だと先頭ゼロが残り semver 不正になる。
+            // Agent Plugins 配布先(awesome-copilot)は厳密 semver を要求するため数値化して落とす。
+            const toSemver = (version) => {
+              const parts = version.split(".").map((part) => { return String(Number(part)); });
+              return parts.join(".");
+            };
             const pluginJson = JSON.parse(fs.readFileSync(pluginJsonPath, "utf-8"));
-            pluginJson.version = process.env.APP_VERSION;
-            fs.writeFileSync(pluginJsonPath, JSON.stringify(pluginJson, null, 4) + "\n");
+            pluginJson.version = toSemver(process.env.APP_VERSION);
+            const contents = JSON.stringify(pluginJson, null, 4) + "\n";
+            fs.writeFileSync(pluginJsonPath, contents);
+            // Agent Plugins 1.0 はプラグインルート直下の plugin.json を要求し、Claude Code は
+            // .claude-plugin/ 配下を要求する。原本は 1 つに保ち、もう一方はここで複製する。
+            fs.writeFileSync(rootPluginJsonPath, contents);
           '
 
           cp out/cli/erd-agent.cjs "${CLI_DIST_PATH}"
-          git add "${CLI_DIST_PATH}" agent-plugin/.claude-plugin/plugin.json
+          git add "${CLI_DIST_PATH}" agent-plugin/.claude-plugin/plugin.json agent-plugin/plugin.json
           git commit -m "Release agent plugin v${APP_VERSION} [skip ci]"
           # npm version により package.json が更新されているため autostash で退避する
           git pull --rebase --autostash origin ${{ github.ref_name }}
