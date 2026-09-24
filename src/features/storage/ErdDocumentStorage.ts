@@ -23,9 +23,10 @@ export default interface ErdDocumentStorage {
     find(key: string): Promise<FoundDocument | null>
 
     /**
-     * ドキュメントを保存する。
-     * expectedRevision が保存先の現在の revision と一致する場合のみ書き込み、
-     * 一致しない場合は書き込まずに現在の内容を conflict として返す (先勝ち、後者はエラー扱い)。
+     * Saves the document only when expectedRevision matches the stored revision, resolving
+     * to a conflict with the stored content otherwise (first write wins).
+     * A record that no longer exists is written unconditionally: a document deleted from
+     * another window must not cost the editing window its work.
      */
     save(key: string, erdDocument: ErdDocument,
         expectedRevision: number, loggingMessage: string): Promise<SaveErdDocumentResult>

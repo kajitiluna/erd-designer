@@ -20,9 +20,11 @@ type StoredRecord = { erdDocument: ErdDocument, revision: number };
 class InMemoryErdDocumentStorage implements ErdDocumentStorage {
 
     private readonly records: Map<string, StoredRecord>;
+    private pendingSaveGate: Promise<void> | null;
 
     constructor() {
         this.records = new Map();
+        this.pendingSaveGate = null;
     }
 
     public isAvailable(): boolean {
@@ -38,23 +40,35 @@ class InMemoryErdDocumentStorage implements ErdDocumentStorage {
         return Promise.resolve((record != null) ? { ...record } : null);
     }
 
-    public save(
+    /**
+     * Delays the next call to save until the given gate resolves, to widen the window
+     * an IndexedDB round-trip would leave open for a concurrent publish to race into.
+     */
+    public delayNextSave(gate: Promise<void>): void {
+        this.pendingSaveGate = gate;
+    }
+
+    public async save(
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         key: string, erdDocument: ErdDocument, expectedRevision: number, _loggingMessage: string
     ): Promise<SaveErdDocumentResult> {
+        const gate = this.pendingSaveGate;
+        this.pendingSaveGate = null;
+        if (gate != null) {
+            await gate;
+        }
+
         const existing = this.records.get(key);
         const existingRevision = existing?.revision ?? 0;
 
         if ((existing != null) && (existingRevision !== expectedRevision)) {
-            return Promise.resolve({
-                result: "conflict", latest: existing.erdDocument, latestRevision: existingRevision
-            });
+            return { result: "conflict", latest: existing.erdDocument, latestRevision: existingRevision };
         }
 
         const nextRevision = expectedRevision + 1;
         this.records.set(key, { erdDocument, revision: nextRevision });
 
-        return Promise.resolve({ result: "saved", revision: nextRevision });
+        return { result: "saved", revision: nextRevision };
     }
 
     public delete(key: string): Promise<void> {
@@ -217,6 +231,86 @@ describe("LocalDocumentSyncChannel", () => {
         expect(result).toEqual({ result: "accepted" });
         const stored = await storage.find(DOCUMENT_KEY);
         expect(stored).toEqual({ erdDocument: updatedDocument, revision: 2 });
+    });
+
+    // 1 回目の save が解決する前に 2 回目の publish が発行された状況 (IndexedDB の 1 往復の間に
+    // 連続保存が起きた場合) を再現する。直列化していないと、2 回目も 1 回目と同じ expectedRevision
+    // を渡してしまい、偽の競合になる。
+    test("1 回目の save が解決する前に発行された 2 回目の publish も、直列化されて両方保存される", async () => {
+        const storage = new InMemoryErdDocumentStorage();
+        const initialDocument = createTestDocument("initial");
+        await storage.save(DOCUMENT_KEY, initialDocument, 0, "create");
+
+        const channel = new LocalDocumentSyncChannel(storage, DOCUMENT_KEY, initialDocument, 1);
+
+        let releaseFirstSave: () => void = () => { };
+        const firstSaveGate = new Promise<void>(resolve => { releaseFirstSave = resolve; });
+        storage.delayNextSave(firstSaveGate);
+
+        const firstPublish = channel.publish(createTestDocument("first-edit"), "first edit");
+        const secondPublish = channel.publish(createTestDocument("second-edit"), "second edit");
+
+        releaseFirstSave();
+        const [firstResult, secondResult] = await Promise.all([firstPublish, secondPublish]);
+
+        expect(firstResult).toEqual({ result: "accepted" });
+        expect(secondResult).toEqual({ result: "accepted" });
+
+        const stored = await storage.find(DOCUMENT_KEY);
+        expect(stored?.erdDocument.documentName).toBe("second-edit");
+        expect(stored?.revision).toBe(3);
+    });
+
+    // 待機中の publish の内容は、他タブの更新を取り込む前の編集に基づいている。取り込みで進んだ
+    // revision をそのまま使って保存すると、競合を検知できずに他タブの勝ち取った内容を上書きしてしまう。
+    test("待機中に他タブの更新を取り込んだ場合、待機していた publish は保存されず conflict になる", async () => {
+        const storage = new InMemoryErdDocumentStorage();
+        const initialDocument = createTestDocument("initial");
+        await storage.save(DOCUMENT_KEY, initialDocument, 0, "create");
+
+        const channel = new LocalDocumentSyncChannel(storage, DOCUMENT_KEY, initialDocument, 1);
+        const unsubscribe = channel.subscribe();
+        const otherWindowChannel = new BroadcastChannel(CHANNEL_NAME);
+
+        const receivedDocuments: ErdDocument[] = [];
+        const handleEvent = (event: Event) => {
+            const customEvent = event as CustomEvent;
+            receivedDocuments.push(customEvent.detail.erdDocument);
+        };
+        window.addEventListener(EXTERNAL_DOCUMENT_CHANGED_EVENT, handleEvent);
+
+        try {
+            let releaseFirstSave: () => void = () => { };
+            const firstSaveGate = new Promise<void>(resolve => { releaseFirstSave = resolve; });
+            storage.delayNextSave(firstSaveGate);
+
+            const firstPublish = channel.publish(createTestDocument("first-edit"), "first edit");
+            const secondPublish = channel.publish(createTestDocument("second-edit"), "second edit");
+
+            // 1 回目の save が gate を消費してから、他タブが先に保存して通知する
+            await new Promise(resolve => setTimeout(resolve, 0));
+            const otherDocument = createTestDocument("edited-by-other-window");
+            await storage.save(DOCUMENT_KEY, otherDocument, 1, "other");
+            otherWindowChannel.postMessage({ revision: 2 });
+
+            await vi.waitFor(() => {
+                expect(receivedDocuments).toHaveLength(1);
+            }, { timeout: 1000 });
+
+            releaseFirstSave();
+            const [firstResult, secondResult] = await Promise.all([firstPublish, secondPublish]);
+
+            expect(firstResult.result).toBe("conflict");
+            expect(secondResult.result).toBe("conflict");
+
+            const stored = await storage.find(DOCUMENT_KEY);
+            expect(stored?.erdDocument.documentName).toBe("edited-by-other-window");
+            expect(stored?.revision).toBe(2);
+        } finally {
+            window.removeEventListener(EXTERNAL_DOCUMENT_CHANGED_EVENT, handleEvent);
+            otherWindowChannel.close();
+            unsubscribe();
+        }
     });
 
     test("expectedRevision が古い場合は conflict を返し、ストレージは書き換わらない", async () => {
