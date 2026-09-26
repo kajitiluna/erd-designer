@@ -339,7 +339,7 @@ sequenceDiagram
         W->>WIN: EXTERNAL_DOCUMENT_CHANGED_EVENT (Dispatcher bypassed)
         WIN->>M: holder.update(doc)
         M->>W: onSave(doc)
-        W->>P: save → file written (save-flow.md §5)
+        W->>P: save → file written (21_save-flow.md §5)
     end
     M->>C: rerender (lastUpdatedAt changed)
     C->>W: CANVAS_RECTANGLES_DRAWN_EVENT → §4.3
