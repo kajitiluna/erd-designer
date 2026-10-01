@@ -24,7 +24,7 @@ jobs:
     # integration-database.ts の defaultDsn がこの値を前提にしており、環境変数での上書きなしに解決できる。
     services:
       postgres17:
-        image: postgres:17-alpine
+        image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
         env:
           POSTGRES_USER: db_user
           POSTGRES_PASSWORD: db_password
@@ -38,7 +38,7 @@ jobs:
           --health-retries 30
 
       mysql9:
-        image: mysql:9
+        image: mysql:9@sha256:e2bde46db6563855d7177adb5f0b57b9dc663f5a20927a90f4259d3312068497
         env:
           MYSQL_ROOT_PASSWORD: root_password
           MYSQL_USER: db_user
@@ -53,7 +53,7 @@ jobs:
           --health-retries 30
 
       mariadb11:
-        image: mariadb:11
+        image: mariadb:11@sha256:79d59758afc91b89b120b0a8904d637f5a3b3e1c4900f29b740d6d46c72fef68
         env:
           MARIADB_ROOT_PASSWORD: root_password
           MARIADB_USER: db_user
