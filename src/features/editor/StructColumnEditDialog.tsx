@@ -222,7 +222,9 @@ const StructColumnEditDialog = ({
     };
 
     return (
-        <DraggableDialog layoutName="struct-column-edit"
+        // struct は自身の中に struct を開けるため、同じ種類のダイアログが同時に複数生きる。
+        // 深さを鍵に含めないと、子が親と同一の矩形を復元して親を覆い隠し、親を掴めなくする。
+        <DraggableDialog layoutName={`struct-column-edit:${structNestCount}`}
             fullWidth maxWidth={withLogicalName ? "xl" : "lg"} sx={{ userSelect: "none" }}
             open={isOpen} onClose={initHandleCloseDialog(onClose)}>
             <DialogTitle>Edit struct column{structNestCount > 0 ? ` (${structNestCount + 1})` : ""}</DialogTitle>

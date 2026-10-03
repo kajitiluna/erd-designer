@@ -6,6 +6,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+
+## [0.20261003] - 2026-10-03
+
+### Added
+
+- **Relation summary card**:
+
+  Selecting a relation line now shows a card above its control panel summarising the relation:
+  its name, the parent and child tables, the paired columns, the cardinality on each side,
+  and the ON UPDATE / ON DELETE actions.
+
+### Fixed
+
+- **VS Code panel missing external file changes**:
+
+  A `.erd` file changed outside the editor is now reflected in the open panel on Windows,
+  when no folder is open, when the file is outside the workspace, when its folder path
+  contains glob characters, and when the file is replaced (save via temporary file + rename, `git checkout`).
+
+- **Duplicated edits after a VS Code panel reload**:
+
+  After the webview reloaded, a single MCP edit could be applied to the same panel several times,
+  adding extra saves and undo history entries. Each edit is now applied once.
+
+- **Nested struct-column dialogs stacking on top of each other**:
+
+  Opening a struct column inside another struct column no longer restores the child dialog
+  at exactly the parent's position and size, which hid the parent and made it impossible to grab.
+
+- **Local document saves lost or blocked across tabs**:
+
+  Rapid consecutive edits to a browser-stored document no longer cause a false conflict that stopped all further saves,
+  and an edit queued before another tab's update is no longer saved over that tab's newer content.
+  A save is also reported as successful only after it has actually been committed.
+
+
 ## [0.20260922] - 2026-09-22
 
 ### Added

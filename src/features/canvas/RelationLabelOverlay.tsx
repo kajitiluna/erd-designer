@@ -8,7 +8,7 @@ import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 
 import useStateRef from "~/components/useStateRef";
-import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
+import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ViewportContext from "~/context/ViewportContext";
 import PortalCanvasContext from "~/context/PortalCanvasContext";
 import { SelectEntityContext } from "~/context/SelectEntityContext";
@@ -37,7 +37,7 @@ const DEFAULT_FRACTION = 0.15;
 const DEFAULT_OFFSET_Y = -14;
 
 const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlayProps) => {
-    const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const documentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { viewport } = React.useContext(ViewportContext);
     const { toolbarCanvasElement, svgCanvasElement } = React.useContext(PortalCanvasContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
@@ -256,7 +256,7 @@ const useRelationLabelToolbar = ({
     relationView, toolbarCanvasElement, labelElement, labelLeft, labelTop, isLabelDragging
 }: RelationLabelToolbarProps) => {
 
-    const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const documentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { editMode } = React.useContext(EditModeContext);
     const { scaleState } = React.useContext(ViewportContext);
     const { selectState } = React.useContext(SelectEntityContext);
@@ -321,7 +321,7 @@ const useRelationLabelToolbar = ({
         transform: `scale(${1 / scaleState.scale})`,
     };
 
-    const toolbar = (
+    const controlPanel = (
         <div style={toolbarStyle} onClick={handlePreventMouseEvent}
             onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
             <ColorSelector color={labelView.color} callback={handleSetColor} />
@@ -355,7 +355,7 @@ const useRelationLabelToolbar = ({
         </div>
     );
 
-    return ReactDom.createPortal(toolbar, toolbarCanvasElement);
+    return ReactDom.createPortal(controlPanel, toolbarCanvasElement);
 };
 
 const FONT_SIZE_STYLE: React.CSSProperties = {

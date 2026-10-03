@@ -23,6 +23,8 @@ export default class LocalDocumentSyncChannel {
     private currentRevision: number;
     private latestKnownDocument: ErdDocument;
     private subscribedChannel: BroadcastChannel | null;
+    private publishQueue: Promise<void>;
+    private remoteUpdateCount: number;
 
     constructor(
         documentStorage: ErdDocumentStorage, documentKey: string,
@@ -36,12 +38,42 @@ export default class LocalDocumentSyncChannel {
         this.currentRevision = initialRevision;
         this.latestKnownDocument = initialDocument;
         this.subscribedChannel = null;
+        this.publishQueue = Promise.resolve();
+        this.remoteUpdateCount = 0;
     }
 
-    public async publish(updating: ErdDocument, loggingMessage: string): Promise<PublishResult> {
-        // 直前に自分が取り込んだ他タブの更新を、そのまま保存し返さない
+    /**
+     * Saves the document. Concurrent calls are serialised so each one reads the revision
+     * its predecessor stored.
+     */
+    public publish(updating: ErdDocument, loggingMessage: string): Promise<PublishResult> {
+        // 直前に自分が取り込んだ他タブの更新を、そのまま保存し返さない。dispatch は同期呼び出しであり
+        // isEcho はその呼び出しに対して判定する必要があるため、キューに載せる前に同期的に行う。
         if (this.changeDispatcher.isEcho(updating)) {
-            return { result: "accepted" };
+            return Promise.resolve({ result: "accepted" });
+        }
+
+        // currentRevision の読み取りから書き込みまでが await を跨ぐため、直列化しないと
+        // 同じ expectedRevision で二重に保存し、後続が偽の競合になる。以降 currentRevision は
+        // 二度と進まないため、その状態は保存が永久に通らない状態として残り続ける。
+        const baseRemoteUpdateCount = this.remoteUpdateCount;
+        const publishing = this.publishQueue.then(() => {
+            return this.doPublish(updating, loggingMessage, baseRemoteUpdateCount);
+        });
+
+        // チェーンが reject するとキューが止まり以降の保存が一切行われなくなるため、失敗はキューへ伝えない
+        this.publishQueue = publishing.then(() => { }).catch(() => { });
+
+        return publishing;
+    }
+
+    private async doPublish(
+        updating: ErdDocument, loggingMessage: string, baseRemoteUpdateCount: number
+    ): Promise<PublishResult> {
+        // 待機中に他タブの更新を取り込んでいれば、この内容は置き換えられた古い版を土台にした編集である。
+        // 取り込みで進んだ currentRevision で保存すると CAS をすり抜け、他タブが勝ち取った内容を上書きする。
+        if (this.remoteUpdateCount !== baseRemoteUpdateCount) {
+            return { result: "conflict", latest: this.latestKnownDocument };
         }
 
         this.latestKnownDocument = updating;
@@ -95,6 +127,7 @@ export default class LocalDocumentSyncChannel {
     private applyRemoteUpdate(erdDocument: ErdDocument, revision: number): void {
         const importedDocument = erdDocument.reuseInstancesFrom(this.latestKnownDocument);
         this.currentRevision = revision;
+        this.remoteUpdateCount += 1;
 
         if (importedDocument === this.latestKnownDocument) {
             return;

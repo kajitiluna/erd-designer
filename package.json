@@ -168,11 +168,11 @@
     "unzipper": "^0.12.0",
     "shell-quote": ">=1.10.0",
     "hono": ">=4.12.25",
-    "undici": ">=7.29.0 <8.0.0",
+    "undici": ">=7.30.0 <8.0.0",
     "ws": ">=8.21.0",
     "form-data": ">=4.0.6",
     "js-yaml": ">=4.3.1 <5.0.0",
-    "markdown-it": ">=14.2.0",
+    "markdown-it": ">=15.0.2",
     "@hono/node-server": ">=2.0.5",
     "exceljs": {
       "uuid": "^11.1.1"
