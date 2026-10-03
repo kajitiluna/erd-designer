@@ -99,12 +99,139 @@ class FakeObjectStore {
     }
 }
 
+/**
+ * Reproduces transaction oncomplete / onabort in memory, on top of per-request success/failure,
+ * to simulate a put that succeeds but the transaction still aborts before commit (e.g. QuotaExceededError).
+ * Does not reproduce the serialisation a real browser guarantees for overlapping readwrite
+ * transactions (only valid for sequential calls that complete within a single Promise chain).
+ * Cross-tab CAS exclusion itself is assumed to be guaranteed by the IndexedDB spec and is out of scope here.
+ */
+class FakeTransaction {
+
+    public error: unknown;
+    public oncomplete: (() => void) | null;
+    public onabort: (() => void) | null;
+
+    private readonly objectStoreByName: Map<string, FakeObjectStore>;
+    private pendingRequestCount: number;
+    private succeededRequestCount: number;
+    private plannedAbort: { afterRequestCount: number, error: unknown } | null;
+    private state: "active" | "committed" | "aborted";
+
+    constructor(objectStoreByName: Map<string, FakeObjectStore>) {
+        this.objectStoreByName = objectStoreByName;
+        this.error = null;
+        this.oncomplete = null;
+        this.onabort = null;
+        this.pendingRequestCount = 0;
+        this.succeededRequestCount = 0;
+        this.plannedAbort = null;
+        this.state = "active";
+    }
+
+    public objectStore(name: string): FakeTransactedObjectStore {
+        const store = this.objectStoreByName.get(name);
+        if (store == null) {
+            throw new Error(`FakeDatabase: unknown object store "${name}"`);
+        }
+
+        return new FakeTransactedObjectStore(store, this);
+    }
+
+    /**
+     * Aborts the transaction right after the given number of requests have succeeded,
+     * before it gets the chance to commit.
+     */
+    public abortAfterRequests(afterRequestCount: number, error: unknown): void {
+        this.plannedAbort = { afterRequestCount, error };
+    }
+
+    public trackRequest<Result>(rawRequest: FakeRequest<Result>): FakeRequest<Result> {
+        this.pendingRequestCount += 1;
+
+        const wrapper = createFakeRequest<Result>();
+        rawRequest.onsuccess = () => {
+            wrapper.result = rawRequest.result;
+            wrapper.onsuccess?.();
+
+            this.pendingRequestCount -= 1;
+            this.succeededRequestCount += 1;
+            if ((this.plannedAbort != null) && (this.succeededRequestCount >= this.plannedAbort.afterRequestCount)) {
+                this.abortWith(this.plannedAbort.error);
+                return;
+            }
+
+            this.scheduleCompletionCheck();
+        };
+        rawRequest.onerror = (event: unknown) => {
+            wrapper.error = rawRequest.error;
+            wrapper.onerror?.(event);
+        };
+
+        return wrapper;
+    }
+
+    private abortWith(error: unknown): void {
+        if (this.state !== "active") {
+            return;
+        }
+
+        this.state = "aborted";
+        this.error = error;
+        this.onabort?.();
+    }
+
+    private scheduleCompletionCheck(): void {
+        queueMicrotask(() => {
+            if (this.state !== "active") {
+                return;
+            }
+            if (this.pendingRequestCount === 0) {
+                this.state = "committed";
+                this.oncomplete?.();
+            }
+        });
+    }
+}
+
+class FakeTransactedObjectStore {
+
+    private readonly store: FakeObjectStore;
+    private readonly transaction: FakeTransaction;
+
+    constructor(store: FakeObjectStore, transaction: FakeTransaction) {
+        this.store = store;
+        this.transaction = transaction;
+    }
+
+    public get(key: string): FakeRequest<Record<string, unknown>> {
+        return this.transaction.trackRequest(this.store.get(key));
+    }
+
+    public put(value: Record<string, unknown>): FakeRequest<void> {
+        return this.transaction.trackRequest(this.store.put(value));
+    }
+
+    public delete(key: string): FakeRequest<void> {
+        return this.transaction.trackRequest(this.store.delete(key));
+    }
+
+    public openCursor(): FakeRequest<FakeCursorResult | null> {
+        // カーソルは 1 つの request を使い回して複数回 onsuccess を発火するため、
+        // 1 request = 1 完了を前提にした trackRequest の対象にはしない
+        return this.store.openCursor();
+    }
+}
+
 class FakeDatabase {
+
+    public lastTransaction: FakeTransaction | null;
 
     private readonly stores: Map<string, FakeObjectStore>;
 
     constructor() {
         this.stores = new Map();
+        this.lastTransaction = null;
     }
 
     public createObjectStore(name: string, options: { keyPath: string }): FakeObjectStore {
@@ -114,17 +241,20 @@ class FakeDatabase {
         return store;
     }
 
-    public transaction(storeNames: string[]): { objectStore: (name: string) => FakeObjectStore } {
-        return {
-            objectStore: (name: string) => {
-                const store = this.stores.get(name);
-                if (store == null) {
-                    throw new Error(`FakeDatabase: unknown object store "${name}". Requested by: ${storeNames.join(", ")}`);
-                }
-
-                return store;
+    public transaction(storeNames: string[]): FakeTransaction {
+        const entries = storeNames.map(name => {
+            const store = this.stores.get(name);
+            if (store == null) {
+                throw new Error(`FakeDatabase: unknown object store "${name}". Requested by: ${storeNames.join(", ")}`);
             }
-        };
+
+            return [name, store] as const;
+        });
+
+        const fakeTransaction = new FakeTransaction(new Map(entries));
+        this.lastTransaction = fakeTransaction;
+
+        return fakeTransaction;
     }
 }
 
@@ -133,10 +263,25 @@ class FakeDatabase {
  * private な IndexedDBStorage 実装をテストのために export し直さずに取得する。
  */
 const openFakeErdDocumentDB = async (): Promise<ErdDocumentStorage> => {
+    const { storage } = await openFakeErdDocumentDBWithDatabase();
+    return storage;
+};
+
+/**
+ * Also returns the FakeDatabase itself, for tests that need to control its transactions directly.
+ */
+const openFakeErdDocumentDBWithDatabase = async (): Promise<{ storage: ErdDocumentStorage, database: FakeDatabase }> => {
     const database = new FakeDatabase();
+    vi.stubGlobal("indexedDB", initFakeIndexedDB(database));
+
+    const storage = await initializeErdDocumentDB();
+    return { storage, database };
+};
+
+const initFakeIndexedDB = (database: FakeDatabase): { open: () => FakeIDBOpenDBRequest } => {
     let upgraded = false;
 
-    const fakeIndexedDB = {
+    return {
         open: (): FakeIDBOpenDBRequest => {
             const request: FakeIDBOpenDBRequest = { result: database, onsuccess: null, onupgradeneeded: null, onerror: null };
 
@@ -151,9 +296,6 @@ const openFakeErdDocumentDB = async (): Promise<ErdDocumentStorage> => {
             return request;
         }
     };
-
-    vi.stubGlobal("indexedDB", fakeIndexedDB);
-    return initializeErdDocumentDB();
 };
 
 const createTestDocument = (documentName: string): ErdDocument => {
@@ -215,6 +357,21 @@ describe("IndexedDBStorage (via initializeErdDocumentDB)", () => {
         const found = await storage.find("key-1");
         expect(found?.erdDocument.documentName).toBe("winner-v2");
         expect(found?.revision).toBe(2);
+    });
+
+    // put 自体は成功したがコミット前にトランザクションが abort したケース (QuotaExceededError 等)。
+    // put の成功を revision 採番の根拠にすると、abort 後もストアだけが古い revision に取り残され、
+    // 呼び出し元は以降ずっと競合し続けることになる。
+    test("put 成功後に transaction が abort すると save は reject される", async () => {
+        const { storage, database } = await openFakeErdDocumentDBWithDatabase();
+
+        const savePromise = storage.save("key-1", createTestDocument("first"), 0, "create");
+
+        // get と put の 2 リクエストが成功した直後、コミット前に abort させる
+        const abortError = new Error("QuotaExceededError");
+        database.lastTransaction?.abortAfterRequests(2, abortError);
+
+        await expect(savePromise).rejects.toBe(abortError);
     });
 
     test("find は未保存のキーに対して null を返す", async () => {

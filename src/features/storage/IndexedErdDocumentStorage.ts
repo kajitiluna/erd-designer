@@ -133,7 +133,8 @@ class IndexedDBStorage implements ErdDocumentStorage {
             const getRequest = objectStore.get(key);
 
             getRequest.onsuccess = initCallbackForSavingDocument({
-                objectStore, getRequest, key, erdDocument, expectedRevision, loggingMessage, resolve, reject
+                transaction, objectStore, getRequest, key, erdDocument, expectedRevision, loggingMessage,
+                resolve, reject
             });
 
             getRequest.onerror = (event) => {
@@ -165,6 +166,7 @@ class IndexedDBStorage implements ErdDocumentStorage {
 }
 
 type SavingDocumentContext = {
+    transaction: IDBTransaction,
     objectStore: IDBObjectStore,
     getRequest: IDBRequest,
     key: string,
@@ -207,10 +209,20 @@ const doPutDocument = (context: SavingDocumentContext): void => {
     };
 
     const putRequest = context.objectStore.put(jsonDocument);
-    putRequest.onsuccess = () => {
+
+    // put の成功はまだコミットを意味しない。コミット前に採番済みの revision を返すと、
+    // abort したときストアの revision だけが取り残され、呼び出し元は以降ずっと競合し続ける。
+    context.transaction.oncomplete = () => {
         console.info(`Succeed to save document (${JSON.stringify(
             jsonDocument, ["key", "documentName", "lastUpdatedAt", "revision"])}): ${context.loggingMessage}`);
         context.resolve({ result: "saved", revision: nextRevision });
+    };
+
+    context.transaction.onabort = () => {
+        const error = context.transaction.error || putRequest.error;
+        console.error(`Aborted the transaction on saving document. ${context.loggingMessage}`, error);
+
+        context.reject(error);
     };
 
     putRequest.onerror = (event) => {

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as path from 'path';
 
 import { RectangleType } from '~/agent-tools/DocumentBudget';
 import { VsCodeDocumentResource } from '~/extension/VsCodeDocumentResource';
@@ -47,13 +48,34 @@ const handleResolvingTextEditor = (
     // ファイルシステムを直接監視して補う。
     // VSCode 自身が未編集 (dirty でない) TextDocument をディスクの内容へ追従させた場合はここと二重に検知しうるが、
     // 後続の通知は内容が変わらなければ webview 側で無害に無視される。
-    const fileWatcher = vscode.workspace.createFileSystemWatcher(textDocument.uri.fsPath);
-    const handleFileChangedOnDisk = initHandleFileChangedOnDisk(documentResource, textDocument, webviewPanel);
-    fileWatcher.onDidChange(handleFileChangedOnDisk);
+    //
+    // 監視対象は「このファイルの親ディレクトリ配下の、このファイル名」という RelativePattern で与える。
+    // 文字列の GlobPattern はワークスペースフォルダ内だけを対象とし、区切りをスラッシュとして照合するため、
+    // Windows のパス・フォルダ未開封・ワークスペース外・glob メタ文字を含む親フォルダのいずれでも一致しない。
+    const filePath = textDocument.uri.fsPath;
+    const directoryPath = path.dirname(filePath);
+    const directoryUri = vscode.Uri.file(directoryPath);
+    const fileName = path.basename(filePath);
+    const filePattern = new vscode.RelativePattern(directoryUri, fileName);
 
-    // register (ready 受信時) が完了するまでは、このパネル自身の登録解除手段を持たない
+    const fileWatcher = vscode.workspace.createFileSystemWatcher(filePattern);
+    const handleFileChangedOnDisk = initHandleFileChangedOnDisk(documentResource, textDocument, webviewPanel);
+
+    // 一時ファイル + rename による保存や git checkout はファイルを置換するため、変更ではなく
+    // 削除 + 作成として届く。作成側も同じハンドラで受けないと、この経路の更新をすべて取り逃す。
+    const changeSubscription = fileWatcher.onDidChange(handleFileChangedOnDisk);
+    const createSubscription = fileWatcher.onDidCreate(handleFileChangedOnDisk);
+
+    // register (ready 受信時) が完了するまでは、このパネル自身の登録解除手段を持たない。
+    // ready は webview のリロードや再レンダリングで再送されうる。登録を上書きするだけでは
+    // 前回のハンドラが documentResource 側の Set に残り続け、MCP の 1 編集が同じパネルへ
+    // 複数回届く (保存往復と undo 履歴がその回数だけ増える) ため、差し替える前に必ず解除する。
     let unregisterPanel: (() => void) | null = null;
     const onRegistered = (unregister: () => void): void => {
+        if (unregisterPanel != null) {
+            unregisterPanel();
+        }
+
         unregisterPanel = unregister;
     };
 
@@ -66,6 +88,8 @@ const handleResolvingTextEditor = (
     // Webviewが閉じられたときのクリーンアップ。同じ URI を開く他パネルの登録には触れない
     webviewPanel.onDidDispose(() => {
         documentWatcher.dispose();
+        changeSubscription.dispose();
+        createSubscription.dispose();
         fileWatcher.dispose();
 
         if (unregisterPanel != null) {
