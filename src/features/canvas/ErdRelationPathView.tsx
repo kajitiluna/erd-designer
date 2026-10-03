@@ -31,6 +31,7 @@ import {
 } from "~/features/canvas/support";
 import EditAction from "~/features/canvas/EditAction";
 import RelationLabelOverlay from "~/features/canvas/RelationLabelOverlay";
+import RelationSummaryCard from "~/features/canvas/RelationSummaryCard";
 
 import styleClasses from "./ErdCanvas.module.css";
 import LabelViewModel from "~/models/LabelViewModel";
@@ -97,7 +98,8 @@ const ErdRelationPathView = ({
     const orthogonalLinePaths =
         useOrthogonalLine(relationViews, rectangleMap, setClickedPosition, handleOpenEditDialog, onDragAction);
 
-    const tooltip = useRelationTooltip(relationViews, rectangleMap, clickedPosition, onEditAction, setDeletingRelation);
+    const controlPanel =
+        useRelationControlPanel(relationViews, rectangleMap, clickedPosition, onEditAction, setDeletingRelation);
 
     React.useImperativeHandle(ref, () => {
         return {
@@ -118,29 +120,27 @@ const ErdRelationPathView = ({
         setDeletingRelation(null);
     };
 
-    return (
-        <>
-            {tooltip}
-            {(deletingRelation != null) && (
-                <Dialog open={deletingRelation != null} onClose={handleCloseDeleteDialog}>
-                    <DialogTitle>Delete relation?</DialogTitle>
-                    <DialogContent>
-                        <DialogContentText>
-                            Are you sure to delete the relation {"'"}{deletingRelation.relationModel.relationName}{"'"} ?
-                        </DialogContentText>
-                    </DialogContent>
-                    <DialogActions>
-                        <Button onClick={handleCloseDeleteDialog}>Cancel</Button>
-                        <Button variant="contained" color="error"
-                            onClick={event => handleDeleteRelation(event, deletingRelation)}>Delete</Button>
-                    </DialogActions>
-                </Dialog>
-            )}
-        </>
-    );
+    return (<>
+        {controlPanel}
+        {(deletingRelation != null) && (
+            <Dialog open={deletingRelation != null} onClose={handleCloseDeleteDialog}>
+                <DialogTitle>Delete relation?</DialogTitle>
+                <DialogContent>
+                    <DialogContentText>
+                        Are you sure to delete the relation {"'"}{deletingRelation.relationModel.relationName}{"'"} ?
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDeleteDialog}>Cancel</Button>
+                    <Button variant="contained" color="error"
+                        onClick={event => handleDeleteRelation(event, deletingRelation)}>Delete</Button>
+                </DialogActions>
+            </Dialog>
+        )}
+    </>);
 };
 
-const useRelationTooltip = (
+const useRelationControlPanel = (
     relationViews: RelationViewModel[], rectangleMap: Map<string, RectangleViewModel>,
     clickedPosition: Point, onEditAction: (editAction: EditAction) => void,
     setDeletingRelation: (relation: RelationViewModel | null) => void
@@ -150,11 +150,14 @@ const useRelationTooltip = (
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
     const { scaleState } = React.useContext(ViewportContext);
-    const displayScale = scaleState.scale;
     const { toolbarCanvasElement } = React.useContext(PortalCanvasContext);
 
     const [lineEditElement, setLineEditElement] = React.useState<HTMLElement | null>(null);
     const [resetLabelElement, setResetLabelElement] = React.useState<HTMLElement | null>(null);
+
+    if (toolbarCanvasElement == null) {
+        return (<></>);
+    }
 
     if (
         (selectState.relationId == null)
@@ -197,6 +200,7 @@ const useRelationTooltip = (
                 + `relationId = ${relationView.relationId}, tableId = ${relationModel.parentTableModelId}`);
             return;
         }
+
         const childTable = erdDocument.findTableViewModel(relationModel.childTableModelId);
         if (childTable == null) {
             console.error("Not found the child tableViewModel. "
@@ -329,30 +333,13 @@ const useRelationTooltip = (
         );
     };
 
-    const tooltipStyle: React.CSSProperties = {
-        position: "absolute",
-        left: clickedPosition.x + 15,
-        top: clickedPosition.y - 45,
-        backgroundColor: "#FFFFFF",
-        pointerEvents: "auto",
-        transformOrigin: "top left",
-        transform: `scale(${1 / displayScale})`,
-    };
-
-    if (toolbarCanvasElement == null) {
-        return (<></>);
-    }
-
     const erdDocument = documentsHolder.current();
     const erdSetting = erdDocument.erdSettingModel;
 
-    return ReactDOM.createPortal((
-        <ButtonGroup key={`relation-line_${relationView.relationId}_tooltip`}
-            variant="contained" size="small" sx={tooltipStyle} onClick={handlePreventMouseEvent}
-            onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
+    const controlPanel = (
+        <ButtonGroup variant="contained" size="small" sx={{ backgroundColor: "#FFFFFF" }}>
             <ColorSelector key={`relation-color-selector_${relationView.relationId}`}
-                color={relationView.lineViewModel.color}
-                callback={handleSetColor} />
+                color={relationView.lineViewModel.color} callback={handleSetColor} />
             <Tooltip title="Edit style" placement="top-end">
                 <IconButton onClick={event => setLineEditElement(event.currentTarget)}>
                     <LineSelectorIcon />
@@ -377,7 +364,26 @@ const useRelationTooltip = (
             </Tooltip>
             {initLinePopover(lineEditElement)}
             {initLabelPopover(resetLabelElement)}
-        </ButtonGroup >
+        </ButtonGroup>
+    );
+
+    const wrapStyle: React.CSSProperties = {
+        position: "absolute",
+        left: clickedPosition.x + 15,
+        top: clickedPosition.y - 45,
+        width: "max-content",
+        pointerEvents: "auto",
+        transformOrigin: "top left",
+        transform: `scale(${1 / scaleState.scale})`,
+    };
+
+    return ReactDOM.createPortal((
+        <div key={`relation-line_${relationView.relationId}_tooltip`} style={wrapStyle}
+            onClick={handlePreventMouseEvent}
+            onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
+            <RelationSummaryCard relationView={relationView} gap={12} />
+            {controlPanel}
+        </div>
     ), toolbarCanvasElement);
 };
 
