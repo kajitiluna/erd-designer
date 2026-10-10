@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.20261011] - 2026-10-11
+
+### Added
+
+- **Dark theme**:
+
+  A new theme button on the canvas lets users choose Light, Dark, or Default,
+  where Default follows the OS setting in the browser and the color theme in VS Code.
+  Table, memo, and relation colors are adjusted automatically for dark backgrounds
+  without changing the colors saved in the `.erd` file.
+  The choice is remembered and shared across browser tabs and VS Code panels.
+  Light remains the initial theme, and image, SVG, HTML, and specification exports are always rendered in light.
+
+### Changed
+
+- **MCP Server / Agent plugin: table size is always reported**:
+
+  `view.size` returned by the table tools (e.g. `list-tables`) is now always present,
+  with a `source` of `"drawn"` (measured on the rendered canvas)
+  or `"estimated"` (approximated when the canvas is not rendered, such as in the agent CLI).
+  The tool descriptions and the skill now guide agents to check existing table rectangles and keep a margin,
+  so newly added or moved tables no longer overlap existing ones.
+
 
 ## [0.20261003] - 2026-10-03
 
