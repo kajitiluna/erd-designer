@@ -5,6 +5,7 @@ import z from "zod";
 import { DocumentResource } from "~/agent-tools/DocumentResource";
 import { addColumnSchema, buildAddingColumnPairs } from "~/agent-tools/tools/columns";
 import DocumentBudget, { uriTemplates } from "~/agent-tools/DocumentBudget";
+import TableSizeEstimator from "~/agent-tools/TableSizeEstimator";
 import { toRelationSummary } from "~/agent-tools/tools/relations";
 import {
     colorValueSchema, DESCRIPTION_DOCUMENT_ID, McpRegisterConfig, McpServerRegisterResourceTemplateArgs,
@@ -105,7 +106,11 @@ An array of table objects, each containing:
 - optionExpression: Option expression after CREATE TABLE closing parenthesis (only present if specified).
 - view: Display settings including:
   - position: Object with x and y coordinates of the table on the ERD canvas.
-  - size: Object with width and height of the table (may be null if not yet rendered).
+  - size: Object with width, height and source of the table. source is "drawn" for the size measured on
+    the rendered canvas, or "estimated" for an approximation (the canvas is not rendered in the CLI).
+    The occupied rectangle of a table is position to position + size. Before placing or moving a table,
+    check the rectangles of the existing tables and keep a margin so that they do not overlap.
+    An "estimated" size has some error, so leave a generous margin.
   - color: Object with background and foreground colors in hex format.
 - columns: An array of column objects, each containing either:
   - For a regular column (entryType: "column"): uri, columnModelId, columnName (physical/logical),
@@ -374,7 +379,11 @@ An object containing detailed information about the specified table:
 - optionExpression: Option expression after CREATE TABLE closing parenthesis (only present if specified).
 - view: Display settings including:
   - position: Object with x and y coordinates of the table on the ERD canvas.
-  - size: Object with width and height of the table (may be null if not yet rendered).
+  - size: Object with width, height and source of the table. source is "drawn" for the size measured on
+    the rendered canvas, or "estimated" for an approximation (the canvas is not rendered in the CLI).
+    The occupied rectangle of a table is position to position + size. Before placing or moving a table,
+    check the rectangles of the existing tables and keep a margin so that they do not overlap.
+    An "estimated" size has some error, so leave a generous margin.
   - color: Object with background and foreground colors in hex format.
 - columns: An array of column objects, each containing either:
   - For a regular column (entryType: "column"): uri, columnModelId, columnName (physical/logical),
@@ -486,6 +495,11 @@ const descriptionAddTable = `\
 Adds a new table to a specified ERD document.
 You can create a table with columns by either referencing existing column-shares or creating new column-shares.
 The table will be positioned on the ERD canvas according to the specified coordinates.
+
+LAYOUT:
+Placed tables occupy a rectangle from their position to position + size (see 'list-tables', view.size).
+Check the rectangles of the existing tables first and choose a position that overlaps none of them,
+keeping a margin. A size with source "estimated" is an approximation, so leave a generous margin.
 
 REQUEST:
 - documentId: ${DESCRIPTION_DOCUMENT_ID}
@@ -868,6 +882,11 @@ const descriptionMoveTable = `\
 Moves one or more tables within an ERD document to either an absolute position or by a relative offset.
 When moving to an absolute position, all specified tables are moved to the same coordinates.
 When moving by a relative offset, each table is moved from its current position by the specified amount.
+
+LAYOUT:
+Placed tables occupy a rectangle from their position to position + size (see 'list-tables', view.size).
+Check the rectangles of the existing tables first and choose a position that overlaps none of them,
+keeping a margin. A size with source "estimated" is an approximation, so leave a generous margin.
 
 TOOL SELECTION GUIDE:
 - Use move-table when you need to move tables only (absolute or relative).
@@ -1721,7 +1740,7 @@ type TableColumn = {
 };
 
 export const toTableSummary = (erdBudget: DocumentBudget, tableView: TableViewModel) => {
-    const rectangle = erdBudget.findRectangle(tableView.tableId);
+    const size = resolveTableSize(erdBudget, tableView);
 
     return {
         uri: erdBudget.tableUri(tableView.tableId),
@@ -1741,18 +1760,31 @@ export const toTableSummary = (erdBudget: DocumentBudget, tableView: TableViewMo
                 x: tableView.corner.left,
                 y: tableView.corner.top
             },
-            ...(rectangle && {
-                size: {
-                    width: rectangle.width,
-                    height: rectangle.height
-                }
-            }),
+            size: size,
             color: {
                 background: tableView.headerColor.background.toHex(),
                 foreground: tableView.headerColor.foreground.toHex()
             }
         }
     };
+};
+
+type TableSize = {
+    width: number;
+    height: number;
+    // drawn は描画済みの実寸、estimated は描画できない環境での近似値。
+    source: "drawn" | "estimated";
+};
+
+const resolveTableSize = (erdBudget: DocumentBudget, tableView: TableViewModel): TableSize => {
+    const rectangle = erdBudget.findRectangle(tableView.tableId);
+    if (rectangle != null) {
+        return { width: rectangle.width, height: rectangle.height, source: "drawn" };
+    }
+
+    // 推定値は DocumentBudget の矩形に格納しない。直交線の計算などが近似値に左右されるのを避けるため。
+    const estimated = TableSizeEstimator.estimate(erdBudget.erdDocument, tableView);
+    return { width: estimated.width, height: estimated.height, source: "estimated" };
 };
 
 type StructExpansion = "omit" | "expand";
