@@ -294,15 +294,24 @@ Not enforced by ESLint — manual review rule.
 
 ## 18. `src/extension/` is import-only for the VSCode extension
 
-Code outside the VSCode extension package (React components, shared logic, etc.) must never import from `src/extension/`. A constant or utility shared by the whole app belongs in a common module (e.g. `src/components/constant.ts`), not inside the extension package.
+Code outside the VSCode extension package (React components, shared logic, etc.) must never import from `src/extension/`. The extension package may import from the rest of the app, never the reverse.
+
+A constant or type used on both sides belongs to the module that owns its meaning (the class or type that defines the concept), not to the extension package and not to a catch-all file.
 
 ```ts
 // NG — a React component reaching into the extension package
-import { SOME_CONSTANT } from "~/extension/vscode-message";
+import { STORAGE_KEY } from "~/extension/ThemePreferenceBroadcaster";
 
-// OK — shared constant lives in a common module
-import { SOME_CONSTANT } from "~/components/constant";
+// NG — a catch-all constants file gathers unrelated owners
+import { THEME_PREFERENCE_STORAGE_KEY } from "~/components/theme-constant";
+
+// OK — the extension imports the constant from the class that owns its meaning
+import ThemePreferenceValue from "~/components/theme/ThemePreferenceValue";
+const key = ThemePreferenceValue.STORAGE_KEY;
 ```
+
+Exception: `src/components/constant.ts` is reserved for foundational constants of the whole app that have no single owner
+(e.g. `ERD_MESSAGE_EVENT_SOURCE`, the identifier of the webview/extension protocol). "Shared by several files" alone does not qualify.
 
 Not enforced by ESLint — manual review rule.
 

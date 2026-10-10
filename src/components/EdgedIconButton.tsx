@@ -18,16 +18,8 @@ const EdgedIconButton = ({
     if (withText && (tooltip !== "")) {
         return (
             <TopLeftTooltip title={tooltip}>
-                <ButtonBase disabled={disabled} onClick={onClick} sx={{
-                    borderRadius: '8px', gap: 1, px: 0.5, "&.Mui-disabled": { opacity: 0.4 },
-                    "&:hover": { backgroundColor: 'rgba(50, 50, 50, 0.06)' }
-                }}>
-                    <Box sx={{
-                        display: 'flex', borderRadius: '25%', backgroundColor: 'rgba(50, 50, 50, 0.1)', p: '5px',
-                        "& svg": { fontSize: '1.25rem' }
-                    }}>
-                        {children}
-                    </Box>
+                <ButtonBase disabled={disabled} onClick={onClick} sx={WITH_TEXT_EDGE_STYLE}>
+                    <Box sx={WITH_TEXT_LAYOUT_STYLE}>{children}</Box>
                     <Typography variant="body2">{tooltip}</Typography>
                 </ButtonBase>
             </TopLeftTooltip>
@@ -35,11 +27,7 @@ const EdgedIconButton = ({
     }
 
     const iconButton = (
-        <IconButton disabled={disabled} onClick={onClick} size="small"
-            sx={{
-                borderRadius: '25%', backgroundColor: 'rgba(50, 50, 50, 0.1)',
-                "&.Mui-disabled": { opacity: 0.4 },
-            }}>
+        <IconButton disabled={disabled} onClick={onClick} size="small" sx={ONLY_ICON_STYLE}>
             {children}
         </IconButton>
     );
@@ -64,5 +52,21 @@ const EdgedIconButton = ({
         </Stack>
     );
 };
+
+const WITH_TEXT_EDGE_STYLE = {
+    borderRadius: '8px', gap: 1, px: 0.5, "&.Mui-disabled": { opacity: 0.4 },
+    "&:hover": { backgroundColor: 'var(--mui-palette-erd-edgedButtonHover)' }
+} as const;
+
+const WITH_TEXT_LAYOUT_STYLE = {
+    display: 'flex', borderRadius: '25%', p: '5px',
+    backgroundColor: 'var(--mui-palette-erd-edgedButtonBackground)',
+    "& svg": { fontSize: '1.25rem' }
+} as const;
+
+const ONLY_ICON_STYLE = {
+    borderRadius: '25%', backgroundColor: 'var(--mui-palette-erd-edgedButtonBackground)',
+    "&.Mui-disabled": { opacity: 0.4 },
+} as const;
 
 export default EdgedIconButton;

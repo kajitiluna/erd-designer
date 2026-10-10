@@ -4,6 +4,8 @@ import SyncIcon from "@mui/icons-material/Sync";
 import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
 
 import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
+import type { ColorTheme } from "~/models/ColorValue";
+import ThemePreferenceContext from "~/context/ThemePreferenceContext";
 import ErdDocument from "~/models/ErdDocument";
 import RelationModel, { TableReferenceActionType } from "~/models/database/RelationModel";
 import RelationViewModel from "~/models/RelationViewModel";
@@ -28,6 +30,7 @@ type RelationSummaryCardProps = {
  */
 const RelationSummaryCard = ({ relationView, gap }: RelationSummaryCardProps) => {
     const documentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const { colorTheme } = React.useContext(ThemePreferenceContext);
 
     const erdDocument = documentsHolder.current();
     const relation = relationView.relationModel;
@@ -51,12 +54,12 @@ const RelationSummaryCard = ({ relationView, gap }: RelationSummaryCardProps) =>
         right: 0,
         bottom: `calc(100% + ${gap}px)`,
         pointerEvents: "auto",
-        backgroundColor: "#FDFDFD",
-        border: "1px solid rgba(0, 0, 0, 0.12)",
+        backgroundColor: "var(--mui-palette-erd-tableBody)",
+        border: "1px solid var(--mui-palette-erd-floatingBorder)",
         borderRadius: 10,
-        boxShadow: "0 8px 24px rgba(0, 0, 0, 0.35)",
+        boxShadow: "0 8px 24px var(--mui-palette-erd-floatingShadow)",
         padding: "8px 12px",
-        color: "#000",
+        color: "var(--mui-palette-erd-tableText)",
         fontSize: "0.7rem",
         whiteSpace: "nowrap",
         zIndex: 100
@@ -78,7 +81,7 @@ const RelationSummaryCard = ({ relationView, gap }: RelationSummaryCardProps) =>
                     {childTableName}
                 </div>
 
-                {initArrowView(relationView, columnNamePairs.length + 1)}
+                {initArrowView(relationView, columnNamePairs.length + 1, colorTheme)}
 
                 {columnNamePairs.map((pair, index) => {
                     const rowIndex = index + 2;
@@ -108,9 +111,9 @@ const STYLE_GRID: React.CSSProperties = {
     rowGap: 2
 };
 
-const initArrowView = (relationView: RelationViewModel, arrowRowSpan: number) => {
+const initArrowView = (relationView: RelationViewModel, arrowRowSpan: number, colorTheme: ColorTheme) => {
     const relation = relationView.relationModel;
-    const arrowColor = relationView.lineViewModel.color.toHex();
+    const arrowColor = relationView.lineViewModel.color.toHex(colorTheme);
 
     const arrowStyle: React.CSSProperties = {
         minWidth: 36, display: "flex", flexDirection: "column", justifyContent: "center",
@@ -141,7 +144,7 @@ const STYLE_ACTION_ROW: React.CSSProperties = {
     marginTop: 4,
     fontSize: "0.6rem",
     lineHeight: 1.2,
-    color: "rgba(0, 0, 0, 0.5)"
+    color: "var(--mui-palette-erd-textMuted)"
 };
 
 type ReferenceActionProps = {

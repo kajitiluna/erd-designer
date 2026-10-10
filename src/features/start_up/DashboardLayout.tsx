@@ -37,11 +37,15 @@ const DashboardLayout = ({
 
 const appHeader = () => {
     return (
-        <AppBar position="static" elevation={0} sx={{ backgroundColor: "primary.main" }}>
+        // enableColorOnDark が無いと、ダークモードで MUI が背景を AppBar.darkBg に差し替える。
+        <AppBar position="static" elevation={0} enableColorOnDark
+            sx={{ backgroundColor: "brand.appHeaderBackground" }}>
             <Toolbar sx={{ minHeight: "64px !important", justifyContent: "space-between" }}>
                 <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
                     <img src={Logo} alt="ERD Designer" width={36} height={36} style={{ borderRadius: 9 }} />
-                    <Typography variant="h6" sx={{ fontWeight: 600, color: "#fff", letterSpacing: "-0.01em" }}>
+                    <Typography variant="h6" sx={{
+                        fontWeight: 600, color: "brand.appHeaderText", letterSpacing: "-0.01em"
+                    }}>
                         ERD Designer
                     </Typography>
                 </Stack>

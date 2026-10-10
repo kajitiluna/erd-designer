@@ -3,32 +3,40 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { RectangleType } from '~/agent-tools/DocumentBudget';
+import { ThemePreferenceBroadcaster } from '~/extension/ThemePreferenceBroadcaster';
 import { VsCodeDocumentResource } from '~/extension/VsCodeDocumentResource';
+import { ERD_MESSAGE_EVENT_SOURCE } from '~/components/constant';
+import ThemePreference from '~/components/theme/ThemePreference';
 import {
-    ERD_MESSAGE_EVENT_SOURCE, initializeDocument, notifyExternalChangedDocument, onSaveDocument
+    initializeDocument, notifyExternalChangedDocument, onSaveDocument
 } from '~/extension/vscode-message-resolver';
 
 export class ExtensionProvider implements vscode.CustomTextEditorProvider {
 
     private readonly context: vscode.ExtensionContext
     private readonly documentResource: VsCodeDocumentResource;
+    private readonly themeBroadcaster: ThemePreferenceBroadcaster;
 
-    constructor(context: vscode.ExtensionContext, documentResource: VsCodeDocumentResource) {
+    constructor(
+        context: vscode.ExtensionContext, documentResource: VsCodeDocumentResource,
+        themeBroadcaster: ThemePreferenceBroadcaster
+    ) {
         this.context = context;
         this.documentResource = documentResource;
+        this.themeBroadcaster = themeBroadcaster;
     }
 
     resolveCustomTextEditor(
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         textDocument: vscode.TextDocument, webviewPanel: vscode.WebviewPanel, _token: vscode.CancellationToken
     ): Thenable<void> | void {
-        handleResolvingTextEditor(this.context, this.documentResource, textDocument, webviewPanel);
+        handleResolvingTextEditor(this.context, this.documentResource, this.themeBroadcaster, textDocument, webviewPanel);
     }
 }
 
 const handleResolvingTextEditor = (
     context: vscode.ExtensionContext, documentResource: VsCodeDocumentResource,
-    textDocument: vscode.TextDocument, webviewPanel: vscode.WebviewPanel
+    themeBroadcaster: ThemePreferenceBroadcaster, textDocument: vscode.TextDocument, webviewPanel: vscode.WebviewPanel
 ) => {
     // Webviewの設定
     webviewPanel.webview.options = {
@@ -79,10 +87,17 @@ const handleResolvingTextEditor = (
         unregisterPanel = unregister;
     };
 
-    const handleReceivedMessage = initHandleReceivedMessage(documentResource, textDocument, webviewPanel, onRegistered);
+    // テーマ設定は文書に依らずユーザー単位のため、パネルの生存期間だけ全パネル同期の対象にする
+    const unregisterThemeTarget = themeBroadcaster.register(webviewPanel.webview);
+
+    const handleReceivedMessage = initHandleReceivedMessage(
+        documentResource, themeBroadcaster, textDocument, webviewPanel, onRegistered
+    );
 
     // HTMLコンテンツ、およびメッセージ受信時の制御の設定
-    webviewPanel.webview.html = initWebViewHtml(context, webviewPanel.webview);
+    webviewPanel.webview.html = initWebViewHtml(
+        context, webviewPanel.webview, themeBroadcaster.currentPreference()
+    );
     webviewPanel.webview.onDidReceiveMessage(handleReceivedMessage);
 
     // Webviewが閉じられたときのクリーンアップ。同じ URI を開く他パネルの登録には触れない
@@ -91,6 +106,7 @@ const handleResolvingTextEditor = (
         changeSubscription.dispose();
         createSubscription.dispose();
         fileWatcher.dispose();
+        unregisterThemeTarget();
 
         if (unregisterPanel != null) {
             unregisterPanel();
@@ -182,7 +198,8 @@ const tryParseJson = (content: string): Record<string, unknown> | null => {
 };
 
 const initHandleReceivedMessage = (
-    documentResource: VsCodeDocumentResource, textDocument: vscode.TextDocument, webviewPanel: vscode.WebviewPanel,
+    documentResource: VsCodeDocumentResource, themeBroadcaster: ThemePreferenceBroadcaster,
+    textDocument: vscode.TextDocument, webviewPanel: vscode.WebviewPanel,
     onRegistered: (unregister: () => void) => void
 ) => {
     const documentUri = textDocument.uri.toString();
@@ -212,7 +229,15 @@ const initHandleReceivedMessage = (
             // React アプリケーションの準備が完了してから、ファイルの内容を React アプリケーションに渡す
             initializeDocument(message, webviewPanel.webview, textDocument, jsonContent);
 
+            themeBroadcaster.sendCurrent(webviewPanel.webview);
+
             console.info(`Received ready event from webview and sent init event: ${documentUri}`);
+            return;
+        }
+
+        // テーマ設定は documentUri を持たないため、文書単位の判定より前で処理する
+        if (message.messageType === "changeThemePreference") {
+            await themeBroadcaster.changePreference(message.themePreference);
             return;
         }
 
@@ -251,7 +276,9 @@ const initHandleReceivedMessage = (
     };
 };
 
-const initWebViewHtml = (context: vscode.ExtensionContext, webview: vscode.Webview) => {
+const initWebViewHtml = (
+    context: vscode.ExtensionContext, webview: vscode.Webview, themePreference: ThemePreference
+) => {
     // dist/index.htmlを読み込む
     const htmlPath = vscode.Uri.joinPath(context.extensionUri, 'dist', 'index.html');
     let htmlContent = fs.readFileSync(htmlPath.fsPath, 'utf-8');
@@ -311,6 +338,7 @@ const initWebViewHtml = (context: vscode.ExtensionContext, webview: vscode.Webvi
         <script nonce="${nonce}">
             const vscodeApi = acquireVsCodeApi();
             window.vscodeApi = vscodeApi;
+            window.erdThemePreference = ${JSON.stringify(themePreference.value)};
 
             document.addEventListener('contextmenu', (event) => {
                 event.preventDefault();

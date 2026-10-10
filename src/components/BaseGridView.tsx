@@ -193,31 +193,32 @@ const BaseGridView = <RECORD_ENTITY,>({
         headerScrollRef.current.scrollLeft = columnScrollRef.current.scrollLeft;
     };
 
-    return (
-        <>
-            <Stack direction="column" sx={{ overflow: 'hidden' }}>
-                {boxHeader}
-                <Box sx={{ maxHeight: window.innerHeight - 587, ...SCROLL_STYLE }}>
-                    <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "flex-start" }}>
-                        <Box sx={{ position: 'sticky', left: 0, zIndex: 1, borderRight: '1px solid #e0e0e0' }}>
-                            <Stack direction="column" sx={{ alignItems: "flex-start", justifyContent: "flex-start" }}>
-                                {attributeHeaders.map(header => header.content)}
-                            </Stack>
-                        </Box>
-                        <Box ref={columnScrollRef} onScroll={handleScroll} sx={{ overflow: 'auto' }}>
-                            <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "flex-start" }}>
-                                {records.map((record, recordIndex) => initRecord(record, recordIndex))}
-                            </Stack>
-                        </Box>
-                    </Stack>
-                </Box>
-            </Stack>
-            {operationPanel}
-        </>
-    );
+    return (<>
+        <Stack direction="column" sx={{ overflow: 'hidden' }}>
+            {boxHeader}
+            <Box sx={{ maxHeight: window.innerHeight - 587, ...SCROLL_STYLE }}>
+                <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "flex-start" }}>
+                    <Box sx={{
+                        position: 'sticky', left: 0, zIndex: 1,
+                        borderRight: '1px solid var(--mui-palette-erd-cellBorder)'
+                    }}>
+                        <Stack direction="column" sx={{ alignItems: "flex-start", justifyContent: "flex-start" }}>
+                            {attributeHeaders.map(header => header.content)}
+                        </Stack>
+                    </Box>
+                    <Box ref={columnScrollRef} onScroll={handleScroll} sx={{ overflow: 'auto' }}>
+                        <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "flex-start" }}>
+                            {records.map((record, recordIndex) => initRecord(record, recordIndex))}
+                        </Stack>
+                    </Box>
+                </Stack>
+            </Box>
+        </Stack>
+        {operationPanel}
+    </>);
 };
 
-const SELECTED_CELL_COLOR = '#e3f2fd';
+const SELECTED_CELL_COLOR = 'var(--mui-palette-erd-gridRowSelected)';
 
 type AttributeHeader = {
     key: string;
@@ -243,10 +244,10 @@ type GridRecordOperations = {
 const SCROLL_STYLE = {
     overflow: 'auto',
     '&::-webkit-scrollbar': { width: '8px', },
-    '&::-webkit-scrollbar-track': { background: '#f1f1f1', },
-    '&::-webkit-scrollbar-thumb': { background: '#c1c1c1', borderRadius: '4px', },
-    '&::-webkit-scrollbar-thumb:hover': { background: '#a8a8a8', }
-};
+    '&::-webkit-scrollbar-track': { background: 'var(--mui-palette-erd-scrollbarTrack)', },
+    '&::-webkit-scrollbar-thumb': { background: 'var(--mui-palette-erd-scrollbarThumb)', borderRadius: '4px', },
+    '&::-webkit-scrollbar-thumb:hover': { background: 'var(--mui-palette-erd-scrollbarThumbHover)', }
+} as const;
 
 // ドラッグ&ドロップの状態管理フック
 const useDragAndDrop = <RECORD_ENTITY,>(

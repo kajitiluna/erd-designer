@@ -11,6 +11,7 @@ import CanvasSearchPanel from "~/features/canvas/CanvasSearchPanel";
 import ControlPanel from "~/features/canvas/ControlPanel";
 import DisplayScalePanel from "~/features/canvas/DisplayScalePanel";
 import ErdCanvas from "~/features/canvas/ErdCanvas";
+import ThemeSwitchButton from "~/features/canvas/ThemeSwitchButton";
 import EditMode, { EditModeType } from "~/models/EditMode";
 import ErdDocument from "~/models/ErdDocument";
 import SelectState from "~/models/SelectState";
@@ -57,7 +58,8 @@ const MainView = ({ erdDocument, onSave, erdExportable = true, remoteSync = fals
             <Box sx={{ position: "fixed", bottom: "30px", right: "30px" }}>
                 <DisplayScalePanel />
             </Box>
-            <Box sx={{ position: "fixed", top: "34px", right: "34px", zIndex: 10 }}>
+            <Box sx={{ position: "fixed", top: "34px", right: "34px", zIndex: 10, display: "flex", gap: "8px" }}>
+                <ThemeSwitchButton />
                 <CanvasSearchPanel />
             </Box>
         </ErdCanvas>

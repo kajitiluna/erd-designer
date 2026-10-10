@@ -3,10 +3,6 @@
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light;
-  color: #213547;
-  background-color: #ffffff;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -18,24 +14,26 @@
 
 a {
   font-weight: 500;
-  color: #646cff;
+  color: var(--mui-palette-primary-main);
   text-decoration: inherit;
 }
 a:hover {
-  color: #747bff;
+  color: var(--mui-palette-primary-light);
 }
 
 body {
   margin: 0;
+  color: var(--mui-palette-text-primary);
+  background-color: var(--mui-palette-background-default);
 }
 
 ::highlight(search-match) {
-  background-color: rgba(255, 235, 59, 0.6);
+  background-color: var(--mui-palette-erd-searchHighlight, rgba(255, 235, 59, 0.6));
   color: inherit;
 }
 
 ::highlight(search-match-current) {
-  background-color: rgba(255, 152, 0, 0.8);
+  background-color: var(--mui-palette-erd-searchHighlightCurrent, rgba(255, 152, 0, 0.8));
   color: inherit;
 }
 
@@ -51,12 +49,13 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #f9f9f9;
+  color: inherit;
+  background-color: var(--mui-palette-action-hover);
   cursor: pointer;
   transition: border-color 0.25s;
 }
 button:hover {
-  border-color: #646cff;
+  border-color: var(--mui-palette-primary-main);
 }
 button:focus,
 button:focus-visible {

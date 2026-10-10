@@ -12,6 +12,7 @@ import PortalCanvasContext from "~/context/PortalCanvasContext";
 import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { LocalSettingContext } from "~/context/LocalSettingContext";
 import { inOpenControlPanel } from "~/components/support";
+import FloatingIconButton from "~/components/FloatingIconButton";
 import { ColumnRowEntry, expandColumnRows, isColumnRowVisible } from "~/models/column-row-expansion";
 import ErdDocument from "~/models/ErdDocument";
 import PerspectiveModel from "~/models/PerspectiveModel";
@@ -36,9 +37,9 @@ const CanvasSearchPanel = () => {
 
     if (searchState.isActive === false) {
         return (
-            <IconButton onClick={searchAction.openSearch} sx={SEARCH_ICON_BUTTON_STYLE}>
+            <FloatingIconButton ariaLabel="search" onClick={searchAction.openSearch}>
                 <SearchIcon />
-            </IconButton>
+            </FloatingIconButton>
         );
     }
 
@@ -81,10 +82,13 @@ const CanvasSearchPanel = () => {
 
     const arrowButtonStyle = {
         padding: "2px", borderRadius: "4px",
-        "&:hover": { backgroundColor: hasMatches ? "#f5f5f5" : "transparent" },
+        "&:hover": { backgroundColor: hasMatches ? "var(--mui-palette-erd-hoverBackground)" : "transparent" },
         cursor: hasMatches ? "pointer" : "default",
     };
-    const arrowIconStyle = { fontSize: 18, color: hasMatches ? "#424242" : "#bdbdbd" };
+    const arrowIconStyle = {
+        fontSize: 18,
+        color: hasMatches ? "var(--mui-palette-erd-textSecondary)" : "var(--mui-palette-erd-iconDisabled)"
+    };
 
     return (
         <Paper elevation={3} sx={PANEL_STYLE}>
@@ -106,7 +110,7 @@ const CanvasSearchPanel = () => {
                     <KeyboardArrowDownIcon sx={arrowIconStyle} />
                 </IconButton>
                 <IconButton size="small" sx={CLOSE_BUTTON_STYLE} onClick={searchAction.closeSearch}>
-                    <CloseIcon sx={{ fontSize: 18, color: "#757575" }} />
+                    <CloseIcon sx={{ fontSize: 18, color: "var(--mui-palette-erd-iconMuted)" }} />
                 </IconButton>
             </Box>
 
@@ -124,7 +128,10 @@ const CanvasSearchPanel = () => {
                     control={<Checkbox size="small" sx={CHECKBOX_STYLE} checked={searchState.searchTargets.onMemo}
                         onChange={initHandleTargetChange("onMemo")} />} />
                 <FormControlLabel disabled={!showRelationNames} sx={FORM_CONTROL_LABEL_STYLE}
-                    label={<Typography variant="caption" sx={{ color: showRelationNames ? "#424242" : "#9e9e9e" }}>
+                    label={<Typography variant="caption" sx={{
+                        color: showRelationNames
+                            ? "var(--mui-palette-erd-textSecondary)" : "var(--mui-palette-erd-textDisabled)"
+                    }}>
                         Relation
                     </Typography>}
                     control={<Checkbox size="small" disabled={!showRelationNames} sx={CHECKBOX_STYLE}
@@ -679,30 +686,33 @@ const collectRelationLabelMatches = (
         });
 };
 
-const SEARCH_ICON_BUTTON_STYLE = {
-    width: "48px", height: "48px", boxShadow: "5px 5px 30px 0px #bebebe", borderRadius: "8px",
-    backgroundColor: "#fff"
+const PANEL_STYLE = {
+    position: "absolute", top: 0, right: 0, zIndex: 1,
+    borderRadius: "8px", padding: "8px", display: "inline-flex", flexDirection: "column"
 } as const;
 
-const PANEL_STYLE = { borderRadius: "8px", padding: "8px", display: "inline-flex", flexDirection: "column" } as const;
 const SEARCH_TEXT_ROW_STYLE = { display: "flex", alignItems: "center", gap: "4px" } as const;
-const SEARCH_ICON_STYLE = { fontSize: 20, color: "#757575", flexShrink: 0 } as const;
+const SEARCH_ICON_STYLE = { fontSize: 20, color: "var(--mui-palette-erd-iconMuted)", flexShrink: 0 } as const;
 
 const INPUT_STYLE = {
-    fontSize: "13px", height: "32px", padding: "0 8px", border: "1px solid #e0e0e0", borderRadius: "4px",
-    "&:focus-within": { borderColor: "#3a215a" }
+    fontSize: "13px", height: "32px", padding: "0 8px", borderRadius: "4px",
+    border: "1px solid var(--mui-palette-erd-cellBorder)",
+    "&:focus-within": { borderColor: "primary.main" }
 } as const;
 
 const MATCH_COUNT_STYLE = { fontSize: "12px", whiteSpace: "nowrap", textAlign: "center", flexShrink: 0 } as const;
-const CLOSE_BUTTON_STYLE = { padding: "2px", borderRadius: "4px", "&:hover": { backgroundColor: "#f5f5f5" } } as const;
+const CLOSE_BUTTON_STYLE = {
+    padding: "2px", borderRadius: "4px",
+    "&:hover": { backgroundColor: "var(--mui-palette-erd-hoverBackground)" }
+} as const;
 
 const SEARCH_TYPE_ROW_STYLE = {
     justifyContent: "center", alignItems: "center", gap: "12px", marginTop: "6px", paddingTop: "6px",
-    borderTop: "1px solid #f0f0f0"
+    borderTop: "1px solid var(--mui-palette-erd-panelBorderSubtle)"
 } as const;
 
 const CHECKBOX_STYLE = { padding: "0", width: "15px", height: "15px" } as const;
-const CHECKBOX_LABEL_STYLE = { color: "#424242" } as const;
+const CHECKBOX_LABEL_STYLE = { color: "var(--mui-palette-erd-textSecondary)" } as const;
 const FORM_CONTROL_LABEL_STYLE = { margin: 0, gap: "4px" } as const;
 
 export default CanvasSearchPanel;

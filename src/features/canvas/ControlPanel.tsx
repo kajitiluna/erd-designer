@@ -1,7 +1,7 @@
 import React from "react";
 import {
-    Box, Button, ButtonGroup, Divider, FormControl, FormControlLabel, InputLabel, Menu, MenuItem,
-    Select, SelectChangeEvent, Switch, ToggleButton, ToggleButtonGroup, Tooltip
+    Box, Button, ButtonGroup, Divider, FormControl, FormControlLabel, InputLabel, Menu,
+    MenuItem, Select, SelectChangeEvent, Switch, ToggleButton, ToggleButtonGroup, Tooltip
 } from "@mui/material";
 import ArrowRightIcon from '@mui/icons-material/ArrowRight';
 import HighlightAltIcon from '@mui/icons-material/HighlightAlt';
@@ -24,6 +24,7 @@ import download from "~/components/file-downloader";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ExportSpecificationContext, { ImageContent } from "~/context/ExportSpecificationContext";
 import { LocalSettingContext } from "~/context/LocalSettingContext";
+import ThemePreferenceContext, { ThemePreferenceHolder } from "~/context/ThemePreferenceContext";
 import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
 import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
 import ExportDdlView from "~/features/editor/ExportDdlView";
@@ -47,19 +48,13 @@ const ControlPanel = ({ erdExportable }: ControlPanelProps) => {
 };
 
 const PANEL_STYLE = {
-    display: "flex",
-    minWidth: "120px",
-    maxWidth: "120px",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    border: "1px solid white",
-    borderRadius: "15px",
-    boxShadow: "5px 5px 30px 0px #bebebe",
-    paddingTop: "15px",
-    paddingBottom: "15px",
-    backgroundColor: "#FFFFFF"
-};
+    minWidth: "120px", maxWidth: "120px",
+    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+    paddingTop: "15px", paddingBottom: "15px", borderRadius: "15px",
+    border: "1px solid var(--mui-palette-erd-panelBorder)",
+    boxShadow: "5px 5px 30px 0px var(--mui-palette-erd-panelShadow)",
+    backgroundColor: "var(--mui-palette-erd-panelBackground)"
+} as const;
 
 const EditModePanel = () => {
     const { editMode, dispatchEditMode } = React.useContext(EditModeContext);
@@ -129,11 +124,12 @@ const ActionPanel = () => {
         dispatchLocalSetting({ type: "perspective", perspectiveId: nextPerspectiveId });
     };
 
+    const selectorStyle = (perspectiveId !== DEFAULT_PERSPECTIVE_ID)
+        ? { backgroundColor: "var(--mui-palette-erd-perspectiveActive)" } : {};
     const perspectiveSelector = (
         <FormControl size="small" sx={{ padding: "0 6px", margin: "5px -1px 10px" }}>
             <InputLabel id="label-display-style">Perspective</InputLabel>
-            <Select labelId="label-display-style" label="Perspective"
-                sx={(perspectiveId !== DEFAULT_PERSPECTIVE_ID) ? { backgroundColor: "#fff59d" } : {}}
+            <Select labelId="label-display-style" label="Perspective" sx={selectorStyle}
                 value={perspectiveId} onChange={handleChangePerspective}>
                 <MenuItem key={DEFAULT_PERSPECTIVE_ID} value={DEFAULT_PERSPECTIVE_ID}>(Default)</MenuItem>
                 {perspectiveModels.map(perspective => (
@@ -198,7 +194,7 @@ const SWITCH_FORM_STYLE = {
     userSelect: "none",
     "& .MuiFormControlLabel-label": {
         fontSize: "0.7rem",
-        color: "rgba(0, 0, 0, 0.6)"
+        color: "text.secondary"
     }
 };
 
@@ -216,16 +212,18 @@ type SubMenuButtonProps = {
 const SubMenuPanel = ({ erdExportable }: SubMenuButtonProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { localSetting } = React.useContext(LocalSettingContext);
+    const { exportSpecification } = React.useContext(ExportSpecificationContext);
+    const { withLightMode } = React.useContext(ThemePreferenceContext);
+
     const [configureElement, setConfigureElement] = React.useState<HTMLElement | null>();
     const [selectedMenu, setSelectedMenu] = React.useState<"export_ddl" | "">("");
-    const { exportSpecification } = React.useContext(ExportSpecificationContext);
 
     const erdDocument: ErdDocument = documentsHolder.current();
 
     const handleOpenMenu = (event: React.MouseEvent<HTMLButtonElement>) => setConfigureElement(event.currentTarget);
 
     const handleExportSpecification = () => {
-        downloadSpecification(erdDocument, exportSpecification);
+        downloadSpecification(erdDocument, exportSpecification, withLightMode);
         handleCloseMenu();
     };
 
@@ -290,12 +288,18 @@ const useExportImageMenu = (erdDocument: ErdDocument, onCloseMenu: () => void) =
     const { dispatchSelectAction } = React.useContext(SelectEntityContext);
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
 
+    const { withLightMode } = React.useContext(ThemePreferenceContext);
+
     const exportImageCloseTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const [exportImageElement, setExportImageElement] = React.useState<HTMLElement | null>(null);
     const [batchExportQueue, setBatchExportQueue] = React.useState<PerspectiveModel[]>([]);
+    // バッチ全体を 1 回の withLightMode で包むため、キューが空になった時点でその task を完了させる
+    const batchCompletionRef = React.useRef<(() => void) | null>(null);
 
     React.useEffect(() => {
         if (batchExportQueue.length === 0) {
+            batchCompletionRef.current?.();
+            batchCompletionRef.current = null;
             return;
         }
 
@@ -309,13 +313,19 @@ const useExportImageMenu = (erdDocument: ErdDocument, onCloseMenu: () => void) =
             const current = batchExportQueue[0];
             const remaining = batchExportQueue.slice(1);
 
-            downloadPng(erdCanvas, (contents: ImageContent) => {
+            const exportCurrent = (contents: ImageContent) => {
                 const fileName = `${erdDocument.documentName} - ${current.perspectiveName}.png`;
                 download(fileName, contents.base64Value);
 
                 const nextPerspectiveId = (remaining.length > 0) ? remaining[0].perspectiveId : "";
                 dispatchLocalSetting({ type: "perspective", perspectiveId: nextPerspectiveId });
                 setBatchExportQueue(remaining);
+            };
+
+            downloadPng(erdCanvas, exportCurrent).catch((error: unknown) => {
+                console.error("Failed to export PNG.", error);
+                dispatchLocalSetting({ type: "perspective", perspectiveId: "" });
+                setBatchExportQueue([]);
             });
         }, 500);
 
@@ -330,7 +340,7 @@ const useExportImageMenu = (erdDocument: ErdDocument, onCloseMenu: () => void) =
     const handleExportAsImage = () => {
         dispatchSelectAction(RELEASE_ACTION);
 
-        downloadImage(erdDocument);
+        downloadImage(erdDocument, withLightMode);
         handleClose();
     };
 
@@ -343,8 +353,14 @@ const useExportImageMenu = (erdDocument: ErdDocument, onCloseMenu: () => void) =
             return;
         }
 
-        dispatchLocalSetting({ type: "perspective", perspectiveId: perspectives[0].perspectiveId });
-        setBatchExportQueue(perspectives);
+        const startBatch = (): Promise<void> => {
+            return new Promise<void>(resolve => {
+                batchCompletionRef.current = resolve;
+                dispatchLocalSetting({ type: "perspective", perspectiveId: perspectives[0].perspectiveId });
+                setBatchExportQueue(perspectives);
+            });
+        };
+        withLightMode(startBatch);
 
         handleClose();
     };
@@ -380,7 +396,9 @@ const useExportImageMenu = (erdDocument: ErdDocument, onCloseMenu: () => void) =
             return;
         }
 
-        downloadHtml(erdDocument, erdCanvas);
+        // HTML / SVG は表示中の DOM (インライン style、CSS) から生成するため、ライト表示で出力する
+        const exportHtml = async () => { downloadHtml(erdDocument, erdCanvas); };
+        withLightMode(exportHtml);
     };
 
     const handleSaveAsSvg = () => {
@@ -392,8 +410,17 @@ const useExportImageMenu = (erdDocument: ErdDocument, onCloseMenu: () => void) =
             return;
         }
 
-        downloadSvg(erdDocument, erdCanvas);
+        const exportSvg = async () => { downloadSvg(erdDocument, erdCanvas); };
+        withLightMode(exportSvg);
     };
+
+    // バッチ中にパネルが破棄されても、アプリ階層に残る light 強制を解除できるようにする
+    React.useEffect(() => {
+        return () => {
+            batchCompletionRef.current?.();
+            batchCompletionRef.current = null;
+        };
+    }, []);
 
     return [
         <MenuItem key="export-menu-item" onMouseEnter={handleExportImageEnter} onMouseLeave={handleExportImageLeave}>
@@ -423,31 +450,38 @@ const useExportImageMenu = (erdDocument: ErdDocument, onCloseMenu: () => void) =
     ];
 };
 
-const downloadImage = (erdDocument: ErdDocument) => {
-    const erdCanvas = document.getElementById(ERD_CANVAS_ID);
-    if (erdCanvas == null) {
-        return;
-    }
-
-    downloadPng(erdCanvas, (contents: ImageContent) => {
+const downloadImage = (erdDocument: ErdDocument, withLightMode: ThemePreferenceHolder["withLightMode"]) => {
+    const exportImage = (contents: ImageContent) => {
         const fileName = `${erdDocument.documentName}.png`;
 
         download(fileName, contents.base64Value);
+    };
+
+    return withLightMode(() => {
+        const erdCanvas = document.getElementById(ERD_CANVAS_ID);
+        if (erdCanvas == null) {
+            return Promise.resolve();
+        }
+
+        return downloadPng(erdCanvas, exportImage);
     });
 };
 
 const downloadSpecification = (
     erdDocument: ErdDocument,
-    exportSpecification: (erdDocument: ErdDocument, contents: ImageContent) => void
+    exportSpecification: (erdDocument: ErdDocument, contents: ImageContent) => void,
+    withLightMode: ThemePreferenceHolder["withLightMode"]
 ) => {
-    const erdCanvas = document.getElementById(ERD_CANVAS_ID);
-    if (erdCanvas == null) {
-        return;
-    }
-
     const doDownloadSpec = (contents: ImageContent) => exportSpecification(erdDocument, contents);
 
-    downloadPng(erdCanvas, doDownloadSpec);
+    return withLightMode(() => {
+        const erdCanvas = document.getElementById(ERD_CANVAS_ID);
+        if (erdCanvas == null) {
+            return Promise.resolve();
+        }
+
+        return downloadPng(erdCanvas, doDownloadSpec);
+    });
 };
 
 const downloadJson = (erdDocument: ErdDocument) => {

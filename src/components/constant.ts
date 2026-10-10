@@ -1,10 +1,9 @@
 
 export const GRID_CELL_STYLE: React.CSSProperties = {
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: "var(--mui-palette-erd-cellBorder)",
     borderBottomStyle: "solid",
     borderBottomWidth: "1px",
     borderCollapse: "separate",
-    colorScheme: "lightDark",
     paddingTop: "6px",
     paddingBottom: "6px",
     paddingLeft: "16px",
@@ -33,3 +32,6 @@ export const REMOTE_SYNC_REQUESTED_EVENT = "remoteSyncRequested";
 
 /** Google Drive の外部変更チェック間隔。RemoteSyncIndicator のカウントダウンにも用いる */
 export const REMOTE_SYNC_INTERVAL_MILLISECOND = 10 * 1000;
+
+/** VSCode 拡張機能と Webview 間のメッセージに付与する識別子。双方から参照されるため共通モジュールに置く */
+export const ERD_MESSAGE_EVENT_SOURCE = "erd-designer";

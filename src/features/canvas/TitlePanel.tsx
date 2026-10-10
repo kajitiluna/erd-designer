@@ -68,9 +68,10 @@ const TitlePanel = ({ remoteSync = false }: TitlePanelProps) => {
 
 const TITLE_PANEL_STYLE = {
     display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center",
-    border: "2px solid #F0F0F0", borderRadius: "5px", boxShadow: "5px 5px 15px 0px #bebebe",
-    padding: "5px", paddingLeft: "15px", paddingRight: "15px",
-    backgroundColor: "#FFFFFF"
+    padding: "5px", paddingLeft: "15px", paddingRight: "15px", borderRadius: "5px",
+    border: "2px solid var(--mui-palette-erd-panelBorderSubtle)",
+    boxShadow: "5px 5px 15px 0px var(--mui-palette-erd-panelShadow)",
+    backgroundColor: "var(--mui-palette-erd-panelBackground)"
 } as const;
 
 const TITLE_INPUT_AREA_STYLE = {
@@ -78,7 +79,7 @@ const TITLE_INPUT_AREA_STYLE = {
 } as const;
 
 const TITLE_INPUT_STYLE = {
-    fontSize: "1.2rem", fontWeight: "bold", color: "#3F3F3F", flex: 1, minWidth: 0
+    fontSize: "1.2rem", fontWeight: "bold", flex: 1, minWidth: 0, color: "var(--mui-palette-erd-titleText)"
 } as const;
 
 type DisplayMenuState = { status: "closed" } | { status: "open" | "interacted", anchor: HTMLElement };
@@ -475,7 +476,7 @@ const SYNC_INDICATOR_STYLE = {
     },
     "& circle": {
         fill: "none",
-        stroke: "#BDBDBD",
+        stroke: "var(--mui-palette-erd-iconDisabled)",
         strokeWidth: SYNC_INDICATOR_THICKNESS,
         strokeDasharray: `${SYNC_INDICATOR_CIRCUMFERENCE}px`,
         animation: `erdRemoteSyncCountdown ${REMOTE_SYNC_INTERVAL_MILLISECOND}ms linear infinite`

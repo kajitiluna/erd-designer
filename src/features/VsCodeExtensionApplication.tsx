@@ -7,10 +7,10 @@ import InitializeDatabaseDialog from "~/features/start_up/InitializeDatabaseDial
 import ErdApplicationShell from "~/features/ErdApplicationShell";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import {
-    ERD_MESSAGE_EVENT_SOURCE, notifySaveDocument,
+    notifySaveDocument,
     onDrawnRectangles, onExternalChangedDocument, onInitializeCompleted, onStartedExtension
 } from "~/extension/vscode-message-resolver";
-import { CANVAS_RECTANGLES_DRAWN_EVENT } from "~/components/constant";
+import { CANVAS_RECTANGLES_DRAWN_EVENT, ERD_MESSAGE_EVENT_SOURCE } from "~/components/constant";
 
 const VsCodeExtensionApplication = (prop: { vscodeApi: VsCodeApi }) => {
     const vscodeApi = prop.vscodeApi;
@@ -81,13 +81,13 @@ const useInitialize = (changeDispatcher: ExternalDocumentChangeDispatcher) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleMessageFromVsCode = React.useCallback((event: MessageEvent<any>) => {
         const message = event.data;
-        if ((("eventSource" in message) === false) || (("messageType" in message) === false)
-            || (("documentUri" in message) === false) || (("jsonContext" in message) === false)) {
-            console.error("Invalid message format received.");
+        // テーマ設定など文書以外のメッセージは別のリスナーが扱うため、ここでは黙って無視する。
+        if (isDocumentMessage(message) === false) {
             return;
         }
 
-        if (message.eventSource !== ERD_MESSAGE_EVENT_SOURCE) {
+        if ((("documentUri" in message) === false) || (("jsonContext" in message) === false)) {
+            console.error("Invalid message format received.");
             return;
         }
         const uri = message.documentUri as string;
@@ -144,6 +144,16 @@ const useInitialize = (changeDispatcher: ExternalDocumentChangeDispatcher) => {
     }, [handleMessageFromVsCode]);
 
     return { documentUri, initDocument, setInitDocument, loadResult };
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const isDocumentMessage = (message: any): boolean => {
+    if ((message == null) || (typeof message !== "object")) {
+        return false;
+    }
+
+    return (message.eventSource === ERD_MESSAGE_EVENT_SOURCE)
+        && ((message.messageType === "init") || (message.messageType === "changeDocument"));
 };
 
 const useSyncRectangles = (vscodeApi: VsCodeApi, documentUri: string) => {

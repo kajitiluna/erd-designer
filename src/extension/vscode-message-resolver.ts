@@ -2,11 +2,9 @@ import type * as vscode from 'vscode';
 import { RectangleType } from '~/agent-tools/DocumentBudget';
 
 import ExternalDocumentChangeDispatcher from '~/components/ExternalDocumentChangeDispatcher';
-import { EXTERNAL_DOCUMENT_CHANGED_EVENT } from '~/components/constant';
+import { ERD_MESSAGE_EVENT_SOURCE, EXTERNAL_DOCUMENT_CHANGED_EVENT } from '~/components/constant';
 import ErdDocument from '~/models/ErdDocument';
 import RectangleViewModel from '~/models/RectangleViewModel';
-
-export const ERD_MESSAGE_EVENT_SOURCE = "erd-designer";
 
 // ================
 //   初期化処理

@@ -2,6 +2,8 @@ import React from "react";
 import { Box, IconButton, Popover, Stack } from "@mui/material";
 import CircleIcon from '@mui/icons-material/Circle';
 
+import ThemePreferenceContext from "~/context/ThemePreferenceContext";
+import type { ColorTheme } from "~/models/ColorValue";
 import ColorValue from "~/models/ColorValue";
 import ColorSelectorStyle from "./ColorSelector.module.css";
 
@@ -13,7 +15,10 @@ type ColorSelectorProps = {
 
 const ColorSelector = ({ color = ColorValue.WHITE, shape = "circle", callback }: ColorSelectorProps) => {
 
+    const { colorTheme } = React.useContext(ThemePreferenceContext);
     const [anchorElement, setAnchorElement] = React.useState<HTMLButtonElement | HTMLDivElement | null>(null);
+
+    const displayColor = color.to(colorTheme);
     const innerCallback = (background: ColorValue, foreground: ColorValue) => {
         callback(background, foreground);
         setAnchorElement(null);
@@ -27,15 +32,15 @@ const ColorSelector = ({ color = ColorValue.WHITE, shape = "circle", callback }:
     const selectorButton = (shape === "circle") ? (
         <IconButton onMouseDown={handleClick}>
             <CircleIcon sx={{
-                color: color.toRgba(),
-                stroke: color.reverseGrayscale().toRgba(), strokeWidth: "1px"
+                color: displayColor.toRgba(),
+                stroke: displayColor.reverseGrayscale().toRgba(), strokeWidth: "1px"
             }} />
         </IconButton>
     ) : (
         <Box onClick={handleClick} sx={{
             height: "30px",
-            backgroundColor: color.toRgba(),
-            border: `1px solid ${color.reverseGrayscale().toRgba()}`,
+            backgroundColor: displayColor.toRgba(),
+            border: `1px solid ${displayColor.reverseGrayscale().toRgba()}`,
             borderRadius: "5px",
             margin: "10px"
         }} className={ColorSelectorStyle.colorSelector} />
@@ -53,7 +58,7 @@ const ColorSelector = ({ color = ColorValue.WHITE, shape = "circle", callback }:
                             initColorPanel(
                                 `color-select_${rowIndex}-${columnIndex}`,
                                 color, pallet.background, pallet.foreground,
-                                innerCallback, 0.95
+                                innerCallback, colorTheme, 0.95
                             )
                         ))}
                     </Stack>
@@ -65,7 +70,8 @@ const ColorSelector = ({ color = ColorValue.WHITE, shape = "circle", callback }:
 
 const initColorPanel = (
     key: string, currentColor: ColorValue, backgroundColor: ColorValue, foregroundColor: ColorValue,
-    callback: (background: ColorValue, foreground: ColorValue) => void, alpha: number = 1
+    callback: (background: ColorValue, foreground: ColorValue) => void,
+    colorTheme: ColorTheme, alpha: number = 1
 ) => {
 
     const selected = backgroundColor.equals(currentColor);
@@ -78,9 +84,9 @@ const initColorPanel = (
         padding: "5px",
         width: `${30 - (selected ? 4 * 2 : 0)}px`,
         height: `${20 - (selected ? 4 * 2 : 0)}px`,
-        border: (selected ? "4px solid rgba(73, 76, 218, 1)" : ""),
+        border: (selected ? "4px solid var(--mui-palette-erd-selection)" : ""),
         borderRadius: "1px",
-        backgroundColor: backgroundColor.toRgba(alpha)
+        backgroundColor: backgroundColor.toRgba(colorTheme, alpha)
     };
 
     return (

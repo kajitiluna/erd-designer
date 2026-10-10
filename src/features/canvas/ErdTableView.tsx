@@ -21,6 +21,7 @@ import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocu
 import { LocalSettingContext } from "~/context/LocalSettingContext";
 import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
 import PortalCanvasContext from "~/context/PortalCanvasContext";
+import ThemePreferenceContext from "~/context/ThemePreferenceContext";
 import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
 import EditAction from "~/features/canvas/EditAction";
 import { handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
@@ -147,7 +148,7 @@ const HEADER_STYLE = {
     padding: "6px",
     paddingLeft: "8px",
     paddingRight: "8px",
-    borderBottom: "1px solid black",
+    borderBottom: "1px solid var(--mui-palette-erd-tableBorder)",
     display: "flex",
     whiteSpace: "nowrap",
     fontSize: "0.95em"
@@ -156,7 +157,7 @@ const HEADER_STYLE = {
 const BODY_STYLE = {
     flex: "1 1 auto",
     display: "flex", flexDirection: "column", alignItems: "stretch",
-    backgroundColor: "#FDFDFD"
+    backgroundColor: "var(--mui-palette-erd-tableBody)"
 };
 
 const initTableColumnRow = (
@@ -195,7 +196,7 @@ const initTableSingleColumn = (
     const tableIndexModels = tableModel.tableIndexModels;
 
     const fontColor = initTableColumnFontColor(columnModel, inChildRelation);
-    const styleRow = selectedRelationColumn ? { backgroundColor: "rgba(73, 76, 218, 0.12)" } : {};
+    const styleRow = selectedRelationColumn ? { backgroundColor: "var(--mui-palette-erd-selectionRow)" } : {};
     const styleTextCell = { whiteSpace: "nowrap", color: fontColor };
     const styleAttributeCell = { whiteSpace: "nowrap", color: fontColor, fontSize: "0.914em" };
     const indentStyle = { marginLeft: `${row.nestCount * STRUCT_INDENT_WIDTH}px` };
@@ -265,8 +266,10 @@ const initTableStructColumnRow = (
     );
 };
 
-const TEXT_CELL_STYLE = { whiteSpace: "nowrap", color: "#000000" } as const;
-const ATTRIBUTE_CELL_STYLE = { whiteSpace: "nowrap", color: "#000000", fontSize: "0.914em" } as const;
+const TEXT_CELL_STYLE = { whiteSpace: "nowrap", color: "var(--mui-palette-erd-tableText)" } as const;
+const ATTRIBUTE_CELL_STYLE = {
+    whiteSpace: "nowrap", color: "var(--mui-palette-erd-tableText)", fontSize: "0.914em"
+} as const;
 
 const initEmptyMarkerCell = (markerModels: readonly (TableUniqueKeysModel | TableIndexModel)[]) => {
     if (markerModels.length === 0) {
@@ -285,7 +288,7 @@ const initTableColumnFontColor = (columnModel: SimpleColumnModel, inChildRelatio
         return KeyColor.primary;
     }
 
-    return inChildRelation ? KeyColor.foreign : "#000000";
+    return inChildRelation ? KeyColor.foreign : "var(--mui-palette-erd-tableText)";
 };
 
 const isSelectedRelationColumn = (columnId: string, erdDocument: ErdDocument, selectState: SelectState) => {
@@ -444,6 +447,7 @@ const InnerErdTableView = ({
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
+    const { colorTheme } = React.useContext(ThemePreferenceContext);
 
     const containerRef = React.useRef<HTMLDivElement>(null);
     const [selfSelectableMode, setSelfSelectableMode] = React.useState<SelfSelectableMode>("none");
@@ -609,10 +613,10 @@ const InnerErdTableView = ({
     };
     const boundStyle = {
         paddingBottom: "4px",
-        border: "2px solid black",
+        border: "2px solid var(--mui-palette-erd-tableBorder)",
         borderRadius: "10px",
-        backgroundColor: tableView.headerColor.background.toRgba(),
-        color: tableView.headerColor.foreground.toRgba()
+        backgroundColor: tableView.headerColor.background.toRgba(colorTheme),
+        color: tableView.headerColor.foreground.toRgba(colorTheme)
     };
 
     const tableClassName = selected
@@ -688,25 +692,30 @@ const initColumnTooltip = (
 
     return (
         <TableContainer sx={{ overflow: "hidden", borderRadius: "10px" }}>
-            <Table size="small" sx={{ backgroundColor: "#FDFDFD", "& .MuiTableCell-root": { fontSize: "0.7rem" } }}>
+            <Table size="small" sx={COLUMN_TOOLTIP_STYLE}>
                 <TableBody>{tableRows}</TableBody>
             </Table>
         </TableContainer>
     );
 };
 
+const COLUMN_TOOLTIP_STYLE = {
+    backgroundColor: "var(--mui-palette-erd-tableBody)",
+    "& .MuiTableCell-root": { fontSize: "0.7rem" }
+} as const;
+
 const TABLE_TOOLTIP_STYLE = {
     tooltip: {
         sx: {
             maxWidth: "none",
             padding: 0,
-            backgroundColor: "#FDFDFD",
-            border: "1px solid rgba(0, 0, 0, 0.12)",
+            backgroundColor: "var(--mui-palette-erd-tableBody)",
+            border: "1px solid var(--mui-palette-erd-floatingBorder)",
             borderRadius: "10px",
-            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.35)"
+            boxShadow: "0 8px 24px var(--mui-palette-erd-floatingShadow)"
         }
     },
-    arrow: { sx: { color: "#FDFDFD" } }
+    arrow: { sx: { color: "var(--mui-palette-erd-tableBody)" } }
 } as const;
 
 type TableControlPanelProps = {
@@ -822,7 +831,7 @@ const TableControlPanel = ({
 
 
 const CONTROL_PANEL_STYLE = {
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    backgroundColor: "var(--mui-palette-erd-panelOverlay)",
     borderRadius: "10px"
 } as const;
 

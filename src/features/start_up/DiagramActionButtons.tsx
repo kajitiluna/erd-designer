@@ -40,7 +40,7 @@ const importButtonStyle = {
     fontSize: 15,
     padding: "14px 26px",
     borderRadius: "9px",
-    backgroundColor: "#fff",
+    backgroundColor: "background.paper",
     borderColor: "brand.borderButtonOutline",
     color: "primary.main",
     "&:hover": {

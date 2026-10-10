@@ -9,7 +9,7 @@ import { overrideColumnName } from "~/models/database/support";
 import TableModel from "~/models/database/TableModel";
 import ErdDocument from "~/models/ErdDocument";
 
-export const SELECTED_CELL_COLOR = "rgba(25, 118, 210, 0.22)";
+export const SELECTED_CELL_COLOR = "var(--mui-palette-erd-cellSelected)";
 
 export type ColumnWrapModel = {
     modelType: "single",

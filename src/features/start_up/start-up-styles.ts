@@ -1,7 +1,9 @@
 
 export const gradientStyle = {
-    background: "linear-gradient(180deg, #f6f3fa 0%, #ffffff 100%)",
-    borderBottom: "1px solid #efeaf4",
+    // sx の文字列はパレットパスとして解決されるため、グラデーションは StartUp 側の CSS 変数を直接参照する。
+    background: "linear-gradient(180deg, var(--startup-palette-brand-heroGradientStart) 0%, var(--startup-palette-brand-heroGradientEnd) 100%)",
+    borderBottom: "1px solid",
+    borderColor: "divider",
 };
 
 export const descriptionStyle = {
@@ -16,6 +18,6 @@ export const containedButtonStyle = {
     padding: "14px 28px",
     borderRadius: "9px",
     textTransform: "none",
-    boxShadow: "0 2px 8px rgba(58,33,90,.25)",
+    boxShadow: "0 2px 8px var(--startup-palette-brand-shadowButton)",
     "&:hover": { backgroundColor: "primary.dark" },
 };
