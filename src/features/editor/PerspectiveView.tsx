@@ -10,7 +10,9 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 import DraggableDialog from "~/components/DraggableDialog";
 import useAutoFocusInput from "~/components/useAutoFocusInput";
-import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
+import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
+import ThemePreferenceContext from "~/context/ThemePreferenceContext";
+import type { ColorTheme } from "~/models/ColorValue";
 import ErdDocument from "~/models/ErdDocument";
 import ColorValue from "~/models/ColorValue";
 import PerspectiveModel from "~/models/PerspectiveModel";
@@ -24,7 +26,9 @@ type PerspectiveViewProps = {
 };
 
 const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
-    const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const documentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const { colorTheme } = React.useContext(ThemePreferenceContext);
+
     const erdDocument: ErdDocument = documentsHolder.current();
     const erdSettingModel = erdDocument.erdSettingModel;
 
@@ -201,15 +205,15 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
         <Stack direction="column" sx={{ alignItems: "center", justifyContent: "flex-start" }}>
             {tableViewModels.map((tableViewModel, index) => (
                 initAttributeHeadCell(`table-${index}`, "table", tableViewModel.tableModel.physicalName,
-                    tableViewModel.headerColor.background, tableViewModel.headerColor.foreground)
+                    tableViewModel.headerColor.background, tableViewModel.headerColor.foreground, colorTheme)
             ))}
             {backMemos.map((memoViewModel, index) => (
                 initAttributeHeadCell(`back-memo-${index}`, "memo", memoViewModel.memo,
-                    memoViewModel.backgroundColor, memoViewModel.foregroundColor)
+                    memoViewModel.backgroundColor, memoViewModel.foregroundColor, colorTheme)
             ))}
             {frontMemos.map((memoViewModel, index) => (
                 initAttributeHeadCell(`front-memo-${index}`, "memo", memoViewModel.memo,
-                    memoViewModel.backgroundColor, memoViewModel.foregroundColor)
+                    memoViewModel.backgroundColor, memoViewModel.foregroundColor, colorTheme)
             ))}
         </Stack>
     );
@@ -306,7 +310,7 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
             {tableHeader}
             <Box sx={SCROLL_STYLE}>
                 <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "flex-start" }}>
-                    <Box sx={{ position: 'sticky', left: 0, zIndex: 1, borderRight: '1px solid #e0e0e0' }}>
+                    <Box sx={{ position: 'sticky', left: 0, zIndex: 1, borderRight: '1px solid var(--mui-palette-erd-cellBorder)' }}>
                         {attributeHeaders}
                     </Box>
                     <Box ref={columnScrollRef} onScroll={handleScroll} sx={{ overflow: 'auto' }}>
@@ -420,11 +424,10 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
 
 const BASE_CELL_STYLE: React.CSSProperties = {
     display: "flex",
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: "var(--mui-palette-erd-cellBorder)",
     borderBottomStyle: "solid",
     borderBottomWidth: "1px",
     borderCollapse: "separate",
-    colorScheme: "lightDark",
     padding: "6px 16px",
     alignItems: "center",
     textAlign: "left",
@@ -449,16 +452,14 @@ const initHeaderStyle = (width: number): React.CSSProperties => {
 
 const initAttributeHeadCell = (
     keyPrefix: string, recordType: string, recordName: string,
-    background: ColorValue, foreground: ColorValue
+    background: ColorValue, foreground: ColorValue, colorTheme: ColorTheme
 ) => {
     return (
         <Stack key={`perspective-table_attribute_${keyPrefix}`} direction="row" >
-            <Box sx={initTitleStyle(25, background, foreground)}>{recordType}</Box>
+            <Box sx={initTitleStyle(25, background, foreground, colorTheme)}>{recordType}</Box>
             <Box sx={{
-                ...initTitleStyle(170, background, foreground),
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap"
+                ...initTitleStyle(170, background, foreground, colorTheme),
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
             }}>{recordName}</Box>
         </Stack>
     );
@@ -470,23 +471,23 @@ const RECORD_TITLE_STYLE = {
 };
 
 const initTitleStyle = (
-    width: number, backgroundColor: ColorValue, foregroundColor: ColorValue
+    width: number, backgroundColor: ColorValue, foregroundColor: ColorValue, colorTheme: ColorTheme
 ): React.CSSProperties => {
     return {
         ...BASE_CELL_STYLE,
         minWidth: `${width}px`,
         maxWidth: `${width}px`,
-        backgroundColor: backgroundColor.toRgba(),
-        color: foregroundColor.toRgba()
+        backgroundColor: backgroundColor.toRgba(colorTheme),
+        color: foregroundColor.toRgba(colorTheme)
     };
 };
 
 const SCROLL_STYLE = {
     overflow: 'auto',
     '&::-webkit-scrollbar': { width: '8px', },
-    '&::-webkit-scrollbar-track': { background: '#f1f1f1', },
-    '&::-webkit-scrollbar-thumb': { background: '#c1c1c1', borderRadius: '4px', },
-    '&::-webkit-scrollbar-thumb:hover': { background: '#a8a8a8', }
+    '&::-webkit-scrollbar-track': { background: 'var(--mui-palette-erd-scrollbarTrack)', },
+    '&::-webkit-scrollbar-thumb': { background: 'var(--mui-palette-erd-scrollbarThumb)', borderRadius: '4px', },
+    '&::-webkit-scrollbar-thumb:hover': { background: 'var(--mui-palette-erd-scrollbarThumbHover)', }
 };
 
 type PerspectiveEditDialogProps = {

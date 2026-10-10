@@ -302,5 +302,8 @@ const toScalingPhase = (previous: ViewportScaleState): ViewportScaleState => {
 
 const buildLinearGradient = (degrees: number[]) =>
     degrees.map(degree =>
-        `linear-gradient(${degree}deg, #EFEFEF 0%, #EFEFEF 5%, rgba(255,255,255,0) 5%, rgba(255,255,255,0) 100%)`
+        `linear-gradient(${degree}deg, ${GRID_LINE_COLOR} 0%, ${GRID_LINE_COLOR} 5%, rgba(255,255,255,0) 5%, rgba(255,255,255,0) 100%)`
     ).join(", ");
+
+// React 外で style へ直接設定するため、テーマが生成する CSS 変数を参照する
+const GRID_LINE_COLOR = "var(--mui-palette-erd-gridLine)";

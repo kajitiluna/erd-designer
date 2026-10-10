@@ -14,11 +14,13 @@ import PortalCanvasContext from "~/context/PortalCanvasContext";
 import { SelectEntityContext } from "~/context/SelectEntityContext";
 import { DragActionContext } from "~/context/DragActionContext";
 import EditModeContext from "~/context/EditModeContext";
+import ThemePreferenceContext from "~/context/ThemePreferenceContext";
 import { EditModeType } from "~/models/EditMode";
 import ColorValue from "~/models/ColorValue";
 import { LabelPosition } from "~/models/LabelViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
 import ColorSelector from "~/components/ColorSelector";
+import { erdPalette } from "~/components/ErdTheme";
 import { handlePreventMouseEvent } from "~/features/canvas/support";
 
 import styleClasses from "./ErdCanvas.module.css";
@@ -42,6 +44,7 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
     const { toolbarCanvasElement, svgCanvasElement } = React.useContext(PortalCanvasContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
+    const { colorTheme } = React.useContext(ThemePreferenceContext);
 
     const [labelElement, labelRef] = useStateRef<HTMLDivElement>();
     const [stableAnchor, setStableAnchor] = React.useState<Point | null>(null);
@@ -198,12 +201,12 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
 
         const anchorLine = (
             <line x1={anchorPoint.x} y1={anchorPoint.y} x2={labelCenter.x} y2={labelCenter.y}
-                stroke="rgba(123, 31, 162, 0.3)" strokeWidth={1} strokeDasharray="4 3" />
+                stroke={erdPalette.of(colorTheme).labelHandleLine} strokeWidth={1} strokeDasharray="4 3" />
         );
         const anchorDot = (
             <div style={{
                 position: "absolute", left: `${anchorPoint.x - 4}px`, top: `${anchorPoint.y - 4}px`,
-                width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#7B1FA2",
+                width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "var(--mui-palette-erd-labelHandle)",
                 pointerEvents: "none"
             }} />
         );
@@ -223,7 +226,7 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
         fontSize: `${labelFont.fontSize / 10}em`, fontWeight: labelFont.bold ? 700 : 400,
         fontStyle: labelFont.italic ? "italic" : "normal",
         textDecoration: labelFont.strikethrough ? "line-through" : "none",
-        color: labelView.color.toHex(),
+        color: labelView.color.toHex(colorTheme),
         whiteSpace: "nowrap",
         cursor: "move", userSelect: "none", pointerEvents: "auto",
         zIndex: 90,
@@ -313,9 +316,9 @@ const useRelationLabelToolbar = ({
         display: "flex",
         alignItems: "center",
         gap: 2,
-        backgroundColor: "#fff",
+        backgroundColor: "var(--mui-palette-erd-panelBackground)",
         borderRadius: 4,
-        boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+        boxShadow: "0 1px 4px var(--mui-palette-erd-toolbarShadow)",
         padding: "2px 4px",
         transformOrigin: "top left",
         transform: `scale(${1 / scaleState.scale})`,
@@ -359,7 +362,7 @@ const useRelationLabelToolbar = ({
 };
 
 const FONT_SIZE_STYLE: React.CSSProperties = {
-    fontSize: 12, color: "#000",
+    fontSize: 12, color: "var(--mui-palette-erd-tableText)",
     minWidth: 20, textAlign: "center", lineHeight: "30px",
     userSelect: "none"
 };

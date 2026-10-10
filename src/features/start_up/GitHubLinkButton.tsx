@@ -83,11 +83,11 @@ const darkButtonStyle = {
     fontWeight: 500,
     padding: "5px 15px",
     borderRadius: "8px",
-    borderColor: "rgba(255,255,255,.25)",
-    color: "#fff",
+    borderColor: "brand.onPrimaryBorder",
+    color: "brand.appHeaderText",
     "&:hover": {
-        backgroundColor: "rgba(255,255,255,.1)",
-        borderColor: "rgba(255,255,255,.25)",
+        backgroundColor: "brand.onPrimaryHover",
+        borderColor: "brand.onPrimaryBorder",
     },
 } as const;
 
@@ -106,7 +106,8 @@ const lightCountStyle = {
 
 const darkCountStyle = {
     ...countBaseStyle,
-    borderLeft: "1px solid rgba(255,255,255,.25)",
+    borderLeft: "1px solid",
+    borderColor: "brand.onPrimaryBorder",
 } as const;
 
 export default GitHubLinkButton;

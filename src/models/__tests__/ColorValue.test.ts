@@ -44,9 +44,9 @@ describe('ColorValue', () => {
         test('should convert to rgba format with custom alpha', () => {
             const color = new ColorValue({ red: 255, green: 128, blue: 64 });
 
-            expect(color.toRgba(0.5)).toBe('rgba(255, 128, 64, 0.5)');
-            expect(color.toRgba(0)).toBe('rgba(255, 128, 64, 0)');
-            expect(color.toRgba(0.75)).toBe('rgba(255, 128, 64, 0.75)');
+            expect(color.toRgba('light', 0.5)).toBe('rgba(255, 128, 64, 0.5)');
+            expect(color.toRgba('light', 0)).toBe('rgba(255, 128, 64, 0)');
+            expect(color.toRgba('light', 0.75)).toBe('rgba(255, 128, 64, 0.75)');
         });
 
         test('should handle edge case RGB values', () => {
@@ -208,5 +208,107 @@ describe('ColorValue', () => {
             expect(() => ColorValue.toObject({}))
                 .toThrow(PropertyNotExistsError);
         });
+    });
+});
+
+const toLightness = (color: ColorValue): number => {
+    const max = Math.max(color.red, color.green, color.blue) / 255;
+    const min = Math.min(color.red, color.green, color.blue) / 255;
+    return (max + min) / 2;
+};
+
+const toHue = (color: ColorValue): number => {
+    const red = color.red / 255;
+    const green = color.green / 255;
+    const blue = color.blue / 255;
+    const max = Math.max(red, green, blue);
+    const delta = max - Math.min(red, green, blue);
+    if (max === red) {
+        return 60 * (((green - blue) / delta + 6) % 6);
+    }
+    if (max === green) {
+        return 60 * ((blue - red) / delta + 2);
+    }
+    return 60 * ((red - green) / delta + 4);
+};
+
+const SAMPLE_COLORS = [
+    new ColorValue({ red: 250, green: 250, blue: 250 }),
+    new ColorValue({ red: 33, green: 33, blue: 33 }),
+    new ColorValue({ red: 255, green: 235, blue: 238 }),
+    new ColorValue({ red: 183, green: 28, blue: 28 }),
+    new ColorValue({ red: 233, green: 30, blue: 99 }),
+    new ColorValue({ red: 74, green: 20, blue: 140 }),
+    new ColorValue({ red: 227, green: 242, blue: 253 })
+];
+
+describe("ColorValue to light", () => {
+    test("to は同一インスタンスを返す", () => {
+        const color = new ColorValue({ red: 12, green: 34, blue: 56 });
+
+        expect(color.to("light")).toBe(color);
+    });
+
+    test("toRgba / toHex の light 指定は既定値と一致する", () => {
+        const color = new ColorValue({ red: 12, green: 34, blue: 56 });
+
+        expect(color.toRgba("light")).toBe(color.toRgba());
+        expect(color.toRgba("light", 0.95)).toBe(color.toRgba(undefined, 0.95));
+        expect(color.toHex("light")).toBe(color.toHex());
+    });
+});
+
+describe("ColorValue to dark", () => {
+    test("黒は明るい灰になる", () => {
+        const converted = ColorValue.BLACK.to("dark");
+
+        expect(converted.toHex()).toBe("#E6E6E6");
+    });
+
+    test("白は暗い灰になる", () => {
+        const converted = ColorValue.WHITE.to("dark");
+
+        expect(converted.toHex()).toBe("#1A1A1A");
+    });
+
+    test("アルファは保持される", () => {
+        expect(ColorValue.BLACK.toRgba("dark", 0.95)).toBe("rgba(230, 230, 230, 0.95)");
+    });
+
+    test.each(SAMPLE_COLORS)("色相が保たれ、明度が [0.1, 0.9] に収まる (%#)", (color) => {
+        const converted = color.to("dark");
+        const lightness = toLightness(converted);
+
+        expect(lightness).toBeGreaterThanOrEqual(0.1 - 0.01);
+        expect(lightness).toBeLessThanOrEqual(0.9 + 0.01);
+        if ((toLightness(color) < 0.95) && (color.red !== color.green)) {
+            expect(Math.abs(toHue(converted) - toHue(color))).toBeLessThan(3);
+        }
+    });
+
+    test.each(SAMPLE_COLORS)("明度が写像式どおりに反転する (%#)", (color) => {
+        const converted = color.to("dark");
+        const expected = 0.1 + 0.8 * (1 - toLightness(color));
+
+        expect(Math.abs(toLightness(converted) - expected)).toBeLessThan(0.01);
+    });
+
+    test("二重適用しても有効な RGB のまま", () => {
+        const once = SAMPLE_COLORS[4].to("dark");
+        const twice = once.to("dark");
+
+        [twice.red, twice.green, twice.blue].forEach(channel => {
+            expect(channel).toBeGreaterThanOrEqual(0);
+            expect(channel).toBeLessThanOrEqual(255);
+            expect(Number.isInteger(channel)).toBe(true);
+        });
+    });
+
+    test("入力の ColorValue を変更しない", () => {
+        const color = new ColorValue({ red: 233, green: 30, blue: 99 });
+
+        color.to("dark");
+
+        expect(color.toHex()).toBe("#E91E63");
     });
 });

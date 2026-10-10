@@ -5,6 +5,8 @@ import RectangleViewModel from "~/models/RectangleViewModel";
 import TableModel from "~/models/database/TableModel";
 import TableViewModel from "~/models/TableViewModel";
 import SelectState from "~/models/SelectState";
+import { erdPalette } from "~/components/ErdTheme";
+import type { ColorTheme } from "~/models/ColorValue";
 import { CARDINALITY_MARKER } from "~/features/canvas/support";
 
 /**
@@ -16,19 +18,21 @@ import { CARDINALITY_MARKER } from "~/features/canvas/support";
 
 type Point = { x: number, y: number };
 
-const SELECTED_LINE_COLOR = "rgba(73, 76, 218, 1)";
-
 type CreateRelationLineArgs = {
     editMode: EditMode,
     relationEdge: Point | null,
     selectState: SelectState,
-    tableRectangles: Map<string, RectangleViewModel>
+    tableRectangles: Map<string, RectangleViewModel>,
+    colorTheme: ColorTheme
 };
 
 // リレーション作成にて、親テーブル指定後、子テーブルを指定する際に動的に表示するライン
 export const initCreatingRelationLine = ({
-    editMode, relationEdge, selectState, tableRectangles
+    editMode, relationEdge, selectState, tableRectangles, colorTheme
 }: CreateRelationLineArgs) => {
+    // SVG の属性では CSS 変数が書き出し時に解決されないため、解決済みの色を直接指定する
+    const selectionColor = erdPalette.of(colorTheme).selection;
+
     if (editMode !== EditModeType.CREATE_RELATION) {
         return (<></>);
     }
@@ -50,7 +54,7 @@ export const initCreatingRelationLine = ({
                 y1={parentRectangle.yCenter}
                 x2={relationEdge.x}
                 y2={relationEdge.y}
-                stroke={SELECTED_LINE_COLOR} strokeDasharray="4" strokeWidth="3">
+                stroke={selectionColor} strokeDasharray="4" strokeWidth="3">
                 <animate attributeName="stroke-dashoffset" from="24" to="0" dur="1s" repeatCount="indefinite" />
             </line>
         );
@@ -68,17 +72,18 @@ export const initCreatingRelationLine = ({
     ).join(" L");
 
     return (
-        <path d={drawingLine} fill="none" stroke={SELECTED_LINE_COLOR} strokeDasharray="4" strokeWidth="3">
+        <path d={drawingLine} fill="none" stroke={selectionColor} strokeDasharray="4" strokeWidth="3">
             <animate attributeName="stroke-dashoffset" from="24" to="0" dur="1s" repeatCount="indefinite" />
         </path>
     );
 };
 
 // リレーションの線の定義
-export const initRelationCardinalityDefinitions = () => {
-    const markerNone = (<circle cx="10" cy="15" r="10" fill="black" />);
-    const markerOne = (<line x1="25" y1="0" x2="25" y2="30" stroke="black" />);
-    const markerMany = (<path d="M 40,0 L 25,15 L 40,30" stroke="black" fill="none" />);
+export const initRelationCardinalityDefinitions = (colorTheme: ColorTheme) => {
+    const markerColor = erdPalette.of(colorTheme).lineMarker;
+    const markerNone = (<circle cx="10" cy="15" r="10" fill={markerColor} />);
+    const markerOne = (<line x1="25" y1="0" x2="25" y2="30" stroke={markerColor} />);
+    const markerMany = (<path d="M 40,0 L 25,15 L 40,30" fill="none" stroke={markerColor} />);
 
     return (
         <defs>

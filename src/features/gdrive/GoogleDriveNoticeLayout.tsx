@@ -1,25 +1,31 @@
 
 import React from "react";
 import { Box } from "@mui/material";
+import { ThemeProvider } from "@mui/material/styles";
 
 import ErdAppLogo from "~/features/regal/ErdAppLogo";
 import RegalFooter from "~/features/regal/RegalFooter";
 import { gradientStyle } from "~/features/start_up/start-up-styles";
+import startUpTheme from "~/features/start_up/StartUpTheme";
 
 type GdriveNoticeLayoutProp = {
     children: React.ReactNode
 };
 
 const GoogleDriveNoticeLayout = ({ children }: GdriveNoticeLayoutProp) => {
+    // 共通スタイル (start-up-styles) が StartUp 側の CSS 変数を参照するため、StartUp と同じテーマで包む。
+    // mode は外側 (App) の ThemeProvider から継承するため、ここでは保存を持たない。
     return (
-        <Box sx={PAGE_STYLE}>
-            <Box sx={CONTENT_STYLE} style={{ flex: 1 }}>
-                <ErdAppLogo />
-                {children}
-            </Box>
+        <ThemeProvider theme={startUpTheme} storageManager={null}>
+            <Box sx={PAGE_STYLE}>
+                <Box sx={CONTENT_STYLE} style={{ flex: 1 }}>
+                    <ErdAppLogo />
+                    {children}
+                </Box>
 
-            <RegalFooter />
-        </Box>
+                <RegalFooter />
+            </Box>
+        </ThemeProvider>
     );
 };
 

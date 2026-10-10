@@ -152,6 +152,9 @@ An object containing detailed document information:
   - tableId: The unique identifier of the table.
   - tableName: Object with physical and logical names.
   - view: Display settings including position, size, and color.
+    size has width, height and source: "drawn" is the size measured on the rendered canvas, "estimated" is
+    an approximation. A table occupies position to position + size; check the existing rectangles and keep
+    a margin before placing or moving tables.
 - relations: An array of relation objects, each containing:
   - uri: The URI to access detailed relation information.
   - relationId: The unique identifier of the relation.

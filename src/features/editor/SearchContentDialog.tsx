@@ -166,7 +166,7 @@ const BASE_ROW_STYLE = { '&:nth-of-type(odd)': { backgroundColor: 'action.hover'
 const BACKDROP_STYLE = {
     position: "absolute",
     backdropFilter: "blur(2px)",
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    backgroundColor: "var(--mui-palette-erd-dialogBackdrop)",
     zIndex: 1
 };
 

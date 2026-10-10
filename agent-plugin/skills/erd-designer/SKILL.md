@@ -60,6 +60,11 @@ CLI=<directory of this SKILL.md>/scripts/erd-agent.cjs
 - Create a brand-new `.erd` file with `run create-document`, pointing `--file` at a path that does
   not exist yet. `databaseType` is required and cannot be changed afterwards, so confirm the target
   database with the user first. The tool never overwrites an existing file.
+- Layout: before `add-table`, `move-table` or `move-rectangle`, run `list-tables` and note the
+  rectangle each table occupies (`view.position` to `view.position + view.size`). Choose a position
+  that overlaps none of them, with at least 80px of margin. `view.size.source: "estimated"` is an
+  approximation, so leave extra margin. Place related tables close together, and take memo
+  positions into account as well.
 
 ## Typical recipes
 

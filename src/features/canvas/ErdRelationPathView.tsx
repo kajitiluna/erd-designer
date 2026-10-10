@@ -14,6 +14,7 @@ import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityConte
 import { DragAction, DragActionContext } from "~/context/DragActionContext";
 import ViewportContext from "~/context/ViewportContext";
 import PortalCanvasContext from "~/context/PortalCanvasContext";
+import ThemePreferenceContext from "~/context/ThemePreferenceContext";
 import RelationModel from "~/models/database/RelationModel";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import RelationViewModel from "~/models/RelationViewModel";
@@ -21,6 +22,7 @@ import { EditModeType } from "~/models/EditMode";
 import ErdDocument from "~/models/ErdDocument";
 import ColorValue from "~/models/ColorValue";
 import ColorSelector from "~/components/ColorSelector";
+import { erdPalette } from "~/components/ErdTheme";
 import LineSelectorIcon from "~/components/icons/LineSelectorIcon";
 import LineWidthIcon from "~/components/icons/LineWidthIcon";
 import LineStraightIcon from "~/components/icons/LineStraightIcon";
@@ -337,7 +339,8 @@ const useRelationControlPanel = (
     const erdSetting = erdDocument.erdSettingModel;
 
     const controlPanel = (
-        <ButtonGroup variant="contained" size="small" sx={{ backgroundColor: "#FFFFFF" }}>
+        <ButtonGroup variant="contained" size="small"
+            sx={{ backgroundColor: "var(--mui-palette-erd-panelBackground)" }}>
             <ColorSelector key={`relation-color-selector_${relationView.relationId}`}
                 color={relationView.lineViewModel.color} callback={handleSetColor} />
             <Tooltip title="Edit style" placement="top-end">
@@ -406,6 +409,7 @@ const useStraightLineView = (
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
+    const { colorTheme } = React.useContext(ThemePreferenceContext);
 
     const [lineDragging, setLineDragging] = React.useState<LineDragging>({ on_dragging: false });
     const pendingDragEndHandlerRef = React.useRef<((event: MouseEvent) => void) | null>(null);
@@ -686,6 +690,8 @@ const useStraightLineView = (
 
     // ドラッグ可能な Edge を描画する
     const initSvgEdges = (relationView: RelationViewModel) => {
+        // 書き出し画像では CSS 変数が解決されないため、解決済みの色を属性として直接指定する
+        const palette = erdPalette.of(colorTheme);
         const edges = relationView.lineViewModel.edges;
 
         if ((selectState.relationId !== relationView.relationId) || (edges.length === 0)) {
@@ -700,7 +706,8 @@ const useStraightLineView = (
             return (
                 <rect key={`relation-line_${relationView.relationId}_edge-${index}`}
                     x={currentEdge.x - 5} y={currentEdge.y - 5}
-                    width="10" height="10" fill={onDragging ? "black" : "white"} stroke="black"
+                    width="10" height="10" stroke={palette.lineMarker}
+                    fill={onDragging ? palette.lineMarker : palette.canvasBackground}
                     className={initPathCss(relationView, onDragging) + " " + styleClasses.selectableSvg}
                     style={{ cursor: 'pointer', pointerEvents: "auto" }}
                     onMouseDown={initHandleDragEdgeStart(relationView.relationId, index)} />
@@ -812,7 +819,7 @@ const useStraightLineView = (
                     data-erd-relation-parent-table-id={relationModel.parentTableModelId}
                     data-erd-relation-child-table-id={relationModel.childTableModelId}>
                     <path d={lineSegment.drawingPath} className={cssClassName} fill="none"
-                        stroke={lineViewModel.color.toRgba()} strokeWidth={lineViewModel.strokeWidth}
+                        stroke={lineViewModel.color.toRgba(colorTheme)} strokeWidth={lineViewModel.strokeWidth}
                         markerStart={parentMarker} markerEnd={childMarker} />
                     {lineSegment.svgPaths}
                 </g>
@@ -909,6 +916,7 @@ const useOrthogonalLine = (
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
+    const { colorTheme } = React.useContext(ThemePreferenceContext);
 
     const pendingDragEndHandlerRef = React.useRef<((event: MouseEvent) => void) | null>(null);
 
@@ -1040,7 +1048,7 @@ const useOrthogonalLine = (
                     data-erd-relation-parent-table-id={relationModel.parentTableModelId}
                     data-erd-relation-child-table-id={relationModel.childTableModelId}>
                     <path d={drawingLine} fill="none"
-                        stroke={relationView.lineViewModel.color.toRgba()}
+                        stroke={relationView.lineViewModel.color.toRgba(colorTheme)}
                         strokeWidth={relationView.lineViewModel.strokeWidth}
                         markerStart={toMarkerId(relationModel.parentCardinality)}
                         markerEnd={toMarkerId(relationModel.childCardinality)}

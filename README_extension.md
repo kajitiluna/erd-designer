@@ -36,6 +36,13 @@ Inspired by [ERMaster](https://ermaster.sourceforge.net/index.html), built for t
 - **Perspectives** — Organize large schemas into multiple views (e.g., by module or feature) for better manageability
 - **Memo notes** — Add foreground/background memo notes to annotate your design
 
+### AI Agent Integration
+- **Agent plugin (CLI + skill)** — A plugin with a bundled CLI (for Claude Code and GitHub Copilot CLI)
+lets coding agents edit `.erd` files directly, with lower token overhead and no need to keep VS Code running.
+See the [GitHub repository](https://github.com/kajitiluna/erd-designer#ai-agent-integration-agent-plugin)
+- **MCP Server** — Alternatively, a built-in [Model Context Protocol](https://modelcontextprotocol.io/)
+server enables AI assistants like Claude to read and modify your ER diagrams programmatically.
+
 ### Column Reuse & Sharing
 - **Column Share Model** — Define a column once, reuse it across multiple tables. Type changes propagate automatically
 - **Column Groups** — Bundle commonly used columns (e.g., `created_at`, `updated_at`) and apply them to tables in bulk
@@ -57,13 +64,6 @@ Read-only (`SELECT` only), with CI-friendly exit codes
 
 See the [CLI reference](https://github.com/kajitiluna/erd-designer/blob/main/packages/erd-cli/README.md)
 for installation and all options.
-
-### AI Agent Integration
-- **Agent plugin (CLI + skill)** — A plugin with a bundled CLI (for Claude Code and GitHub Copilot CLI)
-lets coding agents edit `.erd` files directly, with lower token overhead and no need to keep VS Code running.
-See the [GitHub repository](https://github.com/kajitiluna/erd-designer#ai-agent-integration-agent-plugin)
-- **MCP Server** — Alternatively, a built-in [Model Context Protocol](https://modelcontextprotocol.io/)
-server enables AI assistants like Claude to read and modify your ER diagrams programmatically.
 
 ## Supported Databases
 

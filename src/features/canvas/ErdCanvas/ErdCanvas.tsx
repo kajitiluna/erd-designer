@@ -8,6 +8,7 @@ import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
 import { LocalSettingContext } from "~/context/LocalSettingContext";
 import PortalCanvasContext from "~/context/PortalCanvasContext";
+import ThemePreferenceContext from "~/context/ThemePreferenceContext";
 import { EditModeType } from "~/models/EditMode";
 import RectangleViewModel from "~/models/RectangleViewModel";
 import MemoViewModel from "~/models/MemoViewModel";
@@ -42,6 +43,7 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
     const { editMode, dispatchEditMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const { localSetting, dispatchLocalSetting } = React.useContext(LocalSettingContext);
+    const { colorTheme } = React.useContext(ThemePreferenceContext);
 
     const viewportRef = React.useRef<HTMLDivElement>(null);
     const erdCanvasRef = React.useRef<HTMLDivElement>(null);
@@ -124,7 +126,7 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
     // リレーション作成にて、親テーブル指定後、子テーブルを指定する際に動的に表示するライン
     const activeLine = initCreatingRelationLine({
         editMode, relationEdge, selectState: selectState,
-        tableRectangles: rectangleArea.tableRectangles
+        tableRectangles: rectangleArea.tableRectangles, colorTheme
     });
 
     // キャンバスがクリックされた時の制御を定義
@@ -332,7 +334,10 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
 
         setSvgPaths(targetElements.map(element => element.path));
         setRelationLabels(targetElements.map(element => element.label));
-    }, [selectState, dragState, rectangleArea, localSetting.visibleLineStyle, erdDocument, currentPerspective]);
+    }, [
+        selectState, dragState, rectangleArea, localSetting.visibleLineStyle,
+        erdDocument, currentPerspective, colorTheme
+    ]);
 
     // マウスカーソルのアイコン設定
     React.useLayoutEffect(() => {
@@ -376,7 +381,7 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
                 {backMemoViews}
 
                 <svg ref={svgCanvasRef} style={CANVAS_SVG_STYLE} viewBox={SVG_VIEW_BOX}>
-                    {initRelationCardinalityDefinitions()}
+                    {initRelationCardinalityDefinitions(colorTheme)}
                     {svgPaths}
                     {activeLine}
                 </svg>
@@ -421,7 +426,7 @@ const SVG_VIEW_BOX = `${-CANVAS_SIZE / 2} ${-CANVAS_SIZE / 2} ${CANVAS_SIZE} ${C
 
 const VIEWPORT_CONTAINER_STYLE: React.CSSProperties = {
     position: "relative", width: "100%", height: "100vh",
-    overflow: "hidden", backgroundColor: "white"
+    overflow: "hidden", backgroundColor: "var(--mui-palette-erd-canvasBackground)"
 } as const;
 
 const CANVAS_STYLE: React.CSSProperties = {

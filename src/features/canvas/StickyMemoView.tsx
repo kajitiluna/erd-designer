@@ -24,6 +24,7 @@ import { DragAction, DragActionContext } from "~/context/DragActionContext";
 import EditModeContext from "~/context/EditModeContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { LocalSettingContext } from "~/context/LocalSettingContext";
+import ThemePreferenceContext from "~/context/ThemePreferenceContext";
 import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
 import { handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
 import MemoViewModel, { AlignType } from "~/models/MemoViewModel";
@@ -52,6 +53,7 @@ const StickyMemoView = ({
     const { editMode } = React.useContext(EditModeContext);
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
+    const { colorTheme } = React.useContext(ThemePreferenceContext);
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
 
     const [stickyMemoEl, stickyMemoRef] = useStateRef<HTMLDivElement>();
@@ -215,7 +217,7 @@ const StickyMemoView = ({
             const textAreaStyle: React.CSSProperties = {
                 width: `${currentRectangle.width - STICKY_PADDING * 2}px`,
                 height: `${currentRectangle.height - STICKY_PADDING * 2}px`,
-                color: memoViewModel.foregroundColor.toRgba(),
+                color: memoViewModel.foregroundColor.toRgba(colorTheme),
                 fontSize: `${memoViewModel.fontSize / 10}em`, lineHeight: "1.0",
                 border: "none", background: "transparent", resize: "none", fontFamily: "inherit",
                 textAlign: memoViewModel.horizontalAlign,
@@ -231,7 +233,7 @@ const StickyMemoView = ({
         const memoLines = memoViewModel.memo.split("\n");
         const baseStyle: React.CSSProperties = {
             width: "100%", height: "100%",
-            color: memoViewModel.foregroundColor.toRgba(),
+            color: memoViewModel.foregroundColor.toRgba(colorTheme),
             fontSize: `${memoViewModel.fontSize / 10}em`, lineHeight: "1.0",
             border: "none", background: "transparent", resize: "none", fontFamily: "inherit",
             display: "flex", flexDirection: "column",
@@ -286,7 +288,7 @@ const StickyMemoView = ({
         position: "absolute", overflow: "visible", zIndex: zIndex(selected),
         left: `${physicalPosition.x}px`, top: `${physicalPosition.y}px`,
         display: "flex", flexDirection: "column", justifyContent: "flex-start",
-        boxShadow: selected ? "" : "0px 0px 7px 0px #bebebe",
+        boxShadow: selected ? "" : "0px 0px 7px 0px var(--mui-palette-erd-panelShadow)",
         // "&::-webkit-scrollbar": { display: "none" },
         msOverflowStyle: "none", scrollbarWidth: "none",
         ...((visible === false) && { opacity: 0, pointerEvents: 'none', userSelect: "none" })
@@ -294,7 +296,7 @@ const StickyMemoView = ({
     const stickyStyle: React.CSSProperties = {
         width: `${currentRectangle.width}px`,
         height: `${currentRectangle.height}px`,
-        backgroundColor: memoViewModel.backgroundColor.toRgba(),
+        backgroundColor: memoViewModel.backgroundColor.toRgba(colorTheme),
         // "&::-webkit-scrollbar": { display: "none" },
         msOverflowStyle: "none", scrollbarWidth: "none"
     };
@@ -534,7 +536,7 @@ const StickyControlPane = ({ memoViewModel, stickyDom, onSettingAction }: Sticky
     };
 
     const controlStyle: React.CSSProperties = {
-        backgroundColor: "rgba(255, 255, 255, 0.9)", borderRadius: "10px"
+        backgroundColor: "var(--mui-palette-erd-panelOverlay)", borderRadius: "10px"
     };
 
     const alignPanel = (showAlignPanel === false) ? null : (

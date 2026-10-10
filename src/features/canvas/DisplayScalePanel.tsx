@@ -84,13 +84,13 @@ const PANEL_STYLE = {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    border: "1px solid white",
+    border: "1px solid var(--mui-palette-erd-panelBorder)",
     borderRadius: "15px",
-    boxShadow: "5px 5px 30px 0px #bebebe",
+    boxShadow: "5px 5px 30px 0px var(--mui-palette-erd-panelShadow)",
     paddingTop: "5px",
     paddingBottom: "5px",
-    backgroundColor: "#FFFFFF"
-};
+    backgroundColor: "var(--mui-palette-erd-panelBackground)"
+} as const;
 
 const BUTTON_STYLE = { display: 'flex', flexDirection: 'row', height: '100%', width: '100%' };
 

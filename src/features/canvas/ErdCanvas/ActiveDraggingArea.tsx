@@ -11,7 +11,7 @@ import SelectState from "~/models/SelectState";
  * ErdCanvas 内部専用モジュール。外部からの import は禁止 (ESLint no-restricted-imports で検査)。
  */
 
-const SELECTED_COLOR = "rgba(73, 76, 218, 0.2)";
+const SELECTED_COLOR = "var(--mui-palette-erd-selectionArea)";
 
 type ActiveDraggingAreaProps = {
     editMode: EditMode,

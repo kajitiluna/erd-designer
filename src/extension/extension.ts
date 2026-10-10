@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import { ErmImportProvider, ERM_IMPORTER_VIEW_TYPE } from '~/extension/ErmImportProvider';
 import { ExtensionProvider } from '~/extension/ExtensionProvider';
 import { McpServerManager } from '~/extension/McpServerManager';
+import { ThemePreferenceBroadcaster } from '~/extension/ThemePreferenceBroadcaster';
 import { showVsCodeMessage } from '~/extension/vscode-message';
 import { VsCodeDocumentResource } from '~/extension/VsCodeDocumentResource';
 
@@ -12,7 +13,8 @@ const mcpManager = new McpServerManager(documentResource, showVsCodeMessage);
 export const activate = (context: vscode.ExtensionContext) => {
     console.info("ERD Designer extension is starting to activate.");
 
-    const provider = new ExtensionProvider(context, documentResource);
+    const themeBroadcaster = new ThemePreferenceBroadcaster(context.globalState);
+    const provider = new ExtensionProvider(context, documentResource, themeBroadcaster);
     const providerRegistration = vscode.window.registerCustomEditorProvider(
         'erdDesigner.erdEditor', provider,
         {

@@ -86,8 +86,9 @@ const StartUp = ({ documentStorage, onOpenDocument }: StartUpProp) => {
         onOpenSample: handleOpenSample
     });
 
+    // mode は外側 (App) の ThemeProvider から継承されるため、ここでは保存も既定値も持たない
     return (
-        <ThemeProvider theme={startUpTheme}>
+        <ThemeProvider theme={startUpTheme} storageManager={null}>
             {mainPanel}
 
             {(sampleLoadFailureMessage !== "") && (

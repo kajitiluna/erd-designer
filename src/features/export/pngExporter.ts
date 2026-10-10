@@ -2,7 +2,8 @@ import html2canvas from "html2canvas";
 import { ImageContent } from "~/context/ExportSpecificationContext";
 import { calculateImageArea } from "~/features/canvas/canvasArea";
 
-export const downloadPng = (erdCanvas: HTMLElement, exportImage: (contents: ImageContent) => void) => {
+/** Resolves after `exportImage` has been called with the captured image. */
+export const downloadPng = async (erdCanvas: HTMLElement, exportImage: (contents: ImageContent) => void) => {
     const orgTransform = erdCanvas.style.transform;
 
     erdCanvas.style.transform = "scale(1)";
@@ -27,18 +28,23 @@ export const downloadPng = (erdCanvas: HTMLElement, exportImage: (contents: Imag
         width: captureWidth,
         height: captureHeight,
         // cSpell:ignore onclone
-        onclone: (_doc: Document, element: HTMLElement) => {
+        onclone: (clonedDocument: Document, element: HTMLElement) => {
+            // 呼び出し側が light 強制で再描画済みだが、CSS 変数 (--mui-*) の解決元を確実にライトへ揃える保険。
+            clonedDocument.documentElement.classList.remove("dark");
+            clonedDocument.documentElement.classList.add("light");
             element.style.transform = "scale(1)";
+
             return rasterizeSvgOnClonedCanvas(element, contentLeft, contentTop, captureWidth, captureHeight);
         },
     };
 
-    html2canvas(erdCanvas, options).then(drawCanvas => {
-        const width = drawCanvas.width;
-        const height = drawCanvas.height;
-        const contents = drawCanvas.toDataURL("image/png");
-        exportImage({ base64Value: contents, width, height });
-    });
+    const drawCanvas = await html2canvas(erdCanvas, options);
+
+    const width = drawCanvas.width;
+    const height = drawCanvas.height;
+    const contents_1 = drawCanvas.toDataURL("image/png");
+
+    exportImage({ base64Value: contents_1, width, height });
 };
 
 const SVG_RASTERIZE_MARGIN = 100;
