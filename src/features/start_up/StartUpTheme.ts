@@ -1,3 +1,4 @@
+import { inputLabelClasses } from '@mui/material/InputLabel';
 import { createTheme } from '@mui/material/styles';
 
 interface BrandPalette {
@@ -109,6 +110,35 @@ const startUpTheme = createTheme({
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
     },
     components: {
+        // 未入力時にフィールド内へ出る label / placeholder は、入力値と色だけでなく字形(italic)でも区別する。
+        // error 状態の label は赤を保つため、色の上書き対象から外す。
+        MuiInputLabel: {
+            styleOverrides: {
+                root: ({ theme }) => {
+                    return {
+                        [`&:not(.${inputLabelClasses.shrink})`]: {
+                            fontStyle: 'italic',
+                        },
+                        [`&:not(.${inputLabelClasses.shrink}):not(.${inputLabelClasses.error})`]: {
+                            color: theme.vars.palette.brand.textMuted,
+                        },
+                    };
+                },
+            },
+        },
+        MuiInputBase: {
+            styleOverrides: {
+                input: ({ theme }) => {
+                    return {
+                        '&::placeholder': {
+                            color: theme.vars.palette.brand.textMuted,
+                            fontStyle: 'italic',
+                            opacity: 1,
+                        },
+                    };
+                },
+            },
+        },
         MuiButton: {
             defaultProps: {
                 disableElevation: true,
