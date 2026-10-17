@@ -6,7 +6,11 @@ import DbSchemaModel from "~/models/database/DbSchemaModel";
 import TableModel from "~/models/database/TableModel";
 import { overrideColumnName } from "~/models/database/support";
 import ColumnEntry from "~/models/database/ColumnEntry";
-import { ColumnListSpecGenerator, TableDetailSpecGenerator, TableListSpecGenerator } from "~/features/spec/spec-util";
+import {
+    ColumnListSpec, ColumnListSpecGenerator, OptionalColumnAttribute, TableDetailSpecGenerator,
+    TableListSpecGenerator, TableOptionSpec
+} from "~/features/spec/spec-util";
+import { Database } from "~/models/database";
 
 const createSpecification = (erdDocument: ErdDocument) => {
 
@@ -20,8 +24,23 @@ const createSpecification = (erdDocument: ErdDocument) => {
     // テーブル詳細
     const exportTableSpecs = initExportTableSpecsGenerator(erdDocument);
 
-    return { findSheetName, exportTables, exportColumns, exportTableSpecs };
+    // カラム一覧シートは文書全体での使用有無で列の出力を決める
+    const allColumnSpecs = Array.from(exportColumns());
+    const usedColumnAttributes = collectUsedColumnAttributes(allColumnSpecs);
+
+    return { findSheetName, exportTables, exportColumns, exportTableSpecs, usedColumnAttributes };
 };
+
+const collectUsedColumnAttributes = (columnSpecs: ColumnListSpec[]): OptionalColumnAttribute[] => {
+    return OPTIONAL_COLUMN_ATTRIBUTES.filter(attribute => {
+        return columnSpecs.some(columnSpec => (columnSpec[attribute] !== ""));
+    });
+};
+
+// 仕様書の列順(Character Set → Collate → Check Expression → Other Option Expression)を兼ねる。
+const OPTIONAL_COLUMN_ATTRIBUTES: readonly OptionalColumnAttribute[] = [
+    "characterSet", "collate", "checkExpression", "optionExpression"
+];
 
 const initSheetNameMapping = (erdDocument: ErdDocument) => {
     const defaultSchema = erdDocument.findDefaultSchema();
@@ -148,14 +167,16 @@ const initExportColumnGenerator = (
         logicalTableName: tableModel.logicalName
     };
 
+    const database = erdDocument.getDatabase();
+
     for (const columnModel of erdDocument.toAllColumnsWithStruct(tableModel)) {
-        const columnSpec = initColumnSpec(erdDocument, tableModel, columnModel, tableName);
+        const columnSpec = initColumnSpec(erdDocument, database, tableModel, columnModel, tableName);
         yield* columnSpec();
     }
 });
 
 const initColumnSpec = (
-    erdDocument: ErdDocument, tableModel: TableModel, columnModel: ColumnModel,
+    erdDocument: ErdDocument, database: Database, tableModel: TableModel, columnModel: ColumnModel,
     tableName: { physicalTableName: string, logicalTableName: string },
     columnNamePrefix: { physical: string, logical: string } = { physical: "", logical: "" }
 ): (() => ColumnListSpecGenerator) => (function* () {
@@ -180,7 +201,9 @@ const initColumnSpec = (
                 .filter(subColumn => (subColumn != null))
 
             for (const subColumn of subColumns) {
-                const subColumnSpec = initColumnSpec(erdDocument, tableModel, subColumn, tableName, subColumnPrefix);
+                const subColumnSpec = initColumnSpec(
+                    erdDocument, database, tableModel, subColumn, tableName, subColumnPrefix
+                );
                 yield* subColumnSpec();
             }
         }
@@ -211,8 +234,17 @@ const initColumnSpec = (
         defaultValue: columnModel.defaultValue,
         foreignRelation: initForeignRelation(erdDocument, parentRelation),
         description: columnShare.description,
+        characterSet: columnShare.characterSet(database),
+        collate: columnShare.collate,
+        checkExpression: initColumnCheckExpression(columnShare.checkExpression, overrideName.physicalName),
+        optionExpression: columnShare.optionExpression,
     };
 });
+
+// 仕様書にはエスケープ前の物理名を出す。replace に関数を渡すのは、物理名中の `$` が置換パターンとして解釈されないようにするため。
+const initColumnCheckExpression = (checkExpression: string, physicalName: string): string => {
+    return checkExpression.replace(/\$\{this\}/g, () => physicalName);
+};
 
 const toColumnModelIds = (erdDocument: ErdDocument, columnEntry: ColumnEntry) => {
     if (columnEntry.modelType === "single") {
@@ -247,6 +279,10 @@ const initStructColumnSpec = (
         defaultValue: "",
         foreignRelation: null,
         description: structShare.description,
+        characterSet: "",
+        collate: "",
+        checkExpression: "",
+        optionExpression: "",
     };
 };
 
@@ -291,16 +327,62 @@ const initExportTableSpecsGenerator = (
         const exportUniqueKeys = initExportUniqueKeysConstraintsGenerator(erdDocument, tableModel);
         const exportTableIndexes = initExportTableIndexesGenerator(erdDocument, tableModel);
 
+        // テーブルシートは、そのテーブル内での使用有無で列の出力を決める
+        const tableColumnSpecs = Array.from(exportColumns());
+        const usedColumnAttributes = collectUsedColumnAttributes(tableColumnSpecs);
+        const tableOptions = initTableOptionSpec(erdDocument, tableModel, erdDocument.getDatabase());
+
         yield {
             physicalName: initTablePhysicalName(tableModel, schemaModel),
             logicalName: tableModel.logicalName,
             description: tableModel.description,
+            usedColumnAttributes: usedColumnAttributes,
+            tableOptions: tableOptions,
             exportColumns: exportColumns,
             exportUniqueKeys: exportUniqueKeys,
             exportTableIndexes: exportTableIndexes
         };
     }
 });
+
+// 文字セットと照合順序は DB の能力フラグで絞る。非対応 DB で保存済みファイルに残った値を仕様書に出さないため。
+const initTableOptionSpec = (
+    erdDocument: ErdDocument, tableModel: TableModel, database: Database
+): TableOptionSpec => {
+    const outputsCharacterSet = database.supportsTableCollate && database.editableCharacterSet;
+
+    return {
+        characterSet: outputsCharacterSet ? tableModel.characterSet : "",
+        collate: database.supportsTableCollate ? tableModel.collate : "",
+        checkExpression: initTableCheckExpression(erdDocument, tableModel),
+        definitionExpression: tableModel.definitionExpression,
+        optionExpression: tableModel.optionExpression,
+    };
+};
+
+// テーブル内の単純カラムの物理名と一致する `${name}` のみ対象とし、不一致は原文のまま残す。
+// 仕様書は読み手向けのため、DDL と異なり置換結果をエスケープせずエスケープ前の物理名を出す(カラムの check 式と同じ方針)。
+const initTableCheckExpression = (erdDocument: ErdDocument, tableModel: TableModel): string => {
+    if (tableModel.checkExpression === "") {
+        return "";
+    }
+
+    const physicalNames = erdDocument.toAllColumnsExceptStruct(tableModel)
+        .map(columnModel => {
+            const columnShare = erdDocument.findColumnShareModel(columnModel.columnShareModelId);
+            if (columnShare == null) {
+                return null;
+            }
+
+            return overrideColumnName(columnModel, columnShare).physicalName;
+        })
+        .filter(physicalName => (physicalName != null));
+    const physicalNameSet = new Set(physicalNames);
+
+    return tableModel.checkExpression.replace(/\$\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g, (placeholder, name: string) => {
+        return physicalNameSet.has(name) ? name : placeholder;
+    });
+};
 
 const initExportUniqueKeysConstraintsGenerator = (
     erdDocument: ErdDocument, tableModel: TableModel

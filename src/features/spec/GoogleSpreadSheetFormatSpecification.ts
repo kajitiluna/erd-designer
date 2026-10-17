@@ -1,7 +1,7 @@
 import createSpecification from "~/features/spec/create-specification";
 import {
-    autoIncrementLabel, ColumnListSpecGenerator, TableDetailSpec, TableIndexSpec, TableListSpecGenerator,
-    UniqueKeyConstraintSpec
+    autoIncrementLabel, ColumnListSpecGenerator, OptionalColumnAttribute, TableDetailSpec, TableIndexSpec,
+    TableListSpecGenerator, TableOptionSpec, UniqueKeyConstraintSpec
 } from "~/features/spec/spec-util";
 import { Database, DatabaseType } from "~/models/database";
 import ErdDocument from "~/models/ErdDocument";
@@ -13,7 +13,7 @@ const exportSpreadSheetFormatSpecification = (erdDocument: ErdDocument) => {
     // テーブル一覧のシート
     const tableSheet = createTableListSheet(specs.exportTables);
     // カラム一覧のシート
-    const columnSheet = createColumnListSheet(databaseType, specs.exportColumns);
+    const columnSheet = createColumnListSheet(databaseType, specs.usedColumnAttributes, specs.exportColumns);
 
     // 各テーブル定義のシート
     const tableSpecSheetsWithMergeRange = Array.from(specs.exportTableSpecs())
@@ -62,16 +62,20 @@ const createTableListSheet = (exportTables: () => TableListSpecGenerator) => {
 };
 
 const createColumnListSheet = (
-    databaseType: DatabaseType, exportColumns: () => ColumnListSpecGenerator
+    databaseType: DatabaseType, usedColumnAttributes: readonly OptionalColumnAttribute[],
+    exportColumns: () => ColumnListSpecGenerator
 ) => {
     return initListSheet({
         title: SHEET_NAME.ATTRIBUTES,
-        headers: initColumnHeader(databaseType),
+        headers: initColumnHeader(databaseType, usedColumnAttributes),
         rows: Array.from(exportColumns())
     });
 };
 
-const initColumnHeader = (databaseType: DatabaseType, withTableInfo: boolean = true): GridHeaderInfo[] => {
+const initColumnHeader = (
+    databaseType: DatabaseType, usedColumnAttributes: readonly OptionalColumnAttribute[],
+    withTableInfo: boolean = true
+): GridHeaderInfo[] => {
     const header0 = withTableInfo ? [
         { title: "TableName (physical)", key: "physicalTableName", width: 180 },
         { title: "TableName (logical)", key: "logicalTableName", width: 180 }
@@ -104,7 +108,23 @@ const initColumnHeader = (databaseType: DatabaseType, withTableInfo: boolean = t
         { title: "Description", key: "description", wrapText: true, width: 350 },
     ];
 
-    return [...header0, ...header1, ...header2, ...header3];
+    // 使用有無に依らず基本列の位置を固定するため、使用されている属性の列だけを最終列(Description)の右側に足す。
+    const header4 = [
+        ...(usedColumnAttributes.includes("characterSet") ? [
+            { title: "Character Set", key: "characterSet", width: 90 }
+        ] : []),
+        ...(usedColumnAttributes.includes("collate") ? [
+            { title: "Collate", key: "collate", width: 120 }
+        ] : []),
+        ...(usedColumnAttributes.includes("checkExpression") ? [
+            { title: "Check Expression", key: "checkExpression", wrapText: true, width: 200 }
+        ] : []),
+        ...(usedColumnAttributes.includes("optionExpression") ? [
+            { title: "Other Option Expression", key: "optionExpression", wrapText: true, width: 200 }
+        ] : []),
+    ];
+
+    return [...header0, ...header1, ...header2, ...header3, ...header4];
 };
 
 const createTableSpecSheet = (databaseType: DatabaseType, tableSpec: TableDetailSpec) => {
@@ -127,7 +147,7 @@ const createTableSpecSheet = (databaseType: DatabaseType, tableSpec: TableDetail
         rowData: [{ values: [initBoldCell("Columns Specification")] }],
     };
 
-    const columnsHeader = initColumnHeader(databaseType, false);
+    const columnsHeader = initColumnHeader(databaseType, tableSpec.usedColumnAttributes, false);
     const { rowData: columnRowData, columnMetadata } = doInitGridContent({
         headers: columnsHeader, rows: Array.from(tableSpec.exportColumns())
     });
@@ -185,11 +205,32 @@ const createTableSpecSheet = (databaseType: DatabaseType, tableSpec: TableDetail
         subTableMergeRanges.push(...mergeRanges);
     }
 
+    // currentEndRow は直前セクション末尾の空行を指す。インデックスが無い場合、tableIndexStartRow は未出力の
+    // タイトル行の次を指すため、更新しない。
+    if (tableIndexGrids.length > 0) {
+        currentEndRow = tableIndexStartRow - 1;
+    }
+
+    // テーブルオプション定義(値のある項目が無ければセクションごと出力しない)
+    const tableOptionRecords = initTableOptionRecords(tableSpec.tableOptions);
+    const tableOptionGridTitle = {
+        startRow: currentEndRow + 1,
+        startColumn: 0,
+        rowData: [{ values: [initBoldCell("Table Options Specification")] }],
+    };
+    const { gridData: tableOptionGrid, mergeRanges: tableOptionMergeRanges } = initTableOptionContent(
+        tableOptionGridTitle.startRow + 1, columnsHeader.length, tableOptionRecords
+    );
+    const tableOptionGrids = (tableOptionRecords.length > 0) ? [tableOptionGridTitle, tableOptionGrid] : [];
+    subTableMergeRanges.push(...tableOptionMergeRanges);
+
     const sheetProperty = {
         title: tableSpec.physicalName,
         sheetType: "GRID",
         gridProperties: {
-            rowCount: (tableIndexGrids.length > 0) ? tableIndexStartRow : tableIndexStartRow - 1,
+            rowCount: (tableOptionRecords.length > 0)
+                ? tableOptionGrid.startRow + tableOptionGrid.rowData.length
+                : currentEndRow + 1,
             columnCount: columnsHeader.length,
             frozenRowCount: 1,
             frozenColumnCount: 1
@@ -200,9 +241,45 @@ const createTableSpecSheet = (databaseType: DatabaseType, tableSpec: TableDetail
         properties: sheetProperty,
         data: [totalSummary, columnGridTitle, columnSummary]
             .concat((uniqueKeyGrids.length > 0) ? [uniqueKeyGridTitle, ...uniqueKeyGrids] : [])
-            .concat((tableIndexGrids.length > 0) ? [tableIndexGridTitle, ...tableIndexGrids] : []),
+            .concat((tableIndexGrids.length > 0) ? [tableIndexGridTitle, ...tableIndexGrids] : [])
+            .concat(tableOptionGrids),
         mergeRanges: summaryMergeRanges.concat(subTableMergeRanges)
     };
+};
+
+type TableOptionRecord = { title: string, value: string };
+
+const initTableOptionRecords = (tableOptions: TableOptionSpec): TableOptionRecord[] => {
+    const records: TableOptionRecord[] = [
+        { title: "Character Set", value: tableOptions.characterSet },
+        { title: "Collate", value: tableOptions.collate },
+        { title: "Check Expression", value: tableOptions.checkExpression },
+        { title: "Other Definition Expression", value: tableOptions.definitionExpression },
+        { title: "Other Table Option Expression", value: tableOptions.optionExpression },
+    ];
+
+    return records.filter(record => (record.value !== ""));
+};
+
+const initTableOptionContent = (startRow: number, columnCount: number, records: TableOptionRecord[]) => {
+    const contents = doInitVerticalGridContent(records);
+    const gridData = {
+        startRow: startRow,
+        startColumn: 0,
+        ...contents
+    };
+
+    // 値セルを最終列まで結合する(テーブル定義サマリと同じ構成)
+    const mergeRanges = records.map((_, index) => {
+        return {
+            startRowIndex: startRow + index,
+            endRowIndex: startRow + index + 1,
+            startColumnIndex: 1,
+            endColumnIndex: columnCount
+        };
+    });
+
+    return { gridData, mergeRanges };
 };
 
 const initUniqueKeyConstraintContent = (
@@ -261,11 +338,12 @@ const initUniqueKeyConstraintContent = (
 const initTableIndexContent = (
     startRow: number, databaseType: DatabaseType, tableIndexSpec: TableIndexSpec
 ) => {
+    const showsNullsOrder = (databaseType === "postgres");
     const subHeaders = [
         { title: "ColumnName (physical)", key: "physicalName" },
         { title: "Sort Order", key: "sortOrder" }
     ];
-    if (databaseType === "postgres") {
+    if (showsNullsOrder) {
         subHeaders.push({ title: "NULLS Order", key: "nullsOrder" });
     }
 
@@ -288,7 +366,7 @@ const initTableIndexContent = (
     };
 
     // セル結合の情報
-    const endColumnIndex = (subHeaders.length) === 2 ? 3 : 5;
+    const endColumnIndex = showsNullsOrder ? 5 : 3;
     const mergeRanges = [
         { startRowIndex: startRow, endRowIndex: startRow + 1, startColumnIndex: 1, endColumnIndex },
         { startRowIndex: startRow + 1, endRowIndex: startRow + 2, startColumnIndex: 1, endColumnIndex },
@@ -299,7 +377,7 @@ const initTableIndexContent = (
             startColumnIndex: 0, endColumnIndex: 1
         },
     ].concat(
-        (databaseType === "mysql") ? [] : [
+        showsNullsOrder ? [
             { startRowIndex: startRow + 4, endRowIndex: startRow + 5, startColumnIndex: 3, endColumnIndex },
             ...tableIndexSpec.indexedColumns.map((_, index) => {
                 return {
@@ -309,7 +387,7 @@ const initTableIndexContent = (
                     endColumnIndex
                 };
             })
-        ]
+        ] : []
     );
 
     return { gridData, mergeRanges };

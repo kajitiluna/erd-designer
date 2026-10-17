@@ -1,3 +1,4 @@
+import { inputLabelClasses } from '@mui/material/InputLabel';
 import { createTheme } from '@mui/material/styles';
 
 import type { ColorTheme } from '~/models/ColorValue';
@@ -48,6 +49,7 @@ export interface ErdPalette {
   dialogBackdrop: string;
   colorChipGlow: string;
   colorChipGlowStrong: string;
+  inputHintText: string;
 }
 
 declare module '@mui/material/styles' {
@@ -104,6 +106,7 @@ const lightErdPalette: ErdPalette = {
   dialogBackdrop: 'rgba(255, 255, 255, 0.3)',
   colorChipGlow: 'rgb(50, 50, 50)',
   colorChipGlowStrong: 'rgba(0, 0, 0, 1)',
+  inputHintText: 'rgba(0, 0, 0, 0.38)',
 };
 
 const darkErdPalette: ErdPalette = {
@@ -151,6 +154,7 @@ const darkErdPalette: ErdPalette = {
   dialogBackdrop: 'rgba(0, 0, 0, 0.3)',
   colorChipGlow: 'rgba(255, 255, 255, 0.6)',
   colorChipGlowStrong: 'rgba(255, 255, 255, 0.9)',
+  inputHintText: 'rgba(204, 204, 204, 0.45)',
 };
 
 const erdTheme = createTheme({
@@ -184,6 +188,35 @@ const erdTheme = createTheme({
     },
   },
   components: {
+    // 未入力時にフィールド内へ出る label / placeholder は、入力値と色だけでなく字形(italic)でも区別する。
+    // error 状態の label は赤を保つため、色の上書き対象から外す。
+    MuiInputLabel: {
+      styleOverrides: {
+        root: ({ theme }) => {
+          return {
+            [`&:not(.${inputLabelClasses.shrink})`]: {
+              fontStyle: 'italic',
+            },
+            [`&:not(.${inputLabelClasses.shrink}):not(.${inputLabelClasses.error})`]: {
+              color: theme.vars.palette.erd.inputHintText,
+            },
+          };
+        },
+      },
+    },
+    MuiInputBase: {
+      styleOverrides: {
+        input: ({ theme }) => {
+          return {
+            '&::placeholder': {
+              color: theme.vars.palette.erd.inputHintText,
+              fontStyle: 'italic',
+              opacity: 1,
+            },
+          };
+        },
+      },
+    },
     MuiTooltip: {
       styleOverrides: {
         tooltip: {

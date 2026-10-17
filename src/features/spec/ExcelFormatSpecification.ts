@@ -3,8 +3,8 @@ import ExcelJS from "exceljs";
 import { ImageContent } from "~/context/ExportSpecificationContext";
 import createSpecification from "~/features/spec/create-specification";
 import {
-    autoIncrementLabel, ColumnListSpecGenerator, TableIndexSpec, TableListSpecGenerator,
-    TableDetailSpec, TableDetailSpecGenerator, UniqueKeyConstraintSpec
+    autoIncrementLabel, ColumnListSpecGenerator, OptionalColumnAttribute, TableIndexSpec, TableListSpecGenerator,
+    TableDetailSpec, TableDetailSpecGenerator, TableOptionSpec, UniqueKeyConstraintSpec
 } from "~/features/spec/spec-util";
 import { Database, DatabaseType } from "~/models/database";
 import ErdDocument from "~/models/ErdDocument";
@@ -22,7 +22,7 @@ const exportExcelFormatSpecification = async (erdDocument: ErdDocument, image: I
     // テーブル一覧のシート追加
     addTableListSheet(workbook, specs.exportTables);
     // カラム一覧のシート追加
-    addColumnListSheet(workbook, databaseType, specs.exportColumns);
+    addColumnListSheet(workbook, databaseType, specs.usedColumnAttributes, specs.exportColumns);
 
     // 各テーブル定義のシート追加
     for (const tableSpec of specs.exportTableSpecs()) {
@@ -173,11 +173,12 @@ const addTableListSheet = (workbook: ExcelJS.Workbook, exportTables: () => Table
 
 
 const addColumnListSheet = (
-    workbook: ExcelJS.Workbook, databaseType: DatabaseType, exportColumns: () => ColumnListSpecGenerator
+    workbook: ExcelJS.Workbook, databaseType: DatabaseType,
+    usedColumnAttributes: readonly OptionalColumnAttribute[], exportColumns: () => ColumnListSpecGenerator
 ) => {
     const columnSheet = workbook.addWorksheet(SHEET_NAME.ATTRIBUTES);
 
-    const columnsHeader = initColumnHeader(databaseType);
+    const columnsHeader = initColumnHeader(databaseType, usedColumnAttributes);
     columnSheet.columns = columnsHeader;
     columnSheet.getRow(1).eachCell(cell => {
         cell.font = { bold: true };
@@ -218,7 +219,10 @@ const addColumnListSheet = (
     setPrintArea(columnSheet);
 };
 
-const initColumnHeader = (databaseType: DatabaseType, withTableInfo: boolean = true): Partial<ExcelJS.Column>[] => {
+const initColumnHeader = (
+    databaseType: DatabaseType, usedColumnAttributes: readonly OptionalColumnAttribute[],
+    withTableInfo: boolean = true
+): Partial<ExcelJS.Column>[] => {
     const centerAlignmentStyle: Partial<ExcelJS.Style> = { alignment: { horizontal: 'center' } };
 
     const header0: Partial<ExcelJS.Column>[] = withTableInfo ? [
@@ -254,7 +258,24 @@ const initColumnHeader = (databaseType: DatabaseType, withTableInfo: boolean = t
         { header: "Description", key: "description", width: 50, style: { alignment: { wrapText: true } } },
     ];
 
-    return [...header0, ...header1, ...header2, ...header3];
+    // 使用有無に依らず基本列の位置を固定するため、使用されている属性の列だけを最終列(Description)の右側に足す。
+    const wrapTextStyle: Partial<ExcelJS.Style> = { alignment: { wrapText: true } };
+    const header4: Partial<ExcelJS.Column>[] = [
+        ...(usedColumnAttributes.includes("characterSet") ? [
+            { header: "Character Set", key: "characterSet", width: 15 }
+        ] : []),
+        ...(usedColumnAttributes.includes("collate") ? [
+            { header: "Collate", key: "collate", width: 20 }
+        ] : []),
+        ...(usedColumnAttributes.includes("checkExpression") ? [
+            { header: "Check Expression", key: "checkExpression", width: 30, style: wrapTextStyle }
+        ] : []),
+        ...(usedColumnAttributes.includes("optionExpression") ? [
+            { header: "Other Option Expression", key: "optionExpression", width: 30, style: wrapTextStyle }
+        ] : []),
+    ];
+
+    return [...header0, ...header1, ...header2, ...header3, ...header4];
 };
 
 const addTableSpecs = (
@@ -262,7 +283,7 @@ const addTableSpecs = (
 ) => {
     const tableSheet = workbook.addWorksheet(sheetName);
 
-    const columnsHeader = initColumnHeader(databaseType, false);
+    const columnsHeader = initColumnHeader(databaseType, tableSpec.usedColumnAttributes, false);
     tableSheet.columns = columnsHeader;
     tableSheet.getRow(1).eachCell(cell => {
         cell.font = { bold: true };
@@ -328,23 +349,103 @@ const addTableSpecs = (
 
     // インデクス定義の追加
     const tableIndexSpecs = Array.from(tableSpec.exportTableIndexes());
-    if (tableIndexSpecs.length === 0) {
-        setPrintArea(tableSheet);
-        return;
+    if (tableIndexSpecs.length > 0) {
+        tableSheet.addRow(["Indexes Specification"]);
+        const indexTitleCell = tableSheet.getCell(nextTitleRowNumber, 1);
+        indexTitleCell.font = { bold: true };
+
+        let tableIndexRowNumber = nextTitleRowNumber + 1;
+        for (const tableIndexSpec of tableIndexSpecs) {
+            const shiftRows = doAddIndexSpecForTable(tableSheet, tableIndexRowNumber, databaseType, tableIndexSpec);
+            tableIndexRowNumber += shiftRows;
+        }
+
+        nextTitleRowNumber = tableIndexRowNumber;
     }
 
-    tableSheet.addRow(["Indexes Specification"]);
-    const indexTitleCell = tableSheet.getCell(nextTitleRowNumber, 1);
-    indexTitleCell.font = { bold: true };
+    // テーブルオプション定義の追加(値のある項目が無ければセクションごと出力しない)
+    const tableOptionRecords = initTableOptionRecords(tableSpec.tableOptions);
+    if (tableOptionRecords.length > 0) {
+        tableSheet.addRow(["Table Options Specification"]);
+        const tableOptionTitleCell = tableSheet.getCell(nextTitleRowNumber, 1);
+        tableOptionTitleCell.font = { bold: true };
 
-    let tableIndexRowNumber = nextTitleRowNumber + 1;
-    for (const tableIndexSpec of tableIndexSpecs) {
-        const shiftRows = doAddIndexSpecForTable(tableSheet, tableIndexRowNumber, databaseType, tableIndexSpec);
-        tableIndexRowNumber += shiftRows;
+        doAddTableOptionSpecForTable(tableSheet, nextTitleRowNumber + 1, columnsHeader.length, tableOptionRecords);
     }
 
     setPrintArea(tableSheet);
 };
+
+type TableOptionRecord = { title: string, value: string };
+
+const initTableOptionRecords = (tableOptions: TableOptionSpec): TableOptionRecord[] => {
+    const records: TableOptionRecord[] = [
+        { title: "Character Set", value: tableOptions.characterSet },
+        { title: "Collate", value: tableOptions.collate },
+        { title: "Check Expression", value: tableOptions.checkExpression },
+        { title: "Other Definition Expression", value: tableOptions.definitionExpression },
+        { title: "Other Table Option Expression", value: tableOptions.optionExpression },
+    ];
+
+    return records.filter(record => (record.value !== ""));
+};
+
+const doAddTableOptionSpecForTable = (
+    tableSheet: ExcelJS.Worksheet, startRowNumber: number, columnCount: number, records: TableOptionRecord[]
+) => {
+    const optionRows = records.map(record => [record.title, record.value]);
+    tableSheet.addRows(optionRows);
+
+    // 値は複数行や長い式を含み得る。結合セルは行高が自動調整されないため、結合幅での折り返しを見積もって高さを確保する
+    const mergeEndColumn = columnAlphabet(columnCount);
+    const mergedWidth = sumMergedColumnWidth(tableSheet, columnCount);
+    records.forEach((record, index) => {
+        const rowNumber = startRowNumber + index;
+        const lineCount = estimateWrappedLineCount(record.value, mergedWidth);
+        const optionRow = tableSheet.getRow(rowNumber);
+        if (lineCount > 1) {
+            optionRow.height = lineCount * 15;
+        }
+
+        tableSheet.mergeCells(`B${rowNumber}:${mergeEndColumn}${rowNumber}`);
+        optionRow.getCell(2).alignment = { wrapText: true };
+
+        const titleCell = optionRow.getCell(1);
+        titleCell.font = { bold: true };
+        titleCell.fill = HEADER_FILL;
+    });
+
+    setTableBorders(tableSheet, {
+        headerRowNumber: startRowNumber,
+        recordCount: records.length,
+        columnCount: columnCount,
+        header: "vertical"
+    });
+};
+
+// 値セルは 2 列目から columnCount 列目までを結合する。幅未設定の列は ExcelJS の既定幅で描画されるため同値で扱う。
+const sumMergedColumnWidth = (tableSheet: ExcelJS.Worksheet, columnCount: number): number => {
+    const mergedColumns = tableSheet.columns.slice(1, columnCount);
+    const totalWidth = mergedColumns.reduce((sum, column) => {
+        return sum + (column.width ?? EXCEL_DEFAULT_COLUMN_WIDTH);
+    }, 0);
+
+    return Math.max(totalWidth, 1);
+};
+
+// 全角など非 ASCII 文字は半角の 2 倍幅として数え、論理行ごとに結合幅で折り返した行数を合算する。
+const estimateWrappedLineCount = (value: string, mergedWidth: number): number => {
+    return value.split("\n").reduce((lineCount, logicalLine) => {
+        const visualWidth = Array.from(logicalLine).reduce((sum, character) => {
+            const codePoint = character.codePointAt(0) ?? 0;
+            return sum + ((codePoint > 0x7f) ? 2 : 1);
+        }, 0);
+
+        return lineCount + Math.max(1, Math.ceil(visualWidth / mergedWidth));
+    }, 0);
+};
+
+const EXCEL_DEFAULT_COLUMN_WIDTH = 9;
 
 const doAddUniqueKeySpecForTable = (
     tableSheet: ExcelJS.Worksheet, startRowNumber: number,
