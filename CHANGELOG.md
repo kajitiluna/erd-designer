@@ -6,6 +6,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.20261017] - 2026-10-17
+
+### Added
+
+- **Character set, collation, and DDL expressions in the specification export**:
+
+  Excel and Google Sheets specifications now include the options that appear in the DDL:
+  - The column list and each table sheet add Character Set, Collate, Check Expression,
+    and Other Option Expression columns to the right of Description, only when at least one column uses them.
+  - Each table sheet adds a "Table Options Specification" section with the table's character set, collation,
+    check expression, other definition expression, and other table option expression, listing only the values that are set.
+  - In a column's check expression, `${this}` is replaced with the column's physical name.
+    In a table's check expression, `${<physical column name>}` is replaced when it matches a simple column of the table;
+    any other placeholder is left as written.
+    Unlike the DDL, the physical names are shown unescaped.
+
+### Changed
+
+- **Empty-field labels and placeholders are easier to tell apart from entered values**:
+
+  Labels shown inside an empty input field and placeholder text are now displayed in a muted color and italic,
+  so they are no longer mistaken for values that have been entered. Labels in an error state keep their red color.
+
+- **More compact table rows**:
+
+  Rows in the column list of the table edit dialog and in grid views are shorter,
+  so more rows fit on screen without scrolling.
+
+
 ## [0.20261011] - 2026-10-11
 
 ### Added
