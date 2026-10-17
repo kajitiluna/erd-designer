@@ -26,7 +26,11 @@ type TableListSpec = {
 };
 
 export type ColumnListSpecGenerator = Generator<ColumnListSpec, void, unknown>;
-type ColumnListSpec = {
+
+/** Column attributes that are exported only when at least one column in the scope actually uses them. */
+export type OptionalColumnAttribute = "characterSet" | "collate" | "checkExpression" | "optionExpression";
+
+export type ColumnListSpec = {
     physicalTableName: string;
     logicalTableName: string;
     physicalColumnName: string;
@@ -42,13 +46,29 @@ type ColumnListSpec = {
     defaultValue: string;
     foreignRelation: string | null;
     description: string;
+    characterSet: string;
+    collate: string;
+    checkExpression: string;
+    optionExpression: string;
 };
 
 export type TableDetailSpecGenerator = Generator<TableDetailSpec, void, unknown>;
+
+/** Table-level options. An empty string means "not set" and is not exported. */
+export type TableOptionSpec = {
+    characterSet: string;
+    collate: string;
+    checkExpression: string;
+    definitionExpression: string;
+    optionExpression: string;
+};
+
 export type TableDetailSpec = {
     physicalName: string;
     logicalName: string;
     description: string;
+    usedColumnAttributes: readonly OptionalColumnAttribute[];
+    tableOptions: TableOptionSpec;
     exportColumns: () => ColumnListSpecGenerator;
     exportUniqueKeys: () => UniqueKeyConstraintSpecGenerator;
     exportTableIndexes: () => TableIndexSpecGenerator;
