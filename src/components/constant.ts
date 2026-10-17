@@ -14,7 +14,7 @@ export const GRID_CELL_STYLE: React.CSSProperties = {
     fontWeight: 400,
     lineHeight: 1.43,
     letterSpacing: "0.01071em",
-    minHeight: "30px"
+    minHeight: "20px"
 } as const;
 
 /** Webview 内部 CustomEvent: 外部からのドキュメント変更を MainView へ伝搬する */

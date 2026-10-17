@@ -89,7 +89,7 @@ const ColumnViewTable = ({
 
     const initRowStyle = (targetIndex: number) => {
         const rowStyle = (selectedIndex === targetIndex)
-            ? { backgroundColor: SELECTED_CELL_COLOR, height: "43px" } : BASE_ROW_STYLE;
+            ? { backgroundColor: SELECTED_CELL_COLOR, height: "33px" } : BASE_ROW_STYLE;
 
         // ドラッグ中の行は半透明にする
         if (draggingStartIndex === targetIndex) {
@@ -97,7 +97,7 @@ const ColumnViewTable = ({
         }
         // ドラッグオーバー中の行は色を変える
         if (draggingOverIndex === targetIndex) {
-            return { height: "43px", backgroundColor: 'lightblue' };
+            return { height: "33px", backgroundColor: 'lightblue' };
         }
 
         return rowStyle;
@@ -226,8 +226,12 @@ const ColumnViewTable = ({
             <TableCell>{overrideName.physicalName}</TableCell>
             {withLogicalName && (<TableCell>{overrideName.logicalName}</TableCell>)}
             <TableCell>{columnShareModel.specifiedColumnType(inChildRelation)}</TableCell>
-            <TableCell align="center">{columnModel.notNull && <CheckIcon fontSize="small" />}</TableCell>
-            <TableCell align="center">{columnModel.unique && <CheckIcon fontSize="small" />}</TableCell>
+            <TableCell align="center">
+                {columnModel.notNull && <CheckIcon fontSize="small" sx={CELL_ICON_STYLE} />}
+            </TableCell>
+            <TableCell align="center">
+                {columnModel.unique && <CheckIcon fontSize="small" sx={CELL_ICON_STYLE} />}
+            </TableCell>
         </>);
     };
 
@@ -258,7 +262,9 @@ const ColumnViewTable = ({
             <TableCell>{overrideName.physicalName}</TableCell>
             {withLogicalName && (<TableCell>{overrideName.logicalName}</TableCell>)}
             <TableCell>{structShare.simpleColumnType()}</TableCell>
-            <TableCell align="center">{columnModel.notNull && <CheckIcon fontSize="small" />}</TableCell>
+            <TableCell align="center">
+                {columnModel.notNull && <CheckIcon fontSize="small" sx={CELL_ICON_STYLE} />}
+            </TableCell>
             <TableCell align="center"></TableCell>
         </>);
     }
@@ -391,59 +397,70 @@ const ColumnViewTable = ({
         });
     };
 
-    return (
-        <>
-            <TableContainer sx={{ maxHeight: window.innerHeight - 550 }}>
-                <Table stickyHeader size="small" aria-label="column view table" style={{ tableLayout: "fixed" }}>
-                    {columnViewHeader}
-                    <TableBody>
-                        {(columnWrapModels.length > 0)
-                            ? columnWrapModels.map((columnWrapModel: ColumnWrapModel, index: number) =>
-                                initColumnModelRow(columnWrapModel, index))
-                            : (
-                                <TableRow>
-                                    <TableCell colSpan={emptyRowSpan} align="center" sx={{ p: 2 }}>
-                                        (No columns)
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                    </TableBody>
-                </Table>
-            </TableContainer>
-            <Stack direction="row" sx={{ justifyContent: "space-between", margin: 1, marginBottom: 0.5 }}>
-                {addButtonPanel}
-                {editButtonPanel}
-            </Stack>
-            {(editMode === "column") && (selectedWrappedModel?.modelType === "single") && (
-                <ColumnEditDialog
-                    isOpen={(editMode === "column") && (selectedWrappedModel?.modelType === "single")}
-                    columnModel={selectedWrappedModel.columnModel}
-                    availableKeyConstraints={availableKeyConstraints}
-                    isEditableColumnType={isEditableColumnType}
+    return (<>
+        <TableContainer sx={{ maxHeight: window.innerHeight - 550 }}>
+            <Table stickyHeader size="small" aria-label="column view table" style={{ tableLayout: "fixed" }}>
+                {columnViewHeader}
+                <TableBody>
+                    {(columnWrapModels.length > 0)
+                        ? columnWrapModels.map((columnWrapModel: ColumnWrapModel, index: number) =>
+                            initColumnModelRow(columnWrapModel, index))
+                        : (
+                            <TableRow>
+                                <TableCell colSpan={emptyRowSpan} align="center" sx={{ p: 2 }}>
+                                    (No columns)
+                                </TableCell>
+                            </TableRow>
+                        )}
+                </TableBody>
+            </Table>
+        </TableContainer>
+        <Stack direction="row" sx={{ justifyContent: "space-between", margin: 1, marginBottom: 0.5 }}>
+            {addButtonPanel}
+            {editButtonPanel}
+        </Stack>
+        {(editMode === "column") && (selectedWrappedModel?.modelType === "single") && (
+            <ColumnEditDialog
+                isOpen={(editMode === "column") && (selectedWrappedModel?.modelType === "single")}
+                columnModel={selectedWrappedModel.columnModel}
+                availableKeyConstraints={availableKeyConstraints}
+                isEditableColumnType={isEditableColumnType}
+                onUpdateWrapColumnModels={onUpdateColumnWrapModels}
+                onUpdateCheckExpression={onUpdateCheckExpression}
+                onClose={() => setEditMode("")} />
+        )}
+        {((editMode === "add_struct") || (editMode === "edit_struct"))
+            && (selectedWrappedModel?.modelType === "struct") && (
+                <StructColumnEditDialog
+                    isOpen={((editMode === "add_struct") || (editMode === "edit_struct"))}
+                    structColumn={selectedWrappedModel.columnModel}
+                    structNestCount={structNestCount}
+                    ancestorStructShareIds={ancestorStructShareIds}
                     onUpdateWrapColumnModels={onUpdateColumnWrapModels}
-                    onUpdateCheckExpression={onUpdateCheckExpression}
                     onClose={() => setEditMode("")} />
             )}
-            {((editMode === "add_struct") || (editMode === "edit_struct"))
-                && (selectedWrappedModel?.modelType === "struct") && (
-                    <StructColumnEditDialog
-                        isOpen={((editMode === "add_struct") || (editMode === "edit_struct"))}
-                        structColumn={selectedWrappedModel.columnModel}
-                        structNestCount={structNestCount}
-                        ancestorStructShareIds={ancestorStructShareIds}
-                        onUpdateWrapColumnModels={onUpdateColumnWrapModels}
-                        onClose={() => setEditMode("")} />
-                )}
-            {((editMode === "add_group") || (editMode === "edit_group")) && (
-                <ColumnGroupView
-                    isOpen={((editMode === "add_group") || (editMode === "edit_group"))}
-                    viewMode="select"
-                    onSelect={handleUpdateColumnGroup}
-                    onClose={() => setEditMode("")} />
-            )}
-        </>
-    );
+        {((editMode === "add_group") || (editMode === "edit_group")) && (
+            <ColumnGroupView
+                isOpen={((editMode === "add_group") || (editMode === "edit_group"))}
+                viewMode="select"
+                onSelect={handleUpdateColumnGroup}
+                onClose={() => setEditMode("")} />
+        )}
+    </>);
 };
+
+const BASE_ROW_STYLE = {
+    height: "33px",
+    '&:nth-of-type(odd)': { backgroundColor: 'action.hover' }
+} as const;
+
+const TO_EDIT_MODE: { [key in ColumnWrapModel["modelType"]]: ColumnEditModeType } = {
+    "single": "column",
+    "group": "edit_group",
+    "struct": "edit_struct",
+} as const;
+
+const CELL_ICON_STYLE = { verticalAlign: "top" } as const;
 
 type RowKeyDownDeps = {
     targetIndex: number,
@@ -482,17 +499,6 @@ const initHandleRowKeyDown = ({ targetIndex, lastIndex, toggleRow, editRow, sele
             (event.currentTarget.previousElementSibling as HTMLElement | null)?.focus();
         }
     };
-};
-
-const TO_EDIT_MODE: { [key in ColumnWrapModel["modelType"]]: ColumnEditModeType } = {
-    "single": "column",
-    "group": "edit_group",
-    "struct": "edit_struct",
-} as const;
-
-const BASE_ROW_STYLE = {
-    height: "43px",
-    '&:nth-of-type(odd)': { backgroundColor: 'action.hover' }
 };
 
 export default ColumnViewTable;
