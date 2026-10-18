@@ -112,7 +112,7 @@ if ((match.matchType === "relationLabel") && (toolbarCanvasElement != null)) {
 if (isActive && isValid) {
 ```
 
-ESLint: `no-mixed-operators` with comparison and logical operators in one group.
+Oxlint: `@stylistic/no-mixed-operators` (loaded as a JS plugin) with comparison and logical operators in one group.
 
 ## 9. Avoid negation with `!` — use explicit comparison
 
@@ -133,7 +133,7 @@ Exceptions:
 - When `!` is the only practical option.
 - JSX attributes such as `disabled={!isValid}` — expanded comparisons widen the JSX and hurt readability.
 
-Not enforced by ESLint — manual review rule.
+Not enforced by Oxlint — manual review rule.
 
 ## 10. A directory's `index` re-exports only — no implementation
 
@@ -156,7 +156,7 @@ export type { MigrationDdl } from "~/models/schema/schema-migration-ddl/migratio
 export { migrationDdlBuilder } from "~/models/schema/schema-migration-ddl/migration-ddl";
 ```
 
-ESLint: `no-restricted-imports` with a `patterns` entry for the directory (e.g. `["**/schema-migration-ddl/*"]`), ignoring the directory itself.
+Oxlint: `no-restricted-imports` in `.oxlintrc.json` with a `patterns` entry for the directory (e.g. `["**/schema-migration-ddl/*"]`), and an `overrides` entry for the directory itself that lists every pattern except its own (an override replaces the whole rule option, so each file set must carry all patterns that apply to it).
 
 ## 11. No reverse-direction imports between parent and nested models
 
@@ -170,7 +170,7 @@ import { ColumnEntry } from "~/models/database/TableModel";
 import { ColumnEntry } from "~/models/database/ColumnEntry";
 ```
 
-Not enforced by ESLint — manual review rule.
+Not enforced by Oxlint — manual review rule.
 
 ## 12. Comments record design intent, not work notes
 
@@ -188,7 +188,7 @@ A comment must explain *why* the code is shaped this way — rationale that stay
 // entityType is the struct discriminator; a simple column omits it by definition.
 ```
 
-Not enforced by ESLint — manual review rule.
+Not enforced by Oxlint — manual review rule.
 
 ## 13. Consistency maintenance must not leak into callers
 
@@ -202,7 +202,7 @@ storage.deleteColumnShare(orphanedIds).cleanupDanglingStructReferences(columnIds
 storage.retain(referencedShareIds, existingColumnIds, existingGroupIds);
 ```
 
-Not enforced by ESLint — manual review rule.
+Not enforced by Oxlint — manual review rule.
 
 ## 14. Define in call order — callers above callees
 
@@ -238,7 +238,7 @@ class DdlCreator {
 
 Exception: only when the order is impossible — a value evaluated at module load (`const CONFIG = buildConfig();`) or anything else that would break compilation (TDZ).
 
-Not enforced by ESLint — manual review rule.
+Not enforced by Oxlint — manual review rule.
 
 ## 15. Public method names state what the caller wants, not how the class decides
 
@@ -253,7 +253,7 @@ storage.deleteStructShare(structShareModelIds);
 storage.retain(referencedColumnShareIds, existingColumnModelIds, existingColumnGroupIds);
 ```
 
-Not enforced by ESLint — manual review rule.
+Not enforced by Oxlint — manual review rule.
 
 ## 16. One state is one string union — never two or more booleans
 
@@ -273,7 +273,7 @@ Applies equally to sibling `useState`/`useRef` flags describing one subject (`is
 
 Exception: independent attributes that merely share an object (`primaryKey`, `notNull`, `unique` on a column). These are not phases of one subject — every combination is legal.
 
-Not enforced by ESLint — manual review rule.
+Not enforced by Oxlint — manual review rule.
 
 ## 17. Model fields must stay backward compatible
 
@@ -290,7 +290,7 @@ const notNull = obj.notNull != null ? obj.notNull as boolean : false;
 
 Never remove or repurpose a field that has shipped — older files still contain it.
 
-Not enforced by ESLint — manual review rule.
+Not enforced by Oxlint — manual review rule.
 
 ## 18. `src/extension/` is import-only for the VSCode extension
 
@@ -313,7 +313,7 @@ const key = ThemePreferenceValue.STORAGE_KEY;
 Exception: `src/components/constant.ts` is reserved for foundational constants of the whole app that have no single owner
 (e.g. `ERD_MESSAGE_EVENT_SOURCE`, the identifier of the webview/extension protocol). "Shared by several files" alone does not qualify.
 
-Not enforced by ESLint — manual review rule.
+Not enforced by Oxlint — manual review rule.
 
 ## 19. Publish capability through a named contract, not bare function exports
 
@@ -372,7 +372,7 @@ Exception: a module that exports only types is exempt — types cannot be wrappe
 a module's imports to the minimum the type definitions themselves require, so it stays a neutral dependency
 (e.g. `schema-snapshot.ts`, `schema-difference.ts`).
 
-Not enforced by ESLint — manual review rule.
+Not enforced by Oxlint — manual review rule.
 
 ## 20. JSDoc is English; ordinary comments may be Japanese
 
@@ -394,4 +394,4 @@ layoutName?: string;
 // 比率は不変なので、ビューポートを更新して再描画するだけで四辺の比率が保たれる。
 ```
 
-Not enforced by ESLint — manual review rule.
+Not enforced by Oxlint — manual review rule.

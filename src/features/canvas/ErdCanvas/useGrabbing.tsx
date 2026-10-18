@@ -6,7 +6,7 @@ import EditMode, { EditModeType } from "~/models/EditMode";
 type Point = { x: number, y: number };
 
 /**
- * ErdCanvas 内部専用モジュール。外部からの import は禁止 (ESLint no-restricted-imports で検査)。
+ * ErdCanvas 内部専用モジュール。外部からの import は禁止 (Oxlint no-restricted-imports で検査)。
  *
  * Canvas の grab 操作 (右/中クリックや GRAB モードでの視点移動) を提供するフック。
  * grab 用の透明パネルと、Canvas 側から grab を開始するための関数を返す。

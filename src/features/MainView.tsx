@@ -88,7 +88,7 @@ const useMainHolder = ({ erdDocument, onSave }: MainViewProps) => {
     const [localSetting, dispatchLocalSetting] = React.useReducer(reduceLocalSetting, DEFAULT_LOCAL_SETTING);
 
     // documentsHolder は onSave の参照が変わるたびに作り直され、Context コンシューマ全数が再レンダーされる。
-    // ref によるここでの吸収は ESLint react-hooks/refs (ref を閉じたクロージャを他の関数へ渡す形を許さない) に抵触するため採らない。
+    // ref によるここでの吸収は lint ルール react/refs (ref を閉じたクロージャを他の関数へ渡す形を許さない) に抵触するため採らない。
     // 呼び出し元 (GoogleDriveFile 等) が useCallback で onSave 自体の参照を安定させる契約とする。
     const documentsHolder = React.useMemo(
         () => initDocumentsHolder(holderProps, onSave, setHolderProps),

@@ -57,6 +57,7 @@ const GoogleDriveInitializer = ({ authorization: gdriveAuthorization, onInitiali
         }
 
         if (gdriveState.action === "create") {
+            // oxlint-disable-next-line react/set-state-in-effect -- 作成先フォルダは認可が完了した時点で確定させる
             setGdriveFolderId(gdriveState.folderId);
         }
     }, [authorization, gdriveState, onInitialize]);

@@ -666,7 +666,7 @@ const initWrapContentTooltip = (
         );
     };
 
-    // eslint-plugin-react の react/display-name ルール対応のため、一度変数に代入したものを返却する
+    // react/display-name ルール対応のため、一度変数に代入したものを返却する
     return wrapContentTooltip;
 };
 

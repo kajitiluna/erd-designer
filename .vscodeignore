@@ -36,7 +36,7 @@ node_modules/**
 
 .gitignore
 .yarnrc
-eslint.config.js
+.oxlintrc.json
 package-lock.json
 renovate.json
 tsconfig.json

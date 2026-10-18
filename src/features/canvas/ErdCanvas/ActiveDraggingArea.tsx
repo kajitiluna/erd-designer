@@ -8,7 +8,7 @@ import { DragState } from "~/models/DragState";
 import SelectState from "~/models/SelectState";
 
 /**
- * ErdCanvas 内部専用モジュール。外部からの import は禁止 (ESLint no-restricted-imports で検査)。
+ * ErdCanvas 内部専用モジュール。外部からの import は禁止 (Oxlint no-restricted-imports で検査)。
  */
 
 const SELECTED_COLOR = "var(--mui-palette-erd-selectionArea)";

@@ -94,8 +94,8 @@ const RelationLabelOverlay = ({ relationView, pathPoints }: RelationLabelOverlay
     // These setState calls during render are necessary to keep stableAnchor (the cached
     // world-space anchor position) and prevPointCount in sync with the current render output.
     // Using useRef with direct mutation (stableAnchorRef.current = ...) was the original
-    // approach, but eslint-plugin-react-hooks v7 introduced the react-hooks/react-compiler
-    // rule which flags ref.current mutations during render as a Rules-of-React violation.
+    // approach, but the React Compiler lint rules (react/refs) flag ref.current mutations
+    // during render as a Rules-of-React violation.
     // The conditional guards (prevPointCount !== / stableAnchor.x !== ...) ensure React's
     // "bail out when equal" optimisation prevents an infinite re-render loop.
     if (pathPoints.length >= 2) {

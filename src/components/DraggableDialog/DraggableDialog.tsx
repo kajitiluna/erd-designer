@@ -29,6 +29,7 @@ const DraggableDialog = ({ children, open, layoutName, ...dialogProps }: Draggab
         }
 
         sessionRef.current = IDLE_SESSION;
+        // oxlint-disable-next-line react/set-state-in-effect -- 開いた時点の保存値 (外部ストレージ) を読み直す初期化
         setBounds(initStoredBounds(layoutName));
     }, [open, layoutName]);
 

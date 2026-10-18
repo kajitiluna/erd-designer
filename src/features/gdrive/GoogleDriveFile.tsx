@@ -151,6 +151,7 @@ const GoogleDriveFile = ({ authorization: gdriveAuthorization }: GoogleDriveFile
 
         if (authorization.state === "expired") {
             const expiredToast = initReauthorizeToast(setMessageToast, authorize, EXPIRED_MESSAGE);
+            // oxlint-disable-next-line react/set-state-in-effect -- 外部 (認可状態) の変化を通知に反映する
             setMessageToast(expiredToast);
             return;
         }
