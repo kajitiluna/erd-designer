@@ -5,6 +5,26 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import react from "eslint-plugin-react";
 import tseslint from "typescript-eslint";
 
+// 内部モジュール (private 相当) は、そのディレクトリ内、またはバレル (index.ts) 経由でのみ参照可能とする
+const PRIVATE_MODULES = [
+  {
+    directory: "src/features/canvas/ErdCanvas",
+    group: ["**/ErdCanvas/*"],
+    message: "ErdCanvas internal modules are private. Import \"~/features/canvas/ErdCanvas\" instead.",
+  },
+  {
+    directory: "src/models/schema/schema-migration-ddl",
+    group: ["**/schema-migration-ddl/*"],
+    message: "schema-migration-ddl internal modules are private. "
+      + "Import \"~/models/schema/schema-migration-ddl\" instead.",
+  },
+  {
+    directory: "src/models/erm",
+    group: ["**/erm/*"],
+    message: "erm internal modules are private. Import \"~/models/erm\" instead.",
+  },
+];
+
 export default tseslint.config(
   { ignores: ["dist", "out", "coverage"] },
   {
@@ -51,37 +71,30 @@ export default tseslint.config(
   react.configs.flat.recommended,
   react.configs.flat["jsx-runtime"],
   { settings: { react: { version: "detect" } } },
-  {
-    // コンポーネント/モジュール内部の private 相当ファイルは、そのディレクトリ内からのみ参照可能とする
-    files: ["src/**/*.{ts,tsx}"],
-    ignores: ["src/features/canvas/ErdCanvas/**", "src/models/schema/schema-migration-ddl/**"],
-    rules: {
-      "no-restricted-imports": ["error", {
-        patterns: [
-          {
-            group: ["**/ErdCanvas/*"],
-            message: "ErdCanvas internal modules are private. Import \"~/features/canvas/ErdCanvas\" instead.",
-          },
-          {
-            group: ["**/schema-migration-ddl/*"],
-            message: "schema-migration-ddl internal modules are private. "
-              + "Import \"~/models/schema/schema-migration-ddl\" instead.",
-          },
-        ],
-      }],
-    },
-  },
-  {
-    // erm/ 内部モジュール (private 相当) は erm ディレクトリ内、またはバレル (index.ts) 経由でのみ参照可能とする
-    files: ["src/**/*.{ts,tsx}"],
-    ignores: ["src/models/erm/**"],
-    rules: {
-      "no-restricted-imports": ["error", {
-        patterns: [{
-          group: ["**/erm/*"],
-          message: "erm internal modules are private. Import \"~/models/erm\" instead.",
-        }],
-      }],
-    },
-  }
+  ...initRestrictedImportsConfigs(PRIVATE_MODULES)
 );
+
+// flat config では同じルールを複数ブロックで設定すると後のブロックが前の設定を丸ごと上書きする。
+// そのため、ファイルごとに適用すべきパターンをすべて 1 ブロックにまとめる (自ディレクトリのパターンだけを除く)。
+function initRestrictedImportsConfigs(privateModules) {
+  const outsideConfig = {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: privateModules.map((privateModule) => { return `${privateModule.directory}/**`; }),
+    rules: { "no-restricted-imports": toRestrictedImportsRule(privateModules) },
+  };
+  const insideConfigs = privateModules.map((privateModule) => {
+    const otherModules = privateModules.filter((otherModule) => otherModule !== privateModule);
+    return {
+      files: [`${privateModule.directory}/**/*.{ts,tsx}`],
+      rules: { "no-restricted-imports": toRestrictedImportsRule(otherModules) },
+    };
+  });
+  return [outsideConfig, ...insideConfigs];
+}
+
+function toRestrictedImportsRule(privateModules) {
+  const patterns = privateModules.map((privateModule) => {
+    return { group: privateModule.group, message: privateModule.message };
+  });
+  return ["error", { patterns }];
+}
