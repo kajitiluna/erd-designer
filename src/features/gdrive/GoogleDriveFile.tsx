@@ -151,6 +151,7 @@ const GoogleDriveFile = ({ authorization: gdriveAuthorization }: GoogleDriveFile
 
         if (authorization.state === "expired") {
             const expiredToast = initReauthorizeToast(setMessageToast, authorize, EXPIRED_MESSAGE);
+            // oxlint-disable-next-line react/set-state-in-effect -- 外部 (認可状態) の変化を通知に反映する
             setMessageToast(expiredToast);
             return;
         }
@@ -217,7 +218,6 @@ const GoogleDriveFile = ({ authorization: gdriveAuthorization }: GoogleDriveFile
         latestDocumentRef.current = sessionDocument.erdDocument;
 
         updateQueueRef.current = updateQueueRef.current.then(
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             (_version: string) => sessionDocument.version
         );
     }, [sessionDocument, gdriveFileId]);

@@ -122,7 +122,7 @@ const getColumnToolCallback = (documentResource: DocumentResource, toolName: str
     return toolEntry[2] as ToolCallback;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- MCP ツールのレスポンス形状はテスト内で緩く検証するため any を許容する
+// oxlint-disable-next-line typescript/no-explicit-any -- MCP ツールのレスポンス形状はテスト内で緩く検証するため any を許容する
 type LooseResponse = any;
 
 const extractStructuredContent = (result: unknown): LooseResponse => {

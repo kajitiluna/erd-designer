@@ -56,6 +56,7 @@ const ThemePreferenceProvider = ({ store, resolver, children }: ThemePreferenceP
 
     React.useEffect(() => {
         // 購読開始までに環境側が変わっていた場合に備えて、現在値を取り直す
+        // oxlint-disable-next-line react/set-state-in-effect -- 外部 (OS 設定) の現在値との同期
         setSystemColorTheme(resolver.resolve());
         return resolver.subscribe(setSystemColorTheme);
     }, [resolver]);

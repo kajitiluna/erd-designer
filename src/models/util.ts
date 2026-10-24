@@ -10,7 +10,7 @@ export function requireProperty<KEY extends string>(obj: object, propertyName: K
     }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// oxlint-disable-next-line typescript/no-explicit-any
 export function toObjects<OUTPUT_TYPE>(obj: any, propertyName: string, convert: (item: object) => OUTPUT_TYPE): OUTPUT_TYPE[] {
     if (isArray(obj) === false) {
         throw new PropertyNotArrayError(propertyName, obj);
@@ -26,17 +26,17 @@ export function toObjects<OUTPUT_TYPE>(obj: any, propertyName: string, convert: 
     return obj.map((item: object) => convert(item));
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// oxlint-disable-next-line typescript/no-explicit-any
 function isArray(obj: any): obj is any[] {
     return Array.isArray(obj)
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// oxlint-disable-next-line typescript/no-explicit-any
 function isObject(obj: any[]): obj is object[] {
     return obj.every((item) => (typeof item === "object") && (item !== null));
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// oxlint-disable-next-line typescript/no-explicit-any
 export function toDateTime(org: any, defaultDate: Date | null = null): Date {
     if (org == null) {
         return defaultDate ?? new Date();

@@ -18,4 +18,4 @@ When modifying a source file:
 
 - TypeScript strict mode; React components use `.tsx`, plain logic uses `.ts`
 - CSS Modules (`.module.css`) for component styles
-- No ESLint errors (`eslint.config.js`)
+- No lint errors (`npm run lint`, configured in `.oxlintrc.json`)

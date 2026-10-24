@@ -603,7 +603,6 @@ const doInitVerticalGridContent = (contents: VerticalGridContentArgs[]) => {
             return metadata;
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         for (const _subRows of content.value.rows) {
             metadata.push({});
         }

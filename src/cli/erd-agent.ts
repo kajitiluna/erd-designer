@@ -3,8 +3,6 @@ import process from 'node:process';
 import { ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { CallToolResult, McpError } from "@modelcontextprotocol/sdk/types.js";
 import z, { ZodRawShape } from "zod";
-// zod-to-json-schema は @modelcontextprotocol/sdk の依存として提供される
-import { zodToJsonSchema } from "zod-to-json-schema";
 
 import { DocumentResource } from "~/agent-tools/DocumentResource";
 import { FileDocumentResource } from "~/agent-tools/FileDocumentResource";
@@ -142,7 +140,7 @@ const runDescribe = (toolName: string | undefined): number => {
 
     const [name, config] = tool;
     const inputSchema = z.object(config.inputSchema ?? {});
-    const jsonSchema = zodToJsonSchema(inputSchema);
+    const jsonSchema = z.toJSONSchema(inputSchema, { target: "draft-7", io: "input" });
     const jsonSchemaText = JSON.stringify(jsonSchema);
 
     console.log(`Tool: ${name}`);

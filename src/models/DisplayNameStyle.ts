@@ -2,7 +2,7 @@
 export default class DisplayNameStyle {
 
     public static readonly PHYSICAL = new DisplayNameStyle(
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        // oxlint-disable-next-line no-unused-vars
         "Physical", (physicalName: string, _: string) => physicalName, false
     );
 

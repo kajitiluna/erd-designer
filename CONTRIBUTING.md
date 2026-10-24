@@ -35,8 +35,8 @@ Run all three before pushing. CI (`.github/workflows/check-pr.yml`) runs the sam
 a pull request cannot be merged while any of them fails.
 
 ```sh
-npx tsc -b           # type check
-npm run lint         # ESLint
+npm run type-check   # tsc -b + bundle tsconfig
+npm run lint         # Oxlint
 npm run testrun      # vitest, single run
 ```
 
@@ -45,8 +45,8 @@ npm run testrun      # vitest, single run
 ## Coding style
 
 **[`docs/guidelines/coding-style.md`](docs/guidelines/coding-style.md) is mandatory reading
-before you write code.** It is a 17-rule guide, and roughly two thirds of the rules are not
-enforced by ESLint — they are checked during review, so skimming it will save you a round trip.
+before you write code.** It is a 20-rule guide, and roughly two thirds of the rules are not
+enforced by the linter (Oxlint) — they are checked during review, so skimming it will save you a round trip.
 
 The rules that most often come up in review:
 

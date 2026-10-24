@@ -27,7 +27,6 @@ export class ExtensionProvider implements vscode.CustomTextEditorProvider {
     }
 
     resolveCustomTextEditor(
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         textDocument: vscode.TextDocument, webviewPanel: vscode.WebviewPanel, _token: vscode.CancellationToken
     ): Thenable<void> | void {
         handleResolvingTextEditor(this.context, this.documentResource, this.themeBroadcaster, textDocument, webviewPanel);
@@ -204,7 +203,7 @@ const initHandleReceivedMessage = (
 ) => {
     const documentUri = textDocument.uri.toString();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // oxlint-disable-next-line typescript/no-explicit-any
     return async (message: any) => {
         if ((("eventSource" in message) === false) || (("messageType" in message) === false)) {
             return;

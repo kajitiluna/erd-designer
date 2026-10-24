@@ -90,16 +90,17 @@
     "dev": "vite",
     "clean": "rm -rf dist out *.vsix",
     "watch:bundle": "concurrently \"tsc -p ./tsconfig.bundle.json --watch --noEmit\" \"tsc-alias -p ./tsconfig.bundle.json --watch\"",
-    "build": "npm run clean && npm run build:webview && npm run check:bundle && npm run bundle:extension && npm run bundle:agent-cli && npm run bundle:cli",
-    "build:webview": "tsc -b && vite build",
-    "check:bundle": "tsc -p ./tsconfig.bundle.json --noEmit",
+    "type-check": "tsc -b && tsc -p ./tsconfig.bundle.json --noEmit",
+    "build": "npm run clean && npm run type-check && npm run build:webview && npm run bundle",
+    "build:webview": "vite build",
+    "bundle": "npm run bundle:extension && npm run bundle:agent-cli && npm run bundle:cli",
     "bundle:extension": "esbuild src/extension/extension.ts --bundle --platform=node --format=cjs --target=node22 --external:vscode --tsconfig=tsconfig.bundle.json --outfile=out/extension/extension.js --minify && echo '{\"type\":\"commonjs\"}' > out/package.json",
     "bundle:agent-cli": "esbuild src/cli/erd-agent.ts --bundle --platform=node --format=cjs --target=node22 --tsconfig=tsconfig.bundle.json --outfile=out/cli/erd-agent.cjs --minify",
     "bundle:cli": "esbuild src/cli/erd-cli.ts --bundle --platform=node --format=cjs --target=node22 --tsconfig=tsconfig.bundle.json --outfile=out/cli/erd-cli.cjs --minify --banner:js=\"#!/usr/bin/env node\"",
     "postbuild": "cp dist/index.html dist/404.html",
     "package": "npm run package:extension",
     "package:extension": "npx vsce package --readme-path README_extension.md",
-    "lint": "eslint .",
+    "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest",
     "testrun": "vitest run",
@@ -110,7 +111,7 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@fontsource/roboto": "^5.1.1",
-    "@modelcontextprotocol/sdk": "^1.31.0",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "@mui/icons-material": "^9.0.0",
     "@mui/material": "^9.0.0",
     "@react-oauth/google": "^0.12.1",
@@ -123,10 +124,10 @@
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.2",
     "uuid": "^14.0.0",
-    "zod": "^3.25.76"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@eslint/js": "^9.17.0",
+    "@stylistic/eslint-plugin": "^5.10.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
     "@types/express": "^5.0.5",
@@ -136,27 +137,20 @@
     "@types/react-dom": "^19",
     "@types/vscode": "^1.105.0",
     "@vitejs/plugin-react-swc": "^4.3.1",
-    "@vitest/coverage-v8": "^4.1.8",
+    "@vitest/coverage-v8": "^4.1.12",
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.6.2",
     "concurrently": "^9.2.1",
     "esbuild": "^0.28.1",
-    "eslint": "^9.17.0",
-    "eslint-plugin-jest-dom": "^5.5.0",
-    "eslint-plugin-react": "^7.37.3",
-    "eslint-plugin-react-hooks": "7.0.1",
-    "eslint-plugin-react-refresh": "^0.5.2",
-    "eslint-plugin-testing-library": "^7.1.1",
-    "globals": "^17.4.0",
     "jsdom": "^27.0.0",
     "mysql2": "^3.23.4",
     "ovsx": "^1.1.0",
+    "oxlint": "^1.88.0",
     "pg": "^8.23.0",
     "tsc-alias": "^1.8.16",
-    "typescript": "~6.0.3",
-    "typescript-eslint": "^8.18.2",
-    "vite": "^8.0.16",
-    "vitest": "^4.1.11"
+    "typescript": "~7.0.2",
+    "vite": "^8.3.5",
+    "vitest": "^4.1.12"
   },
   "volta": {
     "node": "26.8.1"
@@ -172,11 +166,15 @@
     "ws": ">=8.21.0",
     "form-data": ">=4.0.6",
     "js-yaml": ">=4.3.1 <5.0.0",
-    "markdown-it": ">=15.0.2",
+    "markdown-it": ">=15.0.3",
     "@hono/node-server": ">=2.0.5",
     "exceljs": {
       "uuid": "^11.1.1"
-    }
+    },
+    "@azure/msal-node@<4": {
+      "uuid": "^11.1.1"
+    },
+    "brace-expansion@>=4": "^5.0.12"
   },
   "allowScripts": {
     "@swc/core@1.15.41": true,

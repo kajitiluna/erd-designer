@@ -174,6 +174,17 @@ const DEFAULT_SEARCH_TARGETS: SearchTargets = {
     onTable: true, onColumn: true, onMemo: false, onRelation: false
 };
 
+type SearchCondition = {
+    searchTerm: string;
+    searchTargets: SearchTargets;
+    perspectiveId: string;
+    showRelationNames: boolean;
+};
+
+type MatchCursor = { searchCondition: SearchCondition | null; index: number };
+
+const INITIAL_MATCH_CURSOR: MatchCursor = { searchCondition: null, index: 0 };
+
 const useCanvasSearch = (): { searchState: SearchState; searchAction: SearchAction } => {
     const documentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { viewport } = React.useContext(ViewportContext);
@@ -189,7 +200,7 @@ const useCanvasSearch = (): { searchState: SearchState; searchAction: SearchActi
     const [searchTerm, setSearchTerm] = React.useState("");
     const [debouncedSearchTerm, setDebouncedSearchTerm] = React.useState("");
     const [searchTargets, setSearchTargets] = React.useState<SearchTargets>(DEFAULT_SEARCH_TARGETS);
-    const [currentMatchIndex, setCurrentMatchIndex] = React.useState(0);
+    const [matchCursor, setMatchCursor] = React.useState<MatchCursor>(INITIAL_MATCH_CURSOR);
 
     React.useEffect(() => {
         const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 200);
@@ -208,13 +219,16 @@ const useCanvasSearch = (): { searchState: SearchState; searchAction: SearchActi
     const matchResults = React.useMemo(() => buildSearchMatches(
         erdDocument, currentPerspective, showRelationNames, debouncedSearchTerm, searchTargets
     ),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        // oxlint-disable-next-line react/exhaustive-deps
         [erdDocument.lastUpdatedAt, currentPerspective, debouncedSearchTerm, searchTargets, showRelationNames]
     );
 
-    React.useEffect(() => {
-        setCurrentMatchIndex(0);
-    }, [matchResults]);
+    const searchCondition = React.useMemo<SearchCondition>(() => {
+        return {
+            searchTerm: debouncedSearchTerm, searchTargets, perspectiveId: localSetting.perspectiveId, showRelationNames
+        };
+    }, [debouncedSearchTerm, searchTargets, localSetting.perspectiveId, showRelationNames]);
+    const currentMatchIndex = resolveCurrentMatchIndex(matchCursor, searchCondition, matchResults.length);
 
     React.useEffect(() => {
         if ((isActive === false) || (debouncedSearchTerm === "")) {
@@ -235,7 +249,7 @@ const useCanvasSearch = (): { searchState: SearchState; searchAction: SearchActi
         setActive(false);
         setSearchTerm("");
         setDebouncedSearchTerm("");
-        setCurrentMatchIndex(0);
+        setMatchCursor(INITIAL_MATCH_CURSOR);
         clearHighlights();
     };
 
@@ -245,11 +259,11 @@ const useCanvasSearch = (): { searchState: SearchState; searchAction: SearchActi
         }
 
         const nextIndex = (currentMatchIndex + 1) % matchResults.length;
-        setCurrentMatchIndex(nextIndex);
+        setMatchCursor({ searchCondition, index: nextIndex });
 
         const nextMatch = matchResults[nextIndex];
         scrollToMatch(nextMatch, viewport, toolbarCanvasElement);
-    }, [currentMatchIndex, matchResults, viewport, toolbarCanvasElement]);
+    }, [currentMatchIndex, matchResults, searchCondition, viewport, toolbarCanvasElement]);
 
     const navigateBackward = React.useCallback(() => {
         if (matchResults.length === 0) {
@@ -257,11 +271,11 @@ const useCanvasSearch = (): { searchState: SearchState; searchAction: SearchActi
         }
 
         const prevIndex = (currentMatchIndex - 1 + matchResults.length) % matchResults.length;
-        setCurrentMatchIndex(prevIndex);
+        setMatchCursor({ searchCondition, index: prevIndex });
 
         const prevMatch = matchResults[prevIndex];
         scrollToMatch(prevMatch, viewport, toolbarCanvasElement);
-    }, [currentMatchIndex, matchResults, viewport, toolbarCanvasElement]);
+    }, [currentMatchIndex, matchResults, searchCondition, viewport, toolbarCanvasElement]);
 
     const searchState: SearchState = {
         isActive, searchTerm, searchTargets, matchResults, currentMatchIndex
@@ -276,6 +290,30 @@ const useCanvasSearch = (): { searchState: SearchState; searchAction: SearchActi
     };
 
     return { searchState, searchAction };
+};
+
+// 現在位置は選んだ時点の検索条件と組で保持する。条件が変われば先頭とみなす。
+// ドキュメント編集では条件が変わらないので位置を保ち、件数が減って範囲外になった場合だけ先頭とみなす
+const resolveCurrentMatchIndex = (
+    matchCursor: MatchCursor, searchCondition: SearchCondition, totalMatches: number
+): number => {
+    if ((isSameSearchCondition(matchCursor.searchCondition, searchCondition) === false)
+        || (matchCursor.index >= totalMatches)) {
+        return 0;
+    }
+
+    return matchCursor.index;
+};
+
+// useMemo の同一性は保証されないため、フィールドで比較する。searchTargets は state の参照で同一性を判定できる
+const isSameSearchCondition = (previous: SearchCondition | null, current: SearchCondition): boolean => {
+    if (previous == null) {
+        return false;
+    }
+
+    return (previous.searchTerm === current.searchTerm) && (previous.searchTargets === current.searchTargets)
+        && (previous.perspectiveId === current.perspectiveId)
+        && (previous.showRelationNames === current.showRelationNames);
 };
 
 // CSS Custom Highlight API は古いブラウザ・古い VS Code の webview では未実装のため、

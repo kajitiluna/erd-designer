@@ -248,19 +248,16 @@ class NoOperationStorage implements ErdDocumentStorage {
         return Promise.resolve([]);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     find(_key: string): Promise<FoundDocument | null> {
         return Promise.resolve(null);
     }
 
     save(
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         _key: string, _erdDocument: ErdDocument, expectedRevision: number, _loggingMessage: string
     ): Promise<SaveErdDocumentResult> {
         return Promise.resolve({ result: "saved", revision: expectedRevision + 1 });
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     delete(_key: string): Promise<void> {
         return Promise.resolve();
     }

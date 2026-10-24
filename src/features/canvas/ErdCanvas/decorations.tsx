@@ -10,7 +10,7 @@ import type { ColorTheme } from "~/models/ColorValue";
 import { CARDINALITY_MARKER } from "~/features/canvas/support";
 
 /**
- * ErdCanvas 内部専用モジュール。外部からの import は禁止 (ESLint no-restricted-imports で検査)。
+ * ErdCanvas 内部専用モジュール。外部からの import は禁止 (Oxlint no-restricted-imports で検査)。
  *
  * Canvas 上の装飾表示 (リレーション作成中のガイド線・カーディナリティマーカー) と、
  * 新規エンティティの生成ファクトリ。

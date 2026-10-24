@@ -7,7 +7,7 @@ import RelationEditView from "~/features/editor/RelationEditView";
 import TableEditView from "~/features/editor/TableEditView";
 
 /**
- * ErdCanvas 内部専用モジュール。外部からの import は禁止 (ESLint no-restricted-imports で検査)。
+ * ErdCanvas 内部専用モジュール。外部からの import は禁止 (Oxlint no-restricted-imports で検査)。
  *
  * Canvas 上の編集操作 (テーブル・リレーション・パースペクティブ) に応じた編集ダイアログの表示。
  */

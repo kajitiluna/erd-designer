@@ -5,7 +5,7 @@ import ErdDocumentStorage from "~/features/storage/ErdDocumentStorage";
 import DatabaseSettingModel from "~/models/DatabaseSettingModel";
 import ErdDocument from "~/models/ErdDocument";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// oxlint-disable-next-line typescript/no-explicit-any
 type FakeIDBOpenDBRequest = any;
 
 // jsdom (テスト実行環境) は IndexedDB を実装しないため、IndexedErdDocumentStorage が使う範囲だけを

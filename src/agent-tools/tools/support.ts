@@ -73,7 +73,7 @@ const buildKeyedPositionSchema = (type: "before" | "after", keyInfo: KeyInfoSche
             }).strict()
         );
 
-        return z.union(schemas as unknown as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]]);
+        return z.union(schemas as unknown as [z.ZodType, z.ZodType, ...z.ZodType[]]);
     }
 
     return z.object({
@@ -82,24 +82,31 @@ const buildKeyedPositionSchema = (type: "before" | "after", keyInfo: KeyInfoSche
     }).strict();
 };
 
-export const initPositionSchema = (keyName: string, keyInfo: KeyInfoSchema) => {
-    return {
-        position: z.union([
-            z.object({ type: z.literal("start") }).strict()
-                .describe(`Add the new column at the start of the ${keyName} list.`),
-            z.object({ type: z.literal("end") }).strict()
-                .describe(`Add the new column at the end of the ${keyName} list.`),
-            buildKeyedPositionSchema("before", keyInfo)
-                .describe(`Add the new ${keyName} before the specified existing ${keyName}.`),
-            buildKeyedPositionSchema("after", keyInfo)
-                .describe(`Add the new ${keyName} after the specified existing ${keyName}.`),
-            z.object({
-                type: z.literal("index"),
-                index: z.number()
-                    .describe(`The zero-based index to insert the new ${keyName} at in the ${keyName} list.`)
-            }).strict().describe(`Add the new ${keyName} at the specified index in the ${keyName} list.`)
-        ]).describe(`The position to add the new ${keyName} at in the ${keyName} list.`)
-    };
+type PositionInput<KEY_INFO extends KeyInfoSchema> =
+    { type: "start" | "end" }
+    | ({ type: "before" | "after" } & z.infer<KEY_INFO>)
+    | { type: "index"; index: number };
+
+export const initPositionSchema = <KEY_INFO extends KeyInfoSchema>(keyName: string, keyInfo: KEY_INFO) => {
+    const positionSchema = z.union([
+        z.object({ type: z.literal("start") }).strict()
+            .describe(`Add the new column at the start of the ${keyName} list.`),
+        z.object({ type: z.literal("end") }).strict()
+            .describe(`Add the new column at the end of the ${keyName} list.`),
+        buildKeyedPositionSchema("before", keyInfo)
+            .describe(`Add the new ${keyName} before the specified existing ${keyName}.`),
+        buildKeyedPositionSchema("after", keyInfo)
+            .describe(`Add the new ${keyName} after the specified existing ${keyName}.`),
+        z.object({
+            type: z.literal("index"),
+            index: z.number()
+                .describe(`The zero-based index to insert the new ${keyName} at in the ${keyName} list.`)
+        }).strict().describe(`Add the new ${keyName} at the specified index in the ${keyName} list.`)
+    ]).describe(`The position to add the new ${keyName} at in the ${keyName} list.`);
+
+    // キー付き位置は keyInfo の各 option に type を合成して実行時に組み立てるため、zod は出力型を推論できない。
+    // 合成結果は keyInfo の出力型と type の交差なので、keyInfo の型から導出してその形に固定する。
+    return { position: positionSchema as unknown as z.ZodType<PositionInput<KEY_INFO>> };
 };
 
 export const calculateIndexFromPosition = <KEY extends string>(

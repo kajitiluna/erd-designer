@@ -264,6 +264,15 @@ const exportExcelWorkbook = async (erdDocument: ErdDocument, image: ImageContent
     return workbook;
 };
 
+// 行・列の値を読む前に存在を確定させる。`sheet?.getRow(...).values` は undefined のときに後続の呼び出しで落ちる。
+const requireWorksheet = (workbook: ExcelJS.Workbook, name: string): ExcelJS.Worksheet => {
+    const worksheet = workbook.getWorksheet(name);
+    if (worksheet == null) {
+        throw new Error(`Worksheet "${name}" is not found.`);
+    }
+    return worksheet;
+};
+
 describe('spec export smoke test (all database types)', () => {
     test.each(allDatabaseTypes)('GoogleSpreadSheet export does not throw for %s', (databaseType) => {
         const erdDocument = buildSampleDocument(databaseType);
@@ -526,17 +535,17 @@ describe('spec export of charset / collate / DDL expressions', () => {
         const erdDocument = buildTableOptionDocument("mysql");
         const workbook = await exportExcelWorkbook(erdDocument, image);
 
-        const usedSheet = workbook.getWorksheet('used_table');
-        const unusedSheet = workbook.getWorksheet('unused_table');
-        const usedHeaders = (usedSheet?.getRow(6).values as unknown[]).slice(1);
-        const unusedHeaders = (unusedSheet?.getRow(6).values as unknown[]).slice(1);
-        const usedTitles = JSON.stringify(usedSheet?.getColumn(1).values);
-        const unusedTitles = JSON.stringify(unusedSheet?.getColumn(1).values);
+        const usedSheet = requireWorksheet(workbook, 'used_table');
+        const unusedSheet = requireWorksheet(workbook, 'unused_table');
+        const usedHeaders = (usedSheet.getRow(6).values as unknown[]).slice(1);
+        const unusedHeaders = (unusedSheet.getRow(6).values as unknown[]).slice(1);
+        const usedTitles = JSON.stringify(usedSheet.getColumn(1).values);
+        const unusedTitles = JSON.stringify(unusedSheet.getColumn(1).values);
 
         expect(usedHeaders.slice(-5)).toEqual(["Description", ...OPTIONAL_COLUMN_HEADERS]);
         expect(usedHeaders.slice(0, -4)).toEqual(unusedHeaders);
         expect(usedTitles).toContain('Table Options Specification');
-        const usedTitleCells = (usedSheet?.getColumn(1).values as unknown[]).slice(1);
+        const usedTitleCells = (usedSheet.getColumn(1).values as unknown[]).slice(1);
         const optionTitleIndex = usedTitleCells.indexOf('Table Options Specification');
         expect(usedTitleCells.slice(optionTitleIndex, optionTitleIndex + 3))
             .toEqual(['Table Options Specification', 'Character Set', 'Check Expression']);
@@ -560,8 +569,8 @@ describe('spec export of charset / collate / DDL expressions', () => {
         const usingWorkbook = await exportExcelWorkbook(buildTableOptionDocument("mysql"), image);
         const notUsingWorkbook = await exportExcelWorkbook(buildSampleDocument("mysql"), image);
 
-        const usingHeaders = (usingWorkbook.getWorksheet('Attributes')?.getRow(1).values as unknown[]).slice(1);
-        const notUsingHeaders = (notUsingWorkbook.getWorksheet('Attributes')?.getRow(1).values as unknown[]).slice(1);
+        const usingHeaders = (requireWorksheet(usingWorkbook, 'Attributes').getRow(1).values as unknown[]).slice(1);
+        const notUsingHeaders = (requireWorksheet(notUsingWorkbook, 'Attributes').getRow(1).values as unknown[]).slice(1);
 
         expect(usingHeaders.slice(-5)).toEqual(["Description", ...OPTIONAL_COLUMN_HEADERS]);
         expect(notUsingHeaders.some(header => OPTIONAL_COLUMN_HEADERS.includes(header as string))).toBe(false);

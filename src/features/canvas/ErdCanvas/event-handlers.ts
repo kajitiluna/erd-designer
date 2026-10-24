@@ -7,7 +7,7 @@ import SelectState from "~/models/SelectState";
 import { inOpenControlPanel, isTextInputFocused } from "~/components/support";
 
 /**
- * ErdCanvas 内部専用モジュール。外部からの import は禁止 (ESLint no-restricted-imports で検査)。
+ * ErdCanvas 内部専用モジュール。外部からの import は禁止 (Oxlint no-restricted-imports で検査)。
  *
  * Canvas 上のキーボードショートカットとマウスカーソル制御。
  * ErdCanvas の effect から利用する。

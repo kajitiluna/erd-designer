@@ -2,6 +2,6 @@
     "recommendations": [
         "firefox-devtools.vscode-firefox-debug",
         "vitest.explorer",
-        "dbaeumer.vscode-eslint",
+        "oxc.oxc-vscode",
     ]
 }
