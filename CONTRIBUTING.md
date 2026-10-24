@@ -35,7 +35,7 @@ Run all three before pushing. CI (`.github/workflows/check-pr.yml`) runs the sam
 a pull request cannot be merged while any of them fails.
 
 ```sh
-npx tsc -b           # type check
+npm run type-check   # tsc -b + bundle tsconfig
 npm run lint         # Oxlint
 npm run testrun      # vitest, single run
 ```

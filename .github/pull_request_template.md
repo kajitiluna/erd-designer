@@ -24,7 +24,7 @@ Closes #
 
 ## Checklist
 
-- [ ] `npx tsc -b` passes
+- [ ] `npm run type-check` passes
 - [ ] `npm run lint` passes
 - [ ] `npm run testrun` passes
 - [ ] Tests added or updated in the adjacent `__tests__/` directory

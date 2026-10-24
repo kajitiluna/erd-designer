@@ -32,16 +32,13 @@ jobs:
         run: npm ci
 
       - name: Type check
-        run: npx tsc -b
-
-      - name: Check bundle tsconfig
-        run: npm run check:bundle
+        run: npm run type-check
 
       - name: Run lint
         run: npm run lint
 
-      - name: Bundle CLI
-        run: npm run bundle:cli && npm run bundle:agent-cli
+      - name: Bundle
+        run: npm run bundle
 
       - name: Run unit tests
-        run: npx vitest run --project unit --coverage
+        run: npm run testrun:unit -- --coverage
