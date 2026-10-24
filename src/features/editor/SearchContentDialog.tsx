@@ -5,7 +5,7 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 
-import useAutoFocusInput from "~/components/useAutoFocusInput";
+import useAutoFocus from "~/components/useAutoFocus";
 import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { initHandleCloseDialog, SELECTED_CELL_COLOR } from "~/features/editor/support";
 
@@ -37,7 +37,7 @@ const SearchContentDialog = <ENTITY,>({
     const [inSearching, setSearching] = React.useState<boolean>(false);
     const [filteredModels, setFilteredModels] = React.useState<ENTITY[]>(onFiltering([]));
     const [selectedModel, setSelectedModel] = React.useState<ENTITY | null>(null);
-    const keywordsRef = useAutoFocusInput<HTMLInputElement>(isOpen);
+    const autoFocusRef = useAutoFocus<HTMLInputElement>(isOpen);
 
     const erdDocument = documentsHolder.current();
 
@@ -76,7 +76,7 @@ const SearchContentDialog = <ENTITY,>({
             <div style={{ flex: 8 }}></div>
             <Box sx={{ display: "flex", alignItems: "center", flex: 4 }}>
                 <SearchIcon sx={{ color: "action.active", mr: 1, my: 0.5 }} />
-                <TextField inputRef={keywordsRef} size="small" fullWidth
+                <TextField inputRef={autoFocusRef} size="small" fullWidth
                     label="keywords" value={filtering} onChange={handleChangeValue} />
             </Box>
         </Stack>

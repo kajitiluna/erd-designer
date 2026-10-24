@@ -8,12 +8,12 @@ import SearchIcon from "@mui/icons-material/Search";
 
 import DraggableDialog from "~/components/DraggableDialog";
 import EdgedIconButton from '~/components/EdgedIconButton';
-import useAutoFocusInput from '~/components/useAutoFocusInput';
+import useAutoFocus from '~/components/useAutoFocus';
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import {
     toColumnWrapModels, initHandleChangeWithSyncPhysicalName,
-    initHandleCloseDialog, initHandleEnterKeyDown, ColumnWrapModel,
+    initHandleCloseDialog, ColumnWrapModel,
     validateNameColumnWraps,
     initializeValidateNonRecursive
 } from "~/features/editor/support";
@@ -58,7 +58,7 @@ const StructColumnEditDialog = ({
         initColumnWrapModels(erdDocument, columnShareStorage, columnStorage, structColumn)
     );
     const [description, setDescription] = React.useState<string>(structShare ? structShare.description : "");
-    const physicalNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
+    const autoFocusRef = useAutoFocus<HTMLInputElement>(isOpen);
 
     const withLogicalName = erdDocument.getDisplayNameStyle().withLogicalName();
 
@@ -147,8 +147,7 @@ const StructColumnEditDialog = ({
 
     const { overriddenPanel, overriddenName } = useOverrideNamePanel({
         physicalName: structColumn.physicalName,
-        logicalName: structColumn.logicalName,
-        onCompleted: handleCompleted
+        logicalName: structColumn.logicalName
     });
 
     const columnNamePanel = (
@@ -159,8 +158,6 @@ const StructColumnEditDialog = ({
         </Stack>
     );
 
-    const handleEnterDown = initHandleEnterKeyDown(() => handleCompleted(overriddenName));
-
     // 論理名が物理名と合致もしくは論理名が空の場合は、論理名に物理名の値を設定する
     const handleChangePhysicalName: ((event: React.ChangeEvent<HTMLInputElement>) => void)
         = initHandleChangeWithSyncPhysicalName({
@@ -170,13 +167,11 @@ const StructColumnEditDialog = ({
 
     const structShareNamePanel = (
         <Stack direction="row" spacing={1}>
-            <TextField inputRef={physicalNameRef} required fullWidth variant="outlined" sx={{ flex: 5 }}
-                label="Physical Name" value={physicalName}
-                onChange={handleChangePhysicalName} onKeyDown={handleEnterDown} />
+            <TextField inputRef={autoFocusRef} required fullWidth variant="outlined" sx={{ flex: 5 }}
+                label="Physical Name" value={physicalName} onChange={handleChangePhysicalName} />
             {withLogicalName && (
                 <TextField label="Logical Name" required fullWidth variant="outlined" sx={{ flex: 5 }}
-                    value={logicalName} onChange={event => setLogicalName(event.target.value)}
-                    onKeyDown={handleEnterDown} />
+                    value={logicalName} onChange={event => setLogicalName(event.target.value)} />
             )}
             <FormControlLabel label="isArray" sx={{ flex: 2 }} control={
                 <Checkbox checked={isArray} onChange={event => setArray(event.target.checked)} />} />
@@ -226,7 +221,8 @@ const StructColumnEditDialog = ({
         // 深さを鍵に含めないと、子が親と同一の矩形を復元して親を覆い隠し、親を掴めなくする。
         <DraggableDialog layoutName={`struct-column-edit:${structNestCount}`}
             fullWidth maxWidth={withLogicalName ? "xl" : "lg"} sx={{ userSelect: "none" }}
-            open={isOpen} onClose={initHandleCloseDialog(onClose)}>
+            open={isOpen} onClose={initHandleCloseDialog(onClose)}
+            onSubmitRequest={() => handleCompleted(overriddenName)}>
             <DialogTitle>Edit struct column{structNestCount > 0 ? ` (${structNestCount + 1})` : ""}</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>
@@ -269,6 +265,7 @@ const StructColumnModelPanel = ({
     const { columnShareStorage, columnStorage } = React.useContext(ColumnShareModelStorageContext);
 
     const [isOpenDialog, setOpenDialog] = React.useState<"search" | "unlink" | "">("");
+    const autoFocusRef = useAutoFocus<HTMLButtonElement>(isOpenDialog === "unlink");
 
     const erdDocument = documentsHolder.current();
     const withLogicalName = erdDocument.getDisplayNameStyle().withLogicalName();
@@ -331,7 +328,9 @@ const StructColumnModelPanel = ({
             </DialogContent>
             <DialogActions>
                 <Button onClick={handleCloseUnlinkDialog}>Cancel</Button>
-                <Button variant="contained" color="warning" onClick={handleCompletedUnlink}>Unlink</Button>
+                <Button variant="contained" color="warning" ref={autoFocusRef} onClick={handleCompletedUnlink}>
+                    Unlink
+                </Button>
             </DialogActions>
         </Dialog>
     );

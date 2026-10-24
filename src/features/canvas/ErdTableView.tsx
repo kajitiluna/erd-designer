@@ -47,6 +47,7 @@ import styleClasses from "./ErdCanvas.module.css";
 import SelectState from "~/models/SelectState";
 import DisplayColumnStyle from "~/models/DisplayColumnStyle";
 import { DragState } from "~/models/DragState";
+import useAutoFocus from "~/components/useAutoFocus";
 
 export const ERD_TABLE_VIEW_CLASS_NAME = "erd-table-view";
 
@@ -457,6 +458,7 @@ const InnerErdTableView = ({
 
     const containerRef = React.useRef<HTMLDivElement>(null);
     const [selfSelectableMode, setSelfSelectableMode] = React.useState<SelfSelectableMode>("none");
+    const focusRef = useAutoFocus<HTMLButtonElement>(isOpenDeletingDialog);
 
     const erdDocument = documentsHolder.current();
     const tableModel = tableView.tableModel;
@@ -653,7 +655,7 @@ const InnerErdTableView = ({
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseDeletingDialog}>Cancel</Button>
-                    <Button variant="contained" color="error" onClick={handleDeleteTable}>Delete</Button>
+                    <Button variant="contained" color="error" ref={focusRef} onClick={handleDeleteTable}>Delete</Button>
                 </DialogActions>
             </Dialog>
         </Box>

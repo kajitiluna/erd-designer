@@ -5,7 +5,7 @@ import {
 } from "@mui/material";
 
 import DraggableDialog from "~/components/DraggableDialog";
-import useAutoFocusInput from "~/components/useAutoFocusInput";
+import useAutoFocus from "~/components/useAutoFocus";
 import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import ColumnEntry from "~/models/database/ColumnEntry";
 import ColumnModel from "~/models/database/ColumnModel";
@@ -22,7 +22,7 @@ import ColumnViewTable from "~/features/editor/ColumnViewTable";
 import IndexGridView from "~/features/editor/IndexGridView";
 import {
     ColumnWrapModel, toColumnWrapModels, initHandleChangeWithSyncPhysicalName, initHandleCloseDialog,
-    initHandleEnterKeyDown, validateNameColumnWraps, initializeValidateNonRecursive
+    validateNameColumnWraps, initializeValidateNonRecursive
 } from "~/features/editor/support";
 import UniqueKeysGridView from "~/features/editor/UniqueKeysGridView";
 import { ExtraOption, initOptionCollatePanel } from "~/features/editor/view-support";
@@ -46,7 +46,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
     const [physicalTableName, setPhysicalTableName] = React.useState<string>(tableModel.physicalName);
     const [logicalTableName, setLogicalTableName] = React.useState<string>(tableModel.logicalName);
     const [description, setDescription] = React.useState<string>(tableModel.description);
-    const physicalNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
+    const autoFocusRef = useAutoFocus<HTMLInputElement>(isOpen);
 
     const withLogicalName = erdDocument.getDisplayNameStyle().withLogicalName();
 
@@ -130,11 +130,11 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
                     </Select>
                 </FormControl>
             )}
-            <TableNamePanel inputRef={physicalNameRef} label="PhysicalName" value={physicalTableName}
-                setValue={handleChangePhysicalName} onEnterAction={handleCompleted} />
+            <TableNamePanel inputRef={autoFocusRef} label="PhysicalName" value={physicalTableName}
+                setValue={handleChangePhysicalName} />
             {withLogicalName && (
                 <TableNamePanel label="LogicalName" value={logicalTableName}
-                    setValue={event => setLogicalTableName(event.target.value)} onEnterAction={handleCompleted} />
+                    setValue={event => setLogicalTableName(event.target.value)} />
             )}
         </Stack>
     );
@@ -146,7 +146,7 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
         }}>
             <DraggableDialog layoutName="table-edit"
                 fullWidth maxWidth={withLogicalName ? "lg" : "md"} sx={{ userSelect: "none" }}
-                open={isOpen} onClose={initHandleCloseDialog(onClose)}>
+                open={isOpen} onClose={initHandleCloseDialog(onClose)} onSubmitRequest={handleCompleted}>
                 <DialogTitle>Edit Table</DialogTitle>
                 <DialogContent>
                     <Stack spacing={3}>
@@ -333,15 +333,12 @@ type TableNamePanelProps = {
     value: string,
     inputRef?: React.RefObject<HTMLInputElement | null>,
     setValue: (event: React.ChangeEvent<HTMLInputElement>) => void
-    onEnterAction?: () => void
 }
 
-const TableNamePanel = ({ label, value, inputRef, setValue, onEnterAction = () => { } }: TableNamePanelProps) => {
-    const handleKeyDown = initHandleEnterKeyDown(onEnterAction);
-
+const TableNamePanel = ({ label, value, inputRef, setValue }: TableNamePanelProps) => {
     return (
         <TextField inputRef={inputRef} fullWidth required variant="outlined" sx={{ flex: 5 }}
-            label={label} value={value} onChange={setValue} onKeyDown={handleKeyDown} />
+            label={label} value={value} onChange={setValue} />
     );
 };
 

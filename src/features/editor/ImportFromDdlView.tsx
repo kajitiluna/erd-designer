@@ -4,7 +4,7 @@ import {
     Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography
 } from "@mui/material";
 
-import useAutoFocusInput from "~/components/useAutoFocusInput";
+import useAutoFocus from "~/components/useAutoFocus";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ErdDocument from "~/models/ErdDocument";
 import { DdlLoadResult, importDdl, loadDdl } from "~/models/schema/ddl-loader";
@@ -27,7 +27,7 @@ const ImportFromDdlView = ({ isOpen, onClose }: ImportFromDdlViewProps) => {
     const [ddl, setDdl] = React.useState<string>("");
     const [commentSeparator, setCommentSeparator] = React.useState<string>("");
     const [loadResult, setLoadResult] = React.useState<DdlLoadResult | null>(null);
-    const ddlRef = useAutoFocusInput<HTMLTextAreaElement>(isOpen);
+    const autoFocusRef = useAutoFocus<HTMLTextAreaElement>(isOpen);
 
     const handleCheckingDdl = (event: React.MouseEvent) => {
         event.stopPropagation();
@@ -49,8 +49,8 @@ const ImportFromDdlView = ({ isOpen, onClose }: ImportFromDdlViewProps) => {
                     <Stack spacing={3}>
                         <Divider />
                         <DialogContentText>Input DDL to import tables, columns and relations.</DialogContentText>
-                        <TextField inputRef={ddlRef} label="DDL" variant="outlined" fullWidth multiline rows="10"
-                            value={ddl} onChange={event => setDdl(event.target.value)} />
+                        <TextField inputRef={autoFocusRef} variant="outlined" fullWidth multiline rows="10"
+                            label="DDL" value={ddl} onChange={event => setDdl(event.target.value)} />
                         <Grid container spacing={1} sx={{ alignItems: "center", paddingLeft: 1 }}>
                             <Grid size={{ xs: 9 }}>
                                 <Typography variant="subtitle2">

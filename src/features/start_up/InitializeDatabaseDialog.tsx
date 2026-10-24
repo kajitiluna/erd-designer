@@ -7,7 +7,7 @@ import {
 import { Database, DatabaseType } from "~/models/database";
 import DatabaseSettingModel from "~/models/DatabaseSettingModel";
 import ErdDocument from "~/models/ErdDocument";
-import useAutoFocusInput from "~/components/useAutoFocusInput";
+import useAutoFocus from "~/components/useAutoFocus";
 
 type InitializeDatabaseDialogProps = {
     isOpen: boolean,
@@ -18,7 +18,7 @@ type InitializeDatabaseDialogProps = {
 const InitializeDatabaseDialog = ({ isOpen, onCreate, onClose }: InitializeDatabaseDialogProps) => {
     const [documentName, setDocumentName] = React.useState<string>("");
     const [databaseType, setDatabaseType] = React.useState<DatabaseType | "">("");
-    const documentNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
+    const autoFocusRef = useAutoFocus<HTMLInputElement>(isOpen);
 
     const handleChangeDocumentName = (event: React.ChangeEvent<HTMLInputElement>) => {
         const updating = event.target.value;
@@ -52,7 +52,7 @@ const InitializeDatabaseDialog = ({ isOpen, onCreate, onClose }: InitializeDatab
                     <Divider />
                     <Stack spacing={1}>
                         <Typography variant="body1">Input ER Diagram name.</Typography>
-                        <TextField inputRef={documentNameRef} variant="standard" required sx={{ marginBottom: "30px" }}
+                        <TextField inputRef={autoFocusRef} variant="standard" required sx={{ marginBottom: "30px" }}
                             label="Diagram name" value={documentName} onChange={handleChangeDocumentName} />
                     </Stack>
                     <Stack spacing={1}>

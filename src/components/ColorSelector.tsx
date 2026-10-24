@@ -1,7 +1,8 @@
 import React from "react";
-import { Box, IconButton, Popover, Stack } from "@mui/material";
+import { Box, ButtonBase, IconButton, Popover, Stack } from "@mui/material";
 import CircleIcon from '@mui/icons-material/Circle';
 
+import useAutoFocus from "~/components/useAutoFocus";
 import ThemePreferenceContext from "~/context/ThemePreferenceContext";
 import type { ColorTheme } from "~/models/ColorValue";
 import ColorValue from "~/models/ColorValue";
@@ -17,6 +18,7 @@ const ColorSelector = ({ color = ColorValue.WHITE, shape = "circle", callback }:
 
     const { colorTheme } = React.useContext(ThemePreferenceContext);
     const [anchorElement, setAnchorElement] = React.useState<HTMLButtonElement | HTMLDivElement | null>(null);
+    const tabStopSwatchRef = useAutoFocus<HTMLButtonElement>(anchorElement != null);
 
     const displayColor = color.to(colorTheme);
     const innerCallback = (background: ColorValue, foreground: ColorValue) => {
@@ -28,16 +30,27 @@ const ColorSelector = ({ color = ColorValue.WHITE, shape = "circle", callback }:
 
         setAnchorElement(event.currentTarget);
     }
+    // div 製のトリガーはネイティブの button と違って Enter/Space でクリックにならないため、同じ開閉動作を明示する。
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+        if ((event.key !== "Enter") && (event.key !== " ")) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        setAnchorElement(event.currentTarget);
+    };
 
     const selectorButton = (shape === "circle") ? (
-        <IconButton onMouseDown={handleClick}>
+        <IconButton onClick={handleClick}>
             <CircleIcon sx={{
                 color: displayColor.toRgba(),
                 stroke: displayColor.reverseGrayscale().toRgba(), strokeWidth: "1px"
             }} />
         </IconButton>
     ) : (
-        <Box onClick={handleClick} sx={{
+        <Box role="button" tabIndex={0} aria-label="Select color"
+            onClick={handleClick} onKeyDown={handleKeyDown} sx={{
             height: "30px",
             backgroundColor: displayColor.toRgba(),
             border: `1px solid ${displayColor.reverseGrayscale().toRgba()}`,
@@ -46,32 +59,84 @@ const ColorSelector = ({ color = ColorValue.WHITE, shape = "circle", callback }:
         }} className={ColorSelectorStyle.colorSelector} />
     );
 
+    const handlePaletteKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+        const swatchElements = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(`[${SWATCH_ATTRIBUTE}]`));
+        const currentIndex = swatchElements.indexOf(event.target as HTMLElement);
+        const nextIndex = findNextSwatchIndex(currentIndex, event.key, swatchElements.length);
+        if (nextIndex == null) {
+            return;
+        }
+
+        event.preventDefault();
+        swatchElements[nextIndex].focus();
+    };
+
+    // 矢印キーで移動するロービング tabindex。パレット全体で Tab 停止位置を 1 つにし、現在色 (なければ先頭) に置く。
+    const currentSwatchIndex = COLOR_PALLETS.flat().findIndex(pallet => pallet.background.equals(color));
+    const tabStopIndex = Math.max(currentSwatchIndex, 0);
+    const palletColumns = COLOR_PALLETS.map((pallets, columnIndex) => {
+        const colorPanels = pallets.map((pallet, rowIndex) => {
+            const swatchIndex = columnIndex * pallets.length + rowIndex;
+            const tabStopRef = (swatchIndex === tabStopIndex) ? tabStopSwatchRef : null;
+
+            return initColorPanel(
+                `color-select_${columnIndex}-${rowIndex}`,
+                color, pallet.background, pallet.foreground,
+                innerCallback, colorTheme, tabStopRef, 0.95
+            );
+        });
+
+        return <Stack key={`color-select_${columnIndex}`}>{colorPanels}</Stack>;
+    });
+
     return (<>
         {selectorButton}
         <Popover anchorEl={anchorElement} open={Boolean(anchorElement)}
             onClose={() => setAnchorElement(null)}
             anchorOrigin={{ vertical: "bottom", horizontal: "left" }}>
-            <Stack direction="row" spacing={0.5}>
-                {COLOR_PALLETS.map((pallets, rowIndex) => (
-                    <Stack key={`color-select_${rowIndex}`}>
-                        {pallets.map((pallet, columnIndex) => (
-                            initColorPanel(
-                                `color-select_${rowIndex}-${columnIndex}`,
-                                color, pallet.background, pallet.foreground,
-                                innerCallback, colorTheme, 0.95
-                            )
-                        ))}
-                    </Stack>
-                ))}
+            <Stack direction="row" spacing={0.5} onKeyDown={handlePaletteKeyDown}>
+                {palletColumns}
             </Stack>
         </Popover>
     </>);
 };
 
+const SWATCH_ATTRIBUTE = "data-color-swatch";
+
+/**
+ * Resolves the swatch to focus after an arrow/Home/End key press.
+ * Swatches are laid out column-major (one Stack per palette column), so Up/Down move within a column
+ * and Left/Right jump by a whole column. Returns null when the key does not move the focus.
+ */
+const findNextSwatchIndex = (currentIndex: number, key: string, swatchCount: number): number | null => {
+    if (currentIndex < 0) {
+        return null;
+    }
+
+    const columnLength = COLOR_PALLETS[0].length;
+    const lastIndex = swatchCount - 1;
+    switch (key) {
+        case "ArrowDown":
+            return ((currentIndex % columnLength) === (columnLength - 1)) ? currentIndex : currentIndex + 1;
+        case "ArrowUp":
+            return ((currentIndex % columnLength) === 0) ? currentIndex : currentIndex - 1;
+        case "ArrowRight":
+            return Math.min(currentIndex + columnLength, lastIndex);
+        case "ArrowLeft":
+            return Math.max(currentIndex - columnLength, 0);
+        case "Home":
+            return 0;
+        case "End":
+            return lastIndex;
+        default:
+            return null;
+    }
+};
+
 const initColorPanel = (
     key: string, currentColor: ColorValue, backgroundColor: ColorValue, foregroundColor: ColorValue,
     callback: (background: ColorValue, foreground: ColorValue) => void,
-    colorTheme: ColorTheme, alpha: number = 1
+    colorTheme: ColorTheme, tabStopRef: React.RefObject<HTMLButtonElement | null> | null, alpha: number = 1
 ) => {
 
     const selected = backgroundColor.equals(currentColor);
@@ -80,17 +145,24 @@ const initColorPanel = (
         callback(backgroundColor, foregroundColor)
     };
 
+    // ButtonBase は border-box かつ border なしが既定のため、従来の div と同じ寸法・見た目になるよう上書きする。
     const style = {
+        display: "block",
+        boxSizing: "content-box",
         padding: "5px",
         width: `${30 - (selected ? 4 * 2 : 0)}px`,
         height: `${20 - (selected ? 4 * 2 : 0)}px`,
         border: (selected ? "4px solid var(--mui-palette-erd-selection)" : ""),
         borderRadius: "1px",
-        backgroundColor: backgroundColor.toRgba(colorTheme, alpha)
+        backgroundColor: backgroundColor.toRgba(colorTheme, alpha),
+        "&.Mui-focusVisible": { outline: "2px solid var(--mui-palette-erd-selection)", outlineOffset: "1px" }
     };
 
+    const swatchAttributes = { [SWATCH_ATTRIBUTE]: "" };
+
     return (
-        <Box key={key} onClick={handleClicked}
+        <ButtonBase key={key} onClick={handleClicked} disableRipple
+            tabIndex={(tabStopRef != null) ? 0 : -1} ref={tabStopRef ?? undefined} {...swatchAttributes}
             sx={style} className={ColorSelectorStyle.colorPanel}
         />
     );

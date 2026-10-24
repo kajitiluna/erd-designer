@@ -7,7 +7,7 @@ import {
 
 import BaseGridView from '~/components/BaseGridView';
 import DraggableDialog from '~/components/DraggableDialog';
-import useAutoFocusInput from '~/components/useAutoFocusInput';
+import useAutoFocus from '~/components/useAutoFocus';
 import { ColumnShareModelStorageContext } from '~/context/ColumnShareModelStorageContext';
 import ColumnModel from '~/models/database/ColumnModel';
 import ColumnShareModel from '~/models/database/ColumnShareModel';
@@ -17,7 +17,7 @@ import { SortOrderType } from '~/models/database/ValueType';
 import TableUniqueKeysModel, { UniqueKeysColumnModel } from '~/models/database/TableUniqueKeysModel';
 import ColumnTransferPanel from '~/features/editor/ColumnTransferPanel';
 import { initGridColumnHeaders } from '~/features/editor/view-support';
-import { ColumnWrapModel, initHandleChangePhysicalName, initHandleEnterKeyDown } from '~/features/editor/support';
+import { ColumnWrapModel, initHandleChangePhysicalName } from '~/features/editor/support';
 import { overrideColumnName } from '~/models/database/support';
 
 type UniqueKeysGridViewProps = {
@@ -167,7 +167,7 @@ const UniqueKeysEditDialog = ({
         })
     );
     const [description, setDescription] = React.useState<string>(tableUniqueKeysModel.description);
-    const physicalNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
+    const autoFocusRef = useAutoFocus<HTMLInputElement>(isOpen);
 
     const handleNewUniqueKeysColumn = (columnModelId: string): UniqueKeysModelAttribute => {
         return {
@@ -202,26 +202,24 @@ const UniqueKeysEditDialog = ({
             );
         };
 
-        return (
-            <>
-                <TableCell align="right" sx={{ width: 10 }}>{arrayIndex + 1}</TableCell>
-                <TableCell>{columnName.physicalName}</TableCell>
-                <TableCell>{columnShareModel.specifiedColumnType(inChildRelation)}</TableCell>
-                {database.uniqueKeySupport.orderable && (
-                    <TableCell>
-                        <FormControl fullWidth size="small">
-                            <InputLabel id={`sort-order-${columnModelId}`}>Sort Order</InputLabel>
-                            <Select label="Sort order" labelId={`sort-order-${columnModelId}`}
-                                value={indexedColumn.sortOrderType} onChange={handleChangeSortOrder}>
-                                <MenuItem value="">(Default)</MenuItem>
-                                <MenuItem value="ASC">ASC</MenuItem>
-                                <MenuItem value="DESC">DESC</MenuItem>
-                            </Select>
-                        </FormControl>
-                    </TableCell>
-                )}
-            </>
-        );
+        return (<>
+            <TableCell align="right" sx={{ width: 10 }}>{arrayIndex + 1}</TableCell>
+            <TableCell>{columnName.physicalName}</TableCell>
+            <TableCell>{columnShareModel.specifiedColumnType(inChildRelation)}</TableCell>
+            {database.uniqueKeySupport.orderable && (
+                <TableCell>
+                    <FormControl fullWidth size="small">
+                        <InputLabel id={`sort-order-${columnModelId}`}>Sort Order</InputLabel>
+                        <Select label="Sort order" labelId={`sort-order-${columnModelId}`}
+                            value={indexedColumn.sortOrderType} onChange={handleChangeSortOrder}>
+                            <MenuItem value="">(Default)</MenuItem>
+                            <MenuItem value="ASC">ASC</MenuItem>
+                            <MenuItem value="DESC">DESC</MenuItem>
+                        </Select>
+                    </FormControl>
+                </TableCell>
+            )}
+        </>);
     };
 
     const transferPanel = (
@@ -272,19 +270,19 @@ const UniqueKeysEditDialog = ({
 
     return (
         <DraggableDialog layoutName="unique-keys-edit" fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
-            open={isOpen} onClose={onClose}>
+            open={isOpen} onClose={onClose} onSubmitRequest={handleCompleted}>
             <DialogTitle>Edit unique key constraint</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>
                     <Divider />
-                    <TextField id="physicalName" inputRef={physicalNameRef}
-                        label="Physical Name" value={physicalName} fullWidth variant="outlined" sx={{ flex: 1 }}
-                        onChange={initHandleChangePhysicalName(setPhysicalName)}
-                        onKeyDown={initHandleEnterKeyDown(handleCompleted)} />
+                    <TextField id="physicalName" inputRef={autoFocusRef} variant="outlined" fullWidth sx={{ flex: 1 }}
+                        label="Physical Name" value={physicalName}
+                        onChange={initHandleChangePhysicalName(setPhysicalName)} />
                     {transferPanel}
-                    <TextField id="description" variant="outlined" label="Description"
-                        multiline rows={3} slotProps={{ input: { style: { resize: 'vertical' } } }}
-                        value={description} onChange={event => setDescription(event.target.value)} />
+                    <TextField id="description" variant="outlined" multiline rows={3}
+                        slotProps={{ input: { style: { resize: 'vertical' } } }}
+                        label="Description" value={description}
+                        onChange={event => setDescription(event.target.value)} />
                 </Stack>
             </DialogContent>
             <DialogActions>

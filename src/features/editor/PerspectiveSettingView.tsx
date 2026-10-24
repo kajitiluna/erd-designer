@@ -116,7 +116,7 @@ const PerspectiveSettingView = ({ isOpen, targetId, onClose }: PerspectiveSettin
 
     return (
         <DraggableDialog layoutName="perspective-setting" fullWidth maxWidth="md" sx={{ userSelect: "none" }}
-            open={isOpen} onClose={initHandleCloseDialog(onClose)}>
+            open={isOpen} onClose={initHandleCloseDialog(onClose)} onSubmitRequest={handleCompleted}>
             <DialogTitle>Setting Perspective</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>

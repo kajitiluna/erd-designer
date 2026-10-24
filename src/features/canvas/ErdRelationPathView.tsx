@@ -37,6 +37,7 @@ import RelationSummaryCard from "~/features/canvas/RelationSummaryCard";
 
 import styleClasses from "./ErdCanvas.module.css";
 import LabelViewModel from "~/models/LabelViewModel";
+import useAutoFocus from "~/components/useAutoFocus";
 
 export const ERD_RELATION_PATH_CLASS_NAME = "erd-relation-path";
 
@@ -62,6 +63,7 @@ const ErdRelationPathView = ({
 
     const [clickedPosition, setClickedPosition] = React.useState<{ x: number, y: number }>({ x: 0, y: 0 });
     const [deletingRelation, setDeletingRelation] = React.useState<RelationViewModel | null>(null);
+    const deleteButtonRef = useAutoFocus<HTMLButtonElement>(deletingRelation != null);
 
     const handleOpenEditDialog = (event: React.MouseEvent, relationView: RelationViewModel) => {
         if (editMode !== EditModeType.SELECT) {
@@ -134,7 +136,7 @@ const ErdRelationPathView = ({
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseDeleteDialog}>Cancel</Button>
-                    <Button variant="contained" color="error"
+                    <Button variant="contained" color="error" ref={deleteButtonRef}
                         onClick={event => handleDeleteRelation(event, deletingRelation)}>Delete</Button>
                 </DialogActions>
             </Dialog>

@@ -9,14 +9,14 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 import DraggableDialog from "~/components/DraggableDialog";
-import useAutoFocusInput from "~/components/useAutoFocusInput";
+import useAutoFocus from "~/components/useAutoFocus";
 import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ThemePreferenceContext from "~/context/ThemePreferenceContext";
 import type { ColorTheme } from "~/models/ColorValue";
 import ErdDocument from "~/models/ErdDocument";
 import ColorValue from "~/models/ColorValue";
 import PerspectiveModel from "~/models/PerspectiveModel";
-import { SELECTED_CELL_COLOR, initHandleCloseDialog, initHandleEnterKeyDown } from "~/features/editor/support";
+import { SELECTED_CELL_COLOR, initHandleCloseDialog } from "~/features/editor/support";
 import EdgedIconButton from "~/components/EdgedIconButton";
 import { handlePreventMouseEvent } from "~/features/canvas/support";
 
@@ -399,7 +399,7 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
 
     return (
         <DraggableDialog layoutName="perspective-view" fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
-            open={isOpen} onClose={initHandleCloseDialog(onClose)}>
+            open={isOpen} onClose={initHandleCloseDialog(onClose)} onSubmitRequest={handleCompleted}>
             <DialogTitle>Perspective</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>
@@ -503,7 +503,7 @@ const PerspectiveEditDialog = ({
 
     const [perspectiveName, setPerspectiveName] = React.useState<string>(perspective ? perspective.perspectiveName : "");
     const [description, setDescription] = React.useState<string>(perspective ? perspective.description : "");
-    const perspectiveNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
+    const autoFocusRef = useAutoFocus<HTMLInputElement>(isOpen);
 
     const editValueValidated = (perspectiveName.length > 0);
 
@@ -528,18 +528,16 @@ const PerspectiveEditDialog = ({
         onClose();
     };
 
-    const handleEnterDown = initHandleEnterKeyDown(handleCompleted);
-
     return (
         <DraggableDialog layoutName="perspective-edit" fullWidth maxWidth="sm" sx={{ userSelect: "none" }}
-            open={isOpen} onClose={initHandleCloseDialog(onClose)}>
+            open={isOpen} onClose={initHandleCloseDialog(onClose)} onSubmitRequest={handleCompleted}>
             <DialogTitle>Edit Perspective</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>
                     <Divider />
-                    <TextField inputRef={perspectiveNameRef} required fullWidth variant="outlined"
+                    <TextField inputRef={autoFocusRef} required fullWidth variant="outlined"
                         label="Perspective Name" value={perspectiveName}
-                        onChange={event => setPerspectiveName(event.target.value)} onKeyDown={handleEnterDown} />
+                        onChange={event => setPerspectiveName(event.target.value)} />
                     <TextField variant="outlined" label="Description" multiline rows={3}
                         slotProps={{ input: { style: { resize: 'vertical' } } }}
                         value={description}

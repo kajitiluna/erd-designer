@@ -10,14 +10,14 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 
 import DraggableDialog from "~/components/DraggableDialog";
-import useAutoFocusInput from "~/components/useAutoFocusInput";
+import useAutoFocus from "~/components/useAutoFocus";
 import DbSchemaModel from "~/models/database/DbSchemaModel";
 import DbSchemaConfig from "~/models/DbSchemaConfig";
 import ErdDocument from "~/models/ErdDocument";
 import EdgedIconButton from "~/components/EdgedIconButton";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import {
-    initHandleChangePhysicalName, initHandleCloseDialog, initHandleEnterKeyDown, SELECTED_CELL_COLOR
+    initHandleChangePhysicalName, initHandleCloseDialog, SELECTED_CELL_COLOR
 } from "~/features/editor/support";
 import { handlePreventMouseEvent } from "~/features/canvas/support";
 
@@ -248,7 +248,7 @@ const DbSchemaView = ({ isOpen, onClose }: DbSchemaViewProps) => {
 
     return (
         <DraggableDialog layoutName="db-schema-view" fullWidth maxWidth="md" sx={{ userSelect: "none" }}
-            open={isOpen} onClose={initHandleCloseDialog(onClose)}>
+            open={isOpen} onClose={initHandleCloseDialog(onClose)} onSubmitRequest={handleCompleted}>
             <DialogTitle>Schema</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>
@@ -289,7 +289,7 @@ const DbSchemaEditDialog = ({
 
     const [schemaName, setSchemaName] = React.useState(schemaModel?.schemaName || "");
     const [description, setDescription] = React.useState(schemaModel?.description || "");
-    const schemaNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
+    const autoFocusRef = useAutoFocus<HTMLInputElement>(isOpen);
 
     const editValueValidated = (schemaName.length > 0);
 
@@ -313,23 +313,18 @@ const DbSchemaEditDialog = ({
         onClose();
     };
 
-    const handleEnterDown = initHandleEnterKeyDown(handleCompleted);
-
     return (
         <DraggableDialog layoutName="db-schema-edit" fullWidth maxWidth="sm" sx={{ userSelect: "none" }}
-            open={isOpen} onClose={initHandleCloseDialog(onClose)}>
+            open={isOpen} onClose={initHandleCloseDialog(onClose)} onSubmitRequest={handleCompleted}>
             <DialogTitle>Edit Schema</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>
                     <Divider />
-                    <TextField inputRef={schemaNameRef} required fullWidth variant="outlined"
-                        label="Schema Name" value={schemaName}
-                        onChange={initHandleChangePhysicalName(setSchemaName)}
-                        onKeyDown={handleEnterDown} />
+                    <TextField inputRef={autoFocusRef} required fullWidth variant="outlined"
+                        label="Schema Name" value={schemaName} onChange={initHandleChangePhysicalName(setSchemaName)} />
                     <TextField variant="outlined" label="Description" multiline rows={3}
                         slotProps={{ input: { style: { resize: 'vertical' } } }}
-                        value={description}
-                        onChange={event => setDescription(event.target.value)} />
+                        value={description} onChange={event => setDescription(event.target.value)} />
                 </Stack>
             </DialogContent>
             <DialogActions>

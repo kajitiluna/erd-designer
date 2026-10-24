@@ -2,12 +2,12 @@ import React from "react";
 import { Button, DialogActions, DialogContent, DialogTitle, Divider, Stack, TextField } from "@mui/material";
 
 import DraggableDialog from "~/components/DraggableDialog";
-import useAutoFocusInput from "~/components/useAutoFocusInput";
+import useAutoFocus from "~/components/useAutoFocus";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import ColumnModel from "~/models/database/ColumnModel";
 import ErdDocument from "~/models/ErdDocument";
-import { ColumnWrapModel, initHandleCloseDialog, initHandleEnterKeyDown } from "~/features/editor/support";
+import { ColumnWrapModel, initHandleCloseDialog } from "~/features/editor/support";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import ColumnViewTable from "~/features/editor/ColumnViewTable";
 import ColumnModelStorage from "~/models/ColumnModelStorage";
@@ -30,7 +30,7 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
         initColumnWrapModels(erdDocument, columnGroup)
     );
     const [description, setDescription] = React.useState<string>(columnGroup.description);
-    const groupNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
+    const autoFocusRef = useAutoFocus<HTMLInputElement>(isOpen);
 
     const withLogicalName = erdDocument.getDisplayNameStyle().withLogicalName();
 
@@ -68,8 +68,6 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
         onClose();
     };
 
-    const handleEnterDown = initHandleEnterKeyDown(handleCompleted);
-
     return (
         <ColumnShareModelStorageContext.Provider value={{
             columnShareStorage: columnShareStorage, updateShareStorage: setColumnShareStorage,
@@ -77,14 +75,13 @@ const ColumnGroupEditDialog = ({ isOpen, columnGroup, onClose }: ColumnGroupEdit
         }}>
             <DraggableDialog layoutName="column-group-edit"
                 fullWidth maxWidth={withLogicalName ? "lg" : "md"} sx={{ userSelect: "none" }}
-                open={isOpen} onClose={initHandleCloseDialog(onClose)}>
+                open={isOpen} onClose={initHandleCloseDialog(onClose)} onSubmitRequest={handleCompleted}>
                 <DialogTitle>Edit Column Group</DialogTitle>
                 <DialogContent>
                     <Stack spacing={3}>
                         <Divider />
-                        <TextField inputRef={groupNameRef}
-                            fullWidth required variant="outlined" label="GroupName" value={groupName}
-                            onChange={event => setGroupName(event.target.value)} onKeyDown={handleEnterDown} />
+                        <TextField inputRef={autoFocusRef} fullWidth required variant="outlined"
+                            label="GroupName" value={groupName} onChange={event => setGroupName(event.target.value)} />
                         <ColumnViewTable
                             columnWrapModels={columnWrapModels}
                             availableColumnGroup={false}
