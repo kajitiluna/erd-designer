@@ -39,7 +39,6 @@ const GitHubLinkButton = ({ colorVariant = "light" }: GitHubLinkButtonProp) => {
  * GitHub API is rate limited per client IP, so an absent count is an expected outcome rather than
  * a failure worth surfacing.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const loadStarCount = async (_signal: AbortSignal): Promise<number | null> => {
     // try {
     //     const response = await fetch(GITHUB_REPOSITORY_API_URL, { signal });

@@ -16,7 +16,6 @@ export class ErmImportProvider implements vscode.CustomTextEditorProvider {
 
     resolveCustomTextEditor(
         textDocument: vscode.TextDocument, webviewPanel: vscode.WebviewPanel,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         _token: vscode.CancellationToken
     ): Thenable<void> | void {
         return handleImportingErmDocument(textDocument, webviewPanel);

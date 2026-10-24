@@ -56,9 +56,6 @@ export const doFindRectangleSelected = (
     selectedArea: RectangleViewModel, rectangles: Map<string, RectangleViewModel>, perspective: PerspectiveModel | null
 ) =>
     Array.from(rectangles.entries())
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         .filter(([_rectangleId, rectangle]) => selectedArea.contains(rectangle))
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         .filter(([rectangleId, _rectangle]) => (perspective == null) || perspective.containsModel(rectangleId))
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         .map(([rectangleId, _rectangle]) => rectangleId);

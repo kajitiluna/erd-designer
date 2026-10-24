@@ -189,10 +189,14 @@ const useCanvasSearch = (): { searchState: SearchState; searchAction: SearchActi
     const [searchTerm, setSearchTerm] = React.useState("");
     const [debouncedSearchTerm, setDebouncedSearchTerm] = React.useState("");
     const [searchTargets, setSearchTargets] = React.useState<SearchTargets>(DEFAULT_SEARCH_TARGETS);
-    const [currentMatchIndex, setCurrentMatchIndex] = React.useState(0);
+    const [matchIndex, setMatchIndex] = React.useState(0);
 
+    // 検索語の確定は検索条件の変更なので、現在位置を先頭に戻す
     React.useEffect(() => {
-        const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 200);
+        const timer = setTimeout(() => {
+            setDebouncedSearchTerm(searchTerm);
+            setMatchIndex(0);
+        }, 200);
 
         return () => clearTimeout(timer);
     }, [searchTerm]);
@@ -212,9 +216,8 @@ const useCanvasSearch = (): { searchState: SearchState; searchAction: SearchActi
         [erdDocument.lastUpdatedAt, currentPerspective, debouncedSearchTerm, searchTargets, showRelationNames]
     );
 
-    React.useEffect(() => {
-        setCurrentMatchIndex(0);
-    }, [matchResults]);
+    // 一致結果はドキュメント編集でも作り直されるが、現在位置は保つ。件数が減って範囲外になった場合だけ先頭とみなす
+    const currentMatchIndex = (matchIndex < matchResults.length) ? matchIndex : 0;
 
     React.useEffect(() => {
         if ((isActive === false) || (debouncedSearchTerm === "")) {
@@ -235,7 +238,7 @@ const useCanvasSearch = (): { searchState: SearchState; searchAction: SearchActi
         setActive(false);
         setSearchTerm("");
         setDebouncedSearchTerm("");
-        setCurrentMatchIndex(0);
+        setMatchIndex(0);
         clearHighlights();
     };
 
@@ -245,7 +248,7 @@ const useCanvasSearch = (): { searchState: SearchState; searchAction: SearchActi
         }
 
         const nextIndex = (currentMatchIndex + 1) % matchResults.length;
-        setCurrentMatchIndex(nextIndex);
+        setMatchIndex(nextIndex);
 
         const nextMatch = matchResults[nextIndex];
         scrollToMatch(nextMatch, viewport, toolbarCanvasElement);
@@ -257,7 +260,7 @@ const useCanvasSearch = (): { searchState: SearchState; searchAction: SearchActi
         }
 
         const prevIndex = (currentMatchIndex - 1 + matchResults.length) % matchResults.length;
-        setCurrentMatchIndex(prevIndex);
+        setMatchIndex(prevIndex);
 
         const prevMatch = matchResults[prevIndex];
         scrollToMatch(prevMatch, viewport, toolbarCanvasElement);
@@ -271,7 +274,10 @@ const useCanvasSearch = (): { searchState: SearchState; searchAction: SearchActi
         openSearch: React.useCallback(() => setActive(true), []),
         closeSearch: React.useCallback(handleClose, []),
         setSearchTerm: React.useCallback((term: string) => setSearchTerm(term), []),
-        setSearchTargets: React.useCallback((targets: SearchTargets) => setSearchTargets(targets), []),
+        setSearchTargets: React.useCallback((targets: SearchTargets) => {
+            setSearchTargets(targets);
+            setMatchIndex(0);
+        }, []),
         navigateForward, navigateBackward
     };
 

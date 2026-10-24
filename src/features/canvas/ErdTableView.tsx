@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 import React from "react";
 import ReactDOM from "react-dom";
 import {
@@ -91,9 +90,11 @@ const ErdTableView = ({ tableView, visible = true, onEditAction, onDragAction }:
                 </TableContainer>
             </Box>
         </>);
+        // oxlint-disable-next-line react/exhaustive-deps
     }, [
         erdDocument.lastUpdatedAt,
         // リレーション選択時に外部制約があるカラムの背景色を変更するので、それに対する検証
+        // oxlint-disable-next-line react/exhaustive-deps
         (selectState.relationId || "")
     ]);
 
@@ -101,6 +102,7 @@ const ErdTableView = ({ tableView, visible = true, onEditAction, onDragAction }:
 
     const wrapTableTooltip = React.useMemo(() => {
         return initWrapContentTooltip(tableView.tableModel, selected, erdDocument, dragState);
+        // oxlint-disable-next-line react/exhaustive-deps
     }, [erdDocument.lastUpdatedAt, selected, (selected ? dragState.status : "")]);
 
     const viewCache = React.useMemo(() => {
@@ -116,13 +118,16 @@ const ErdTableView = ({ tableView, visible = true, onEditAction, onDragAction }:
                 wrapTableTooltip={wrapTableTooltip}
                 onOpenDeleteDialog={setOpenDeleteDialog} />
         );
+        // oxlint-disable-next-line react/exhaustive-deps
     }, [
         erdDocument.lastUpdatedAt,
         // 選択状態、およびドラッグ状態に対する検証
+        // oxlint-disable-next-line react/exhaustive-deps
         selected, (selected ? dragState : ""),
         // 表示状態に対する検証
         visible,
         // リレーション作成時の制御に対する検証
+        // oxlint-disable-next-line react/exhaustive-deps
         editMode, (editMode === EditModeType.CREATE_RELATION ? [...selectState.tableIds].join(",") : ""),
         // テーブルキャッシュに対する検証
         tableContentCache, wrapTableTooltip,
@@ -737,6 +742,7 @@ const TableControlPanel = ({
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
     const { toolbarCanvasElement } = React.useContext(PortalCanvasContext);
 
+    // oxlint-disable-next-line react/refs -- 選択中のテーブルにのみ描画するため、この時点でコンテナはマウント済み
     if ((containerRef.current == null) || (toolbarCanvasElement == null)) {
         return (<></>);
     }
@@ -752,6 +758,7 @@ const TableControlPanel = ({
     const perspectives = erdSetting.getPerspectiveModels();
 
     const portalRect = toolbarCanvasElement.getBoundingClientRect();
+    // oxlint-disable-next-line react/refs -- パネル位置の算出にコンテナの実寸が必要
     const containerRect = containerRef.current.getBoundingClientRect();
     const controlPanelStyle: React.CSSProperties = {
         justifyContent: "flex-end",

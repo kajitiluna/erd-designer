@@ -49,7 +49,6 @@ class InMemoryErdDocumentStorage implements ErdDocumentStorage {
     }
 
     public async save(
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         key: string, erdDocument: ErdDocument, expectedRevision: number, _loggingMessage: string
     ): Promise<SaveErdDocumentResult> {
         const gate = this.pendingSaveGate;

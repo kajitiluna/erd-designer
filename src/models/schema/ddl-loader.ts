@@ -824,7 +824,6 @@ const doLoadCreateUniqueKeyDefinition = (
 
     // MS SQL Server にて、クラスタインデクス定義が指定された場合は、カラム単独のユニーク制約は定義しない
     if ((createDefinition.definition.length === 1) && (clustered === false)) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const [indexColumn, _, noSuccessResult] = doValidateDefinition(createDefinition.definition, 0);
         if (noSuccessResult != null) {
             return [null, null, noSuccessResult];
@@ -840,9 +839,7 @@ const doLoadCreateUniqueKeyDefinition = (
     }
 
     const indexedColumns: string[] = [];
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     for (const [indexDefinition, _] of createDefinition.definition.entries()) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const [_, columnName, noSuccessResult] = doValidateDefinition(createDefinition.definition, indexDefinition);
         if (noSuccessResult != null) {
             return [null, null, noSuccessResult];
