@@ -141,7 +141,7 @@ ORDER BY kcu.TABLE_NAME, kcu.CONSTRAINT_NAME, kcu.ORDINAL_POSITION;\
 const VERSION_QUERY = "SELECT VERSION() AS version";
 
 // information_schema.columns/statistics/key_column_usage は1行1(テーブル, 列)等の組で返るため、
-// TABLE_NAME 単位でグループ化してから型付けする(coding-style ルール5の例外: Map への蓄積)。
+// TABLE_NAME 単位でグループ化してから型付けする。
 const toTableRows = (rawRows: MySqlRawRows): MySqlTableRow[] => {
     const tableRows = rawRows.tables.map(raw => {
         return { tableName: String(raw.table_name), tableComment: String(raw.table_comment ?? "") };

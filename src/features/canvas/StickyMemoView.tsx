@@ -34,7 +34,7 @@ import ColorValue from "~/models/ColorValue";
 
 import styleClasses from "./ErdCanvas.module.css";
 import SelectState from "~/models/SelectState";
-import useAutoFocus from "~/components/useAutoFocus";
+import useAutoFocus from "~/components/keyboard/useAutoFocus";
 
 export const ERD_MEMO_VIEW_CLASS_NAME = "erd-memo-view";
 

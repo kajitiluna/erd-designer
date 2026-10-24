@@ -2,7 +2,7 @@ import React from "react";
 import { Box, ButtonBase, IconButton, Popover, Stack } from "@mui/material";
 import CircleIcon from '@mui/icons-material/Circle';
 
-import useAutoFocus from "~/components/useAutoFocus";
+import useAutoFocus from "~/components/keyboard/useAutoFocus";
 import ThemePreferenceContext from "~/context/ThemePreferenceContext";
 import type { ColorTheme } from "~/models/ColorValue";
 import ColorValue from "~/models/ColorValue";

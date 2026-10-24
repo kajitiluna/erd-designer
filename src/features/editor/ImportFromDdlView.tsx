@@ -4,7 +4,7 @@ import {
     Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography
 } from "@mui/material";
 
-import useAutoFocus from "~/components/useAutoFocus";
+import useAutoFocus from "~/components/keyboard/useAutoFocus";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ErdDocument from "~/models/ErdDocument";
 import { DdlLoadResult, importDdl, loadDdl } from "~/models/schema/ddl-loader";

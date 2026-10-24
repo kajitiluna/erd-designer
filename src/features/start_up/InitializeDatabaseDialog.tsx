@@ -7,7 +7,7 @@ import {
 import { Database, DatabaseType } from "~/models/database";
 import DatabaseSettingModel from "~/models/DatabaseSettingModel";
 import ErdDocument from "~/models/ErdDocument";
-import useAutoFocus from "~/components/useAutoFocus";
+import useAutoFocus from "~/components/keyboard/useAutoFocus";
 
 type InitializeDatabaseDialogProps = {
     isOpen: boolean,

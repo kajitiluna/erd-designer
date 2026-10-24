@@ -7,8 +7,7 @@ import { DdlCommentStyle } from "~/models/ExportDdlSettingModel";
  * 比較対象の範囲。ExportDdlSettingModel の既定(すべて true)に一致させる。
  * withTable 相当のフラグは持たない。すべての比較を止めるのは実行しないのと同義のため。
  * withIndex/withForeignKey/withComment/withSchema/withLogicalName の5つは互いに独立な属性であり、
- * 状態遷移の1つの側面ではないため単一 union には畳まない
- * (coding-style ルール16の対象外 — TableModel の primaryKey/notNull/unique と同じ性質)。
+ * 状態遷移の1つの側面ではないため単一 union には畳まない。
  * commentStyle だけは性質が異なる: 比較する/しないを切り替える範囲フラグではなく、
  * 「コメント文言をどう解釈するか」という比較の意味づけそのものを運ぶ。
  */

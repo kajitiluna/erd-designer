@@ -103,7 +103,6 @@ const compareTablePair = (
 
 type ColumnCompareResult = { differences: SchemaDifference[], warnings: SchemaWarning[] };
 
-// compareColumns も matchTables と同じ理由で状態を持つ蓄積になる(ルール5の例外)。
 const compareColumns = (
     expectedColumns: readonly ColumnSnapshot[], actualColumns: readonly ColumnSnapshot[],
     scope: SchemaCompareScope, schemaName: string, tableName: string, isCaseSensitive: boolean
@@ -262,8 +261,8 @@ const toColumnListDisplay = (columnNames: readonly string[]): string => {
 };
 
 // UniqueKeySnapshot/IndexSnapshot/ForeignKeySnapshot の照合は「消費済みの候補を除いていく」
-// 突き合わせのため、matchTables と同じ理由でローカル配列への splice を用いる(ルール5の例外)。
-// 引数の uniqueKeys 自体は書き換えない([...actualKeys] でコピーしてから操作する。ルール4準拠)。
+// 突き合わせのため、matchTables と同じ理由でローカル配列への splice を用いる。
+// 引数の uniqueKeys 自体は書き換えない([...actualKeys] でコピーしてから操作する)。
 const compareUniqueKeys = (
     expectedKeys: readonly UniqueKeySnapshot[], actualKeys: readonly UniqueKeySnapshot[],
     schemaName: string, tableName: string

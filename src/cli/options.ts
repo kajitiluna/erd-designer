@@ -48,7 +48,7 @@ type CollectResult =
     | { resultType: "invalid", message: string };
 
 // "--name" の次のトークンを値として消費するかどうかで走査位置の進め幅が変わるため、
-// map/filter では表現できない。ここだけ索引走査で書く(coding-style ルール5の例外)。
+// map/filter では表現できない。ここだけ索引走査で書く。
 const collectTokens = (argv: readonly string[], specMap: Map<string, OptionSpec>): CollectResult => {
     const values = new Map<string, string[]>();
     const flags = new Set<string>();

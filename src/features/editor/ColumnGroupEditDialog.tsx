@@ -2,7 +2,7 @@ import React from "react";
 import { Button, DialogActions, DialogContent, DialogTitle, Divider, Stack, TextField } from "@mui/material";
 
 import DraggableDialog from "~/components/DraggableDialog";
-import useAutoFocus from "~/components/useAutoFocus";
+import useAutoFocus from "~/components/keyboard/useAutoFocus";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import ColumnModel from "~/models/database/ColumnModel";

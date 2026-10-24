@@ -12,6 +12,8 @@ import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import ForeignKeyIcon from "~/components/icons/ForeignKeyIcon";
 import PrimaryKeyIcon from "~/components/icons/PrimaryKeyIcon";
 import EdgedIconButton from "~/components/EdgedIconButton";
+import { rowKeyNavigation } from "~/components/keyboard/row-key-navigation";
+import useRowFocusRequest from "~/components/keyboard/useRowFocusRequest";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import SimpleColumnModel from "~/models/database/SimpleColumnModel";
 import StructColumnModel from "~/models/database/StructColumnModel";
@@ -51,6 +53,9 @@ const ColumnViewTable = ({
 
     const [draggingStartIndex, setDraggingStartIndex] = React.useState<number | null>(null);
     const [draggingOverIndex, setDraggingOverIndex] = React.useState<number | null>(null);
+
+    // 削除ボタンは選択が外れると無効化されフォーカスを失うため、削除後に残った行へフォーカスを戻す。
+    const { containerRef: tableBodyRef, requestFocus } = useRowFocusRequest<HTMLTableSectionElement>();
 
     const erdDocument = documentsHolder.current();
     const database = erdDocument.getDatabase();
@@ -171,9 +176,14 @@ const ColumnViewTable = ({
             }
         };
 
-        const handleKeyDown = initHandleRowKeyDown({
-            targetIndex, lastIndex: columnWrapModels.length - 1,
-            toggleRow: handleRowClicked, editRow: handleEditColumn, selectRowAt
+        const handleReorder = (shift: (1 | -1)) => {
+            reorderColumnByKeyboard(targetIndex, shift);
+        };
+
+        const handleKeyDown = rowKeyNavigation.initHandleKeyDown({
+            orientation: "vertical", index: targetIndex, lastIndex: columnWrapModels.length - 1,
+            selectAt: selectRowAt, onSelect: handleRowClicked, onActivate: handleEditColumn,
+            onReorder: handleReorder
         });
 
         return (
@@ -314,19 +324,34 @@ const ColumnViewTable = ({
 
     const initHandleShiftColumn = (shift: (1 | -1)) => {
         return () => {
-            if ((selectedIndex < 0) || (selectedIndex + shift < 0)
-                || (selectedIndex + shift >= columnWrapModels.length)) {
-                return;
-            }
+            shiftColumnAt(selectedIndex, shift);
+        };
+    };
 
-            onUpdateColumnWrapModels(previous => {
-                const nextColumnWrapModels = [...previous];
-                nextColumnWrapModels[selectedIndex] = previous[selectedIndex + shift];
-                nextColumnWrapModels[selectedIndex + shift] = previous[selectedIndex];
+    // 行は描画し直されるとフォーカスを失うため、移動先の位置を描画後にフォーカスし直す。
+    const reorderColumnByKeyboard = (index: number, shift: (1 | -1)) => {
+        setSelectedWrappedModel(columnWrapModels[index]);
 
-                return nextColumnWrapModels
-            });
+        const shifted = shiftColumnAt(index, shift);
+        if (shifted) {
+            requestFocus(index + shift);
         }
+    };
+
+    const shiftColumnAt = (index: number, shift: (1 | -1)): boolean => {
+        if ((index < 0) || (index + shift < 0) || (index + shift >= columnWrapModels.length)) {
+            return false;
+        }
+
+        onUpdateColumnWrapModels(previous => {
+            const nextColumnWrapModels = [...previous];
+            nextColumnWrapModels[index] = previous[index + shift];
+            nextColumnWrapModels[index + shift] = previous[index];
+
+            return nextColumnWrapModels
+        });
+
+        return true;
     };
 
     const checkRemovable = (targetIndex: number) => {
@@ -345,6 +370,11 @@ const ColumnViewTable = ({
     const handleRemoveColumn = () => {
         if (selectedIndex == null) {
             return;
+        }
+
+        const neighbourIndex = rowKeyNavigation.neighbourIndexAfterRemoval(columnWrapModels.length, selectedIndex);
+        if (neighbourIndex >= 0) {
+            requestFocus(neighbourIndex);
         }
 
         setSelectedWrappedModel(null);
@@ -401,7 +431,7 @@ const ColumnViewTable = ({
         <TableContainer sx={{ maxHeight: window.innerHeight - 550 }}>
             <Table stickyHeader size="small" aria-label="column view table" style={{ tableLayout: "fixed" }}>
                 {columnViewHeader}
-                <TableBody>
+                <TableBody ref={tableBodyRef}>
                     {(columnWrapModels.length > 0)
                         ? columnWrapModels.map((columnWrapModel: ColumnWrapModel, index: number) =>
                             initColumnModelRow(columnWrapModel, index))
@@ -461,44 +491,5 @@ const TO_EDIT_MODE: { [key in ColumnWrapModel["modelType"]]: ColumnEditModeType 
 } as const;
 
 const CELL_ICON_STYLE = { verticalAlign: "top" } as const;
-
-type RowKeyDownDeps = {
-    targetIndex: number,
-    lastIndex: number,
-    toggleRow: () => void,
-    editRow: () => void,
-    selectRowAt: (targetIndex: number) => void
-};
-
-// roving tabindex: Enter で編集、Space で選択トグル、↑↓ で隣の行へ選択とフォーカスを移す。
-// フォーカス移動は ref を経由せず、イベントが運んでくる現在行 (currentTarget) から DOM 上の隣接行を辿る。
-const initHandleRowKeyDown = ({ targetIndex, lastIndex, toggleRow, editRow, selectRowAt }: RowKeyDownDeps) => {
-    return (event: React.KeyboardEvent<HTMLTableRowElement>) => {
-        if (event.key === "Enter") {
-            event.preventDefault();
-            editRow();
-            return;
-        }
-
-        if (event.key === " ") {
-            event.preventDefault();
-            toggleRow();
-            return;
-        }
-
-        if (event.key === "ArrowDown") {
-            event.preventDefault();
-            selectRowAt(Math.min(targetIndex + 1, lastIndex));
-            (event.currentTarget.nextElementSibling as HTMLElement | null)?.focus();
-            return;
-        }
-
-        if (event.key === "ArrowUp") {
-            event.preventDefault();
-            selectRowAt(Math.max(targetIndex - 1, 0));
-            (event.currentTarget.previousElementSibling as HTMLElement | null)?.focus();
-        }
-    };
-};
 
 export default ColumnViewTable;

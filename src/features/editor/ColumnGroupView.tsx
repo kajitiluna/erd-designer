@@ -12,7 +12,7 @@ import ColumnGroupEditDialog from "~/features/editor/ColumnGroupEditDialog";
 import SimpleColumnModel from "~/models/database/SimpleColumnModel";
 import { ColumnWrapModel, initHandleCloseDialog } from "~/features/editor/support";
 import useItemListPanel, { initColumnTableHelper as initColumnTableHelper } from "~/features/editor/useItemListPanel";
-import useAutoFocus from "~/components/useAutoFocus";
+import useAutoFocus from "~/components/keyboard/useAutoFocus";
 
 type ColumnGroupViewProps = {
     isOpen: boolean,

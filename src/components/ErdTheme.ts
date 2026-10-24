@@ -157,6 +157,19 @@ const darkErdPalette: ErdPalette = {
   inputHintText: 'rgba(204, 204, 204, 0.45)',
 };
 
+// キーボードで辿れる行・列(roving tabindex)のフォーカス位置を示す。
+// MUI の TableRow は outline: 0 で枠を消し、Stack はブラウザ標準の細い枠しか出ないため、両方に同じ枠を与える。
+// tabIndex を持たない要素はフォーカスされないので、他の TableRow / Stack には影響しない。
+// スクロール領域の端で外側の枠が切れないよう、内側に描く。
+const initFocusVisibleOutline = (outlineColor: string) => {
+  return {
+    '&:focus-visible': {
+      outline: `2px solid ${outlineColor}`,
+      outlineOffset: '-2px',
+    },
+  };
+};
+
 const erdTheme = createTheme({
   cssVariables: {
     colorSchemeSelector: 'class',
@@ -214,6 +227,20 @@ const erdTheme = createTheme({
               opacity: 1,
             },
           };
+        },
+      },
+    },
+    MuiTableRow: {
+      styleOverrides: {
+        root: ({ theme }) => {
+          return initFocusVisibleOutline(theme.vars.palette.primary.main);
+        },
+      },
+    },
+    MuiStack: {
+      styleOverrides: {
+        root: ({ theme }) => {
+          return initFocusVisibleOutline(theme.vars.palette.primary.main);
         },
       },
     },

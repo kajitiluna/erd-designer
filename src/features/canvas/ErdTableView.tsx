@@ -47,7 +47,7 @@ import styleClasses from "./ErdCanvas.module.css";
 import SelectState from "~/models/SelectState";
 import DisplayColumnStyle from "~/models/DisplayColumnStyle";
 import { DragState } from "~/models/DragState";
-import useAutoFocus from "~/components/useAutoFocus";
+import useAutoFocus from "~/components/keyboard/useAutoFocus";
 
 export const ERD_TABLE_VIEW_CLASS_NAME = "erd-table-view";
 

@@ -17,7 +17,7 @@ import { Database } from '~/models/database';
 import DatabaseSettingModel from '~/models/DatabaseSettingModel';
 import ErdDocument from '~/models/ErdDocument';
 import EdgedIconButton from '~/components/EdgedIconButton';
-import useAutoFocus from '~/components/useAutoFocus';
+import useAutoFocus from '~/components/keyboard/useAutoFocus';
 import { ColumnShareModelStorageContext } from '~/context/ColumnShareModelStorageContext';
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from '~/context/ErdDocumentsHolderContext';
 import {

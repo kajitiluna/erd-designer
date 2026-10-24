@@ -37,7 +37,7 @@ import RelationSummaryCard from "~/features/canvas/RelationSummaryCard";
 
 import styleClasses from "./ErdCanvas.module.css";
 import LabelViewModel from "~/models/LabelViewModel";
-import useAutoFocus from "~/components/useAutoFocus";
+import useAutoFocus from "~/components/keyboard/useAutoFocus";
 
 export const ERD_RELATION_PATH_CLASS_NAME = "erd-relation-path";
 

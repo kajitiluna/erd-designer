@@ -3,74 +3,16 @@
 Mandatory rules. Violations must be fully revised on request.
 The committed code on `main` is the authoritative example.
 
-## 1. No inline lambdas in literals or arguments
+The top-level sections split on one question: when a violation is fixed, does the effect stay at that spot, or does it reach callers, other files, or saved data?
+Rule numbers read `NN-MM`: the tens digit of `NN` is the top-level section, the ones digit is the subsection, and `MM` is the rule.
 
-Extract long lambdas (10+ lines) into named functions (`initCallbackForXxx`, `buildXxx`, etc.). Short lambdas (1–5 lines) are acceptable inline.
+## 1. Writing Code
 
-```ts
-// NG
-return ["name", config, async (args) => { /* 10+ lines */ }];
+Fixing a violation here stays within the spot where it was written.
 
-// OK
-return ["name", config, initCallbackForXxx(deps)] as const;
-const initCallbackForXxx = (deps: Deps): ToolCallback<typeof schema> => {
-    return async (args) => { /* ... */ };
-};
-```
+### 11. Syntax
 
-Exception: skip extraction if the only possible target is a nested function within the same parent (the lambda captures mutable local state). That doesn't improve readability. Extract only when the result can be a file-top-level function.
-
-## 2. No single-letter or abbreviated variable names
-
-No `t`, `v`, `p`, `g`, `m`, `ct`, `el`, `tmp`. Use meaningful names. Applies to `map`/`filter`/`find`/`reduce` callbacks too.
-
-```ts
-// NG
-tools.find(t => t[0] === name);
-// OK
-tools.find(tool => tool[0] === name);
-```
-
-## 3. No nested function calls as arguments
-
-Bind intermediate values to named variables before passing.
-
-```ts
-// NG
-return initToolJsonResponse(items.map(item => toSummary(ctx, item)));
-// OK
-const responses = items.map(item => toSummary(ctx, item));
-return initToolJsonResponse(responses);
-```
-
-Exceptions:
-- Continuous conversion pipelines with no meaningful intermediate name (e.g. `ErdDocument.toObject(JSON.parse(content))`).
-- `Array.from(iterable)` wrappers required by TypeScript syntax (e.g. `Array.from(map.values()).map(...)`). Split only if the argument itself is long.
-
-## 4. No mutation of function arguments
-
-Return the result instead of mutating arrays or objects passed in.
-
-```ts
-// NG
-const collectItems = (source: Source[], results: Item[]) => { results.push(toItem(source[0])); };
-// OK
-const collectItems = (source: Source[]): Item[] => { return source.map(src => toItem(src)); };
-```
-
-## 5. Prefer functional array operations over imperative loops
-
-Use `map`/`filter`/`flatMap` instead of `for` loops. Exception: complex stateful accumulation where the functional form hurts readability.
-
-```ts
-// NG
-const results: Item[] = [];
-for (const src of source) { if (isValid(src)) { results.push(toItem(src)); } }
-// OK
-const results = source.filter(src => isValid(src)).map(src => toItem(src));
-```
-
-## 6. Always use braces for control statements
+#### 11-01. Always use braces for control statements
 
 Never omit braces for `if`/`else`/`for` bodies.
 
@@ -81,7 +23,7 @@ if (value == null) return [];
 if (value == null) { return []; }
 ```
 
-## 7. Explicit return for object literals in arrow functions
+#### 11-02. Explicit return for object literals in arrow functions
 
 Use a block body with explicit `return` instead of `=> ({ ... })`. Non-object implicit returns are fine.
 
@@ -94,7 +36,7 @@ items.map(item => { return { id: item.id, name: item.name }; });
 items.map(item => item.name);
 ```
 
-## 8. Parenthesise comparison operands when mixing operators
+#### 11-03. Parenthesise comparison operands when mixing operators
 
 When `&&`/`||` and comparison operators (`===`, `!==`, `>`, `>=`, `<`, `<=`, `==`, `!=`) appear together, wrap each **comparison** operand in parentheses. Operands that contain no infix operator (method calls, identifiers, property accesses) are already unambiguous and do **not** need parentheses.
 
@@ -114,7 +56,7 @@ if (isActive && isValid) {
 
 Oxlint: `@stylistic/no-mixed-operators` (loaded as a JS plugin) with comparison and logical operators in one group.
 
-## 9. Avoid negation with `!` — use explicit comparison
+#### 11-04. Avoid negation with `!` — use explicit comparison
 
 | Situation | NG | OK |
 |---|---|---|
@@ -135,76 +77,88 @@ Exceptions:
 
 Not enforced by Oxlint — manual review rule.
 
-## 10. A directory's `index` re-exports only — no implementation
+### 12. Function Bodies
 
-When a module's public surface is a directory rather than a single file, `index.ts`/`index.tsx` contains
-nothing but re-export statements. All implementation — including private helpers tightly coupled to the
-module (`initXxx`, `doXxx`) — lives in sibling files inside the directory, which are forbidden to be
-imported from outside except through the index.
+#### 12-01. No single-letter or abbreviated variable names
 
+No `t`, `v`, `p`, `g`, `m`, `ct`, `el`, `tmp`. Use meaningful names. Applies to `map`/`filter`/`find`/`reduce` callbacks too.
+
+```ts
+// NG
+tools.find(t => t[0] === name);
+// OK
+tools.find(tool => tool[0] === name);
 ```
-src/models/schema/schema-migration-ddl/
-├── index.ts             // the entire file is re-exports; no implementation
-├── migration-ddl.ts      // implementation
-└── *.ts                 // other internal modules — import only within this directory
+
+#### 12-02. Give intermediate values and long lambdas a name
+
+Bind intermediate values to named variables before passing them as arguments. Extract long lambdas (10+ lines) into named functions (`initCallbackForXxx`, `buildXxx`, etc.). Short lambdas (1–5 lines) are acceptable inline.
+
+```ts
+// NG
+return initToolJsonResponse(items.map(item => toSummary(ctx, item)));
+// OK
+const responses = items.map(item => toSummary(ctx, item));
+return initToolJsonResponse(responses);
 ```
 
 ```ts
-// index.ts — this is the whole file, nothing else
-export type { DestructivePolicy } from "~/models/schema/schema-migration-ddl/migration-statement";
-export type { MigrationDdl } from "~/models/schema/schema-migration-ddl/migration-ddl";
-export { migrationDdlBuilder } from "~/models/schema/schema-migration-ddl/migration-ddl";
+// NG
+return ["name", config, async (args) => { /* 10+ lines */ }];
+
+// OK
+return ["name", config, initCallbackForXxx(deps)] as const;
+const initCallbackForXxx = (deps: Deps): ToolCallback<typeof schema> => {
+    return async (args) => { /* ... */ };
+};
 ```
 
-Oxlint: `no-restricted-imports` in `.oxlintrc.json` with a `patterns` entry for the directory (e.g. `["**/schema-migration-ddl/*"]`), and an `overrides` entry for the directory itself that lists every pattern except its own (an override replaces the whole rule option, so each file set must carry all patterns that apply to it).
+Exceptions:
+- Continuous conversion pipelines with no meaningful intermediate name (e.g. `ErdDocument.toObject(JSON.parse(content))`).
+- `Array.from(iterable)` wrappers required by TypeScript syntax (e.g. `Array.from(map.values()).map(...)`). Split only if the argument itself is long.
+- Skip lambda extraction if the only possible target is a nested function within the same parent (the lambda captures mutable local state). That doesn't improve readability. Extract only when the result can be a file-top-level function.
 
-## 11. No reverse-direction imports between parent and nested models
+#### 12-03. Do not hide state changes from the reader
 
-A nested/child model must never import its parent model. If both need a shared type or helper function, extract it into a dedicated neutral module with zero model imports (e.g. `ColumnEntry.ts`), not into the parent model's file.
+Return the result instead of mutating arrays or objects passed in. Never call a method that changes state (setState, model update, focus, dispatch, I/O) inside an `if`/`while`/ternary condition. A condition is read as a check of the current state; a state change hidden there is overlooked by the reader. Run the change as its own statement, bind its result to a named variable, and branch on that variable.
 
 ```ts
-// NG — ColumnStructModel (nested) imports its parent TableModel
-import { ColumnEntry } from "~/models/database/TableModel";
+// NG
+const collectItems = (source: Source[], results: Item[]) => { results.push(toItem(source[0])); };
+// OK
+const collectItems = (source: Source[]): Item[] => { return source.map(src => toItem(src)); };
+```
 
-// OK — both import the shared type from a neutral module
-import { ColumnEntry } from "~/models/database/ColumnEntry";
+```ts
+// NG — the condition itself reorders the models
+if (shiftPerspectiveAt(index, shift)) {
+    requestFocus(index + shift);
+}
+
+// OK — the state change is its own statement; the condition only reads its result
+const shifted = shiftPerspectiveAt(index, shift);
+if (shifted) {
+    requestFocus(index + shift);
+}
 ```
 
 Not enforced by Oxlint — manual review rule.
 
-## 12. Comments record design intent, not work notes
+#### 12-04. Prefer functional array operations over imperative loops
 
-A comment must explain *why* the code is shaped this way — rationale that stays true whenever the code is next read. Never leave the notes you made while editing.
-
-- **No point-in-time references**: `main`, "previously", "the existing file", "so far" name the state at writing time and become noise once that state moves. Describe the invariant, not its diff against a past version.
-- **No change log**: "added X", "changed to Y", "now supports Z" belong in commit messages, not comments.
-- **No how-only**: a comment that only restates what the line does is noise; delete it or replace it with the reason.
+Use `map`/`filter`/`flatMap` instead of `for` loops. Exception: complex stateful accumulation where the functional form hurts readability.
 
 ```ts
-// NG — leans on a moving baseline / pure edit memo
-// simple keeps the previous format (entityType key omitted = compatible with existing file)
-
-// OK — states the invariant and why, readable at any future point
-// entityType is the struct discriminator; a simple column omits it by definition.
+// NG
+const results: Item[] = [];
+for (const src of source) { if (isValid(src)) { results.push(toItem(src)); } }
+// OK
+const results = source.filter(src => isValid(src)).map(src => toItem(src));
 ```
 
-Not enforced by Oxlint — manual review rule.
+### 13. File Layout & Comments
 
-## 13. Consistency maintenance must not leak into callers
-
-A method that repairs or re-synchronises internal data (cleanup / prune of dangling references, deletion of unreferenced models) must be `private`, invoked from inside the domain operation or from the single common update path (e.g. `ErdDocument.doUpdate`) — never left for each caller to remember. When a class cannot judge consistency alone, pass it the facts it lacks (e.g. "ids still referenced"), not decisions computed by the caller (e.g. "ids to delete").
-
-```ts
-// NG — caller computes the deletion and must remember the follow-up repair
-storage.deleteColumnShare(orphanedIds).cleanupDanglingStructReferences(columnIds);
-
-// OK — common update path passes facts; the storage decides internally
-storage.retain(referencedShareIds, existingColumnIds, existingGroupIds);
-```
-
-Not enforced by Oxlint — manual review rule.
-
-## 14. Define in call order — callers above callees
+#### 13-01. Define in call order — callers above callees
 
 A definition must come after the first definition that references it. Entry points (exported / public API) go at the top, internal helpers below, so the file reads top-down in execution order.
 
@@ -240,22 +194,53 @@ Exception: only when the order is impossible — a value evaluated at module loa
 
 Not enforced by Oxlint — manual review rule.
 
-## 15. Public method names state what the caller wants, not how the class decides
+#### 13-02. Comments record design intent, not work notes
 
-A public name that encodes the internal strategy (`deleteUnreferencedXxx`, `cleanupDanglingXxx`, `pruneOrphanedXxx`) forces callers to work out which method matches their situation — that is internal detail leaking through the API. Name the caller's intent; keep strategy words for private members.
+A comment must explain *why* the code is shaped this way — rationale that stays true whenever the code is next read. Never leave the notes you made while editing.
+
+- **No point-in-time references**: `main`, "previously", "the existing file", "so far" name the state at writing time and become noise once that state moves. Describe the invariant, not its diff against a past version.
+- **No change log**: "added X", "changed to Y", "now supports Z" belong in commit messages, not comments.
+- **No how-only**: a comment that only restates what the line does is noise; delete it or replace it with the reason.
 
 ```ts
-// NG — the name publishes the deletion strategy
-storage.deleteUnreferencedModels(referencedShareIds, existingColumnIds, existingGroupIds);
+// NG — leans on a moving baseline / pure edit memo
+// simple keeps the previous format (entityType key omitted = compatible with existing file)
 
-// OK — explicit target, or "keep what still matches"
-storage.deleteStructShare(structShareModelIds);
-storage.retain(referencedColumnShareIds, existingColumnModelIds, existingColumnGroupIds);
+// OK — states the invariant and why, readable at any future point
+// entityType is the struct discriminator; a simple column omits it by definition.
 ```
 
 Not enforced by Oxlint — manual review rule.
 
-## 16. One state is one string union — never two or more booleans
+#### 13-03. JSDoc is English; ordinary comments may be Japanese
+
+A JSDoc block (`/** ... */`) documents the public interface of a component, function, or type —
+write it in English so the API contract reads consistently across the codebase. Ordinary comments
+(`//`, or `/* */` that is not a JSDoc block) capture implementation notes and may be written in
+either language.
+
+```ts
+// NG — JSDoc in Japanese
+/** 指定すると、この名前に紐づけて位置とサイズをタブ内で記憶する。 */
+layoutName?: string;
+
+// OK — JSDoc in English
+/** When provided, position and size are remembered, keyed by this name. */
+layoutName?: string;
+
+// OK — ordinary comment, Japanese is fine
+// 比率は不変なので、ビューポートを更新して再描画するだけで四辺の比率が保たれる。
+```
+
+Not enforced by Oxlint — manual review rule.
+
+## 2. Design
+
+Fixing a violation here affects callers, other files, or saved data.
+
+### 21. State & Data Models
+
+#### 21-01. One state is one string union — never two or more booleans
 
 Never encode a single state as multiple booleans. N booleans make 2^N combinations representable while only a few are legal, and no reader can tell which. Name every state in a string union, and assign the whole value on each transition — partial field updates are what let meaningless intermediate combinations appear.
 
@@ -275,7 +260,7 @@ Exception: independent attributes that merely share an object (`primaryKey`, `no
 
 Not enforced by Oxlint — manual review rule.
 
-## 17. Model fields must stay backward compatible
+#### 21-02. Model fields must stay backward compatible
 
 `.erd` files are a JSON serialization of `src/models/` with no schema version. A model's `toObject` must treat a missing field as "not yet saved," not as an error — files saved before the field existed must keep loading.
 
@@ -292,30 +277,9 @@ Never remove or repurpose a field that has shipped — older files still contain
 
 Not enforced by Oxlint — manual review rule.
 
-## 18. `src/extension/` is import-only for the VSCode extension
+### 22. Public API
 
-Code outside the VSCode extension package (React components, shared logic, etc.) must never import from `src/extension/`. The extension package may import from the rest of the app, never the reverse.
-
-A constant or type used on both sides belongs to the module that owns its meaning (the class or type that defines the concept), not to the extension package and not to a catch-all file.
-
-```ts
-// NG — a React component reaching into the extension package
-import { STORAGE_KEY } from "~/extension/ThemePreferenceBroadcaster";
-
-// NG — a catch-all constants file gathers unrelated owners
-import { THEME_PREFERENCE_STORAGE_KEY } from "~/components/theme-constant";
-
-// OK — the extension imports the constant from the class that owns its meaning
-import ThemePreferenceValue from "~/components/theme/ThemePreferenceValue";
-const key = ThemePreferenceValue.STORAGE_KEY;
-```
-
-Exception: `src/components/constant.ts` is reserved for foundational constants of the whole app that have no single owner
-(e.g. `ERD_MESSAGE_EVENT_SOURCE`, the identifier of the webview/extension protocol). "Shared by several files" alone does not qualify.
-
-Not enforced by Oxlint — manual review rule.
-
-## 19. Publish capability through a named contract, not bare function exports
+#### 22-01. Publish capability through a named contract, not bare function exports
 
 Do not `export` functions directly with no declared contract — a file that keeps exporting functions this way
 accumulates an unreadable, unbounded export list. Declare the module's public surface as a named contract
@@ -363,35 +327,116 @@ export class TableFilter {
 }
 ```
 
-Do not `export` a type or constant that no other directory imports, either — arguments/return types used only
-internally (e.g. `BuildMigrationDdlArgs`) stay unexported; callers pass an object literal and let the return
-value be inferred. Helpers shared only inside one directory live in that directory's `support.ts` (or a
-`support/` directory), not re-exported through the public contract.
-
 Exception: a module that exports only types is exempt — types cannot be wrapped in a value export. Keep such
 a module's imports to the minimum the type definitions themselves require, so it stays a neutral dependency
 (e.g. `schema-snapshot.ts`, `schema-difference.ts`).
 
 Not enforced by Oxlint — manual review rule.
 
-## 20. JSDoc is English; ordinary comments may be Japanese
+#### 22-02. Public method names state what the caller wants, not how the class decides
 
-A JSDoc block (`/** ... */`) documents the public interface of a component, function, or type —
-write it in English so the API contract reads consistently across the codebase. Ordinary comments
-(`//`, or `/* */` that is not a JSDoc block) capture implementation notes and may be written in
-either language.
+A public name that encodes the internal strategy (`deleteUnreferencedXxx`, `cleanupDanglingXxx`, `pruneOrphanedXxx`) forces callers to work out which method matches their situation — that is internal detail leaking through the API. Name the caller's intent; keep strategy words for private members.
 
 ```ts
-// NG — JSDoc in Japanese
-/** 指定すると、この名前に紐づけて位置とサイズをタブ内で記憶する。 */
-layoutName?: string;
+// NG — the name publishes the deletion strategy
+storage.deleteUnreferencedModels(referencedShareIds, existingColumnIds, existingGroupIds);
 
-// OK — JSDoc in English
-/** When provided, position and size are remembered, keyed by this name. */
-layoutName?: string;
-
-// OK — ordinary comment, Japanese is fine
-// 比率は不変なので、ビューポートを更新して再描画するだけで四辺の比率が保たれる。
+// OK — explicit target, or "keep what still matches"
+storage.deleteStructShare(structShareModelIds);
+storage.retain(referencedColumnShareIds, existingColumnModelIds, existingColumnGroupIds);
 ```
+
+Not enforced by Oxlint — manual review rule.
+
+#### 22-03. Consistency maintenance must not leak into callers
+
+A method that repairs or re-synchronises internal data (cleanup / prune of dangling references, deletion of unreferenced models) must be `private`, invoked from inside the domain operation or from the single common update path (e.g. `ErdDocument.doUpdate`) — never left for each caller to remember. When a class cannot judge consistency alone, pass it the facts it lacks (e.g. "ids still referenced"), not decisions computed by the caller (e.g. "ids to delete").
+
+```ts
+// NG — caller computes the deletion and must remember the follow-up repair
+storage.deleteColumnShare(orphanedIds).cleanupDanglingStructReferences(columnIds);
+
+// OK — common update path passes facts; the storage decides internally
+storage.retain(referencedShareIds, existingColumnIds, existingGroupIds);
+```
+
+Not enforced by Oxlint — manual review rule.
+
+### 23. Module Boundaries & Dependencies
+
+#### 23-01. A directory's `index` re-exports only — no implementation
+
+When a module's public surface is a directory rather than a single file, `index.ts`/`index.tsx` contains
+nothing but re-export statements. All implementation — including private helpers tightly coupled to the
+module (`initXxx`, `doXxx`) — lives in sibling files inside the directory, which are forbidden to be
+imported from outside except through the index.
+
+Helpers shared only inside one directory live in that directory's `support.ts` (or a
+`support/` directory), not re-exported through the public contract.
+
+```
+src/models/schema/schema-migration-ddl/
+├── index.ts             // the entire file is re-exports; no implementation
+├── migration-ddl.ts      // implementation
+└── *.ts                 // other internal modules — import only within this directory
+```
+
+```ts
+// index.ts — this is the whole file, nothing else
+export type { DestructivePolicy } from "~/models/schema/schema-migration-ddl/migration-statement";
+export type { MigrationDdl } from "~/models/schema/schema-migration-ddl/migration-ddl";
+export { migrationDdlBuilder } from "~/models/schema/schema-migration-ddl/migration-ddl";
+```
+
+Oxlint: `no-restricted-imports` in `.oxlintrc.json` with a `patterns` entry for the directory (e.g. `["**/schema-migration-ddl/*"]`), and an `overrides` entry for the directory itself that lists every pattern except its own (an override replaces the whole rule option, so each file set must carry all patterns that apply to it).
+
+#### 23-02. Do not export what no other directory imports
+
+Do not `export` a type or constant that no other directory imports — arguments/return types used only
+internally (e.g. `BuildMigrationDdlArgs`) stay unexported; callers pass an object literal and let the return
+value be inferred.
+
+Not enforced by Oxlint — manual review rule.
+
+#### 23-03. No reverse-direction imports between parent and nested models
+
+A nested/child model must never import its parent model. If both need a shared type or helper function, extract it into a dedicated neutral module with zero model imports (e.g. `ColumnEntry.ts`), not into the parent model's file.
+
+```ts
+// NG — ColumnStructModel (nested) imports its parent TableModel
+import { ColumnEntry } from "~/models/database/TableModel";
+
+// OK — both import the shared type from a neutral module
+import { ColumnEntry } from "~/models/database/ColumnEntry";
+```
+
+Not enforced by Oxlint — manual review rule.
+
+#### 23-04. `src/extension/` is import-only for the VSCode extension
+
+Code outside the VSCode extension package (React components, shared logic, etc.) must never import from `src/extension/`. The extension package may import from the rest of the app, never the reverse.
+
+```ts
+// NG — a React component reaching into the extension package
+import { STORAGE_KEY } from "~/extension/ThemePreferenceBroadcaster";
+```
+
+Not enforced by Oxlint — manual review rule.
+
+#### 23-05. A constant or type belongs to the module that owns its meaning
+
+A constant or type used on both sides belongs to the module that owns its meaning (the class or type that defines the concept), not to the extension package and not to a catch-all file.
+
+```ts
+// NG — a catch-all constants file gathers unrelated owners
+import { THEME_PREFERENCE_STORAGE_KEY } from "~/components/theme-constant";
+
+// OK — the extension imports the constant from the class that owns its meaning
+import ThemePreferenceValue from "~/components/theme/ThemePreferenceValue";
+const key = ThemePreferenceValue.STORAGE_KEY;
+```
+
+Exception: `src/components/constant.ts` is reserved for foundational constants of the whole app that have no single owner
+(e.g. `ERD_MESSAGE_EVENT_SOURCE`, the identifier of the webview/extension protocol). "Shared by several files" alone does not qualify.
 
 Not enforced by Oxlint — manual review rule.

@@ -6,7 +6,7 @@ import {
 } from "@mui/material";
 
 import DraggableDialog from "~/components/DraggableDialog";
-import useAutoFocus from "~/components/useAutoFocus";
+import useAutoFocus from "~/components/keyboard/useAutoFocus";
 import ColumnModel from "~/models/database/ColumnModel";
 import SimpleColumnModel from "~/models/database/SimpleColumnModel";
 import TableIndexModel, { IndexColumnModel } from "~/models/database/TableIndexModel";

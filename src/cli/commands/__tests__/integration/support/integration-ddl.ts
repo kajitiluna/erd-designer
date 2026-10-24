@@ -100,8 +100,7 @@ const executeMySqlStatements = async (
     await runSequentially(statements, async statement => { await connection.query(statement); });
 };
 
-// DDL は前の文の結果(テーブル/スキーマの存在)に依存するため、Promise.all で並列化せず順番に実行する
-// (coding-style ルール5の例外: 逐次的な副作用の蓄積)。
+// DDL は前の文の結果(テーブル/スキーマの存在)に依存するため、Promise.all で並列化せず順番に実行する。
 const runSequentially = async (
     statements: readonly string[], run: (statement: string) => Promise<void>
 ): Promise<void> => {

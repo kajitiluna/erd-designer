@@ -5,7 +5,7 @@ import {
 } from "@mui/material";
 
 import DraggableDialog from "~/components/DraggableDialog";
-import useAutoFocus from "~/components/useAutoFocus";
+import useAutoFocus from "~/components/keyboard/useAutoFocus";
 import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import ColumnEntry from "~/models/database/ColumnEntry";
 import ColumnModel from "~/models/database/ColumnModel";

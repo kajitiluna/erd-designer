@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Button, Dialog, DialogActions } from "@mui/material";
 import { describe, expect, test } from "vitest";
 
-import useAutoFocus from "~/components/useAutoFocus";
+import useAutoFocus from "~/components/keyboard/useAutoFocus";
 
 // StrictMode は開発ビルドで effect を setup -> cleanup -> setup と二重実行する。
 // MUI FocusTrap の cleanup が開く前の要素へフォーカスを戻すため、autoFocus 属性で入ったフォーカスは失われる。

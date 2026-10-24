@@ -5,7 +5,7 @@ import {
 } from "@mui/material";
 
 import download from "~/components/file-downloader";
-import useAutoFocus from "~/components/useAutoFocus";
+import useAutoFocus from "~/components/keyboard/useAutoFocus";
 import ErdDocument from "~/models/ErdDocument";
 import { createDdl } from "~/models/schema/create-ddl";
 import ErdSettingModel from "~/models/ErdSettingModel";

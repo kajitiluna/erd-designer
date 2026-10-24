@@ -9,7 +9,7 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 import DraggableDialog from "~/components/DraggableDialog";
-import useAutoFocus from "~/components/useAutoFocus";
+import useAutoFocus from "~/components/keyboard/useAutoFocus";
 import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ThemePreferenceContext from "~/context/ThemePreferenceContext";
 import type { ColorTheme } from "~/models/ColorValue";
@@ -18,6 +18,8 @@ import ColorValue from "~/models/ColorValue";
 import PerspectiveModel from "~/models/PerspectiveModel";
 import { SELECTED_CELL_COLOR, initHandleCloseDialog } from "~/features/editor/support";
 import EdgedIconButton from "~/components/EdgedIconButton";
+import { rowKeyNavigation } from "~/components/keyboard/row-key-navigation";
+import useRowFocusRequest from "~/components/keyboard/useRowFocusRequest";
 import { handlePreventMouseEvent } from "~/features/canvas/support";
 
 type PerspectiveViewProps = {
@@ -43,6 +45,8 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
     // スクロール連動のためのref
     const headerScrollRef = React.useRef<HTMLDivElement>(null);
     const columnScrollRef = React.useRef<HTMLDivElement>(null);
+    // 並べ替えで列が入れ替わるとフォーカスを失うため、動かした列へ描画後に戻す。
+    const { containerRef: recordsRef, requestFocus } = useRowFocusRequest<HTMLDivElement>();
 
     const tableViewModels = erdDocument.getTableViewModels()
         .sort((first, second) =>
@@ -53,6 +57,9 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
     const selectedIndex = (targetPerspective == null) ? -1
         : perspectiveModels.findIndex(target =>
             (target.perspectiveId === targetPerspective.perspectiveId));
+
+    // Tab 移動で止まる列は常に1つ(未選択なら先頭)。列数ぶん Tab 停止が増えるのを避けるための roving tabindex。
+    const focusableIndex = (selectedIndex < 0) ? 0 : selectedIndex;
 
     const initDragEventHandler = (perspectiveIndex: number) => {
         const handleDragStart = (event: React.DragEvent) => {
@@ -136,6 +143,15 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
     };
 
     const initRecordClickHandler = (perspective: PerspectiveModel) => {
+        const recordActions = initRecordActions(perspective);
+
+        return {
+            onClick: recordActions.select,
+            onDoubleClick: recordActions.edit
+        };
+    };
+
+    const initRecordActions = (perspective: PerspectiveModel) => {
         const handleSelected = () => {
             const nextPerspective = (perspective !== targetPerspective)
                 ? perspective : null;
@@ -146,10 +162,29 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
             setOpenEditDialog(true);
         };
 
-        return {
-            onClick: handleSelected,
-            onDoubleClick: handleEditPerspective
+        return { select: handleSelected, edit: handleEditPerspective };
+    };
+
+    // パースペクティブは横並びの列なので、列そのものを roving tabindex の対象にして左右キーで移動する。
+    const initRecordKeyDownHandler = (perspective: PerspectiveModel, perspectiveIndex: number) => {
+        const recordActions = initRecordActions(perspective);
+
+        const selectRecordAt = (targetIndex: number) => {
+            const targetPerspectiveModel = perspectiveModels[targetIndex];
+            if (targetPerspectiveModel != null) {
+                setTargetPerspective(targetPerspectiveModel);
+            }
         };
+
+        const handleReorder = (shift: (1 | -1)) => {
+            reorderPerspectiveByKeyboard(perspectiveIndex, shift);
+        };
+
+        return rowKeyNavigation.initHandleKeyDown({
+            orientation: "horizontal", index: perspectiveIndex, lastIndex: perspectiveModels.length - 1,
+            selectAt: selectRecordAt, onSelect: recordActions.select, onActivate: recordActions.edit,
+            onReorder: handleReorder
+        });
     };
 
     const initRecordHeaderCell = (perspective: PerspectiveModel, perspectiveIndex: number) => {
@@ -194,8 +229,7 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
             <Box sx={initHeaderStyle(170)}>Name</Box>
             <Box ref={headerScrollRef} sx={{ overflow: "hidden" }}>
                 <Stack direction="row" sx={{ alignItems: "center", justifyContent: "flex-start" }}>
-                    {perspectiveModels.map((perspective, index) =>
-                        initRecordHeaderCell(perspective, index))}
+                    {perspectiveModels.map((perspective, index) => initRecordHeaderCell(perspective, index))}
                 </Stack>
             </Box>
         </Stack>
@@ -203,18 +237,17 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
 
     const attributeHeaders = (
         <Stack direction="column" sx={{ alignItems: "center", justifyContent: "flex-start" }}>
-            {tableViewModels.map((tableViewModel, index) => (
-                initAttributeHeadCell(`table-${index}`, "table", tableViewModel.tableModel.physicalName,
-                    tableViewModel.headerColor.background, tableViewModel.headerColor.foreground, colorTheme)
-            ))}
-            {backMemos.map((memoViewModel, index) => (
-                initAttributeHeadCell(`back-memo-${index}`, "memo", memoViewModel.memo,
-                    memoViewModel.backgroundColor, memoViewModel.foregroundColor, colorTheme)
-            ))}
-            {frontMemos.map((memoViewModel, index) => (
-                initAttributeHeadCell(`front-memo-${index}`, "memo", memoViewModel.memo,
-                    memoViewModel.backgroundColor, memoViewModel.foregroundColor, colorTheme)
-            ))}
+            {tableViewModels.map((tableView, index) =>
+                initAttributeHeadCell(`table-${index}`, "table", tableView.tableModel.physicalName,
+                    tableView.headerColor.background, tableView.headerColor.foreground, colorTheme)
+            )}
+            {backMemos.map((memoView, index) =>
+                initAttributeHeadCell(`back-memo-${index}`, "memo", memoView.memo,
+                    memoView.backgroundColor, memoView.foregroundColor, colorTheme))}
+            {frontMemos.map((memoView, index) =>
+                initAttributeHeadCell(`front-memo-${index}`, "memo", memoView.memo,
+                    memoView.backgroundColor, memoView.foregroundColor, colorTheme)
+            )}
         </Stack>
     );
 
@@ -291,6 +324,8 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
             <Stack key={`perspective-record_${perspective.perspectiveId}`}
                 direction="column" sx={{ alignItems: "center", justifyContent: "center" }}
                 draggable={perspectiveModels.length > 1}
+                tabIndex={(perspectiveIndex === focusableIndex) ? 0 : -1}
+                onKeyDown={initRecordKeyDownHandler(perspective, perspectiveIndex)}
                 {...initDragEventHandler(perspectiveIndex)}>
                 {cells}
             </Stack>
@@ -310,29 +345,30 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
             {tableHeader}
             <Box sx={SCROLL_STYLE}>
                 <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "flex-start" }}>
-                    <Box sx={{ position: 'sticky', left: 0, zIndex: 1, borderRight: '1px solid var(--mui-palette-erd-cellBorder)' }}>
+                    <Box sx={{
+                        position: 'sticky', left: 0, zIndex: 1,
+                        borderRight: '1px solid var(--mui-palette-erd-cellBorder)'
+                    }}>
                         {attributeHeaders}
                     </Box>
                     <Box ref={columnScrollRef} onScroll={handleScroll} sx={{ overflow: 'auto' }}>
-                        <Stack direction="row" sx={{ alignItems: "flex-start", justifyContent: "flex-start" }}>
-                            {perspectiveModels.map((perspectiveModel, index) =>
-                                initRecordBox(perspectiveModel, index))}
+                        <Stack ref={recordsRef} direction="row"
+                            sx={{ alignItems: "flex-start", justifyContent: "flex-start" }}>
+                            {perspectiveModels.map((perspectiveModel, index) => initRecordBox(perspectiveModel, index))}
                         </Stack>
                     </Box>
                 </Stack>
             </Box>
         </Stack>
-    ) : (
-        <>
-            <Typography>No perspectives.</Typography>
-            <Alert severity="info">
-                Perspectives help you:<br />
-                - Group tables and memos by functionality<br />
-                - Display only relevant information<br />
-                - Manage multiple views of your design
-            </Alert>
-        </>
-    );
+    ) : (<>
+        <Typography>No perspectives.</Typography>
+        <Alert severity="info">
+            Perspectives help you:<br />
+            - Group tables and memos by functionality<br />
+            - Display only relevant information<br />
+            - Manage multiple views of your design
+        </Alert>
+    </>);
 
     const handleAddPerspective = () => {
         setTargetPerspective(null);
@@ -341,18 +377,34 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
 
     const initHandleShiftColumn = (shift: (1 | -1)) => {
         return () => {
-            if ((selectedIndex + shift < 0) || (selectedIndex + shift >= perspectiveModels.length)) {
-                return;
-            }
-
-            setPerspectiveModels(previous => {
-                const nextModels = [...previous]
-                nextModels[selectedIndex] = perspectiveModels[selectedIndex + shift];
-                nextModels[selectedIndex + shift] = perspectiveModels[selectedIndex];
-
-                return nextModels;
-            });
+            shiftPerspectiveAt(selectedIndex, shift);
         };
+    };
+
+    // 列は描画し直されるとフォーカスを失うため、移動先の位置を描画後にフォーカスし直す。
+    const reorderPerspectiveByKeyboard = (index: number, shift: (1 | -1)) => {
+        setTargetPerspective(perspectiveModels[index]);
+
+        const shifted = shiftPerspectiveAt(index, shift);
+        if (shifted) {
+            requestFocus(index + shift);
+        }
+    };
+
+    const shiftPerspectiveAt = (index: number, shift: (1 | -1)): boolean => {
+        if ((index < 0) || (index + shift < 0) || (index + shift >= perspectiveModels.length)) {
+            return false;
+        }
+
+        setPerspectiveModels(previous => {
+            const nextModels = [...previous]
+            nextModels[index] = previous[index + shift];
+            nextModels[index + shift] = previous[index];
+
+            return nextModels;
+        });
+
+        return true;
     };
 
     const handleRemoveIndex = () => setPerspectiveModels(
@@ -438,7 +490,7 @@ const BASE_CELL_STYLE: React.CSSProperties = {
     letterSpacing: "0.01071em",
     minHeight: "30px",
     maxHeight: "30px"
-};
+} as const;
 
 const initHeaderStyle = (width: number): React.CSSProperties => {
     return {
@@ -466,9 +518,8 @@ const initAttributeHeadCell = (
 };
 
 const RECORD_TITLE_STYLE = {
-    maxHeight: "24px", overflow: "hidden",
-    textOverflow: "ellipsis", whiteSpace: "nowrap"
-};
+    maxHeight: "24px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
+} as const;
 
 const initTitleStyle = (
     width: number, backgroundColor: ColorValue, foregroundColor: ColorValue, colorTheme: ColorTheme
@@ -488,7 +539,7 @@ const SCROLL_STYLE = {
     '&::-webkit-scrollbar-track': { background: 'var(--mui-palette-erd-scrollbarTrack)', },
     '&::-webkit-scrollbar-thumb': { background: 'var(--mui-palette-erd-scrollbarThumb)', borderRadius: '4px', },
     '&::-webkit-scrollbar-thumb:hover': { background: 'var(--mui-palette-erd-scrollbarThumbHover)', }
-};
+} as const;
 
 type PerspectiveEditDialogProps = {
     isOpen: boolean,

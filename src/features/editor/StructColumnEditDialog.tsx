@@ -8,7 +8,7 @@ import SearchIcon from "@mui/icons-material/Search";
 
 import DraggableDialog from "~/components/DraggableDialog";
 import EdgedIconButton from '~/components/EdgedIconButton';
-import useAutoFocus from '~/components/useAutoFocus';
+import useAutoFocus from '~/components/keyboard/useAutoFocus';
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import {
@@ -473,7 +473,7 @@ const useInitRecordInitializer = (
 
             const overrideName = overrideColumnName(column, structShare);
             return [(
-                <TableRow key={`search-struct_struct-${column.columnModelId}`} {...attributes} >
+                <TableRow key={`search-struct_struct-${column.columnModelId}`} {...attributes} tabIndex={-1} >
                     <TableCell>{overrideName.physicalName}</TableCell>
                     {withLogicalName && (<TableCell>{overrideName.logicalName}</TableCell>)}
                     <TableCell>{structShare.simpleColumnType()}</TableCell>
@@ -489,7 +489,7 @@ const useInitRecordInitializer = (
 
         const overrideName = overrideColumnName(column, columnShare);
         return [(
-            <TableRow key={`search-struct_simple-${column.columnModelId}`} {...attributes} >
+            <TableRow key={`search-struct_simple-${column.columnModelId}`} {...attributes} tabIndex={-1} >
                 <TableCell>{overrideName.physicalName}</TableCell>
                 {withLogicalName && (<TableCell>{overrideName.logicalName}</TableCell>)}
                 <TableCell>{columnShare.specifiedColumnType()}</TableCell>

@@ -7,7 +7,7 @@ import {
 
 import BaseGridView from '~/components/BaseGridView';
 import DraggableDialog from '~/components/DraggableDialog';
-import useAutoFocus from '~/components/useAutoFocus';
+import useAutoFocus from '~/components/keyboard/useAutoFocus';
 import { ColumnShareModelStorageContext } from '~/context/ColumnShareModelStorageContext';
 import ColumnModel from '~/models/database/ColumnModel';
 import ColumnShareModel from '~/models/database/ColumnShareModel';

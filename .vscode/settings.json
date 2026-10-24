@@ -11,6 +11,7 @@
         "mcpserver",
         "modelcontextprotocol",
         "mysqladmin",
+        "neighbour",
         "nextval",
         "nspname",
         "nvarchar",
