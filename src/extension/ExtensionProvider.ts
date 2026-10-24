@@ -203,7 +203,7 @@ const initHandleReceivedMessage = (
 ) => {
     const documentUri = textDocument.uri.toString();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // oxlint-disable-next-line typescript/no-explicit-any
     return async (message: any) => {
         if ((("eventSource" in message) === false) || (("messageType" in message) === false)) {
             return;

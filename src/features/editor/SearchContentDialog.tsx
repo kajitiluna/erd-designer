@@ -27,7 +27,7 @@ type SearchDialogProps<ENTITY> = {
 
 // SearchContentDialog は useInitializeSearchDialog と対になるこのモジュール private な実装。
 // Fast Refresh を満たすためだけに export すると隠蔽が壊れるため、dev 時 HMR 劣化を許容してこの規則のみ無効化する。
-// eslint-disable-next-line react-refresh/only-export-components
+// oxlint-disable-next-line react/only-export-components
 const SearchContentDialog = <ENTITY,>({
     dialogTitle, tableHeader, identity, onFiltering, initRecord, isOpen, onCompleted, onClose
 }: InitializeSearchDialogProps<ENTITY> & SearchDialogProps<ENTITY>) => {

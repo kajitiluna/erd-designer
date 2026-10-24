@@ -147,8 +147,6 @@ const positionSchema = initPositionSchema("column", z.union([
     z.object({ columnGroupId: z.string().describe("The column group ID to add the new column.") })
 ]));
 
-type PositionType = Parameters<typeof calculateIndexFromPosition<"columnId" | "columnGroupId">>[0];
-
 // ==================== find-column ====================
 
 const descriptionFind = `\
@@ -568,9 +566,9 @@ const initCallbackForAddColumnsToTable = (
                 const addingPair = buildColumnPair(erdBudget, columnInfo.column);
                 const addIndex = ("columnId" in columnInfo.position)
                     ? calculateIndexFromPosition(
-                        columnInfo.position as PositionType, "columnId", columnIdToIndex, nextColumns.length
+                        columnInfo.position, "columnId", columnIdToIndex, nextColumns.length
                     ) : calculateIndexFromPosition(
-                        columnInfo.position as PositionType, "columnGroupId", columnGroupIdToIndex, nextColumns.length
+                        columnInfo.position, "columnGroupId", columnGroupIdToIndex, nextColumns.length
                     );
 
                 const addingColumn = {
@@ -1172,12 +1170,12 @@ const initReorderColumnsInTable = (
                 const columnIdToIndex = (columnId: string) => nextColumns
                     .findIndex(column => (column.modelType === "single") && (column.columnModelId === columnId));
                 moveToIndex = calculateIndexFromPosition(
-                    reorder.position as PositionType, "columnId", columnIdToIndex, nextColumns.length);
+                    reorder.position, "columnId", columnIdToIndex, nextColumns.length);
             } else {
                 const columnGroupIdToIndex = (columnGroupId: string) => nextColumns
                     .findIndex(column => (column.modelType === "group") && (column.columnGroupId === columnGroupId));
                 moveToIndex = calculateIndexFromPosition(
-                    reorder.position as PositionType, "columnGroupId", columnGroupIdToIndex, nextColumns.length);
+                    reorder.position, "columnGroupId", columnGroupIdToIndex, nextColumns.length);
             }
 
             const movingColumn = nextColumns[currentIndex];

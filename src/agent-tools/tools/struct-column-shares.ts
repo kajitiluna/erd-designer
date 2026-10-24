@@ -368,9 +368,7 @@ const insertStructWrapperIntoTable = (
     });
 };
 
-type StructPositionType = Parameters<
-    typeof calculateIndexFromPosition<"columnId" | "columnGroupId" | "structColumnShareModelId">
->[0];
+type StructPositionType = z.infer<typeof structPositionSchema.position>;
 
 const calculateStructTargetIndex = (
     erdDocument: ErdDocument, columns: readonly ColumnEntry[], position: StructPositionType

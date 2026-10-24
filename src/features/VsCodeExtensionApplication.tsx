@@ -78,7 +78,7 @@ const useInitialize = (changeDispatcher: ExternalDocumentChangeDispatcher) => {
     const [loadResult, setLoadResult] = React.useState<"" | "failure">("");
     const [initDocument, setInitDocument] = React.useState<ErdDocument | null>(null);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // oxlint-disable-next-line typescript/no-explicit-any
     const handleMessageFromVsCode = React.useCallback((event: MessageEvent<any>) => {
         const message = event.data;
         // テーマ設定など文書以外のメッセージは別のリスナーが扱うため、ここでは黙って無視する。
@@ -146,7 +146,7 @@ const useInitialize = (changeDispatcher: ExternalDocumentChangeDispatcher) => {
     return { documentUri, initDocument, setInitDocument, loadResult };
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// oxlint-disable-next-line typescript/no-explicit-any
 const isDocumentMessage = (message: any): boolean => {
     if ((message == null) || (typeof message !== "object")) {
         return false;

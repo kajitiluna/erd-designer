@@ -124,7 +124,7 @@
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.2",
     "uuid": "^14.0.0",
-    "zod": "^3.25.76"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "^5.10.0",
@@ -137,7 +137,7 @@
     "@types/react-dom": "^19",
     "@types/vscode": "^1.105.0",
     "@vitejs/plugin-react-swc": "^4.3.1",
-    "@vitest/coverage-v8": "^4.1.8",
+    "@vitest/coverage-v8": "^4.1.12",
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.6.2",
     "concurrently": "^9.2.1",
@@ -150,7 +150,7 @@
     "tsc-alias": "^1.8.16",
     "typescript": "~7.0.2",
     "vite": "^8.3.5",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   },
   "volta": {
     "node": "26.8.1"
@@ -170,7 +170,11 @@
     "@hono/node-server": ">=2.0.5",
     "exceljs": {
       "uuid": "^11.1.1"
-    }
+    },
+    "@azure/msal-node@<4": {
+      "uuid": "^11.1.1"
+    },
+    "brace-expansion@>=4": "^5.0.12"
   },
   "allowScripts": {
     "@swc/core@1.15.41": true,
