@@ -17,7 +17,7 @@ project running locally and what a pull request is expected to look like.
 
 ## Development setup
 
-Node.js 26 or higher is required (the repo pins 26.8.1 via [Volta](https://volta.sh/)).
+Node.js 26 is required (the major version is pinned in [.node-version](.node-version); any version manager that reads it — e.g. mise, fnm, nodenv — will pick the latest 26.x).
 
 ```sh
 git clone https://github.com/kajitiluna/erd-designer.git
