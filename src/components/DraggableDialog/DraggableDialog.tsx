@@ -3,6 +3,7 @@ import { Box, Dialog, DialogProps, dialogClasses, dialogTitleClasses } from "@mu
 
 import useStateRef from "~/components/useStateRef";
 import DialogLayoutStore, { DialogBounds } from "~/components/DraggableDialog/DialogLayoutStore";
+import { dialogSubmitKey } from "~/components/DraggableDialog/submit-key";
 
 type DraggableDialogProps = Omit<DialogProps, "slotProps"> & {
 
@@ -10,13 +11,23 @@ type DraggableDialogProps = Omit<DialogProps, "slotProps"> & {
      * When set, position and size are remembered per tab under this name;
      * otherwise the dialog always opens at its default position.
      */
-    layoutName?: string
+    layoutName?: string,
+
+    /**
+     * Runs the dialog's confirm action from the keyboard: Ctrl/Cmd + Enter anywhere inside the dialog,
+     * or a plain Enter that no focused control handles itself (not in a multiline field, not on a button,
+     * not while an IME is composing or a popup is open).
+     * Pass the same function the OK button uses, so its disabled/validation state is respected.
+     */
+    onSubmitRequest?: () => void
 };
 
 type Viewport = { width: number, height: number };
 
 /** Adds title-bar-drag move and edge-drag resize to MUI Dialog. */
-const DraggableDialog = ({ children, open, layoutName, ...dialogProps }: DraggableDialogProps) => {
+const DraggableDialog = ({
+    children, open, layoutName, onSubmitRequest, onKeyDown, ...dialogProps
+}: DraggableDialogProps) => {
     const [paperElement, paperRef] = useStateRef<HTMLDivElement>();
     const [bounds, setBounds] = React.useState<DialogBounds | null>(() => initStoredBounds(layoutName));
     const [viewport, setViewport] = React.useState<Viewport>(currentViewport);
@@ -97,6 +108,24 @@ const DraggableDialog = ({ children, open, layoutName, ...dialogProps }: Draggab
         }
     };
 
+    // Escape は Modal 側がルート要素で受けるため、ここでは止めない。ルートで受けるのは、
+    // フォーカスが Paper の外側のコンテナにある (入力欄に未フォーカス) 場合でも確定できるようにするため。
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+        onKeyDown?.(event);
+        if (onSubmitRequest == null) {
+            return;
+        }
+
+        const submitKeyEvent = dialogSubmitKey.toSubmitKeyEvent(event);
+        if (dialogSubmitKey.shouldSubmit(submitKeyEvent) === false) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        onSubmitRequest();
+    };
+
     const resizeHandles = RESIZE_EDGES.map(edge => {
         return (
             <Box key={`resize-handle_${edge}`} sx={initHandleStyle(edge)}
@@ -105,7 +134,7 @@ const DraggableDialog = ({ children, open, layoutName, ...dialogProps }: Draggab
     });
 
     return (
-        <Dialog {...dialogProps} open={open} slotProps={{
+        <Dialog {...dialogProps} open={open} onKeyDown={handleKeyDown} slotProps={{
             paper: {
                 ref: paperRef, sx: initPaperStyle(bounds, viewport),
                 onPointerDown: handlePaperPointerDown,

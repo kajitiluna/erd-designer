@@ -22,8 +22,7 @@ export default class TableMatcher {
 };
 
 // 大小文字無視の再照合や「既に消費済みの actual を再利用しない」制御が必要なため、
-// Map/Set への逐次登録という状態を持つ蓄積になる(coding-style ルール5の例外。関数的スタイルでは
-// 「1つの expected に対しどの actual を消費したか」を素直に表現できない)。
+// Map/Set への逐次登録という状態を持つ蓄積になる。
 const matchTables = (
     expectedTables: TableSnapshot[], actualTables: TableSnapshot[], withSchema: boolean
 ): TableMatchResult => {

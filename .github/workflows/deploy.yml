@@ -66,7 +66,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: 26
+          node-version-file: .node-version
 
       - name: Install Dependencies
         run: npm ci
@@ -195,7 +195,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: 26
+          node-version-file: .node-version
           cache: npm
 
       # ovsx は devDependency のため、npx がローカル解決できるよう依存を導入する
@@ -287,12 +287,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: 22
+          node-version-file: .node-version
           registry-url: https://registry.npmjs.org
-
-      # Node 22 同梱の npm は 10.x のため、Trusted Publishing (npm 11.5.1+) 要件を満たすよう更新する
-      - name: Update npm for trusted publishing support
-        run: npm install -g npm@latest
 
       - name: Download schema CLI Artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1

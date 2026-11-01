@@ -7,18 +7,20 @@ type EdgedIconButtonProps = {
     disabled?: boolean,
     tooltip?: string,
     withText?: boolean,
+    /** Passed through to the underlying button; `-1` removes it from the Tab order while keeping it clickable. */
+    tabIndex?: number,
     onClick: (event: React.MouseEvent) => void,
     children: React.ReactNode
 };
 
 const EdgedIconButton = ({
-    disabled = false, tooltip = "", withText = false, onClick, children
+    disabled = false, tooltip = "", withText = false, tabIndex, onClick, children
 }: EdgedIconButtonProps) => {
 
     if (withText && (tooltip !== "")) {
         return (
             <TopLeftTooltip title={tooltip}>
-                <ButtonBase disabled={disabled} onClick={onClick} sx={WITH_TEXT_EDGE_STYLE}>
+                <ButtonBase disabled={disabled} tabIndex={tabIndex} onClick={onClick} sx={WITH_TEXT_EDGE_STYLE}>
                     <Box sx={WITH_TEXT_LAYOUT_STYLE}>{children}</Box>
                     <Typography variant="body2">{tooltip}</Typography>
                 </ButtonBase>
@@ -27,7 +29,7 @@ const EdgedIconButton = ({
     }
 
     const iconButton = (
-        <IconButton disabled={disabled} onClick={onClick} size="small" sx={ONLY_ICON_STYLE}>
+        <IconButton disabled={disabled} tabIndex={tabIndex} onClick={onClick} size="small" sx={ONLY_ICON_STYLE}>
             {children}
         </IconButton>
     );

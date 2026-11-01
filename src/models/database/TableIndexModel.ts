@@ -1,3 +1,5 @@
+import { v4 as uuidV4 } from "uuid";
+
 import { TableIndexOption, TableIndexType } from "~/models/database/TableIndexSupport";
 import { NullsOrderType, SortOrderType } from "~/models/database/ValueType";
 import { requireProperty, toObjects } from "~/models/util";
@@ -66,6 +68,24 @@ export default class TableIndexModel {
         });
 
         return { tableIndexModels: nextIndexModels, hasChanged };
+    }
+
+    /**
+     * Creates a copy with a newly issued tableIndexModelId.
+     *
+     * @param args.physicalName name of the copy
+     * @param args.columnModelIdMap original columnModelId to duplicated columnModelId.
+     *      Columns absent from the map (e.g. members of a Column Group) keep referencing the original.
+     */
+    public duplicate(args: { physicalName: string, columnModelIdMap: ReadonlyMap<string, string> }): TableIndexModel {
+        const indexColumnModels = this.indexColumnModels.map(column => column.duplicate(args.columnModelIdMap));
+
+        return new TableIndexModel({
+            ...this,
+            tableIndexModelId: uuidV4(),
+            physicalName: args.physicalName,
+            indexColumnModels
+        });
     }
 
     public toJSON(): Record<string, unknown> {
@@ -168,6 +188,13 @@ export class IndexColumnModel {
         this.columnModelId = columnModelId;
         this.sortOrderType = sortOrderType;
         this.nullsOrderType = nullsOrderType;
+    }
+
+    /** Creates a copy whose columnModelId is replaced by the mapped one; an unmapped id is kept. */
+    public duplicate(columnModelIdMap: ReadonlyMap<string, string>): IndexColumnModel {
+        const columnModelId = columnModelIdMap.get(this.columnModelId) ?? this.columnModelId;
+
+        return new IndexColumnModel({ ...this, columnModelId });
     }
 
     querySort() {

@@ -18,6 +18,7 @@ import SelectState from "~/models/SelectState";
 import { DEFAULT_LOCAL_SETTING, LocalSettingContext, reduceLocalSetting } from "~/context/LocalSettingContext";
 import TitlePanel from "~/features/canvas/TitlePanel";
 import { EXTERNAL_DOCUMENT_CHANGED_EVENT } from "~/components/constant";
+import BrowserShortcutBlocker from "~/components/keyboard/BrowserShortcutBlocker";
 
 type MainViewProps = {
     erdDocument: ErdDocument,
@@ -36,6 +37,8 @@ const MainView = ({ erdDocument, onSave, erdExportable = true, remoteSync = fals
     const { documentsHolder, editModeHolder, selectEntityHolder, localSettingHolder } =
         useMainHolder({ erdDocument, onSave });
     const [dragState, dispatchDragAction] = React.useReducer(reduceDragAction, NO_DRAGGING);
+
+    React.useEffect(() => BrowserShortcutBlocker.attach(window.document), []);
 
     // 外部からの変更を Canvas の表示に反映する
     React.useEffect(() => {

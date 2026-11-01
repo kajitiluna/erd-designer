@@ -10,9 +10,7 @@ import { GRID_CELL_STYLE } from "~/components/constant";
 import ForeignKeyIcon from "~/components/icons/ForeignKeyIcon";
 import PrimaryKeyIcon from "~/components/icons/PrimaryKeyIcon";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
-import {
-    initHandleChangePattern, initHandleChangePhysicalName, initHandleEnterKeyDown
-} from "~/features/editor/support";
+import { initHandleChangePattern, initHandleChangePhysicalName } from "~/features/editor/support";
 import ColumnShareModelStorage from "~/models/ColumnShareModelStorage";
 import { Database } from "~/models/database";
 import ColumnType from "~/models/database/ColumnType";
@@ -91,11 +89,10 @@ const initGridColumnTitleStyle = (width: number, withBackgroundColor: boolean = 
 
 type OverrideNamePanelProps = {
     physicalName: string,
-    logicalName: string,
-    onCompleted: (overriddenName: { physical: string, logical: string }) => void
+    logicalName: string
 };
 
-export const useOverrideNamePanel = ({ physicalName, logicalName, onCompleted }: OverrideNamePanelProps) => {
+export const useOverrideNamePanel = ({ physicalName, logicalName }: OverrideNamePanelProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const [overriddenPhysicalName, setOverriddenPhysicalName] = React.useState<string>(physicalName);
     const [overriddenLogicalName, setOverriddenLogicalName] = React.useState<string>(logicalName);
@@ -117,10 +114,6 @@ export const useOverrideNamePanel = ({ physicalName, logicalName, onCompleted }:
         logical: overriddenLogicalName
     };
 
-    const handleEnterDown = initHandleEnterKeyDown(
-        () => onCompleted(overriddenName)
-    );
-
     const defaultExpanded = initDefaultExpandedOverride(withLogicalName, overriddenPhysicalName, overriddenLogicalName);
 
     const overriddenPanel = (
@@ -140,12 +133,12 @@ export const useOverrideNamePanel = ({ physicalName, logicalName, onCompleted }:
                 <Stack direction="row" spacing={1}>
                     <TextField label="Physical Name" fullWidth variant="outlined" size="small"
                         slotProps={initClearButton(overriddenPhysicalName, setOverriddenPhysicalName)}
-                        value={overriddenPhysicalName} onKeyDown={handleEnterDown}
+                        value={overriddenPhysicalName}
                         onChange={initHandleChangePhysicalName(setOverriddenPhysicalName)} />
                     {withLogicalName && (
                         <TextField label="Logical Name" fullWidth variant="outlined" size="small"
                             slotProps={initClearButton(overriddenLogicalName, setOverriddenLogicalName)}
-                            value={overriddenLogicalName} onKeyDown={handleEnterDown}
+                            value={overriddenLogicalName}
                             onChange={event => setOverriddenLogicalName(event.target.value)} />
                     )}
                 </Stack>

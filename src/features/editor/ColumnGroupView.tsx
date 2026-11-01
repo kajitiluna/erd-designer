@@ -12,6 +12,7 @@ import ColumnGroupEditDialog from "~/features/editor/ColumnGroupEditDialog";
 import SimpleColumnModel from "~/models/database/SimpleColumnModel";
 import { ColumnWrapModel, initHandleCloseDialog } from "~/features/editor/support";
 import useItemListPanel, { initColumnTableHelper as initColumnTableHelper } from "~/features/editor/useItemListPanel";
+import useAutoFocus from "~/components/keyboard/useAutoFocus";
 
 type ColumnGroupViewProps = {
     isOpen: boolean,
@@ -33,6 +34,7 @@ const ColumnGroupView = ({ isOpen, viewMode, onSelect = () => { }, onClose }: Co
         toKey: (target: ColumnGroupModel) => target.columnGroupId,
         toTitle: (target: ColumnGroupModel) => target.groupName
     });
+    const focusRef = useAutoFocus<HTMLButtonElement>((selectedItem != null) && (editMode === "delete"));
 
     const mainPanel = (
         <Grid container spacing={3}>
@@ -108,7 +110,7 @@ const ColumnGroupView = ({ isOpen, viewMode, onSelect = () => { }, onClose }: Co
             </DialogContent>
             <DialogActions>
                 <Button onClick={handleCloseDialog}>Cancel</Button>
-                <Button variant="contained" color="error" onClick={handleDeleteGroup}>Delete</Button>
+                <Button variant="contained" color="error" ref={focusRef} onClick={handleDeleteGroup}>Delete</Button>
             </DialogActions>
         </Dialog>
     );

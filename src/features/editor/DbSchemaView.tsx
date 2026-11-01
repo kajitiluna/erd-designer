@@ -10,14 +10,16 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 
 import DraggableDialog from "~/components/DraggableDialog";
-import useAutoFocusInput from "~/components/useAutoFocusInput";
+import useAutoFocus from "~/components/keyboard/useAutoFocus";
 import DbSchemaModel from "~/models/database/DbSchemaModel";
 import DbSchemaConfig from "~/models/DbSchemaConfig";
 import ErdDocument from "~/models/ErdDocument";
 import EdgedIconButton from "~/components/EdgedIconButton";
+import { rowKeyNavigation } from "~/components/keyboard/row-key-navigation";
+import useRowFocusRequest from "~/components/keyboard/useRowFocusRequest";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import {
-    initHandleChangePhysicalName, initHandleCloseDialog, initHandleEnterKeyDown, SELECTED_CELL_COLOR
+    initHandleChangePhysicalName, initHandleCloseDialog, SELECTED_CELL_COLOR
 } from "~/features/editor/support";
 import { handlePreventMouseEvent } from "~/features/canvas/support";
 
@@ -40,8 +42,14 @@ const DbSchemaView = ({ isOpen, onClose }: DbSchemaViewProps) => {
     const [draggingStartIndex, setDraggingStartIndex] = React.useState<number | null>(null);
     const [draggingOverIndex, setDraggingOverIndex] = React.useState<number | null>(null);
 
+    // 並べ替えで行が入れ替わるとフォーカスを失うため、動かした行へ描画後に戻す。
+    const { containerRef: tableBodyRef, requestFocus } = useRowFocusRequest<HTMLTableSectionElement>();
+
     const selectedIndex = (targetSchema == null) ? -1
         : schemaModels.findIndex(schema => (schema.schemaId === targetSchema.schemaId));
+
+    // Tab 移動で止まる行は常に1つ(未選択なら先頭行)。行数ぶん Tab 停止が増えるのを避けるための roving tabindex。
+    const focusableIndex = (selectedIndex < 0) ? 0 : selectedIndex;
 
     const initRowStyle = (targetIndex: number) => {
         const rowStyle = (selectedIndex === targetIndex)
@@ -51,6 +59,7 @@ const DbSchemaView = ({ isOpen, onClose }: DbSchemaViewProps) => {
         if (draggingStartIndex === targetIndex) {
             return { ...rowStyle, opacity: 0.2 };
         }
+
         // ドラッグオーバー中の行は色を変える
         if (draggingOverIndex === targetIndex) {
             return { height: "43px", backgroundColor: 'lightblue' };
@@ -110,6 +119,15 @@ const DbSchemaView = ({ isOpen, onClose }: DbSchemaViewProps) => {
     };
 
     const initRowClickHandler = (schema: DbSchemaModel) => {
+        const rowActions = initRowActions(schema);
+
+        return {
+            onClick: rowActions.select,
+            onDoubleClick: rowActions.edit
+        };
+    };
+
+    const initRowActions = (schema: DbSchemaModel) => {
         const handleSelected = () => {
             const nextSchema = (targetSchema !== schema) ? schema : null;
             setTargetSchema(nextSchema);
@@ -119,10 +137,27 @@ const DbSchemaView = ({ isOpen, onClose }: DbSchemaViewProps) => {
             setOpenEditDialog(true);
         };
 
-        return {
-            onClick: handleSelected,
-            onDoubleClick: handleEditSchema
+        return { select: handleSelected, edit: handleEditSchema };
+    };
+
+    const initRowKeyDownHandler = (schema: DbSchemaModel, schemaIndex: number) => {
+        const rowActions = initRowActions(schema);
+
+        const selectRowAt = (targetIndex: number) => {
+            const targetSchemaModel = schemaModels[targetIndex];
+            if (targetSchemaModel != null) {
+                setTargetSchema(targetSchemaModel);
+            }
         };
+
+        const handleReorder = (shift: (1 | -1)) => {
+            reorderSchemaByKeyboard(schemaIndex, shift);
+        };
+
+        return rowKeyNavigation.initHandleKeyDown({
+            orientation: "vertical", index: schemaIndex, lastIndex: schemaModels.length - 1,
+            selectAt: selectRowAt, onSelect: rowActions.select, onActivate: rowActions.edit, onReorder: handleReorder
+        });
     };
 
     const initHandleChanged = (schema: DbSchemaModel) => {
@@ -143,6 +178,8 @@ const DbSchemaView = ({ isOpen, onClose }: DbSchemaViewProps) => {
             <TableRow key={`schema-table_${schema.schemaId}`}
                 sx={initRowStyle(index)} style={{ cursor: 'pointer' }}
                 draggable={schemaModels.length > 1}
+                tabIndex={(index === focusableIndex) ? 0 : -1}
+                onKeyDown={initRowKeyDownHandler(schema, index)}
                 {...initDragEventHandler(index)}>
                 <TableCell {...clickHandler}>{schema.schemaName}</TableCell>
                 <TableCell {...clickHandler}>{schema.description}</TableCell>
@@ -167,7 +204,7 @@ const DbSchemaView = ({ isOpen, onClose }: DbSchemaViewProps) => {
                         <TableCell>Default</TableCell>
                     </TableRow>
                 </TableHead>
-                <TableBody>
+                <TableBody ref={tableBodyRef}>
                     {schemaModels.length > 0
                         ? schemaModels.map((schema, index) => initRecordRow(index, schema))
                         : (
@@ -189,18 +226,34 @@ const DbSchemaView = ({ isOpen, onClose }: DbSchemaViewProps) => {
 
     const initHandleShiftColumn = (shift: (1 | -1)) => {
         return () => {
-            if ((selectedIndex + shift < 0) || (selectedIndex + shift >= schemaModels.length)) {
-                return;
-            }
-
-            setSchemaModels(previous => {
-                const nextModels = [...previous]
-                nextModels[selectedIndex] = schemaModels[selectedIndex + shift];
-                nextModels[selectedIndex + shift] = schemaModels[selectedIndex];
-
-                return nextModels;
-            });
+            shiftSchemaAt(selectedIndex, shift);
         };
+    };
+
+    // 行は描画し直されるとフォーカスを失うため、移動先の位置を描画後にフォーカスし直す。
+    const reorderSchemaByKeyboard = (index: number, shift: (1 | -1)) => {
+        setTargetSchema(schemaModels[index]);
+
+        const shifted = shiftSchemaAt(index, shift);
+        if (shifted) {
+            requestFocus(index + shift);
+        }
+    };
+
+    const shiftSchemaAt = (index: number, shift: (1 | -1)): boolean => {
+        if ((index < 0) || (index + shift < 0) || (index + shift >= schemaModels.length)) {
+            return false;
+        }
+
+        setSchemaModels(previous => {
+            const nextModels = [...previous]
+            nextModels[index] = previous[index + shift];
+            nextModels[index + shift] = previous[index];
+
+            return nextModels;
+        });
+
+        return true;
     };
 
     const handleRemoveIndex = () => setSchemaModels(
@@ -248,7 +301,7 @@ const DbSchemaView = ({ isOpen, onClose }: DbSchemaViewProps) => {
 
     return (
         <DraggableDialog layoutName="db-schema-view" fullWidth maxWidth="md" sx={{ userSelect: "none" }}
-            open={isOpen} onClose={initHandleCloseDialog(onClose)}>
+            open={isOpen} onClose={initHandleCloseDialog(onClose)} onSubmitRequest={handleCompleted}>
             <DialogTitle>Schema</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>
@@ -289,7 +342,7 @@ const DbSchemaEditDialog = ({
 
     const [schemaName, setSchemaName] = React.useState(schemaModel?.schemaName || "");
     const [description, setDescription] = React.useState(schemaModel?.description || "");
-    const schemaNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
+    const autoFocusRef = useAutoFocus<HTMLInputElement>(isOpen);
 
     const editValueValidated = (schemaName.length > 0);
 
@@ -313,23 +366,18 @@ const DbSchemaEditDialog = ({
         onClose();
     };
 
-    const handleEnterDown = initHandleEnterKeyDown(handleCompleted);
-
     return (
         <DraggableDialog layoutName="db-schema-edit" fullWidth maxWidth="sm" sx={{ userSelect: "none" }}
-            open={isOpen} onClose={initHandleCloseDialog(onClose)}>
+            open={isOpen} onClose={initHandleCloseDialog(onClose)} onSubmitRequest={handleCompleted}>
             <DialogTitle>Edit Schema</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>
                     <Divider />
-                    <TextField inputRef={schemaNameRef} required fullWidth variant="outlined"
-                        label="Schema Name" value={schemaName}
-                        onChange={initHandleChangePhysicalName(setSchemaName)}
-                        onKeyDown={handleEnterDown} />
+                    <TextField inputRef={autoFocusRef} required fullWidth variant="outlined"
+                        label="Schema Name" value={schemaName} onChange={initHandleChangePhysicalName(setSchemaName)} />
                     <TextField variant="outlined" label="Description" multiline rows={3}
                         slotProps={{ input: { style: { resize: 'vertical' } } }}
-                        value={description}
-                        onChange={event => setDescription(event.target.value)} />
+                        value={description} onChange={event => setDescription(event.target.value)} />
                 </Stack>
             </DialogContent>
             <DialogActions>

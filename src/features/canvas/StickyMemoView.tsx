@@ -34,6 +34,7 @@ import ColorValue from "~/models/ColorValue";
 
 import styleClasses from "./ErdCanvas.module.css";
 import SelectState from "~/models/SelectState";
+import useAutoFocus from "~/components/keyboard/useAutoFocus";
 
 export const ERD_MEMO_VIEW_CLASS_NAME = "erd-memo-view";
 
@@ -442,6 +443,7 @@ const StickyControlPane = ({ memoViewModel, stickyDom, onSettingAction }: Sticky
 
     const [showAlignPanel, setShowAlignPanel] = React.useState<boolean>(false);
     const [isOpenDeleteDialog, setOpenDeleteDialog] = React.useState<boolean>(false);
+    const focusRef = useAutoFocus<HTMLButtonElement>(isOpenDeleteDialog);
 
     const erdDocument = documentsHolder.current();
     const erdSetting = erdDocument.erdSettingModel;
@@ -591,13 +593,13 @@ const StickyControlPane = ({ memoViewModel, stickyDom, onSettingAction }: Sticky
     const deleteDialog = (
         <div onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
             <Dialog open={isOpenDeleteDialog} onClose={handleCloseConfirmationDialog}>
-                <DialogTitle>Delete table?</DialogTitle>
+                <DialogTitle>Delete memo?</DialogTitle>
                 <DialogContent>
                     <DialogContentText>Are you sure to delete the memo ?</DialogContentText>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseConfirmationDialog}>Cancel</Button>
-                    <Button variant="contained" color="error" onClick={handleDeleteMemo}>Delete</Button>
+                    <Button variant="contained" color="error" ref={focusRef} onClick={handleDeleteMemo}>Delete</Button>
                 </DialogActions>
             </Dialog>
         </div>
@@ -657,7 +659,7 @@ const StickyControlPane = ({ memoViewModel, stickyDom, onSettingAction }: Sticky
                     <IconButton onClick={handleFrontPosition}><FlipToFrontIcon /></IconButton>
                 </Tooltip>
                 <Tooltip title="Delete" placement="top-end">
-                    <IconButton onMouseDown={() => setOpenDeleteDialog(true)}>
+                    <IconButton onClick={() => setOpenDeleteDialog(true)}>
                         <DeleteIcon />
                     </IconButton>
                 </Tooltip>

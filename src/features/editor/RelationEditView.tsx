@@ -7,15 +7,15 @@ import {
 } from "@mui/material";
 
 import DraggableDialog from "~/components/DraggableDialog";
-import useAutoFocusInput from "~/components/useAutoFocusInput";
-import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
+import useAutoFocus from "~/components/keyboard/useAutoFocus";
+import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import RelationModel, { CardinalityType, TableReferenceActionType } from "~/models/database/RelationModel";
 import RelationPair from "~/models/database/RelationPair";
 import TableModel from "~/models/database/TableModel";
 import ErdDocument from "~/models/ErdDocument";
 import RelationViewModel from "~/models/RelationViewModel";
 import SimpleColumnModel from "~/models/database/SimpleColumnModel";
-import { initHandleChangePhysicalName, initHandleCloseDialog, initHandleEnterKeyDown } from '~/features/editor/support';
+import { initHandleChangePhysicalName, initHandleCloseDialog } from '~/features/editor/support';
 import { overrideColumnName } from '~/models/database/support';
 import LabelViewModel from '~/models/LabelViewModel';
 
@@ -30,16 +30,16 @@ type RelationEditViewProps = {
 const RelationEditView = ({
     isOpen, relationViewModel, parentTableModel, childTableModel, onClose
 }: RelationEditViewProps) => {
-    const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
-    const erdDocument: ErdDocument = documentsHolder.current();
+    const documentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const erdDocument = documentsHolder.current();
 
-    const relationModel: RelationModel = relationViewModel.relationModel;
-    const parentPrimaryColumns: SimpleColumnModel[] = erdDocument.toAllColumnsExceptStruct(parentTableModel)
+    const relation: RelationModel = relationViewModel.relationModel;
+    const parentPrimaryColumns = erdDocument.toAllColumnsExceptStruct(parentTableModel)
         .filter(columnModel => columnModel.primaryKey);
 
-    const [relationName, setRelationName] = React.useState<string>(relationModel.relationName);
+    const [relationName, setRelationName] = React.useState<string>(relation.relationName);
     const [relationPairs, setRelationPairs] = React.useState<RelationPair[]>(() => {
-        const previousRelationMap = new Map(relationModel.relationPairs
+        const previousRelationMap = new Map(relation.relationPairs
             .map(pair => [pair.parentColumnModelId, pair.childColumnModelId])
         );
 
@@ -48,11 +48,11 @@ const RelationEditView = ({
             childColumnModelId: previousRelationMap.get(primaryColumn.columnModelId) || ""
         }));
     });
-    const [parentCardinality, setParentCardinality] = React.useState<CardinalityType>(relationModel.parentCardinality);
-    const [childCardinality, setChildCardinality] = React.useState<CardinalityType>(relationModel.childCardinality);
-    const [updateActionType, setUpdateActionType] = React.useState<TableReferenceActionType>(relationModel.onUpdateAction);
-    const [deleteActionType, setDeleteActionType] = React.useState<TableReferenceActionType>(relationModel.onDeleteAction);
-    const relationNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
+    const [parentCardinality, setParentCardinality] = React.useState<CardinalityType>(relation.parentCardinality);
+    const [childCardinality, setChildCardinality] = React.useState<CardinalityType>(relation.childCardinality);
+    const [updateActionType, setUpdateActionType] = React.useState<TableReferenceActionType>(relation.onUpdateAction);
+    const [deleteActionType, setDeleteActionType] = React.useState<TableReferenceActionType>(relation.onDeleteAction);
+    const autoFocusRef = useAutoFocus<HTMLInputElement>(isOpen);
 
     const existedPairs = React.useMemo(() => {
         return new Set(
@@ -115,23 +115,21 @@ const RelationEditView = ({
         });
 
         const loggingMessage = "Update Relation. " +
-            JSON.stringify({ before: relationModel, after: nextRelationModel });
+            JSON.stringify({ before: relation, after: nextRelationModel });
         documentsHolder.updateRelation(nextRelationView, loggingMessage);
         onClose();
     };
 
-    const handleEnterDown = initHandleEnterKeyDown(handleCompleted);
-
     return (
         <DraggableDialog layoutName="relation-edit" fullWidth maxWidth="md" sx={{ userSelect: "none" }}
-            open={isOpen} onClose={initHandleCloseDialog(onClose)}>
+            open={isOpen} onClose={initHandleCloseDialog(onClose)} onSubmitRequest={handleCompleted}>
             <DialogTitle>Edit Relation</DialogTitle>
             <DialogContent>
                 <Stack direction="column" spacing={3}>
                     <Divider />
-                    <TextField id="relationName" inputRef={relationNameRef} variant="outlined"
+                    <TextField id="relationName" inputRef={autoFocusRef} variant="outlined"
                         label="Relation Name" value={relationName}
-                        onChange={initHandleChangePhysicalName(setRelationName)} onKeyDown={handleEnterDown} />
+                        onChange={initHandleChangePhysicalName(setRelationName)} />
                     <RelationReferencesPanel
                         erdDocument={erdDocument}
                         parentTableModel={parentTableModel}

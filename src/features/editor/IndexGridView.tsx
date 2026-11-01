@@ -6,14 +6,14 @@ import {
 } from "@mui/material";
 
 import DraggableDialog from "~/components/DraggableDialog";
-import useAutoFocusInput from "~/components/useAutoFocusInput";
+import useAutoFocus from "~/components/keyboard/useAutoFocus";
 import ColumnModel from "~/models/database/ColumnModel";
 import SimpleColumnModel from "~/models/database/SimpleColumnModel";
 import TableIndexModel, { IndexColumnModel } from "~/models/database/TableIndexModel";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
 import TableIndexSupport, { TableIndexOption, TableIndexType } from "~/models/database/TableIndexSupport";
 import {
-    ColumnWrapModel, initHandleChangePhysicalName, initHandleCloseDialog, initHandleEnterKeyDown
+    ColumnWrapModel, initHandleChangePhysicalName, initHandleCloseDialog
 } from "~/features/editor/support";
 import ColumnShareModel from '~/models/database/ColumnShareModel';
 import { overrideColumnName } from '~/models/database/support';
@@ -163,13 +163,11 @@ const IndexEditDialog = ({
     const [physicalName, setPhysicalName] = React.useState<string>(tableIndexModel.physicalName);
     const [indexedColumns, setIndexedColumns] = React.useState<IndexModelAttribute[]>(
         tableIndexModel.indexColumnModels.filter(model =>
-            columnModels.some(columnModel =>
-                (columnModel.columnModelId === model.columnModelId)
-            )
+            columnModels.some(columnModel => (columnModel.columnModelId === model.columnModelId))
         )
     );
     const [description, setDescription] = React.useState<string>(tableIndexModel.description);
-    const physicalNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
+    const autoFocusRef = useAutoFocus<HTMLInputElement>(isOpen);
 
     const tableIndexSupport: TableIndexSupport = database.tableIndexSupport;
 
@@ -331,18 +329,17 @@ const IndexEditDialog = ({
 
     return (
         <DraggableDialog layoutName="index-edit" fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
-            open={isOpen} onClose={initHandleCloseDialog(onClose)}>
+            open={isOpen} onClose={initHandleCloseDialog(onClose)} onSubmitRequest={handleCompleted}>
             <DialogTitle>Edit table index</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>
                     <Divider />
                     {indexOptionPanel}
                     <Stack direction="row" spacing={2} sx={{ justifyContent: "center", alignItems: "center" }}>
-                        <TextField id="physicalName" inputRef={physicalNameRef}
+                        <TextField id="physicalName" inputRef={autoFocusRef}
                             required fullWidth variant="outlined" sx={{ flex: 1 }}
                             label="Physical Name" value={physicalName}
-                            onChange={initHandleChangePhysicalName(setPhysicalName)}
-                            onKeyDown={initHandleEnterKeyDown(handleCompleted)} />
+                            onChange={initHandleChangePhysicalName(setPhysicalName)} />
                         {tableIndexForm}
                     </Stack>
                     {transferPanel}

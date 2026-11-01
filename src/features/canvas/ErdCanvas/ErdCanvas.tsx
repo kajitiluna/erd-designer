@@ -19,7 +19,7 @@ import ErdTableView from "~/features/canvas/ErdTableView";
 import StickyMemoView from "~/features/canvas/StickyMemoView";
 import { useGrabbing } from "~/features/canvas/ErdCanvas/useGrabbing";
 import {
-    initDeleteHandler, initEffectOfKeyDownOnCanvas, initEffectOfMouseCursorOnCanvas,
+    initDeleteHandler, initDuplicateHandler, initEffectOfKeyDownOnCanvas, initEffectOfMouseCursorOnCanvas,
     initRedoHandler, initSelectModeHandler, initUndoHandler
 } from "~/features/canvas/ErdCanvas/event-handlers";
 import { RectangleArea, doFindRectangleSelected, initRectangleArea } from "~/features/canvas/ErdCanvas/rectangle-area";
@@ -365,10 +365,14 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
             initUndoHandler(documentsHolder),
             // `Delete` または `Backspace` キーで、選択した要素を削除
             initDeleteHandler(documentsHolder, selectState, dispatchSelectAction),
+            // `Ctrl/Command + D` で、選択したテーブルを複製
+            initDuplicateHandler(documentsHolder, selectState, dispatchSelectAction),
         ];
 
         return initEffectOfKeyDownOnCanvas(handlers);
-    }, [editAction.editType, selectState, dispatchSelectAction, dispatchEditMode, documentsHolder]);
+    }, [
+        editAction.editType, selectState, documentsHolder, dispatchSelectAction, dispatchEditMode
+    ]);
 
     const mainCanvas = (
         <div ref={viewportRef} style={VIEWPORT_CONTAINER_STYLE}
@@ -424,9 +428,11 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
 const CANVAS_SIZE = 200000;
 const SVG_VIEW_BOX = `${-CANVAS_SIZE / 2} ${-CANVAS_SIZE / 2} ${CANVAS_SIZE} ${CANVAS_SIZE}`;
 
+// 表示位置の移動は Canvas の transform だけで行う。hidden ではフォーカス移動などでブラウザがスクロールでき、
+// transform による座標と表示がずれるため、clip でスクロール自体を禁止する。
 const VIEWPORT_CONTAINER_STYLE: React.CSSProperties = {
     position: "relative", width: "100%", height: "100vh",
-    overflow: "hidden", backgroundColor: "var(--mui-palette-erd-canvasBackground)"
+    overflow: "clip", backgroundColor: "var(--mui-palette-erd-canvasBackground)"
 } as const;
 
 const CANVAS_STYLE: React.CSSProperties = {

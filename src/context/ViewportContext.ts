@@ -27,6 +27,12 @@ export interface CanvasViewport {
     zoomTo(newScale: number): void;
 
     updateViewportPosition(centerX: number, centerY: number): void;
+
+    /**
+     * Pans the viewport to `logicalCenter` only when `screenRect` (client coordinates) is not fully inside
+     * the viewport container. Does nothing when the rectangle is already fully visible.
+     */
+    ensureVisible(screenRect: DOMRect, logicalCenter: Point): void;
 }
 
 const MIN_SCALE = 0.05;
@@ -149,6 +155,22 @@ class CanvasViewportImpl implements CanvasViewport {
         this.viewportPositionRef.current.centerX = centerX;
         this.viewportPositionRef.current.centerY = centerY;
         this.applyTransform();
+    }
+
+    public ensureVisible(screenRect: DOMRect, logicalCenter: Point): void {
+        const viewport = this.viewportRef.current;
+        if (viewport == null) {
+            return;
+        }
+
+        const viewportRect = viewport.getBoundingClientRect();
+        const isFullyVisible = (screenRect.left >= viewportRect.left) && (screenRect.top >= viewportRect.top)
+            && (screenRect.right <= viewportRect.right) && (screenRect.bottom <= viewportRect.bottom);
+        if (isFullyVisible) {
+            return;
+        }
+
+        this.updateViewportPosition(logicalCenter.x, logicalCenter.y);
     }
 
     public zoomTo(newScale: number): void {

@@ -139,8 +139,7 @@ const GoogleDriveInitializer = ({ authorization: gdriveAuthorization, onInitiali
     );
 };
 
-// .erm インポートは「確認待ち」と「失敗表示」を同時に取り得ないため、1つの判別可能ユニオンで表現する
-// (coding-style.md ルール16: 独立した2つの useState による疑似ブール状態を禁止)。
+// .erm インポートは「確認待ち」と「失敗表示」を同時に取り得ないため、1つの判別可能ユニオンで表現する。
 type ErmImportUiState = { phase: "idle" }
     | { phase: "confirming", pending: PendingErmImport }
     | { phase: "failed", message: string };

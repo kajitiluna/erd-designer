@@ -17,11 +17,11 @@ import { Database } from '~/models/database';
 import DatabaseSettingModel from '~/models/DatabaseSettingModel';
 import ErdDocument from '~/models/ErdDocument';
 import EdgedIconButton from '~/components/EdgedIconButton';
-import useAutoFocusInput from '~/components/useAutoFocusInput';
+import useAutoFocus from '~/components/keyboard/useAutoFocus';
 import { ColumnShareModelStorageContext } from '~/context/ColumnShareModelStorageContext';
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from '~/context/ErdDocumentsHolderContext';
 import {
-    ColumnWrapModel, initHandleChangeWithSyncPhysicalName, initHandleCloseDialog, initHandleEnterKeyDown
+    ColumnWrapModel, initHandleChangeWithSyncPhysicalName, initHandleCloseDialog
 } from "~/features/editor/support";
 import { initOptionCollatePanel, useOverrideNamePanel } from '~/features/editor/view-support';
 import { overrideColumnName } from '~/models/database/support';
@@ -76,7 +76,7 @@ const ColumnEditDialog = ({
     const [logicalName, setLogicalName] = React.useState<string>(columnShareModel ? columnShareModel.logicalName : "");
     const [columnTypeAttribute, setColumnTypeAttribute] =
         React.useState<ColumnTypeAttribute>(toColumnTypeAttribute(columnShareModel, database));
-    const physicalNameRef = useAutoFocusInput<HTMLInputElement>(isOpen);
+    const focusRef = useAutoFocus<HTMLInputElement>(isOpen);
 
     const withLogicalName = erdDocument.getDisplayNameStyle().withLogicalName();
 
@@ -170,8 +170,7 @@ const ColumnEditDialog = ({
 
     const { overriddenPanel, overriddenName } = useOverrideNamePanel({
         physicalName: columnModel.physicalName,
-        logicalName: columnModel.logicalName,
-        onCompleted: handleCompleted
+        logicalName: columnModel.logicalName
     });
 
     const handleCloseDialog = (event: React.MouseEvent) => {
@@ -210,7 +209,6 @@ const ColumnEditDialog = ({
         setLogicalName(columnShareModel.logicalName);
         setColumnTypeAttribute(columnTypeAttribute);
     };
-    const handleEnterDown = initHandleEnterKeyDown(() => handleCompleted(overriddenName));
     const attributePanel = (
         <Paper elevation={4} sx={{ p: 2 }}>
             <Stack useFlexGap spacing={3}>
@@ -219,16 +217,16 @@ const ColumnEditDialog = ({
                     associateColumnModel={associateColumnModel}
                     unlinkColumnModel={() => setColumnShareModelId("")} />
                 <Stack direction="row" spacing={1}>
-                    <TextField inputRef={physicalNameRef} label="Physical Name" required fullWidth variant="outlined"
-                        value={physicalName} onChange={handleChangePhysicalName} onKeyDown={handleEnterDown} />
+                    <TextField inputRef={focusRef} label="Physical Name" required fullWidth variant="outlined"
+                        value={physicalName} onChange={handleChangePhysicalName} />
                     {withLogicalName && (
                         <TextField label="Logical Name" required fullWidth variant="outlined" value={logicalName}
-                            onChange={event => setLogicalName(event.target.value)} onKeyDown={handleEnterDown} />
+                            onChange={event => setLogicalName(event.target.value)} />
                     )}
                 </Stack>
                 <ColumnTypeEditPanel
                     attribute={columnTypeAttribute} disabled={!editableColumnType}
-                    updateColumnType={setColumnTypeAttribute} onEnterAction={handleEnterDown} />
+                    updateColumnType={setColumnTypeAttribute} />
             </Stack>
         </Paper>
     );
@@ -238,7 +236,8 @@ const ColumnEditDialog = ({
     return (
         <DraggableDialog layoutName="column-edit"
             fullWidth maxWidth={withLogicalName ? "md" : "sm"} sx={{ userSelect: "none" }}
-            open={isOpen} onClose={initHandleCloseDialog(onClose)}>
+            open={isOpen} onClose={initHandleCloseDialog(onClose)}
+            onSubmitRequest={() => handleCompleted(overriddenName)}>
             <DialogTitle>Edit {database.supportsStructType ? "single" : "table"} column</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>
@@ -328,6 +327,7 @@ const ColumnModelPanel = ({ columnShareModelId, associateColumnModel, unlinkColu
     const documentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { columnShareStorage } = React.useContext(ColumnShareModelStorageContext);
     const [isOpenDialog, setOpenDialog] = React.useState<"search" | "unlink" | "">("");
+    const autoFocusRef = useAutoFocus<HTMLButtonElement>(isOpenDialog === "unlink");
 
     const columnShareModels = columnShareStorage.getColumnShareModels();
     const withLogicalName = documentsHolder.current().getDisplayNameStyle().withLogicalName();
@@ -410,7 +410,9 @@ const ColumnModelPanel = ({ columnShareModelId, associateColumnModel, unlinkColu
             </DialogContent>
             <DialogActions>
                 <Button onClick={handleCloseUnlinkDialog}>Cancel</Button>
-                <Button variant="contained" color="warning" onClick={handleCompletedUnlink}>Unlink</Button>
+                <Button variant="contained" color="warning" ref={autoFocusRef} onClick={handleCompletedUnlink}>
+                    Unlink
+                </Button>
             </DialogActions>
         </Dialog>
     );
@@ -461,15 +463,14 @@ const initSearchRecord = (
 type ColumnTypeEditPanelProps = {
     attribute: ColumnTypeAttribute,
     disabled: boolean,
-    updateColumnType: (updateFunction: (previous: ColumnTypeAttribute) => ColumnTypeAttribute) => void,
-    onEnterAction: (event: React.KeyboardEvent) => void
+    updateColumnType: (updateFunction: (previous: ColumnTypeAttribute) => ColumnTypeAttribute) => void
 };
 
-const ColumnTypeEditPanel = ({ attribute, disabled, updateColumnType, onEnterAction }: ColumnTypeEditPanelProps) => {
+const ColumnTypeEditPanel = ({ attribute, disabled, updateColumnType }: ColumnTypeEditPanelProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
 
     const [tabIndex, setTabIndex] = React.useState<number>(0);
-    const baseEditPanel = useBaseEditPanel({ attribute, disabled, updateColumnType, onEnterAction });
+    const baseEditPanel = useBaseEditPanel({ attribute, disabled, updateColumnType });
 
     const erdDocument: ErdDocument = documentsHolder.current();
     const database = erdDocument.getDatabase();
@@ -493,7 +494,7 @@ const ColumnTypeEditPanel = ({ attribute, disabled, updateColumnType, onEnterAct
     </>);
 };
 
-const useBaseEditPanel = ({ attribute, disabled, updateColumnType, onEnterAction }: ColumnTypeEditPanelProps) => {
+const useBaseEditPanel = ({ attribute, disabled, updateColumnType }: ColumnTypeEditPanelProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
 
     const erdDocument: ErdDocument = documentsHolder.current();
@@ -601,13 +602,13 @@ const useBaseEditPanel = ({ attribute, disabled, updateColumnType, onEnterAction
                     <TextField variant="outlined" label="Precision" type="number"
                         disabled={(editablePrecision === false) || disabled} required={editablePrecision}
                         error={editablePrecision && (attribute.precision === "")}
-                        value={attribute.precision} onChange={handleChangePrecision} onKeyDown={onEnterAction} />
+                        value={attribute.precision} onChange={handleChangePrecision} />
                 </Grid>
                 <Grid size={{ xs: 3, md: 2 }}>
                     <TextField variant="outlined" label="Scale" type="number"
                         disabled={(editableScale === false) || disabled} required={editableScale}
                         error={editableScale && (attribute.scale === "")}
-                        value={attribute.scale} onChange={handleChangeScale} onKeyDown={onEnterAction} />
+                        value={attribute.scale} onChange={handleChangeScale} />
                 </Grid>
                 {editableUnsigned && (
                     <Grid size={{ xs: 4, md: 2 }}>
@@ -686,9 +687,7 @@ const messageForForeignColumn =
     "Unable to change column type: the column is set as a foreign key." +
     " Please remove the relation to proceed."
 
-type ColumnCheckPanelProps = Omit<ColumnTypeEditPanelProps, "onEnterAction">;
-
-const initCheckPanel = ({ attribute, disabled, updateColumnType }: ColumnCheckPanelProps) => {
+const initCheckPanel = ({ attribute, disabled, updateColumnType }: ColumnTypeEditPanelProps) => {
 
     const handleChangeCheckExpression = (event: React.ChangeEvent<HTMLInputElement>) => {
         const inputValue = event.target.value;
