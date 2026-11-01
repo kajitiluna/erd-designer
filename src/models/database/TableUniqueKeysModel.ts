@@ -1,3 +1,5 @@
+import { v4 as uuidV4 } from "uuid";
+
 import { SortOrderType } from "~/models/database/ValueType";
 import { requireProperty, toObjects } from "~/models/util";
 
@@ -53,6 +55,27 @@ export default class TableUniqueKeysModel {
         });
 
         return { tableUniqueKeysModels: nextUniqueKeysModels, hasChanged };
+    }
+
+    /**
+     * Creates a copy with a newly issued tableUniqueKeysModelId.
+     *
+     * @param args.physicalName name of the copy
+     * @param args.columnModelIdMap original columnModelId to duplicated columnModelId.
+     *      Columns absent from the map (e.g. members of a Column Group) keep referencing the original.
+     */
+    public duplicate(
+        args: { physicalName: string, columnModelIdMap: ReadonlyMap<string, string> }
+    ): TableUniqueKeysModel {
+        const { physicalName, columnModelIdMap } = args;
+        const uniqueKeysColumnModels = this.uniqueKeysColumnModels.map(column => column.duplicate(columnModelIdMap));
+
+        return new TableUniqueKeysModel({
+            ...this,
+            tableUniqueKeysModelId: uuidV4(),
+            physicalName,
+            uniqueKeysColumnModels
+        });
     }
 
     public toJSON(): Record<string, unknown> {
@@ -124,6 +147,13 @@ export class UniqueKeysColumnModel {
     }: UniqueKeysColumnModelOptions) {
         this.columnModelId = columnModelId;
         this.sortOrderType = sortOrderType;
+    }
+
+    /** Creates a copy whose columnModelId is replaced by the mapped one; an unmapped id is kept. */
+    public duplicate(columnModelIdMap: ReadonlyMap<string, string>): UniqueKeysColumnModel {
+        const columnModelId = columnModelIdMap.get(this.columnModelId) ?? this.columnModelId;
+
+        return new UniqueKeysColumnModel({ ...this, columnModelId });
     }
 
     public toJSON(): Record<string, unknown> {

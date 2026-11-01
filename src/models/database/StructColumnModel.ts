@@ -25,6 +25,14 @@ export default class StructColumnModel {
         this.structShareModelId = options.structShareModelId;
     }
 
+    /**
+     * Creates a copy with a newly issued columnModelId.
+     * The struct definition (structShareModelId) is referenced as-is, because sharing it is a supported state.
+     */
+    public duplicate(): StructColumnModel {
+        return new StructColumnModel({ ...this, columnModelId: uuidV4() });
+    }
+
     public toJSON(): Record<string, unknown> {
         return {
             columnModelId: this.columnModelId,

@@ -27,6 +27,23 @@ export default class TableViewModel {
         return this.tableModel.tableModelId;
     }
 
+    /**
+     * Creates a copy of the table placed at `offset` from the original, with the same header color.
+     * `createdAt` is not inherited: the copy is a newly created table.
+     *
+     * @param args names and id remap tables of the copied table, see `TableModel.duplicate`
+     * @param args.offset displacement of the copy from the original
+     */
+    public duplicate(
+        args: Parameters<TableModel["duplicate"]>[0] & { offset: { top: number, left: number } }
+    ): TableViewModel {
+        const { offset, ...tableArgs } = args;
+        const duplicatedTable = this.tableModel.duplicate(tableArgs);
+        const corner = { top: this.corner.top + offset.top, left: this.corner.left + offset.left };
+
+        return new TableViewModel({ tableModel: duplicatedTable, corner, headerColor: this.headerColor });
+    }
+
     public toJSON(): Record<string, unknown> {
         return {
             tableModel: this.tableModel.toJSON(),

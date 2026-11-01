@@ -157,3 +157,25 @@ export const initDeleteHandler = (
         }
     };
 };
+
+export const initDuplicateHandler = (
+    documentsHolder: ErdDocumentsHolder, selectState: SelectState,
+    dispatchSelectAction: (action: SelectAction) => void
+): KeyEventHandler => {
+    return {
+        isMatching: (event: KeyboardEvent) => (event.metaKey || event.ctrlKey) && (event.key.toLowerCase() === "d"),
+        handle: () => {
+            if (selectState.tableIds.size === 0) {
+                return true;
+            }
+
+            const tableIds = Array.from(selectState.tableIds);
+            const duplicatedTableIds = documentsHolder.duplicateTables(tableIds);
+            dispatchSelectAction({
+                type: "bulk", tableIds: duplicatedTableIds, memoIds: [], withMultiSelection: false
+            });
+
+            return true; // イベントの伝播を止める
+        }
+    };
+};

@@ -19,7 +19,7 @@ import ErdTableView from "~/features/canvas/ErdTableView";
 import StickyMemoView from "~/features/canvas/StickyMemoView";
 import { useGrabbing } from "~/features/canvas/ErdCanvas/useGrabbing";
 import {
-    initDeleteHandler, initEffectOfKeyDownOnCanvas, initEffectOfMouseCursorOnCanvas,
+    initDeleteHandler, initDuplicateHandler, initEffectOfKeyDownOnCanvas, initEffectOfMouseCursorOnCanvas,
     initRedoHandler, initSelectModeHandler, initUndoHandler
 } from "~/features/canvas/ErdCanvas/event-handlers";
 import { RectangleArea, doFindRectangleSelected, initRectangleArea } from "~/features/canvas/ErdCanvas/rectangle-area";
@@ -365,10 +365,14 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
             initUndoHandler(documentsHolder),
             // `Delete` または `Backspace` キーで、選択した要素を削除
             initDeleteHandler(documentsHolder, selectState, dispatchSelectAction),
+            // `Ctrl/Command + D` で、選択したテーブルを複製
+            initDuplicateHandler(documentsHolder, selectState, dispatchSelectAction),
         ];
 
         return initEffectOfKeyDownOnCanvas(handlers);
-    }, [editAction.editType, selectState, dispatchSelectAction, dispatchEditMode, documentsHolder]);
+    }, [
+        editAction.editType, selectState, documentsHolder, dispatchSelectAction, dispatchEditMode
+    ]);
 
     const mainCanvas = (
         <div ref={viewportRef} style={VIEWPORT_CONTAINER_STYLE}

@@ -27,7 +27,7 @@ import MemoViewModelStorage from '~/models/MemoViewModelStorage';
 import RelationViewModel, { OrthogonalRelation } from '~/models/RelationViewModel';
 import RelationViewModelStorage from '~/models/RelationViewModelStorage';
 import TableViewModel from '~/models/TableViewModel';
-import { requireProperty, toDateTime, toObjects } from '~/models/util';
+import { DuplicateName, requireProperty, toDateTime, toObjects } from '~/models/util';
 import DisplayColumnStyle from '~/models/DisplayColumnStyle';
 
 type ReachableModelIds = {
@@ -141,11 +141,11 @@ export default class ErdDocument {
         const baseShareStorage = overrides.columnShareModelStorage ?? this.columnShareStorage;
 
         const reachableModelIds = hasShareRelatedChange
-            ? this.doCollectReachableModelIds(
+            ? collectReachableModelIds(
                 nextTableViewModelMap, nextColumnGroupModelMap, baseColumnModelMap, baseShareStorage
             ) : null;
         const nextColumnModelMap = (reachableModelIds == null) ? baseColumnModelMap
-            : this.doRetainColumnModels(baseColumnModelMap, reachableModelIds.columnModelIds);
+            : retainColumnModels(baseColumnModelMap, reachableModelIds.columnModelIds);
         const nextColumnShareStorage = (reachableModelIds == null) ? baseShareStorage
             : baseShareStorage.retain(
                 reachableModelIds.columnShareModelIds, reachableModelIds.structShareModelIds,
@@ -166,73 +166,6 @@ export default class ErdDocument {
             overrides.memoViewModelStorage ?? this.memoViewModelStorage,
             overrides.lastUpdatedAt ?? null
         );
-    }
-
-    // テーブルとカラムグループを根に、single 参照と struct 定義を推移的に辿って生存モデルを確定する。
-    // ColumnGroupModel は明示削除でのみ消える管理対象のため、常に根として扱う。
-    // ワークリスト走査により、struct 削除に伴うメンバー・共有定義の連鎖的な孤立が一度の走査で収束する。
-    private doCollectReachableModelIds(
-        nextTableViewModelMap: Map<string, TableViewModel>,
-        nextColumnGroupModelMap: Map<string, ColumnGroupModel>,
-        baseColumnModelMap: Map<string, ColumnModel>,
-        baseShareStorage: ColumnShareModelStorage
-    ): ReachableModelIds {
-        const rootColumnIdsFromTable = Array.from(nextTableViewModelMap.values())
-            .flatMap(tableViewModel => toSingleColumnIds(tableViewModel.tableModel.columnEntries));
-        const rootColumnIdsFromGroup = Array.from(nextColumnGroupModelMap.values())
-            .flatMap(groupModel => groupModel.columnModelIds);
-
-        const columnModelIds = new Set<string>();
-        const columnShareModelIds = new Set<string>();
-        const structShareModelIds = new Set<string>();
-        const pendingColumnModelIds = [...rootColumnIdsFromTable, ...rootColumnIdsFromGroup];
-
-        while (pendingColumnModelIds.length > 0) {
-            const columnModelId = pendingColumnModelIds.pop();
-            if ((columnModelId == null) || columnModelIds.has(columnModelId)) {
-                continue;
-            }
-            columnModelIds.add(columnModelId);
-
-            const columnModel = baseColumnModelMap.get(columnModelId);
-            if (columnModel == null) {
-                continue;
-            }
-            if (ColumnModel.isSimpleColumn(columnModel)) {
-                columnShareModelIds.add(columnModel.columnShareModelId);
-                continue;
-            }
-
-            const structShareModelId = columnModel.structShareModelId;
-            if (structShareModelIds.has(structShareModelId)) {
-                continue;
-            }
-            structShareModelIds.add(structShareModelId);
-
-            const structShareModel = baseShareStorage.findStructShare(structShareModelId);
-            if (structShareModel == null) {
-                continue;
-            }
-            pendingColumnModelIds.push(...toSingleColumnIds(structShareModel.columnEntries));
-        }
-
-        return { columnModelIds, columnShareModelIds, structShareModelIds };
-    }
-
-    private doRetainColumnModels(
-        baseColumnModelMap: Map<string, ColumnModel>, reachableColumnModelIds: ReadonlySet<string>
-    ): Map<string, ColumnModel> {
-        const unreachableColumnModelIds = Array.from(baseColumnModelMap.keys())
-            .filter(columnModelId => (reachableColumnModelIds.has(columnModelId) === false));
-
-        if (unreachableColumnModelIds.length === 0) {
-            return baseColumnModelMap;
-        }
-
-        const retainedColumnModelMap = new Map(baseColumnModelMap);
-        unreachableColumnModelIds.forEach(columnModelId => retainedColumnModelMap.delete(columnModelId));
-
-        return retainedColumnModelMap;
     }
 
     public getDatabase(): Database {
@@ -413,6 +346,129 @@ export default class ErdDocument {
         return this.doUpdate({
             schemaConfig: next
         });
+    }
+
+    /**
+     * Duplicates the given tables in a single update.
+     * Every duplicated table, column, index and unique key gets a new id and a `_copy` name, and each copy is
+     * placed at a fixed offset from its original. Share models and Column Group entries are referenced as-is,
+     * and relations are not duplicated.
+     *
+     * Each duplicated table is added to every perspective that contains its original, so that it is not hidden
+     * right after creation. A table that belongs to no perspective is added to none.
+     *
+     * @param tableIds tables to duplicate. Unknown ids are ignored.
+     * @returns the updated document and the original/duplicated table id pairs, in the order of `tableIds`
+     */
+    public duplicateTables(tableIds: readonly string[]): {
+        erdDocument: ErdDocument, duplicatedTables: { originalTableId: string, duplicatedTableId: string }[]
+    } {
+        const sourceTableViews = tableIds.map(tableId => this.tableViewModelMap.get(tableId))
+            .filter((tableView): tableView is TableViewModel => (tableView != null));
+        if (sourceTableViews.length === 0) {
+            return { erdDocument: this, duplicatedTables: [] };
+        }
+
+        const tableModels = this.getTableViewModels().map(tableView => tableView.tableModel);
+        const initialState: DuplicationState = { duplications: [], usedNames: collectUsedNames(tableModels) };
+        const finalState = sourceTableViews.reduce(
+            (state, sourceTableView) => this.doDuplicateTableView(sourceTableView, state), initialState
+        );
+
+        const duplicatedTableViews = finalState.duplications.map(duplication => duplication.tableView);
+        const duplicatedColumnModels = finalState.duplications.flatMap(duplication => duplication.columnModels);
+        const duplicatedTables = finalState.duplications.map(duplication => {
+            return { originalTableId: duplication.originalTableId, duplicatedTableId: duplication.tableView.tableId };
+        });
+        const duplicatedTableIds = duplicatedTables.map(duplicatedTable => duplicatedTable.duplicatedTableId);
+
+        const nextTableViewMap = new Map(this.tableViewModelMap);
+        duplicatedTableViews.forEach(tableView => nextTableViewMap.set(tableView.tableId, tableView));
+        const nextColumnMap = new Map(this.columnModelMap);
+        duplicatedColumnModels.forEach(columnModel => nextColumnMap.set(columnModel.columnModelId, columnModel));
+
+        // 複製した ColumnModel は複製テーブルの columnEntries から参照されるため、doUpdate の生存判定で残る
+        const erdDocument = this.doUpdate({
+            tableViewModelIds: [...this.tableViewModelIds, ...duplicatedTableIds],
+            tableViewModelMap: nextTableViewMap,
+            columnModelMap: nextColumnMap,
+            erdSettingModel: this.doAddToPerspectives(duplicatedTables)
+        });
+
+        return { erdDocument, duplicatedTables };
+    }
+
+    private doDuplicateTableView(source: TableViewModel, state: DuplicationState): DuplicationState {
+        const sourceTable = source.tableModel;
+
+        // single エントリのカラムのみ複製する。Column Group のメンバーは複製せず、グループ参照のまま共有する
+        const sourceColumns = toSingleColumnIds(sourceTable.columnEntries)
+            .map(columnId => this.findColumnModel(columnId))
+            .filter((column): column is ColumnModel => (column != null));
+        const duplicatedColumns = sourceColumns.map(column => column.duplicate());
+        const columnIdDuplicatedPairs = new Map(sourceColumns.map((column, index) => {
+            const duplicated = duplicatedColumns[index];
+            return [column.columnModelId, duplicated.columnModelId];
+        }));
+
+        const usedNames = state.usedNames;
+        const physicalName = DuplicateName.resolve(sourceTable.physicalName, usedNames.tablePhysicalNames);
+        const logicalName = DuplicateName.resolve(sourceTable.logicalName, usedNames.tableLogicalNames);
+
+        const indexEntries = sourceTable.tableIndexModels.map(tableIndex => {
+            return { id: tableIndex.tableIndexModelId, name: tableIndex.physicalName };
+        });
+        const indexNames = DuplicateName.resolveEach(indexEntries, usedNames.constraintNames);
+        const uniqueKeyEntries = sourceTable.uniqueKeysModels.map(uniqueKey => {
+            return { id: uniqueKey.tableUniqueKeysModelId, name: uniqueKey.physicalName };
+        });
+        const uniqueKeyNames = DuplicateName.resolveEach(uniqueKeyEntries, indexNames.usedNames);
+
+        const tableView = source.duplicate({
+            physicalName,
+            logicalName,
+            columnIdDuplicatedPairs: columnIdDuplicatedPairs,
+            sourceIndexIdToPhysicalName: indexNames.sourceIdToDuplicatedNames,
+            sourceUniqueKeysIdToPhysicalNames: uniqueKeyNames.sourceIdToDuplicatedNames,
+            offset: DUPLICATE_OFFSET
+        });
+
+        const nextUsedNames: UsedNames = {
+            tablePhysicalNames: new Set(usedNames.tablePhysicalNames).add(physicalName),
+            tableLogicalNames: new Set(usedNames.tableLogicalNames).add(logicalName),
+            constraintNames: uniqueKeyNames.usedNames
+        };
+
+        return {
+            duplications: [
+                ...state.duplications,
+                { originalTableId: source.tableId, tableView, columnModels: duplicatedColumns }
+            ],
+            usedNames: nextUsedNames
+        };
+    }
+
+    private doAddToPerspectives(
+        duplicatedTables: readonly { originalTableId: string, duplicatedTableId: string }[]
+    ): ErdSettingModel {
+        const perspectives = this.erdSettingModel.getPerspectiveModels();
+        const nextPerspectives = perspectives.map(perspective => {
+            const duplicatedInPerspective = duplicatedTables
+                .filter(duplicatedTable => perspective.containsModel(duplicatedTable.originalTableId));
+
+            // 元テーブルを含まない perspective は同一インスタンスのまま返し、変更有無を参照比較で判定する
+            return duplicatedInPerspective.reduce(
+                (current, duplicatedTable) => current.updateContainId(duplicatedTable.duplicatedTableId, "add"),
+                perspective
+            );
+        });
+
+        const changed = nextPerspectives.some((nextPerspective, index) => (nextPerspective !== perspectives[index]));
+        if (changed === false) {
+            return this.erdSettingModel;
+        }
+
+        return this.erdSettingModel.update({ perspectiveModels: nextPerspectives });
     }
 
     /**
@@ -1693,6 +1749,62 @@ export default class ErdDocument {
         });
     }
 
+    /**
+     * 直前世代 (previous) と内容が同じモデルのインスタンスを引き継いだドキュメントを返す。
+     * JSON から復元したドキュメント (Google Drive の外部更新取り込み等) は全モデルが別インスタンスになり、
+     * ローカル編集のような未変更モデルの参照共有が起きない。
+     * そのまま undo 履歴に積むと変更されていない部分まで世代数分の複製が残るため、呼び出し側が任意でこれを通してから履歴へ渡す。
+     */
+    public reuseInstancesFrom(previous: ErdDocument): ErdDocument {
+        const tableViewModelIds = doReuseIds(previous.tableViewModelIds, this.tableViewModelIds);
+        const tableViewModelMap = doReuseModelMap(
+            previous.tableViewModelMap, this.tableViewModelMap,
+            (previousModel, nextModel) => previousModel.equals(nextModel)
+        );
+        const columnGroupModelMap = doReuseModelMap(
+            previous.columnGroupModelMap, this.columnGroupModelMap,
+            (previousModel, nextModel) => previousModel.equals(nextModel)
+        );
+        const columnModelMap = doReuseModelMap(
+            previous.columnModelMap, this.columnModelMap,
+            (previousModel, nextModel) => ColumnModel.equals(previousModel, nextModel)
+        );
+
+        const columnShareStorage = this.columnShareStorage.reuseInstancesFrom(previous.columnShareStorage);
+        const relationViewModelStorage =
+            this.relationViewModelStorage.reuseInstancesFrom(previous.relationViewModelStorage);
+        const memoViewModelStorage = this.memoViewModelStorage.reuseInstancesFrom(previous.memoViewModelStorage);
+        const erdSettingModel = (this.erdSettingModel.equals(previous.erdSettingModel) === true)
+            ? previous.erdSettingModel : this.erdSettingModel;
+        const databaseSettingModel = (this.databaseSettingModel.equals(previous.databaseSettingModel) === true)
+            ? previous.databaseSettingModel : this.databaseSettingModel;
+        const schemaConfig = (this.schemaConfig.equals(previous.schemaConfig) === true)
+            ? previous.schemaConfig : this.schemaConfig;
+
+        // .equals() が比較する全フィールドが previous 側へ再利用された場合、内容は previous と完全に同一である。
+        // 呼び出し側 (GoogleDriveFile 等) が === で無変更検知できるよう、その場合は previous 自身を返す。
+        const allReused = (this.documentName === previous.documentName)
+            && (tableViewModelIds === previous.tableViewModelIds)
+            && (tableViewModelMap === previous.tableViewModelMap)
+            && (columnGroupModelMap === previous.columnGroupModelMap)
+            && (columnModelMap === previous.columnModelMap)
+            && (columnShareStorage === previous.columnShareStorage)
+            && (relationViewModelStorage === previous.relationViewModelStorage)
+            && (memoViewModelStorage === previous.memoViewModelStorage)
+            && (erdSettingModel === previous.erdSettingModel)
+            && (databaseSettingModel === previous.databaseSettingModel)
+            && (schemaConfig === previous.schemaConfig);
+        if (allReused === true) {
+            return previous;
+        }
+
+        return new ErdDocument(
+            this.documentName, erdSettingModel, databaseSettingModel, schemaConfig,
+            tableViewModelIds, tableViewModelMap, columnGroupModelMap, columnModelMap,
+            columnShareStorage, relationViewModelStorage, memoViewModelStorage, this.lastUpdatedAt
+        );
+    }
+
     public toJSON(): Record<string, unknown> {
         const database = this.getDatabase();
         const tableViewModels = this.tableViewModelIds
@@ -1851,63 +1963,106 @@ export default class ErdDocument {
 
         return true;
     }
+}
 
-    /**
-     * 直前世代 (previous) と内容が同じモデルのインスタンスを引き継いだドキュメントを返す。
-     * JSON から復元したドキュメント (Google Drive の外部更新取り込み等) は全モデルが別インスタンスになり、
-     * ローカル編集のような未変更モデルの参照共有が起きない。
-     * そのまま undo 履歴に積むと変更されていない部分まで世代数分の複製が残るため、呼び出し側が任意でこれを通してから履歴へ渡す。
-     */
-    public reuseInstancesFrom(previous: ErdDocument): ErdDocument {
-        const tableViewModelIds = doReuseIds(previous.tableViewModelIds, this.tableViewModelIds);
-        const tableViewModelMap = doReuseModelMap(
-            previous.tableViewModelMap, this.tableViewModelMap,
-            (previousModel, nextModel) => previousModel.equals(nextModel)
-        );
-        const columnGroupModelMap = doReuseModelMap(
-            previous.columnGroupModelMap, this.columnGroupModelMap,
-            (previousModel, nextModel) => previousModel.equals(nextModel)
-        );
-        const columnModelMap = doReuseModelMap(
-            previous.columnModelMap, this.columnModelMap,
-            (previousModel, nextModel) => ColumnModel.equals(previousModel, nextModel)
-        );
+// テーブルとカラムグループを根に、single 参照と struct 定義を推移的に辿って生存モデルを確定する。
+// ColumnGroupModel は明示削除でのみ消える管理対象のため、常に根として扱う。
+// ワークリスト走査により、struct 削除に伴うメンバー・共有定義の連鎖的な孤立が一度の走査で収束する。
+const collectReachableModelIds = (
+    nextTableViewModelMap: Map<string, TableViewModel>,
+    nextColumnGroupModelMap: Map<string, ColumnGroupModel>,
+    baseColumnModelMap: Map<string, ColumnModel>,
+    baseShareStorage: ColumnShareModelStorage
+): ReachableModelIds => {
+    const rootColumnIdsFromTable = Array.from(nextTableViewModelMap.values())
+        .flatMap(tableViewModel => toSingleColumnIds(tableViewModel.tableModel.columnEntries));
+    const rootColumnIdsFromGroup = Array.from(nextColumnGroupModelMap.values())
+        .flatMap(groupModel => groupModel.columnModelIds);
 
-        const columnShareStorage = this.columnShareStorage.reuseInstancesFrom(previous.columnShareStorage);
-        const relationViewModelStorage =
-            this.relationViewModelStorage.reuseInstancesFrom(previous.relationViewModelStorage);
-        const memoViewModelStorage = this.memoViewModelStorage.reuseInstancesFrom(previous.memoViewModelStorage);
-        const erdSettingModel = (this.erdSettingModel.equals(previous.erdSettingModel) === true)
-            ? previous.erdSettingModel : this.erdSettingModel;
-        const databaseSettingModel = (this.databaseSettingModel.equals(previous.databaseSettingModel) === true)
-            ? previous.databaseSettingModel : this.databaseSettingModel;
-        const schemaConfig = (this.schemaConfig.equals(previous.schemaConfig) === true)
-            ? previous.schemaConfig : this.schemaConfig;
+    const columnModelIds = new Set<string>();
+    const columnShareModelIds = new Set<string>();
+    const structShareModelIds = new Set<string>();
+    const pendingColumnModelIds = [...rootColumnIdsFromTable, ...rootColumnIdsFromGroup];
 
-        // .equals() が比較する全フィールドが previous 側へ再利用された場合、内容は previous と完全に同一である。
-        // 呼び出し側 (GoogleDriveFile 等) が === で無変更検知できるよう、その場合は previous 自身を返す。
-        const allReused = (this.documentName === previous.documentName)
-            && (tableViewModelIds === previous.tableViewModelIds)
-            && (tableViewModelMap === previous.tableViewModelMap)
-            && (columnGroupModelMap === previous.columnGroupModelMap)
-            && (columnModelMap === previous.columnModelMap)
-            && (columnShareStorage === previous.columnShareStorage)
-            && (relationViewModelStorage === previous.relationViewModelStorage)
-            && (memoViewModelStorage === previous.memoViewModelStorage)
-            && (erdSettingModel === previous.erdSettingModel)
-            && (databaseSettingModel === previous.databaseSettingModel)
-            && (schemaConfig === previous.schemaConfig);
-        if (allReused === true) {
-            return previous;
+    while (pendingColumnModelIds.length > 0) {
+        const columnModelId = pendingColumnModelIds.pop();
+        if ((columnModelId == null) || columnModelIds.has(columnModelId)) {
+            continue;
+        }
+        columnModelIds.add(columnModelId);
+
+        const columnModel = baseColumnModelMap.get(columnModelId);
+        if (columnModel == null) {
+            continue;
+        }
+        if (ColumnModel.isSimpleColumn(columnModel)) {
+            columnShareModelIds.add(columnModel.columnShareModelId);
+            continue;
         }
 
-        return new ErdDocument(
-            this.documentName, erdSettingModel, databaseSettingModel, schemaConfig,
-            tableViewModelIds, tableViewModelMap, columnGroupModelMap, columnModelMap,
-            columnShareStorage, relationViewModelStorage, memoViewModelStorage, this.lastUpdatedAt
-        );
+        const structShareModelId = columnModel.structShareModelId;
+        if (structShareModelIds.has(structShareModelId)) {
+            continue;
+        }
+        structShareModelIds.add(structShareModelId);
+
+        const structShareModel = baseShareStorage.findStructShare(structShareModelId);
+        if (structShareModel == null) {
+            continue;
+        }
+        pendingColumnModelIds.push(...toSingleColumnIds(structShareModel.columnEntries));
     }
-}
+
+    return { columnModelIds, columnShareModelIds, structShareModelIds };
+};
+
+const retainColumnModels = (
+    baseColumnModelMap: Map<string, ColumnModel>, reachableColumnModelIds: ReadonlySet<string>
+): Map<string, ColumnModel> => {
+    const unreachableColumnModelIds = Array.from(baseColumnModelMap.keys())
+        .filter(columnModelId => (reachableColumnModelIds.has(columnModelId) === false));
+
+    if (unreachableColumnModelIds.length === 0) {
+        return baseColumnModelMap;
+    }
+
+    const retainedColumnModelMap = new Map(baseColumnModelMap);
+    unreachableColumnModelIds.forEach(columnModelId => retainedColumnModelMap.delete(columnModelId));
+
+    return retainedColumnModelMap;
+};
+
+type DuplicationState = {
+    duplications: readonly DuplicatedTable[],
+    usedNames: UsedNames
+};
+
+type DuplicatedTable = {
+    originalTableId: string,
+    tableView: TableViewModel,
+    columnModels: ColumnModel[]
+};
+
+// 複製中に使用済みとなる名前の集合。名前の一意性を確認する範囲ごとに分けて保持する。
+type UsedNames = {
+    tablePhysicalNames: ReadonlySet<string>,
+    tableLogicalNames: ReadonlySet<string>,
+    // index と unique key は DB 上で同一の名前空間を共有し得るため、まとめて衝突を避ける
+    constraintNames: ReadonlySet<string>
+};
+
+const collectUsedNames = (tableModels: TableModel[]): UsedNames => {
+    const indexNames = tableModels
+        .flatMap(tableModel => tableModel.tableIndexModels.map(indexModel => indexModel.physicalName));
+    const uniqueKeyNames = tableModels
+        .flatMap(tableModel => tableModel.uniqueKeysModels.map(uniqueKeysModel => uniqueKeysModel.physicalName));
+
+    return {
+        tablePhysicalNames: new Set(tableModels.map(tableModel => tableModel.physicalName)),
+        tableLogicalNames: new Set(tableModels.map(tableModel => tableModel.logicalName)),
+        constraintNames: new Set([...indexNames, ...uniqueKeyNames])
+    };
+};
 
 type ImportDdlArgs = {
     tableViewModels: TableViewModel[],
@@ -1915,6 +2070,9 @@ type ImportDdlArgs = {
     columnShareModels: ColumnShareModel[],
     relationViewModels: RelationViewModel[]
 };
+
+// 複製したテーブルを元テーブルから右下へずらす距離。元テーブルと重なって複製に気づけなくなることを避ける。
+const DUPLICATE_OFFSET = { top: 40, left: 40 } as const;
 
 /**
  * ColumnModelType の配列から、single 参照の columnModelId のみを抽出する。

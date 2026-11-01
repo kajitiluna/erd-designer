@@ -6,6 +6,7 @@ import {
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import VisibilityIcon from '@mui/icons-material/Visibility';
 
 import ColorSelector from "~/components/ColorSelector";
@@ -804,6 +805,17 @@ const TableControlPanel = ({
         dispatchSelectAction(RELEASE_ACTION);
     };
 
+    const handleDuplicate = (event: React.MouseEvent) => {
+        if (editMode != EditModeType.SELECT) {
+            return;
+        }
+
+        event.stopPropagation();
+
+        const duplicatedTableIds = documentsHolder.duplicateTables([tableView.tableId]);
+        dispatchSelectAction({ type: "bulk", tableIds: duplicatedTableIds, memoIds: [], withMultiSelection: false });
+    };
+
     const controlMenu = (
         <Stack direction="row" sx={controlPanelStyle}
             onClick={handlePreventMouseEvent}
@@ -822,6 +834,11 @@ const TableControlPanel = ({
                 <Tooltip title="Edit" placement="top-end">
                     <IconButton onClick={handleOpenEditDialog}>
                         <EditIcon />
+                    </IconButton>
+                </Tooltip>
+                <Tooltip title="Duplicate" placement="top-end">
+                    <IconButton onClick={handleDuplicate}>
+                        <ContentCopyIcon />
                     </IconButton>
                 </Tooltip>
                 <Tooltip title="Delete" placement="top-end">

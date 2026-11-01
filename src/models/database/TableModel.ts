@@ -99,6 +99,51 @@ export default class TableModel {
         return new TableModel({ ...this, checkExpression: nextExpression });
     }
 
+    /**
+     * Creates a copy with a newly issued tableModelId.
+     * Column Group entries are referenced as-is; single entries and the column references of
+     * indexes / unique keys are replaced through `columnIdDuplicatedPairs`.
+     *
+     * @param args.physicalName physical name of the copy
+     * @param args.logicalName logical name of the copy
+     * @param args.columnIdDuplicatedPairs original columnModelId to duplicated columnModelId.
+     *      An id absent from the map (e.g. a member of a Column Group) keeps referencing the original.
+     * @param args.sourceIndexIdToPhysicalName duplicated index name per original tableIndexModelId
+     * @param args.sourceUniqueKeysIdToPhysicalNames duplicated unique key name per original tableUniqueKeysModelId
+     */
+    public duplicate(args: {
+        physicalName: string,
+        logicalName: string,
+        columnIdDuplicatedPairs: ReadonlyMap<string, string>,
+        sourceIndexIdToPhysicalName: ReadonlyMap<string, string>,
+        sourceUniqueKeysIdToPhysicalNames: ReadonlyMap<string, string>
+    }): TableModel {
+        const columnIdDuplicatedPairs = args.columnIdDuplicatedPairs;
+        const columnEntries = this.columnEntries.map(entry => duplicateColumnEntry(entry, columnIdDuplicatedPairs));
+
+        const uniqueKeysModels = this.uniqueKeysModels.map(uniqueKeys => {
+            const physicalName = args.sourceUniqueKeysIdToPhysicalNames.get(uniqueKeys.tableUniqueKeysModelId)
+                ?? uniqueKeys.physicalName;
+            return uniqueKeys.duplicate({ physicalName, columnModelIdMap: columnIdDuplicatedPairs });
+        });
+
+        const tableIndexModels = this.tableIndexModels.map(tableIndex => {
+            const physicalName = args.sourceIndexIdToPhysicalName.get(tableIndex.tableIndexModelId)
+                ?? tableIndex.physicalName;
+            return tableIndex.duplicate({ physicalName, columnModelIdMap: columnIdDuplicatedPairs });
+        });
+
+        return new TableModel({
+            ...this,
+            tableModelId: uuidV4(),
+            physicalName: args.physicalName,
+            logicalName: args.logicalName,
+            columnEntries,
+            uniqueKeysModels,
+            tableIndexModels
+        });
+    }
+
     public equals(other: TableModel): boolean {
         if (this.tableModelId !== other.tableModelId) {
             return false;
@@ -221,3 +266,12 @@ export default class TableModel {
         });
     }
 }
+
+const duplicateColumnEntry = (entry: ColumnEntry, toDuplicatedIds: ReadonlyMap<string, string>): ColumnEntry => {
+    if (entry.modelType === "group") {
+        return entry;
+    }
+
+    const columnModelId = toDuplicatedIds.get(entry.columnModelId) ?? entry.columnModelId;
+    return { modelType: "single", columnModelId };
+};

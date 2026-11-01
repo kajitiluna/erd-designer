@@ -137,6 +137,22 @@ export class ErdDocumentsHolder {
     }
 
     /**
+     * Duplicates the given tables as a single history entry.
+     *
+     * @param tableIds tables to duplicate, see {@link ErdDocument.duplicateTables}
+     * @returns the ids of the duplicated tables, so that the caller can select them
+     */
+    public duplicateTables(tableIds: readonly string[]): string[] {
+        const { erdDocument, duplicatedTables } = this.current().duplicateTables(tableIds);
+        const pairsMessage = duplicatedTables
+            .map(table => `(original: ${table.originalTableId}, duplicated: ${table.duplicatedTableId})`)
+            .join(", ");
+        this.doUpdate(() => erdDocument, `Duplicate tables: ${pairsMessage}`);
+
+        return duplicatedTables.map(duplicatedTable => duplicatedTable.duplicatedTableId);
+    }
+
+    /**
      * 指定されたテーブルの配色を変更する。
      * 
      * @param tableIds 変更対象のテーブルID一覧

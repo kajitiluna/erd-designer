@@ -34,6 +34,14 @@ export default class SimpleColumnModel {
         this.defaultValue = (options.defaultValue ?? "").trim();
     }
 
+    /**
+     * Creates a copy with a newly issued columnModelId.
+     * The shared definition (columnShareModelId) is referenced as-is, because sharing it is a supported state.
+     */
+    public duplicate(): SimpleColumnModel {
+        return new SimpleColumnModel({ ...this, columnModelId: uuidV4() });
+    }
+
     public toJSON(): Record<string, unknown> {
         // entityType は struct 判別子。simple はキーを省略する。
         return {
