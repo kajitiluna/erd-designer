@@ -24,6 +24,8 @@ import PortalCanvasContext from "~/context/PortalCanvasContext";
 import ThemePreferenceContext from "~/context/ThemePreferenceContext";
 import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
 import EditAction from "~/features/canvas/EditAction";
+import ControlPanelFocus from "~/features/canvas/ControlPanelFocus";
+import KeyboardFocusSelection from "~/features/canvas/KeyboardFocusSelection";
 import { handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
 import TableViewModel from "~/models/TableViewModel";
 import ColorValue from "~/models/ColorValue";
@@ -457,6 +459,8 @@ const InnerErdTableView = ({
     const { colorTheme } = React.useContext(ThemePreferenceContext);
 
     const containerRef = React.useRef<HTMLDivElement>(null);
+    const tableElementRef = React.useRef<HTMLDivElement>(null);
+    const controlPanelRef = React.useRef<HTMLDivElement>(null);
     const [selfSelectableMode, setSelfSelectableMode] = React.useState<SelfSelectableMode>("none");
     const focusRef = useAutoFocus<HTMLButtonElement>(isOpenDeletingDialog);
 
@@ -585,6 +589,47 @@ const InnerErdTableView = ({
         handleOpenEditDialog(event);
     };
 
+    // Tab / Shift+Tab による移動でフォーカスされたときだけ、そのテーブルを選択する。
+    // マウス操作でもフォーカスは移るが、その選択は handleMouseDown / handleMouseUp が担うため、ここでは何もしない。
+    const handleFocus = (event: React.FocusEvent<HTMLElement>) => {
+        if (event.target !== event.currentTarget) {
+            return;
+        }
+
+        const focusedElement = event.currentTarget;
+        if (KeyboardFocusSelection.isKeyboardFocus(focusedElement) === false) {
+            return;
+        }
+
+        // viewport はブラウザにスクロールさせないため、表示領域外のときはアプリ側で viewport を移動して見える位置にする
+        const logicalCorner = { x: tableView.corner.left, y: tableView.corner.top };
+        viewport.ensureVisible(focusedElement.getBoundingClientRect(), logicalCorner);
+
+        const selectAction = KeyboardFocusSelection.findSelectAction({
+            tableId: tableView.tableId, editMode, selectState
+        });
+        if (selectAction == null) {
+            return;
+        }
+
+        dispatchSelectAction(selectAction);
+    };
+
+    // コントロールパネルは全テーブルの後ろに portal で描画され、DOM 順の Tab では届かないため、テーブルからパネルの先頭へ移す
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+        if (event.target !== event.currentTarget) {
+            return;
+        }
+
+        const entryElement = ControlPanelFocus.findEntry(event, controlPanelRef.current);
+        if (entryElement == null) {
+            return;
+        }
+
+        event.preventDefault();
+        entryElement.focus();
+    };
+
     const handleOpenEditDialog = (event: React.MouseEvent) => {
         if (editMode != EditModeType.SELECT) {
             return;
@@ -634,16 +679,17 @@ const InnerErdTableView = ({
     return (
         <Box sx={tableStyle} ref={containerRef}>
             {wrapTableTooltip(
-                <Box id={tableView.tableId} tabIndex={0} sx={boundStyle}
-                    style={{ cursor: 'pointer' }} className={tableClassName}
-                    data-entity-id={tableView.tableId}
+                <Box id={tableView.tableId} ref={tableElementRef} tabIndex={visible ? 0 : -1} sx={boundStyle}
+                    style={{ cursor: 'pointer' }} className={tableClassName} data-entity-id={tableView.tableId}
                     onMouseDown={handleMouseDown} onMouseUp={handleMouseUp}
-                    onClick={handleClick} onDoubleClick={handleDoubleClick}>
+                    onClick={handleClick} onDoubleClick={handleDoubleClick}
+                    onFocus={handleFocus} onKeyDown={handleKeyDown}>
                     {tableContentCache}
                 </Box>
             )}
             <TableControlPanel
                 tableView={tableView} containerRef={containerRef} selected={selected}
+                tableElementRef={tableElementRef} controlPanelRef={controlPanelRef}
                 onEditAction={onEditAction} onOpenDeleteDialog={onOpenDeleteDialog} />
 
             <Dialog open={isOpenDeletingDialog} onClose={handleCloseDeletingDialog}>
@@ -730,12 +776,14 @@ type TableControlPanelProps = {
     tableView: TableViewModel;
     containerRef: React.RefObject<HTMLDivElement | null>;
     selected: boolean;
+    tableElementRef: React.RefObject<HTMLDivElement | null>;
+    controlPanelRef: React.RefObject<HTMLDivElement | null>;
     onEditAction: (editAction: EditAction) => void;
     onOpenDeleteDialog: (open: boolean) => void;
 };
 
 const TableControlPanel = ({
-    tableView, containerRef, selected, onEditAction, onOpenDeleteDialog
+    tableView, containerRef, selected, tableElementRef, controlPanelRef, onEditAction, onOpenDeleteDialog
 }: TableControlPanelProps) => {
     const documentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { scaleState } = React.useContext(ViewportContext);
@@ -743,7 +791,7 @@ const TableControlPanel = ({
     const { selectState, dispatchSelectAction } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
     const { dispatchLocalSetting } = React.useContext(LocalSettingContext);
-    const { toolbarCanvasElement } = React.useContext(PortalCanvasContext);
+    const { canvasElement, toolbarCanvasElement } = React.useContext(PortalCanvasContext);
 
     // oxlint-disable-next-line react/refs -- 選択中のテーブルにのみ描画するため、この時点でコンテナはマウント済み
     if ((containerRef.current == null) || (toolbarCanvasElement == null)) {
@@ -818,8 +866,26 @@ const TableControlPanel = ({
         dispatchSelectAction({ type: "bulk", tableIds: duplicatedTableIds, memoIds: [], withMultiSelection: false });
     };
 
+    // パネルの両端から Tab で抜けるときは、パネルの直前・直後にあるべきテーブルへ戻す。
+    // 最後のテーブルでは次のテーブルがないため、既定の Tab 移動でキャンバスの後ろへ進ませる。
+    const handleKeyDownOnPanel = (event: React.KeyboardEvent<HTMLElement>) => {
+        const exit = ControlPanelFocus.findExit(event, controlPanelRef.current);
+        const tableElement = tableElementRef.current;
+        if ((exit == null) || (tableElement == null)) {
+            return;
+        }
+
+        const nextTarget = (exit === "backward") ? tableElement : findNextTableElement(tableElement, canvasElement);
+        if (nextTarget == null) {
+            return;
+        }
+
+        event.preventDefault();
+        nextTarget.focus();
+    };
+
     const controlMenu = (
-        <Stack direction="row" sx={controlPanelStyle}
+        <Stack direction="row" sx={controlPanelStyle} ref={controlPanelRef} onKeyDown={handleKeyDownOnPanel}
             onClick={handlePreventMouseEvent}
             onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
             <div style={CONTROL_PANEL_STYLE}>
@@ -853,6 +919,15 @@ const TableControlPanel = ({
     );
 
     return ReactDOM.createPortal(controlMenu, toolbarCanvasElement);
+};
+
+const findNextTableElement = (tableElement: HTMLElement, canvasElement: HTMLElement | null): HTMLElement | null => {
+    if (canvasElement == null) {
+        return null;
+    }
+
+    const tableElements = Array.from(canvasElement.querySelectorAll<HTMLElement>(`.${ERD_TABLE_VIEW_CLASS_NAME}`));
+    return ControlPanelFocus.findNextTabStop(tableElement, tableElements);
 };
 
 

@@ -428,9 +428,11 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
 const CANVAS_SIZE = 200000;
 const SVG_VIEW_BOX = `${-CANVAS_SIZE / 2} ${-CANVAS_SIZE / 2} ${CANVAS_SIZE} ${CANVAS_SIZE}`;
 
+// 表示位置の移動は Canvas の transform だけで行う。hidden ではフォーカス移動などでブラウザがスクロールでき、
+// transform による座標と表示がずれるため、clip でスクロール自体を禁止する。
 const VIEWPORT_CONTAINER_STYLE: React.CSSProperties = {
     position: "relative", width: "100%", height: "100vh",
-    overflow: "hidden", backgroundColor: "var(--mui-palette-erd-canvasBackground)"
+    overflow: "clip", backgroundColor: "var(--mui-palette-erd-canvasBackground)"
 } as const;
 
 const CANVAS_STYLE: React.CSSProperties = {
