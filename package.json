@@ -39,6 +39,16 @@
   "publisher": "kajitiluna",
   "version": "0.0.1",
   "main": "./out/extension/extension.js",
+  "files": [
+    "out/extension/**",
+    "out/package.json",
+    "dist/index.html",
+    "dist/assets/*.js",
+    "dist/assets/*.css",
+    "images/icon.png",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
   "activationEvents": [
     "onStartupFinished"
   ],
