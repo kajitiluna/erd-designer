@@ -6,6 +6,54 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.20261102] - 2026-11-02
+
+### Added
+
+- **Table duplication**:
+
+  Selected tables can now be duplicated with Ctrl/Cmd+D on the canvas or the new Duplicate button on a table's control panel.
+  The copies are placed slightly below and to the right of the originals and become the selection.
+  Table, index, and unique key names get a `_copy` suffix (`_copy2`, `_copy3`, ... when the name is taken),
+  while column names stay the same. Shared column definitions and Column Groups are referenced as-is,
+  relations are not copied, and each copy joins every perspective that contains its original.
+  A duplication is undone in one step.
+
+- **Keyboard navigation on the canvas**:
+
+  Tab moves focus from table to table and selects the focused table, panning the canvas when the table is out of view.
+  From a selected table, Tab moves into its control panel and then on to the next table; Shift+Tab goes back the same way.
+
+- **Keyboard operation of lists in dialogs**:
+
+  The column list of the table edit dialog, the index and unique key column picker, grid views,
+  the perspective and schema lists, and the search results can now be operated with the keyboard:
+  - Arrow keys move between rows, Space selects, Enter edits or confirms, and Delete/Backspace removes a row.
+  - Ctrl/Cmd+arrow reorders rows; in the index and unique key column picker it also moves a column between the two lists.
+  - Each list is a single Tab stop. In the search dialog, ↓ moves from the search box to the results.
+
+- **Keyboard confirmation in dialogs**:
+
+  Ctrl/Cmd+Enter runs the OK action of editing dialogs. Plain Enter does the same in single-line fields,
+  but not in multi-line text, open dropdowns, buttons, or during IME composition.
+  Delete and unlink confirmations focus the confirming button, so Enter confirms them.
+  The color picker opens with Enter or Space, and its swatches can be chosen with the arrow keys.
+
+### Changed
+
+- **Browser shortcuts no longer leave the diagram**:
+
+  While the diagram is shown, the browser's back/forward shortcuts (Cmd/Ctrl+←/→, Cmd+[ / ], Alt+←/→)
+  and the bookmark shortcut (Cmd/Ctrl+D) are ignored outside text inputs,
+  so a stray key press no longer navigates away from the page.
+
+### Fixed
+
+- **Memo delete confirmation title**:
+
+  The confirmation dialog for deleting a memo now reads "Delete memo?" instead of "Delete table?".
+
+
 ## [0.20261017] - 2026-10-17
 
 ### Added
