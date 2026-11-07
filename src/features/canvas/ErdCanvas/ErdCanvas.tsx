@@ -20,7 +20,7 @@ import StickyMemoView from "~/features/canvas/StickyMemoView";
 import { useGrabbing } from "~/features/canvas/ErdCanvas/useGrabbing";
 import {
     initDeleteHandler, initDuplicateHandler, initEffectOfKeyDownOnCanvas, initEffectOfMouseCursorOnCanvas,
-    initRedoHandler, initSelectModeHandler, initUndoHandler
+    initEditModeHandler, initRedoHandler, initUndoHandler
 } from "~/features/canvas/ErdCanvas/event-handlers";
 import { RectangleArea, doFindRectangleSelected, initRectangleArea } from "~/features/canvas/ErdCanvas/rectangle-area";
 import ActiveDraggingArea from "~/features/canvas/ErdCanvas/ActiveDraggingArea";
@@ -357,8 +357,8 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
         }
 
         const handlers = [
-            // ESC キーを押下した場合は SELECT モードに移行し、選択した要素を選択解除する
-            initSelectModeHandler(dispatchEditMode, erdCanvasRef),
+            // キー操作で編集モードを変更する (ESC で SELECT モードに戻す)
+            initEditModeHandler(dispatchEditMode, dispatchDragAction, erdCanvasRef),
             // `Ctrl/Command + Y` または `Ctrl/Command + Shift + Z` で Redo
             initRedoHandler(documentsHolder),
             // `Ctrl + Z` または `Command + Z` で Undo
@@ -371,7 +371,7 @@ const ErdCanvas = ({ onDragAction: dispatchDragAction, children }: ErdCanvasProp
 
         return initEffectOfKeyDownOnCanvas(handlers);
     }, [
-        editAction.editType, selectState, documentsHolder, dispatchSelectAction, dispatchEditMode
+        editAction.editType, selectState, documentsHolder, dispatchSelectAction, dispatchEditMode, dispatchDragAction
     ]);
 
     const mainCanvas = (

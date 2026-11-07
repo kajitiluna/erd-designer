@@ -93,31 +93,31 @@ const EditModePanel = () => {
         <ToggleButtonGroup color="primary" orientation="vertical" sx={buttonStyle}
             exclusive value={editMode} onChange={handleChange} >
             <ToggleButton value={EditModeType.SELECT}>
-                <Tooltip title={<h2>Select</h2>} placement="top">
+                <Tooltip title="Select (Esc)" placement="top">
                     <HighlightAltIcon />
                 </Tooltip>
                 Select
             </ToggleButton>
             <ToggleButton value={EditModeType.GRAB}>
-                <Tooltip title={<h2>Grab</h2>} placement="top">
+                <Tooltip title="Grab (G)" placement="top">
                     <PanToolIcon />
                 </Tooltip>
                 Grab
             </ToggleButton>
             <ToggleButton value={EditModeType.CREATE_TABLE}>
-                <Tooltip title={<h2>Create table</h2>} placement="top">
+                <Tooltip title="Create table (T)" placement="top">
                     <TableChartIcon />
                 </Tooltip>
                 Table
             </ToggleButton>
             <ToggleButton value={EditModeType.CREATE_RELATION}>
-                <Tooltip title={<h2>Create relation</h2>} placement="top">
+                <Tooltip title="Create relation (R)" placement="top">
                     <PolylineIcon />
                 </Tooltip>
                 Relation
             </ToggleButton>
             <ToggleButton value={EditModeType.CREATE_MEMO}>
-                <Tooltip title={<h2>Create memo</h2>} placement="top">
+                <Tooltip title="Create memo (M)" placement="top">
                     <StickyNote2Icon />
                 </Tooltip>
                 Memo
