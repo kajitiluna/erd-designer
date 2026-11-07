@@ -1,11 +1,13 @@
 import React from "react";
 import {
-    Box, Button, ButtonGroup, Divider, FormControl, FormControlLabel, InputLabel, Menu,
+    Box, Button, ButtonGroup, Divider, FormControl, FormControlLabel, IconButton, InputLabel, Menu,
     MenuItem, Select, SelectChangeEvent, Switch, ToggleButton, ToggleButtonGroup, Tooltip
 } from "@mui/material";
 import ArrowRightIcon from '@mui/icons-material/ArrowRight';
 import DragHandleIcon from '@mui/icons-material/DragHandle';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import HighlightAltIcon from '@mui/icons-material/HighlightAlt';
+import KeyboardIcon from '@mui/icons-material/Keyboard';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import PanToolIcon from '@mui/icons-material/PanTool';
@@ -21,10 +23,12 @@ import ErdDocument from "~/models/ErdDocument";
 import ColorValue from "~/models/ColorValue";
 import PerspectiveModel from "~/models/PerspectiveModel";
 import ColorSelector from "~/components/ColorSelector";
+import type { PanelLayoutType } from "~/components/user-preference/PanelLayout";
 import download from "~/components/file-downloader";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ExportSpecificationContext, { ImageContent } from "~/context/ExportSpecificationContext";
 import { LocalSettingContext } from "~/context/LocalSettingContext";
+import PanelLayoutContext from "~/context/PanelLayoutContext";
 import ThemePreferenceContext, { ThemePreferenceHolder } from "~/context/ThemePreferenceContext";
 import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
 import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
@@ -39,35 +43,98 @@ type ControlPanelProps = {
     erdExportable: boolean
 };
 
+type DragHandleProps = React.HTMLAttributes<HTMLElement>;
+
 const ControlPanel = ({ erdExportable }: ControlPanelProps) => {
-    const { panelRef, positionStyle, handleProps } = usePanelDragging(DEFAULT_PANEL_POSITION);
-    const panelStyle = { ...PANEL_STYLE, ...positionStyle };
+    const { panelLayout, updatePanelLayout } = React.useContext(PanelLayoutContext);
+    const defaultPosition = (panelLayout === "normal") ? DEFAULT_PANEL_POSITION : COMPACT_PANEL_POSITION;
+    const { panelRef, positionStyle, handleProps, dragStatus, resetPlacement } = usePanelDragging(defaultPosition);
+
+    const layoutStyle = (panelLayout === "normal") ? NORMAL_PANEL_STYLE : COMPACT_PANEL_STYLE;
+    const panelStyle = { ...PANEL_STYLE, ...layoutStyle, ...positionStyle };
+
+    // 表示ごとに初期位置が異なるため、切替時はドラッグ位置を引き継がず初期位置へ戻す
+    const handleToggleLayout = (event: React.MouseEvent<HTMLElement>) => {
+        event.stopPropagation();
+
+        const nextLayout: PanelLayoutType = (panelLayout === "normal") ? "compact" : "normal";
+        updatePanelLayout(nextLayout);
+        resetPlacement();
+    };
+    const dragHandleProps: DragHandleProps = { ...handleProps, onDoubleClick: handleToggleLayout };
+    const dragHandle = (
+        <PanelDragHandle layout={panelLayout} handleProps={dragHandleProps} dragging={dragStatus === "moving"} />
+    );
+
+    const panelBody = (panelLayout === "normal")
+        ? <NormalPanelBody erdExportable={erdExportable} dragHandle={dragHandle} />
+        : <CompactPanelBody erdExportable={erdExportable} dragHandle={dragHandle} />;
 
     return (
         <Box ref={panelRef} sx={panelStyle}>
-            <Box sx={DRAG_HANDLE_STYLE} {...handleProps}>
-                <DragHandleIcon fontSize="small" />
-            </Box>
-            <EditModePanel />
-            <ActionPanel />
-            <SubMenuPanel erdExportable={erdExportable} />
+            {panelBody}
         </Box>
     );
 };
 
 const DEFAULT_PANEL_POSITION = { top: "50%", left: "50px", transform: "translateY(-50%)" } as const;
 
+// 右下の DisplayScalePanel (bottom: 30px) と下端を揃える
+const COMPACT_PANEL_POSITION = { top: "calc(100% - 30px)", left: "30px", transform: "translateY(-100%)" } as const;
+
 // 右上のテーマ切替・検索ボタン (MainView の zIndex: 10) と重なっても、移動したパネルを手前に表示する
 const PANEL_Z_INDEX = 11;
 
 const PANEL_STYLE = {
-    position: "fixed", zIndex: PANEL_Z_INDEX, minWidth: "120px", maxWidth: "120px",
-    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-    paddingTop: "4px", paddingBottom: "15px", borderRadius: "15px",
+    position: "fixed", zIndex: PANEL_Z_INDEX, display: "flex", borderRadius: "15px",
     border: "1px solid var(--mui-palette-erd-panelBorder)",
     boxShadow: "5px 5px 30px 0px var(--mui-palette-erd-panelShadow)",
     backgroundColor: "var(--mui-palette-erd-panelBackground)"
 } as const;
+
+const NORMAL_PANEL_STYLE = {
+    minWidth: "120px", maxWidth: "120px",
+    flexDirection: "column", alignItems: "center", justifyContent: "center",
+    paddingTop: "4px", paddingBottom: "15px"
+} as const;
+
+const COMPACT_PANEL_STYLE = {
+    flexDirection: "row", alignItems: "stretch", padding: "6px 8px 6px 0"
+} as const;
+
+type PanelDragHandleProps = {
+    layout: PanelLayoutType,
+    handleProps: DragHandleProps,
+    dragging: boolean
+};
+
+const PanelDragHandle = ({ layout, handleProps, dragging }: PanelDragHandleProps) => {
+    const [tooltipOpen, setTooltipOpen] = React.useState(false);
+
+    const handleOpenTooltip = () => { setTooltipOpen(true); };
+    const handleCloseTooltip = () => { setTooltipOpen(false); };
+
+    // ドラッグを始めたら案内は不要なので、ドラッグ処理へ渡す前に閉じる
+    const handlePointerDown = (event: React.PointerEvent<HTMLElement>) => {
+        setTooltipOpen(false);
+        handleProps.onPointerDown?.(event);
+    };
+
+    const isNormal = (layout === "normal");
+    const handleStyle = isNormal ? DRAG_HANDLE_STYLE : COMPACT_DRAG_HANDLE_STYLE;
+    const handleIcon = isNormal ? <DragHandleIcon fontSize="small" /> : <DragIndicatorIcon fontSize="small" />;
+
+    // 画面左端に寄るコンパクト表示でも切れないよう、案内は常にハンドルの上へ出す
+    return (
+        <DescriptionTooltip placement="top" title={"Drag to move\nDouble-click to switch layout"}
+            enterDelay={500} open={tooltipOpen && (dragging === false)}
+            onOpen={handleOpenTooltip} onClose={handleCloseTooltip}>
+            <Box sx={handleStyle} {...handleProps} onPointerDown={handlePointerDown}>
+                {handleIcon}
+            </Box>
+        </DescriptionTooltip>
+    );
+};
 
 const DRAG_HANDLE_STYLE = {
     width: "100%", height: "5px", marginBottom: "6px",
@@ -76,7 +143,83 @@ const DRAG_HANDLE_STYLE = {
     color: "text.secondary"
 } as const;
 
-const EditModePanel = () => {
+const COMPACT_DRAG_HANDLE_STYLE = {
+    width: "16px", flexShrink: 0,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    cursor: "move", touchAction: "none", userSelect: "none",
+    color: "text.secondary"
+} as const;
+
+type PanelBodyProps = {
+    erdExportable: boolean,
+    dragHandle: React.ReactNode
+};
+
+const NormalPanelBody = ({ erdExportable, dragHandle }: PanelBodyProps) => {
+    return (<>
+        {dragHandle}
+        <EditModePanel layout="normal" />
+        <ActionPanel />
+        <SubMenuPanel erdExportable={erdExportable} />
+    </>);
+};
+
+const CompactPanelBody = ({ erdExportable, dragHandle }: PanelBodyProps) => {
+    return (<>
+        {dragHandle}
+        <Box sx={COMPACT_ROWS_STYLE}>
+            <EditModePanel layout="compact" />
+            <Box sx={COMPACT_ROW_STYLE}>
+                <Box sx={COMPACT_COLOR_SELECTOR_STYLE}>
+                    <DefaultColorSelector layout="compact" />
+                </Box>
+                <PerspectiveSelector layout="compact" />
+                <LineVisibleSwitch layout="compact" />
+            </Box>
+            <Box sx={COMPACT_ROW_STYLE}>
+                <KeyboardShortcutHelpButton />
+                <UndoButton layout="compact" />
+                <RedoButton layout="compact" />
+                <Box sx={COMPACT_SUBMENU_STYLE}>
+                    <SubMenuPanel erdExportable={erdExportable} />
+                </Box>
+            </Box>
+        </Box>
+    </>);
+};
+
+// 各行をパネル幅いっぱいに広げ、最も幅の広い行に他の行を揃える
+const COMPACT_ROWS_STYLE = {
+    flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "stretch", gap: "4px"
+} as const;
+
+const COMPACT_ROW_STYLE = {
+    display: "flex", alignItems: "center", justifyContent: "space-between", gap: "4px"
+} as const;
+
+// モード切替・Undo/Redo・ヘルプなどのアイコンボタンを同じ大きさにそろえる
+const COMPACT_ICON_BUTTON_SIZE = "32px";
+
+const COMPACT_ICON_BUTTON_STYLE = {
+    width: COMPACT_ICON_BUTTON_SIZE, height: COMPACT_ICON_BUTTON_SIZE, padding: 0
+} as const;
+
+// ColorSelector は寸法を外から受け取れないため、内側の IconButton を上書きして大きさをそろえる
+const COMPACT_COLOR_SELECTOR_STYLE = {
+    display: "flex",
+    "& .MuiIconButton-root": COMPACT_ICON_BUTTON_STYLE
+} as const;
+
+// SubMenuPanel は幅 100% 前提のため、行内では内容幅の入れ物に収めて縮まないようにする
+const COMPACT_SUBMENU_STYLE = { display: "flex", flexShrink: 0 } as const;
+
+type LayoutProps = {
+    layout: PanelLayoutType
+};
+
+type EditModeItem = { value: EditMode, tooltip: string, label: string, icon: React.ReactElement };
+
+const EditModePanel = ({ layout }: LayoutProps) => {
     const { editMode, dispatchEditMode } = React.useContext(EditModeContext);
 
     const handleChange = (_event: React.MouseEvent<HTMLElement>, newValue: EditMode) => {
@@ -87,48 +230,79 @@ const EditModePanel = () => {
         dispatchEditMode(newValue);
     };
 
-    const buttonStyle = { display: 'flex', flexDirection: 'column', height: '100%', width: '100%' };
+    const isNormal = (layout === "normal");
+
+    const toggleButtons = EDIT_MODE_ITEMS.map(item => {
+        return (
+            <ToggleButton key={item.value} value={item.value}>
+                <Tooltip title={item.tooltip} placement="top">
+                    {item.icon}
+                </Tooltip>
+                {isNormal ? item.label : null}
+            </ToggleButton>
+        );
+    });
 
     return (
-        <ToggleButtonGroup color="primary" orientation="vertical" sx={buttonStyle}
+        <ToggleButtonGroup color="primary" orientation={isNormal ? "vertical" : "horizontal"}
+            size={isNormal ? "medium" : "small"} sx={isNormal ? NORMAL_EDIT_MODE_STYLE : COMPACT_EDIT_MODE_STYLE}
             exclusive value={editMode} onChange={handleChange} >
-            <ToggleButton value={EditModeType.SELECT}>
-                <Tooltip title="Select (Esc)" placement="top">
-                    <HighlightAltIcon />
-                </Tooltip>
-                Select
-            </ToggleButton>
-            <ToggleButton value={EditModeType.GRAB}>
-                <Tooltip title="Grab (G)" placement="top">
-                    <PanToolIcon />
-                </Tooltip>
-                Grab
-            </ToggleButton>
-            <ToggleButton value={EditModeType.CREATE_TABLE}>
-                <Tooltip title="Create table (T)" placement="top">
-                    <TableChartIcon />
-                </Tooltip>
-                Table
-            </ToggleButton>
-            <ToggleButton value={EditModeType.CREATE_RELATION}>
-                <Tooltip title="Create relation (R)" placement="top">
-                    <PolylineIcon />
-                </Tooltip>
-                Relation
-            </ToggleButton>
-            <ToggleButton value={EditModeType.CREATE_MEMO}>
-                <Tooltip title="Create memo (M)" placement="top">
-                    <StickyNote2Icon />
-                </Tooltip>
-                Memo
-            </ToggleButton>
+            {toggleButtons}
         </ToggleButtonGroup>
+    );
+};
+
+const NORMAL_EDIT_MODE_STYLE = { display: 'flex', flexDirection: 'column', height: '100%', width: '100%' } as const;
+
+// 枠線は隣接ボタンとの重なり用の指定ごと外し、選択中は背景色だけで示す
+const COMPACT_EDIT_MODE_STYLE = {
+    width: "100%", justifyContent: "space-between", gap: "2px",
+    "& .MuiToggleButtonGroup-grouped, & .MuiToggleButtonGroup-grouped:not(:first-of-type), & .MuiToggleButtonGroup-grouped:not(:last-of-type)": {
+        ...COMPACT_ICON_BUTTON_STYLE, margin: 0, border: 0, borderRadius: "6px"
+    }
+} as const;
+
+const EDIT_MODE_ITEMS: readonly EditModeItem[] = [
+    { value: EditModeType.SELECT, tooltip: "Select (Esc)", label: "Select", icon: <HighlightAltIcon /> },
+    { value: EditModeType.GRAB, tooltip: "Grab (G)", label: "Grab", icon: <PanToolIcon /> },
+    { value: EditModeType.CREATE_TABLE, tooltip: "Create table (T)", label: "Table", icon: <TableChartIcon /> },
+    { value: EditModeType.CREATE_RELATION, tooltip: "Create relation (R)", label: "Relation", icon: <PolylineIcon /> },
+    { value: EditModeType.CREATE_MEMO, tooltip: "Create memo (M)", label: "Memo", icon: <StickyNote2Icon /> }
+];
+
+const ActionPanel = () => {
+    return (
+        <ButtonGroup orientation="vertical" aria-label="vertical button group"
+            sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
+            <DefaultColorSelector layout="normal" />
+            <PerspectiveSelector layout="normal" />
+            <LineVisibleSwitch layout="normal" />
+            <Divider />
+            <UndoButton layout="normal" />
+            <RedoButton layout="normal" />
+        </ButtonGroup>
+    );
+};
+
+const DefaultColorSelector = ({ layout }: LayoutProps) => {
+    const { localSetting, dispatchLocalSetting } = React.useContext(LocalSettingContext);
+
+    const handleSetDefaultColor = (background: ColorValue, foreground: ColorValue) => {
+        dispatchLocalSetting({
+            type: "defaultColor",
+            color: { background, foreground }
+        });
+    };
+
+    return (
+        <ColorSelector color={localSetting.defaultColor.background}
+            shape={(layout === "normal") ? "rectangle" : "circle"} callback={handleSetDefaultColor} />
     );
 };
 
 const DEFAULT_PERSPECTIVE_ID = "__default_perspective_id__";
 
-const ActionPanel = () => {
+const PerspectiveSelector = ({ layout }: LayoutProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
     const { localSetting, dispatchLocalSetting } = React.useContext(LocalSettingContext);
 
@@ -144,10 +318,13 @@ const ActionPanel = () => {
         dispatchLocalSetting({ type: "perspective", perspectiveId: nextPerspectiveId });
     };
 
-    const selectorStyle = (perspectiveId !== DEFAULT_PERSPECTIVE_ID)
+    const activeStyle = (perspectiveId !== DEFAULT_PERSPECTIVE_ID)
         ? { backgroundColor: "var(--mui-palette-erd-perspectiveActive)" } : {};
-    const perspectiveSelector = (
-        <FormControl size="small" sx={{ padding: "0 6px", margin: "5px -1px 10px" }}>
+    const formStyle = (layout === "normal") ? PERSPECTIVE_NORMAL_STYLE : PERSPECTIVE_COMPACT_STYLE;
+    const selectorStyle = (layout === "normal") ? activeStyle : { ...PERSPECTIVE_COMPACT_SELECT_STYLE, ...activeStyle };
+
+    return (
+        <FormControl size="small" sx={formStyle}>
             <InputLabel id="label-display-style">Perspective</InputLabel>
             <Select labelId="label-display-style" label="Perspective" sx={selectorStyle}
                 value={perspectiveId} onChange={handleChangePerspective}>
@@ -160,6 +337,21 @@ const ActionPanel = () => {
             </Select>
         </FormControl>
     );
+};
+
+const PERSPECTIVE_NORMAL_STYLE = { padding: "0 6px", margin: "5px -1px 10px" } as const;
+
+// 行内の余り幅を吸収して他の行と幅をそろえる。長い名前は Select 内で省略させる
+const PERSPECTIVE_COMPACT_STYLE = { flex: 1, minWidth: "96px" } as const;
+
+// 値は常に入っておりラベルは枠上に浮いたままなので、縦 padding を削っても配置は崩れない
+const PERSPECTIVE_COMPACT_SELECT_STYLE = {
+    fontSize: "0.8rem",
+    "& .MuiOutlinedInput-input.MuiSelect-select": { paddingTop: "4px", paddingBottom: "4px" }
+} as const;
+
+const LineVisibleSwitch = ({ layout }: LayoutProps) => {
+    const { localSetting, dispatchLocalSetting } = React.useContext(LocalSettingContext);
 
     const handleChangeVisibleStyle = (event: React.ChangeEvent<HTMLInputElement>) => {
         const checked = event.target.checked;
@@ -168,44 +360,34 @@ const ActionPanel = () => {
         dispatchLocalSetting({ type: "showLine", visibleStyle });
     };
 
-    const lineVisibleSwitcher = (
+    const description = "When the switch is active, show relations\neven if one table is hidden.";
+    const switchDisabled = (localSetting.perspectiveId === "");
+    // 表示切替で再マウントされても状態を失わないよう、スイッチは localSetting から制御する
+    const switchChecked = localSetting.visibleLineStyle === "half-bounded";
+
+    if (layout === "compact") {
+        // disabled な Switch を Tooltip の直接の子にしないよう span で包む
+        return (
+            <DescriptionTooltip placement="top" title={description}>
+                <Box component="span" sx={{ display: "inline-flex" }}>
+                    <Switch size="small" checked={switchChecked} disabled={switchDisabled}
+                        onChange={handleChangeVisibleStyle}
+                        slotProps={{ input: { "aria-label": "Show half-bounded line" } }} />
+                </Box>
+            </DescriptionTooltip>
+        );
+    }
+
+    return (
         <FormControl sx={{ padding: "0 6px 6px 12px" }}>
-            <DescriptionTooltip placement="right-end"
-                title={"When the switch is active, show relations\neven if one table is hidden."}>
-                <FormControlLabel sx={SWITCH_FORM_STYLE}
-                    label="Show half-bounded line" control={
-                        <Switch size="small" disabled={localSetting.perspectiveId === ""}
+            <DescriptionTooltip placement="right-end" title={description}>
+                <FormControlLabel label="Show half-bounded line" sx={SWITCH_FORM_STYLE}
+                    control={
+                        <Switch size="small" checked={switchChecked} disabled={switchDisabled}
                             onChange={handleChangeVisibleStyle} />
                     } />
             </DescriptionTooltip>
         </FormControl>
-    );
-
-    const handleSetDefaultColor = (background: ColorValue, foreground: ColorValue) => {
-        dispatchLocalSetting({
-            type: "defaultColor",
-            color: { background, foreground }
-        });
-    };
-
-    return (
-        <ButtonGroup orientation="vertical" aria-label="vertical button group" sx={ACTION_BUTTON_STYLE}>
-            <ColorSelector color={localSetting.defaultColor.background}
-                shape="rectangle" callback={handleSetDefaultColor} />
-
-            {perspectiveSelector}
-            {lineVisibleSwitcher}
-            <Divider />
-
-            <Button variant="text" startIcon={<UndoIcon />}
-                disabled={!documentsHolder.canUndo()} onClick={() => documentsHolder.undo()}>
-                Undo
-            </Button>
-            <Button variant="text" startIcon={<RedoIcon />}
-                disabled={!documentsHolder.canRedo()} onClick={() => documentsHolder.redo()}>
-                Redo
-            </Button>
-        </ButtonGroup>
     );
 };
 
@@ -216,13 +398,68 @@ const SWITCH_FORM_STYLE = {
         fontSize: "0.7rem",
         color: "text.secondary"
     }
+} as const;
+
+const UndoButton = ({ layout }: LayoutProps) => {
+    const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
+
+    const handleUndo = () => { documentsHolder.undo(); };
+    const undoDisabled = documentsHolder.canUndo() === false;
+
+    if (layout === "compact") {
+        return (
+            <Tooltip title="Undo" placement="top">
+                <span>
+                    <IconButton aria-label="Undo" sx={COMPACT_ICON_BUTTON_STYLE}
+                        disabled={undoDisabled} onClick={handleUndo}>
+                        <UndoIcon />
+                    </IconButton>
+                </span>
+            </Tooltip>
+        );
+    }
+
+    return (
+        <Button variant="text" startIcon={<UndoIcon />} disabled={undoDisabled} onClick={handleUndo}>
+            Undo
+        </Button>
+    );
 };
 
-const ACTION_BUTTON_STYLE = {
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100%',
-    width: '100%'
+const RedoButton = ({ layout }: LayoutProps) => {
+    const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
+
+    const handleRedo = () => { documentsHolder.redo(); };
+    const redoDisabled = (documentsHolder.canRedo() === false);
+
+    if (layout === "compact") {
+        return (
+            <Tooltip title="Redo" placement="top">
+                <span>
+                    <IconButton aria-label="Redo" sx={COMPACT_ICON_BUTTON_STYLE}
+                        disabled={redoDisabled} onClick={handleRedo}>
+                        <RedoIcon />
+                    </IconButton>
+                </span>
+            </Tooltip>
+        );
+    }
+
+    return (
+        <Button variant="text" startIcon={<RedoIcon />} disabled={redoDisabled} onClick={handleRedo}>
+            Redo
+        </Button>
+    );
+};
+
+const KeyboardShortcutHelpButton = () => {
+    return (
+        <Tooltip title="Keyboard shortcuts" placement="top">
+            <IconButton aria-label="Keyboard shortcuts" sx={COMPACT_ICON_BUTTON_STYLE}>
+                <KeyboardIcon />
+            </IconButton>
+        </Tooltip>
+    );
 };
 
 type SubMenuButtonProps = {

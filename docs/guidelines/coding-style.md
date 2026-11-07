@@ -418,7 +418,7 @@ Code outside the VSCode extension package (React components, shared logic, etc.)
 
 ```ts
 // NG — a React component reaching into the extension package
-import { STORAGE_KEY } from "~/extension/ThemePreferenceBroadcaster";
+import { STORAGE_KEY } from "~/extension/UserPreferenceBroadcaster";
 ```
 
 Not enforced by Oxlint — manual review rule.

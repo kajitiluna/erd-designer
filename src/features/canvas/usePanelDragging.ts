@@ -34,7 +34,7 @@ const usePanelDragging = (defaultPosition: PanelPositionStyle) => {
         event.stopPropagation();
         event.currentTarget.setPointerCapture(event.pointerId);
 
-        // 初回は translateY(-50%) による既定配置なので、実測した矩形を起点にする
+        // 既定配置は transform を含み得るため、style の値ではなく実測した矩形を起点にする
         const base = rectOf(panelElement);
         const origin = { x: event.clientX, y: event.clientY };
         setSession({ status: "moving", pointerId: event.pointerId, origin, base });
@@ -62,13 +62,18 @@ const usePanelDragging = (defaultPosition: PanelPositionStyle) => {
         setSession(IDLE_SESSION);
     };
 
+    const resetPlacement = () => {
+        setPlacement(null);
+        setSession(IDLE_SESSION);
+    };
+
     const positionStyle = initPositionStyle(placement, viewport, defaultPosition);
     const handleProps = {
         onPointerDown: handlePointerDown, onPointerMove: handlePointerMove,
         onPointerUp: handlePointerUp, onPointerCancel: handlePointerUp
     };
 
-    return { panelRef, positionStyle, handleProps };
+    return { panelRef, positionStyle, handleProps, dragStatus: session.status, resetPlacement };
 };
 
 const currentViewport = (): Viewport => {

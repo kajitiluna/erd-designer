@@ -5,15 +5,32 @@ import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 
 import erdTheme from "~/components/ErdTheme";
 import ThemePreference from "~/components/theme/ThemePreference";
-import ThemePreferenceProvider from "~/components/theme/ThemePreferenceProvider";
-import type { SystemThemeResolver, ThemePreferenceStore } from "~/components/theme/ThemeHost";
+import type SystemThemeResolver from "~/components/theme/SystemThemeResolver";
+import UserPreferenceProvider from "~/components/user-preference/UserPreferenceProvider";
+import type { PanelLayoutType } from "~/components/user-preference/PanelLayout";
+import type UserPreferenceStore from "~/components/user-preference/UserPreferenceStore";
+import type { UserPreferenceKey } from "~/components/user-preference/UserPreferenceStore";
+import PanelLayoutContext from "~/context/PanelLayoutContext";
+import type { PanelLayoutHolder } from "~/context/PanelLayoutContext";
 import ThemePreferenceContext from "~/context/ThemePreferenceContext";
 import type { ThemePreferenceHolder } from "~/context/ThemePreferenceContext";
 
-const store: ThemePreferenceStore = {
-    readInitial: () => ThemePreference.DARK,
+const store: UserPreferenceStore = {
+    readInitial: () => ThemePreference.DARK.value,
     save: () => { /* do nothing */ },
     subscribe: () => { return () => { /* do nothing */ }; }
+};
+
+const initStubStore = (initialValues: Partial<Record<UserPreferenceKey, unknown>>) => {
+    const save = vi.fn<UserPreferenceStore["save"]>();
+    const subscribe = vi.fn<UserPreferenceStore["subscribe"]>(() => { return () => { /* do nothing */ }; });
+    const stubStore: UserPreferenceStore = {
+        readInitial: key => initialValues[key],
+        save,
+        subscribe
+    };
+
+    return { stubStore, save, subscribe };
 };
 
 const resolver: SystemThemeResolver = {
@@ -37,9 +54,9 @@ const renderProvider = (): HolderRef => {
     const holderRef: HolderRef = { current: undefined };
     render(
         <ThemeProvider theme={erdTheme} defaultMode="light" storageManager={null}>
-            <ThemePreferenceProvider store={store} resolver={resolver}>
+            <UserPreferenceProvider store={store} resolver={resolver}>
                 <Probe holderRef={holderRef} />
-            </ThemePreferenceProvider>
+            </UserPreferenceProvider>
         </ThemeProvider>
     );
     return holderRef;
@@ -49,7 +66,7 @@ const currentColorTheme = (holderRef: HolderRef) => {
     return holderRef.current?.colorTheme;
 };
 
-describe("ThemePreferenceProvider.withLightMode", () => {
+describe("UserPreferenceProvider.withLightMode", () => {
     beforeEach(() => {
         // jsdom の描画サイクルに依存しないよう、フレーム待ちをタイマーで代替する。
         // 同期で解決すると state の commit 前に task が走ってしまう。
@@ -107,5 +124,67 @@ describe("ThemePreferenceProvider.withLightMode", () => {
         releaseFirst();
         await firstPromise;
         await waitFor(() => { expect(currentColorTheme(holderRef)).toBe("dark"); });
+    });
+});
+
+type PanelLayoutHolderRef = { current: PanelLayoutHolder | undefined };
+
+const PanelLayoutProbe = ({ holderRef }: { holderRef: PanelLayoutHolderRef }) => {
+    const holder = React.useContext(PanelLayoutContext);
+
+    React.useEffect(() => {
+        holderRef.current = holder;
+    }, [holderRef, holder]);
+
+    return null;
+};
+
+const renderPanelLayoutProvider = (panelLayoutStore: UserPreferenceStore): PanelLayoutHolderRef => {
+    const holderRef: PanelLayoutHolderRef = { current: undefined };
+    render(
+        <ThemeProvider theme={erdTheme} defaultMode="light" storageManager={null}>
+            <UserPreferenceProvider store={panelLayoutStore} resolver={resolver}>
+                <PanelLayoutProbe holderRef={holderRef} />
+            </UserPreferenceProvider>
+        </ThemeProvider>
+    );
+    return holderRef;
+};
+
+describe("UserPreferenceProvider panelLayout", () => {
+    test("保存済みの compact が初期値になる", () => {
+        const { stubStore } = initStubStore({ panelLayout: "compact" });
+
+        const holderRef = renderPanelLayoutProvider(stubStore);
+
+        expect(holderRef.current?.panelLayout).toBe("compact");
+    });
+
+    test.each([undefined, "wide", 1])("未保存または不正値 %j は normal", (storedValue) => {
+        const { stubStore } = initStubStore({ panelLayout: storedValue });
+
+        const holderRef = renderPanelLayoutProvider(stubStore);
+
+        expect(holderRef.current?.panelLayout).toBe("normal");
+    });
+
+    test("updatePanelLayout で Context の値が変わり、保存される", async () => {
+        const { stubStore, save } = initStubStore({});
+        const holderRef = renderPanelLayoutProvider(stubStore);
+        const nextLayout: PanelLayoutType = "compact";
+
+        act(() => { holderRef.current?.updatePanelLayout(nextLayout); });
+
+        await waitFor(() => { expect(holderRef.current?.panelLayout).toBe("compact"); });
+        expect(save).toHaveBeenCalledWith("panelLayout", "compact");
+    });
+
+    test("購読するのは themePreference だけで、panelLayout は購読しない", () => {
+        const { stubStore, subscribe } = initStubStore({});
+
+        renderPanelLayoutProvider(stubStore);
+
+        const subscribedKeys = subscribe.mock.calls.map(call => call[0]);
+        expect(subscribedKeys).toEqual(["themePreference"]);
     });
 });
