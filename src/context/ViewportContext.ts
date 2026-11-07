@@ -5,6 +5,7 @@ import { isModalOpen } from "~/components/support";
 type ViewportPosition = { centerX: number; centerY: number };
 type ViewportScaleState = { scale: number; phase: "idle" | "scaling" };
 type Point = { x: number; y: number };
+type ScreenSize = { width: number; height: number };
 
 export interface CanvasViewport {
 
@@ -55,6 +56,8 @@ class CanvasViewportImpl implements CanvasViewport {
     private readonly viewportPositionRef: React.RefObject<ViewportPosition>;
     private readonly scaleRef: React.RefObject<number>;
     private readonly setScaleState: React.Dispatch<React.SetStateAction<ViewportScaleState>>;
+    // transform の計算に使った画面サイズ。resize 時の差分から、左上を固定するための補正量を求める
+    private appliedScreenSize: ScreenSize | null = null;
 
     constructor(
         viewportRef: React.RefObject<HTMLDivElement | null>,
@@ -87,7 +90,26 @@ class CanvasViewportImpl implements CanvasViewport {
         const translateY = screenCenterY - centerY * currentScale;
 
         canvas.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
+        this.appliedScreenSize = { width: viewport.clientWidth, height: viewport.clientHeight };
         this.updateGridBackground(viewport, translateX, translateY, currentScale);
+    }
+
+    /**
+     * Re-applies the transform after the viewport container is resized, keeping the top-left corner
+     * of the view in place.
+     */
+    public followResize(): void {
+        const viewport = this.viewportRef.current;
+        const previousSize = this.appliedScreenSize;
+        if ((viewport == null) || (previousSize == null)) {
+            this.applyTransform();
+            return;
+        }
+
+        // 表示位置は画面中心の論理座標で保持しているため、サイズ差の半分だけ中心を動かすと左上が固定される
+        const deltaWidth = viewport.clientWidth - previousSize.width;
+        const deltaHeight = viewport.clientHeight - previousSize.height;
+        this.panBy(deltaWidth / 2, deltaHeight / 2);
     }
 
     private updateGridBackground(
@@ -249,7 +271,17 @@ export const useViewport = ({
 
     React.useLayoutEffect(() => {
         viewport.applyTransform();
-    }, [viewport]);
+
+        const viewportElement = viewportRef.current;
+        if (viewportElement == null) {
+            return;
+        }
+
+        const resizeObserver = new ResizeObserver(() => { viewport.followResize(); });
+        resizeObserver.observe(viewportElement);
+
+        return () => { resizeObserver.disconnect(); };
+    }, [viewport, viewportRef]);
 
     React.useEffect(() => {
         const wheelHandler = initWheelHandler({ isDraggingRef, zoomTimerRef, viewport });
