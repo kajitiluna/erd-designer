@@ -427,6 +427,9 @@ const ColumnViewTable = ({
         });
     };
 
+    const editingColumnGroupId = ((editMode === "edit_group") && (selectedWrappedModel?.modelType === "group"))
+        ? selectedWrappedModel.columnGroupModel.columnGroupId : undefined;
+
     return (<>
         <TableContainer sx={{ maxHeight: window.innerHeight - 550 }}>
             <Table stickyHeader size="small" aria-label="column view table" style={{ tableLayout: "fixed" }}>
@@ -472,9 +475,8 @@ const ColumnViewTable = ({
         {((editMode === "add_group") || (editMode === "edit_group")) && (
             <ColumnGroupView
                 isOpen={((editMode === "add_group") || (editMode === "edit_group"))}
-                viewMode="select"
-                onSelect={handleUpdateColumnGroup}
-                onClose={() => setEditMode("")} />
+                viewMode="select" initialColumnGroupId={editingColumnGroupId}
+                onSelect={handleUpdateColumnGroup} onClose={() => setEditMode("")} />
         )}
     </>);
 };
