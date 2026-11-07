@@ -15,7 +15,7 @@ import DbSchemaModel from "~/models/database/DbSchemaModel";
 import DbSchemaConfig from "~/models/DbSchemaConfig";
 import ErdDocument from "~/models/ErdDocument";
 import EdgedIconButton from "~/components/EdgedIconButton";
-import { rowKeyNavigation } from "~/components/keyboard/row-key-navigation";
+import RowKeyNavigation from "~/components/keyboard/RowKeyNavigation";
 import useRowFocusRequest from "~/components/keyboard/useRowFocusRequest";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import {
@@ -154,7 +154,7 @@ const DbSchemaView = ({ isOpen, onClose }: DbSchemaViewProps) => {
             reorderSchemaByKeyboard(schemaIndex, shift);
         };
 
-        return rowKeyNavigation.initHandleKeyDown({
+        return RowKeyNavigation.initHandleKeyDown({
             orientation: "vertical", index: schemaIndex, lastIndex: schemaModels.length - 1,
             selectAt: selectRowAt, onSelect: rowActions.select, onActivate: rowActions.edit, onReorder: handleReorder
         });

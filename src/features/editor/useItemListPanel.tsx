@@ -11,7 +11,7 @@ import ErdDocument from "~/models/ErdDocument";
 import { overrideColumnName } from "~/models/database/support";
 import StructColumnModel from "~/models/database/StructColumnModel";
 import PrimaryKeyIcon from "~/components/icons/PrimaryKeyIcon";
-import { rowKeyNavigation } from "~/components/keyboard/row-key-navigation";
+import RowKeyNavigation from "~/components/keyboard/RowKeyNavigation";
 import useAutoFocus from "~/components/keyboard/useAutoFocus";
 
 
@@ -74,7 +74,7 @@ const useItemListPanel = <ITEM,>({
     };
 
     const initHandleKeyDownRow = (target: ITEM, index: number) => {
-        return rowKeyNavigation.initHandleKeyDown({
+        return RowKeyNavigation.initHandleKeyDown({
             orientation: "vertical", index: index, lastIndex: items.length - 1,
             selectAt: setFocusedIndex,
             onSelect: () => handleSelect(target, index),

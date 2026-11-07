@@ -6,7 +6,7 @@ import {
 import SearchIcon from "@mui/icons-material/Search";
 
 import useAutoFocus from "~/components/keyboard/useAutoFocus";
-import { rowKeyNavigation } from "~/components/keyboard/row-key-navigation";
+import RowKeyNavigation from "~/components/keyboard/RowKeyNavigation";
 import useStateRef from "~/components/useStateRef";
 import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { initHandleCloseDialog, SELECTED_CELL_COLOR } from "~/features/editor/support";
@@ -137,7 +137,7 @@ const SearchContentDialog = <ENTITY,>({
         };
 
         // OK ボタンは選択行がないと押せないが、Enter は押された行そのものを確定対象にするので選択状態を問わない。
-        const handleKeyDown = rowKeyNavigation.initHandleKeyDown({
+        const handleKeyDown = RowKeyNavigation.initHandleKeyDown({
             orientation: "vertical", index: rowIndex, lastIndex: filteredModels.length - 1,
             selectAt: selectRowAt, onSelect: toggleSelection, onActivate: confirmTarget,
             focusRowAt: focusEntityRow

@@ -1,7 +1,7 @@
 import React from "react";
 
 import useStateRef from "~/components/useStateRef";
-import { rowKeyNavigation } from "~/components/keyboard/row-key-navigation";
+import RowKeyNavigation from "~/components/keyboard/RowKeyNavigation";
 
 type RowFocusRequest<CONTAINER extends HTMLElement> = {
 
@@ -28,7 +28,7 @@ const useRowFocusRequest = <CONTAINER extends HTMLElement>(): RowFocusRequest<CO
             return;
         }
 
-        rowKeyNavigation.focusChildAt(container, focusRequest.index);
+        RowKeyNavigation.focusChildAt(container, focusRequest.index);
     }, [focusRequest, container]);
 
     const requestFocus = React.useCallback((index: number) => {

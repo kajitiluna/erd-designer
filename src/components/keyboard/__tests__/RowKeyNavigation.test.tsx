@@ -1,9 +1,9 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 
-import { rowKeyNavigation } from "~/components/keyboard/row-key-navigation";
+import RowKeyNavigation from "~/components/keyboard/RowKeyNavigation";
 
-type FixtureOptions = Partial<Parameters<typeof rowKeyNavigation.initHandleKeyDown>[0]>;
+type FixtureOptions = Partial<Parameters<typeof RowKeyNavigation.initHandleKeyDown>[0]>;
 
 type FixtureProps = {
     rowCount?: number,
@@ -12,7 +12,7 @@ type FixtureProps = {
 
 const Fixture = ({ rowCount = 3, options }: FixtureProps) => {
     const rows = Array.from({ length: rowCount }, (_, index) => {
-        const handleKeyDown = rowKeyNavigation.initHandleKeyDown({
+        const handleKeyDown = RowKeyNavigation.initHandleKeyDown({
             orientation: "vertical", index, lastIndex: rowCount - 1, selectAt: () => { /* do nothing */ },
             ...options
         });
@@ -34,7 +34,7 @@ const press = (testId: string, init: KeyboardEventInit): boolean => {
     return fireEvent.keyDown(screen.getByTestId(testId), init);
 };
 
-describe("rowKeyNavigation 矢印キーによる移動", () => {
+describe("RowKeyNavigation 矢印キーによる移動", () => {
     test("vertical は ↓ で次の行を選択してフォーカスを移し、既定動作を止める", () => {
         const selectAt = vi.fn();
         render(<Fixture options={{ orientation: "vertical", selectAt }} />);
@@ -103,7 +103,7 @@ describe("rowKeyNavigation 矢印キーによる移動", () => {
     });
 });
 
-describe("rowKeyNavigation 操作キー", () => {
+describe("RowKeyNavigation 操作キー", () => {
     test("Enter / Space / Delete / Backspace はそれぞれ指定された操作を呼ぶ", () => {
         const onActivate = vi.fn();
         const onSelect = vi.fn();
@@ -157,7 +157,7 @@ describe("rowKeyNavigation 操作キー", () => {
     });
 });
 
-describe("rowKeyNavigation Ctrl/Cmd による並べ替え", () => {
+describe("RowKeyNavigation Ctrl/Cmd による並べ替え", () => {
     test("vertical は Ctrl+↑ で -1、Meta+↓ で 1 を渡し、選択は動かさない", () => {
         const onReorder = vi.fn();
         const selectAt = vi.fn();
@@ -193,7 +193,7 @@ describe("rowKeyNavigation Ctrl/Cmd による並べ替え", () => {
     });
 });
 
-describe("rowKeyNavigation Ctrl/Cmd による移し替え", () => {
+describe("RowKeyNavigation Ctrl/Cmd による移し替え", () => {
     test("vertical は Ctrl+← で onTransferPrevious、Meta+→ で onTransferNext を呼ぶ", () => {
         const onTransferPrevious = vi.fn();
         const onTransferNext = vi.fn();
@@ -244,7 +244,7 @@ describe("rowKeyNavigation Ctrl/Cmd による移し替え", () => {
     });
 });
 
-describe("rowKeyNavigation Alt 付きの入力", () => {
+describe("RowKeyNavigation Alt 付きの入力", () => {
     test("Alt+矢印は並べ替えにも移し替えにもならず、既定動作も止めない", () => {
         const onReorder = vi.fn();
         const onTransferNext = vi.fn();
@@ -265,7 +265,7 @@ describe("rowKeyNavigation Alt 付きの入力", () => {
     });
 });
 
-describe("rowKeyNavigation 対象外の入力", () => {
+describe("RowKeyNavigation 対象外の入力", () => {
     test("Ctrl/Cmd + Enter など矢印以外は扱わない (ダイアログ確定などに譲る)", () => {
         const onActivate = vi.fn();
         const onSelect = vi.fn();
@@ -327,32 +327,32 @@ describe("rowKeyNavigation 対象外の入力", () => {
     });
 });
 
-describe("rowKeyNavigation 補助関数", () => {
+describe("RowKeyNavigation 補助関数", () => {
     test("focusChildAt は範囲に丸めて子要素へフォーカスする", () => {
         render(<Fixture options={{}} />);
         const container = screen.getByTestId("container");
 
-        rowKeyNavigation.focusChildAt(container, 1);
+        RowKeyNavigation.focusChildAt(container, 1);
         expect(document.activeElement).toBe(screen.getByTestId("row-1"));
 
-        rowKeyNavigation.focusChildAt(container, 99);
+        RowKeyNavigation.focusChildAt(container, 99);
         expect(document.activeElement).toBe(screen.getByTestId("row-2"));
 
-        rowKeyNavigation.focusChildAt(container, -5);
+        RowKeyNavigation.focusChildAt(container, -5);
         expect(document.activeElement).toBe(screen.getByTestId("row-0"));
     });
 
     test("focusChildAt はコンテナが null でも子がなくても何もしない", () => {
-        expect(() => rowKeyNavigation.focusChildAt(null, 0)).not.toThrow();
+        expect(() => RowKeyNavigation.focusChildAt(null, 0)).not.toThrow();
 
         const emptyContainer = document.createElement("div");
-        expect(() => rowKeyNavigation.focusChildAt(emptyContainer, 0)).not.toThrow();
+        expect(() => RowKeyNavigation.focusChildAt(emptyContainer, 0)).not.toThrow();
     });
 
     test("neighbourIndexAfterRemoval は削除後に残る隣の位置を返し、残らなければ -1", () => {
-        expect(rowKeyNavigation.neighbourIndexAfterRemoval(3, 0)).toBe(0);
-        expect(rowKeyNavigation.neighbourIndexAfterRemoval(3, 1)).toBe(1);
-        expect(rowKeyNavigation.neighbourIndexAfterRemoval(3, 2)).toBe(1);
-        expect(rowKeyNavigation.neighbourIndexAfterRemoval(1, 0)).toBe(-1);
+        expect(RowKeyNavigation.neighbourIndexAfterRemoval(3, 0)).toBe(0);
+        expect(RowKeyNavigation.neighbourIndexAfterRemoval(3, 1)).toBe(1);
+        expect(RowKeyNavigation.neighbourIndexAfterRemoval(3, 2)).toBe(1);
+        expect(RowKeyNavigation.neighbourIndexAfterRemoval(1, 0)).toBe(-1);
     });
 });

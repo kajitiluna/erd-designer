@@ -12,7 +12,7 @@ import SimpleColumnModel from "~/models/database/SimpleColumnModel";
 import ColumnShareModel from '~/models/database/ColumnShareModel';
 import { overrideColumnName } from '~/models/database/support';
 import EdgedIconButton from "~/components/EdgedIconButton";
-import { rowKeyNavigation } from "~/components/keyboard/row-key-navigation";
+import RowKeyNavigation from "~/components/keyboard/RowKeyNavigation";
 import useRowFocusRequest from "~/components/keyboard/useRowFocusRequest";
 
 type ColumnTransferPanelProps<INDEXED_ENTITY> = {
@@ -123,7 +123,7 @@ const ColumnTransferPanel = <INDEXED_ENTITY extends { columnModelId: string },>(
             }
         };
 
-        const handleKeyDown = rowKeyNavigation.initHandleKeyDown({
+        const handleKeyDown = RowKeyNavigation.initHandleKeyDown({
             orientation: "vertical", index: rowIndex, lastIndex: fromEntries.length - 1,
             selectAt: selectRowAt, onSelect: handleSelect,
             onCrossNext: handleMoveCursor, onTransferNext: handleMoveByKeyboard
@@ -170,7 +170,7 @@ const ColumnTransferPanel = <INDEXED_ENTITY extends { columnModelId: string },>(
             reorderIndexedColumnByKeyboard(columnModelId, shift, rowIndex);
         };
 
-        const handleKeyDown = rowKeyNavigation.initHandleKeyDown({
+        const handleKeyDown = RowKeyNavigation.initHandleKeyDown({
             orientation: "vertical", index: rowIndex, lastIndex: indexedEntries.length - 1,
             selectAt: selectRowAt, onSelect: handleSelect, onReorder: handleReorder,
             onCrossPrevious: handleMoveCursor, onTransferPrevious: handleMoveByKeyboard
@@ -230,7 +230,7 @@ const ColumnTransferPanel = <INDEXED_ENTITY extends { columnModelId: string },>(
 
     // 追加した行を Indexed 側の末尾で選択・フォーカスする。Base 側では隣の行を選択しておき、← で戻ればそのまま続けて追加できるようにする。
     const addColumnToIndexByKeyboard = (columnModelId: string, rowIndex: number) => {
-        const neighbourIndex = rowKeyNavigation.neighbourIndexAfterRemoval(fromEntries.length, rowIndex);
+        const neighbourIndex = RowKeyNavigation.neighbourIndexAfterRemoval(fromEntries.length, rowIndex);
         const remainingEntries = fromEntries.filter(entry => (entry.columnModel.columnModelId !== columnModelId));
         const neighbourId = (neighbourIndex < 0) ? null : remainingEntries[neighbourIndex].columnModel.columnModelId;
 
@@ -259,7 +259,7 @@ const ColumnTransferPanel = <INDEXED_ENTITY extends { columnModelId: string },>(
 
     // 外した行を Base 側の元の位置で選択・フォーカスする。Indexed 側では隣の行を選択しておき、→ で戻ればそのまま続けて外せるようにする。
     const removeIndexedColumnByKeyboard = (columnModelId: string, rowIndex: number) => {
-        const neighbourIndex = rowKeyNavigation.neighbourIndexAfterRemoval(indexedEntries.length, rowIndex);
+        const neighbourIndex = RowKeyNavigation.neighbourIndexAfterRemoval(indexedEntries.length, rowIndex);
         const remainingEntries = indexedEntries.filter(entry => (entry.indexedColumn.columnModelId !== columnModelId));
         const neighbourId = (neighbourIndex < 0) ? null : remainingEntries[neighbourIndex].indexedColumn.columnModelId;
 
