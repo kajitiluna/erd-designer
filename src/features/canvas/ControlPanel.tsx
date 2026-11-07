@@ -6,8 +6,8 @@ import {
 import ArrowRightIcon from '@mui/icons-material/ArrowRight';
 import DragHandleIcon from '@mui/icons-material/DragHandle';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import HelpOutlinedIcon from '@mui/icons-material/HelpOutlined';
 import HighlightAltIcon from '@mui/icons-material/HighlightAlt';
-import KeyboardIcon from '@mui/icons-material/Keyboard';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import PanToolIcon from '@mui/icons-material/PanTool';
@@ -32,7 +32,9 @@ import PanelLayoutContext from "~/context/PanelLayoutContext";
 import ThemePreferenceContext, { ThemePreferenceHolder } from "~/context/ThemePreferenceContext";
 import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
 import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
+import ShortcutHelpPanel from "~/features/canvas/ShortcutHelpPanel";
 import usePanelDragging from "~/features/canvas/usePanelDragging";
+import useShortcutHelp from "~/features/canvas/useShortcutHelp";
 import ExportDdlView from "~/features/editor/ExportDdlView";
 import { downloadHtml } from "~/features/export/htmlExporter";
 import { downloadPng } from "~/features/export/pngExporter";
@@ -49,6 +51,8 @@ const ControlPanel = ({ erdExportable }: ControlPanelProps) => {
     const { panelLayout, updatePanelLayout } = React.useContext(PanelLayoutContext);
     const defaultPosition = (panelLayout === "normal") ? DEFAULT_PANEL_POSITION : COMPACT_PANEL_POSITION;
     const { panelRef, positionStyle, handleProps, dragStatus, resetPlacement } = usePanelDragging(defaultPosition);
+    // 表示切替で ControlPanel の中身が差し替わっても開閉状態を残すため、最上位で保持する
+    const { helpOpen, toggleHelp, closeHelp } = useShortcutHelp();
 
     const layoutStyle = (panelLayout === "normal") ? NORMAL_PANEL_STYLE : COMPACT_PANEL_STYLE;
     const panelStyle = { ...PANEL_STYLE, ...layoutStyle, ...positionStyle };
@@ -66,15 +70,20 @@ const ControlPanel = ({ erdExportable }: ControlPanelProps) => {
         <PanelDragHandle layout={panelLayout} handleProps={dragHandleProps} dragging={dragStatus === "moving"} />
     );
 
-    const panelBody = (panelLayout === "normal")
-        ? <NormalPanelBody erdExportable={erdExportable} dragHandle={dragHandle} />
-        : <CompactPanelBody erdExportable={erdExportable} dragHandle={dragHandle} />;
+    const helpButton = <ShortcutHelpButton layout={panelLayout} onClick={toggleHelp} />;
 
-    return (
+    const panelBody = (panelLayout === "normal")
+        ? <NormalPanelBody erdExportable={erdExportable} dragHandle={dragHandle} helpButton={helpButton} />
+        : <CompactPanelBody erdExportable={erdExportable} dragHandle={dragHandle} helpButton={helpButton} />;
+
+    // パネルの Box は transform を持ち得るため、内側に置くと position: fixed の基準が Box になってしまう。
+    // そのため兄弟要素として並べる。
+    return (<>
         <Box ref={panelRef} sx={panelStyle}>
             {panelBody}
         </Box>
-    );
+        {helpOpen && <ShortcutHelpPanel onClose={closeHelp} />}
+    </>);
 };
 
 const DEFAULT_PANEL_POSITION = { top: "50%", left: "50px", transform: "translateY(-50%)" } as const;
@@ -152,19 +161,21 @@ const COMPACT_DRAG_HANDLE_STYLE = {
 
 type PanelBodyProps = {
     erdExportable: boolean,
-    dragHandle: React.ReactNode
+    dragHandle: React.ReactNode,
+    helpButton: React.ReactNode
 };
 
-const NormalPanelBody = ({ erdExportable, dragHandle }: PanelBodyProps) => {
+const NormalPanelBody = ({ erdExportable, dragHandle, helpButton }: PanelBodyProps) => {
     return (<>
         {dragHandle}
         <EditModePanel layout="normal" />
         <ActionPanel />
         <SubMenuPanel erdExportable={erdExportable} />
+        {helpButton}
     </>);
 };
 
-const CompactPanelBody = ({ erdExportable, dragHandle }: PanelBodyProps) => {
+const CompactPanelBody = ({ erdExportable, dragHandle, helpButton }: PanelBodyProps) => {
     return (<>
         {dragHandle}
         <Box sx={COMPACT_ROWS_STYLE}>
@@ -177,7 +188,7 @@ const CompactPanelBody = ({ erdExportable, dragHandle }: PanelBodyProps) => {
                 <LineVisibleSwitch layout="compact" />
             </Box>
             <Box sx={COMPACT_ROW_STYLE}>
-                <KeyboardShortcutHelpButton />
+                {helpButton}
                 <UndoButton layout="compact" />
                 <RedoButton layout="compact" />
                 <Box sx={COMPACT_SUBMENU_STYLE}>
@@ -452,12 +463,27 @@ const RedoButton = ({ layout }: LayoutProps) => {
     );
 };
 
-const KeyboardShortcutHelpButton = () => {
+type ShortcutHelpButtonProps = {
+    layout: PanelLayoutType,
+    onClick: () => void
+};
+
+const ShortcutHelpButton = ({ layout, onClick }: ShortcutHelpButtonProps) => {
+    if (layout === "compact") {
+        return (
+            <Tooltip title="Keyboard shortcuts (/)" placement="top">
+                <IconButton aria-label="Keyboard shortcuts" sx={COMPACT_ICON_BUTTON_STYLE} onClick={onClick}>
+                    <HelpOutlinedIcon />
+                </IconButton>
+            </Tooltip>
+        );
+    }
+
     return (
-        <Tooltip title="Keyboard shortcuts" placement="top">
-            <IconButton aria-label="Keyboard shortcuts" sx={COMPACT_ICON_BUTTON_STYLE}>
-                <KeyboardIcon />
-            </IconButton>
+        <Tooltip title="Keyboard shortcuts (/)" placement="right">
+            <Button variant="text" onClick={onClick}>
+                Shortcuts
+            </Button>
         </Tooltip>
     );
 };

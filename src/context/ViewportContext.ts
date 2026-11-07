@@ -35,6 +35,12 @@ export interface CanvasViewport {
     ensureVisible(screenRect: DOMRect, logicalCenter: Point): void;
 }
 
+/**
+ * Attribute name that marks an element scrolling its own content on top of the canvas.
+ * The canvas wheel handler leaves the wheel events inside such an element to the browser's native scroll.
+ */
+export const CANVAS_WHEEL_SCROLLABLE_ATTRIBUTE = "data-canvas-wheel-scrollable";
+
 const MIN_SCALE = 0.05;
 const MAX_SCALE = 2;
 const ZOOM_SENSITIVITY = 0.002;
@@ -274,6 +280,10 @@ const initWheelHandler = ({ isDraggingRef, zoomTimerRef, viewport }: WheelHandle
             return;
         }
 
+        if (isNativeScrollTarget(event)) {
+            return;
+        }
+
         if (isDraggingRef.current) {
             event.preventDefault();
             event.stopPropagation();
@@ -312,6 +322,20 @@ const initWheelHandler = ({ isDraggingRef, zoomTimerRef, viewport }: WheelHandle
 
         viewport.panBy(event.deltaX, event.deltaY);
     };
+};
+
+// Ctrl/⌘+ホイールは、スクロール領域の上でもブラウザ全体のズームにせず canvas のズームとして扱う。
+const isNativeScrollTarget = (event: WheelEvent): boolean => {
+    if (event.ctrlKey || event.metaKey) {
+        return false;
+    }
+
+    const target = event.target;
+    if ((target instanceof Element) === false) {
+        return false;
+    }
+
+    return (target as Element).closest(`[${CANVAS_WHEEL_SCROLLABLE_ATTRIBUTE}]`) != null;
 };
 
 const toScalingPhase = (previous: ViewportScaleState): ViewportScaleState => {

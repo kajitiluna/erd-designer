@@ -8,7 +8,7 @@ const DescriptionTooltip = (props: TooltipProps) => {
         ) : props.title;
 
     return (
-        <Tooltip {...props} title={title}>
+        <Tooltip {...props} title={title} slotProps={{ tooltip: { sx: { userSelect: "none" } } }}>
             {props.children}
         </Tooltip>
     );
