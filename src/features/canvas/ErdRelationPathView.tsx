@@ -102,8 +102,8 @@ const ErdRelationPathView = ({
     const orthogonalLinePaths =
         useOrthogonalLine(relationViews, rectangleMap, setClickedPosition, handleOpenEditDialog, onDragAction);
 
-    const controlPanel =
-        useRelationControlPanel(relationViews, rectangleMap, clickedPosition, onEditAction, setDeletingRelation);
+    const operationPanel =
+        useRelationOperationPanel(relationViews, rectangleMap, clickedPosition, onEditAction, setDeletingRelation);
 
     React.useImperativeHandle(ref, () => {
         return {
@@ -125,7 +125,7 @@ const ErdRelationPathView = ({
     };
 
     return (<>
-        {controlPanel}
+        {operationPanel}
         {(deletingRelation != null) && (
             <Dialog open={deletingRelation != null} onClose={handleCloseDeleteDialog}>
                 <DialogTitle>Delete relation?</DialogTitle>
@@ -144,7 +144,7 @@ const ErdRelationPathView = ({
     </>);
 };
 
-const useRelationControlPanel = (
+const useRelationOperationPanel = (
     relationViews: RelationViewModel[], rectangleMap: Map<string, RectangleViewModel>,
     clickedPosition: Point, onEditAction: (editAction: EditAction) => void,
     setDeletingRelation: (relation: RelationViewModel | null) => void
@@ -340,7 +340,7 @@ const useRelationControlPanel = (
     const erdDocument = documentsHolder.current();
     const erdSetting = erdDocument.erdSettingModel;
 
-    const controlPanel = (
+    const operationPanel = (
         <ButtonGroup variant="contained" size="small"
             sx={{ backgroundColor: "var(--mui-palette-erd-panelBackground)" }}>
             <ColorSelector key={`relation-color-selector_${relationView.relationId}`}
@@ -387,7 +387,7 @@ const useRelationControlPanel = (
             onClick={handlePreventMouseEvent}
             onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
             <RelationSummaryCard relationView={relationView} gap={12} />
-            {controlPanel}
+            {operationPanel}
         </div>
     ), toolbarCanvasElement);
 };

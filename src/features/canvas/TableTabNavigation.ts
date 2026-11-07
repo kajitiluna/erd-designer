@@ -5,17 +5,17 @@ type TabKeyEvent = {
 type TabDirection = "forward" | "backward";
 
 /**
- * Decides how Tab / Shift+Tab moves focus between a table and its control panel.
+ * Decides how Tab / Shift+Tab moves focus between a table and its table operation panel, and on to the next table.
  * The panel is portalled after every table, so the browser's DOM-order Tab never reaches it from the selected table.
  */
-export default class ControlPanelFocus {
+export default class TableTabNavigation {
 
     private constructor() {
         // do nothing
     }
 
     /**
-     * Returns the element to focus when Tab is pressed on a table whose control panel is shown,
+     * Returns the element to focus when Tab is pressed on a table whose table operation panel is shown,
      * or `null` when the browser's default Tab order should apply.
      */
     public static findEntry(event: TabKeyEvent, panelElement: HTMLElement | null): HTMLElement | null {
@@ -28,7 +28,7 @@ export default class ControlPanelFocus {
     }
 
     /**
-     * Tells whether Tab / Shift+Tab leaves the control panel past its last / first focusable element.
+     * Tells whether Tab / Shift+Tab leaves the table operation panel past its last / first focusable element.
      * Returns `null` while focus stays inside the panel, so the browser moves it as usual.
      */
     public static findExit(event: TabKeyEvent, panelElement: HTMLElement | null): TabDirection | null {

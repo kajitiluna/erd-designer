@@ -1372,10 +1372,16 @@ export default class ErdDocument {
 
         // 子カラムを新規作成する場合に限り、カーディナリティから NOT NULL を決める。
         // 既存カラムに紐づける場合は、そのカラムの NOT NULL を一切変更しない
-        // (relationName や参照アクションだけを変えるつもりの更新が、無関係な既存カラムの
-        // NOT NULL を書き換えてしまう副作用を防ぐため)。
+        // (relationName や参照アクションだけを変えるつもりの更新が、無関係な既存カラムの NOT NULL を書き換えてしまう副作用を防ぐため)。
+        // 
+        // PK を持たない子テーブルに親 PK を丸ごと新規カラムとして持ち込む場合は、それを子の PK とする (識別関係)。
+        // PK のカラムは NOT NULL が前提なので、カーディナリティに関わらず NOT NULL とする。
+        // 既存カラムが混じると PK の一部だけが FK になるため対象外。
+        const childHasPrimaryKey = this.toAllColumnsExceptStruct(childTableModel).some(column => column.primaryKey);
+        const asPrimary = (childHasPrimaryKey === false) && detailPairs.every(pair => (pair.childColumnModel == null));
+
         const nextAddingColumnModels = detailPairs
-            .filter(pair => pair.childColumnModel == null)
+            .filter(pair => (pair.childColumnModel == null))
             .map(pair => {
                 // PK は simple カラムに限定されるため、リレーション親カラムは常に simple となる
                 const parentColumnModel = this.findColumnModel(pair.parentColumnModelId) as SimpleColumnModel;
@@ -1384,7 +1390,8 @@ export default class ErdDocument {
                     columnShareModelId: parentColumnModel.columnShareModelId,
                     physicalName: parentColumnModel.physicalName,
                     logicalName: parentColumnModel.logicalName,
-                    notNull: isMandatoryCardinality(updatingModel.childCardinality)
+                    primaryKey: asPrimary,
+                    notNull: asPrimary || isMandatoryCardinality(updatingModel.childCardinality)
                 });
             });
 

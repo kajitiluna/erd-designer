@@ -208,8 +208,9 @@ export default class ColumnType {
             });
         }
 
-        // ColumnType の defaultValueCandidates プロパティに動的項目を追加
-        if (orgVersion < 20260321) {
+        // ColumnType の defaultValueCandidates プロパティを最新定義へ揃える
+        // (20260321: 動的項目の追加 / 20261107: PostgreSQL 日時型の候補)
+        if (orgVersion < 20261107) {
             const sourceCandidates = new Set(source.defaultValueCandidates);
             if (latest.defaultValueCandidates.some(candidate => (sourceCandidates.has(candidate) === false))) {
                 return new ColumnType({

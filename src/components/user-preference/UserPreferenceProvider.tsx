@@ -1,23 +1,43 @@
 import React from "react";
 import { useColorScheme } from "@mui/material/styles";
 
+import PanelLayoutContext, { PanelLayoutHolder } from "~/context/PanelLayoutContext";
 import ThemePreferenceContext, { ThemePreferenceHolder } from "~/context/ThemePreferenceContext";
-import type { SystemThemeResolver, ThemePreferenceStore } from "~/components/theme/ThemeHost";
+import type SystemThemeResolver from "~/components/theme/SystemThemeResolver";
 import ThemePreference from "~/components/theme/ThemePreference";
+import PanelLayout from "~/components/user-preference/PanelLayout";
+import type { PanelLayoutType } from "~/components/user-preference/PanelLayout";
+import type UserPreferenceStore from "~/components/user-preference/UserPreferenceStore";
 import type { ColorTheme } from "~/models/ColorValue";
 
-type ThemePreferenceProviderProps = {
-    store: ThemePreferenceStore,
+type UserPreferenceProviderProps = {
+    store: UserPreferenceStore,
     resolver: SystemThemeResolver,
     children: React.ReactNode
 };
 
 /**
- * Holds the theme preference and applies the resolved mode to MUI.
+ * Holds the stored theme preference and panel layout, and applies the resolved theme mode to MUI.
  * Must be rendered inside MUI's ThemeProvider because `useColorScheme` requires it.
  */
-const ThemePreferenceProvider = ({ store, resolver, children }: ThemePreferenceProviderProps) => {
-    const [themePreference, setThemePreference] = React.useState<ThemePreference>(() => store.readInitial());
+const UserPreferenceProvider = ({ store, resolver, children }: UserPreferenceProviderProps) => {
+    const themePreferenceHolder = useThemePreference(store, resolver);
+    const panelLayoutHolder = usePanelLayout(store);
+
+    return (
+        <ThemePreferenceContext.Provider value={themePreferenceHolder}>
+            <PanelLayoutContext.Provider value={panelLayoutHolder}>
+                <ThemeModeBridge colorTheme={themePreferenceHolder.colorTheme} />
+                {children}
+            </PanelLayoutContext.Provider>
+        </ThemePreferenceContext.Provider>
+    );
+};
+
+const useThemePreference = (store: UserPreferenceStore, resolver: SystemThemeResolver): ThemePreferenceHolder => {
+    const [themePreference, setThemePreference] = React.useState<ThemePreference>(() => {
+        return ThemePreference.toObject(store.readInitial("themePreference"));
+    });
     const [systemColorTheme, setSystemColorTheme] = React.useState<ColorTheme>(() => resolver.resolve());
 
     // preference / store とは独立に保持し、永続化される値には影響させない。
@@ -30,7 +50,7 @@ const ThemePreferenceProvider = ({ store, resolver, children }: ThemePreferenceP
 
     const updatePreference = React.useCallback((nextPreference: ThemePreference) => {
         setThemePreference(nextPreference);
-        store.save(nextPreference);
+        store.save("themePreference", nextPreference.value);
     }, [store]);
 
     const withLightMode = React.useCallback(async <RESULT,>(task: () => Promise<RESULT>): Promise<RESULT> => {
@@ -45,13 +65,16 @@ const ThemePreferenceProvider = ({ store, resolver, children }: ThemePreferenceP
         }
     }, []);
 
-    const holder: ThemePreferenceHolder = React.useMemo(() => {
+    const themePreferenceHolder: ThemePreferenceHolder = React.useMemo(() => {
         return { preference: themePreference, colorTheme, updatePreference, withLightMode };
     }, [themePreference, colorTheme, updatePreference, withLightMode]);
 
     // 外部 (他タブ、他パネル) で変更された設定を取り込む
     React.useEffect(() => {
-        return store.subscribe(setThemePreference);
+        return store.subscribe("themePreference", value => {
+            const nextPreference = ThemePreference.toObject(value);
+            setThemePreference(nextPreference);
+        });
     }, [store]);
 
     React.useEffect(() => {
@@ -61,21 +84,7 @@ const ThemePreferenceProvider = ({ store, resolver, children }: ThemePreferenceP
         return resolver.subscribe(setSystemColorTheme);
     }, [resolver]);
 
-    return (
-        <ThemePreferenceContext.Provider value={holder}>
-            <ThemeModeBridge colorTheme={colorTheme} />
-            {children}
-        </ThemePreferenceContext.Provider>
-    );
-};
-
-// state 更新 → commit → MUI の effect による html クラス更新が済むまで、2 フレーム待つ。
-const waitForAnimationFrames = (): Promise<void> => {
-    return new Promise<void>(resolve => {
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => { resolve(); });
-        });
-    });
+    return themePreferenceHolder;
 };
 
 const initColorTheme = (
@@ -90,6 +99,33 @@ const initColorTheme = (
     }
 
     return (preference === ThemePreference.DARK) ? "dark" : "light";
+};
+
+// state 更新 → commit → MUI の effect による html クラス更新が済むまで、2 フレーム待つ。
+const waitForAnimationFrames = (): Promise<void> => {
+    return new Promise<void>(resolve => {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => { resolve(); });
+        });
+    });
+};
+
+const usePanelLayout = (store: UserPreferenceStore): PanelLayoutHolder => {
+    const [panelLayout, setPanelLayout] = React.useState<PanelLayoutType>(() => {
+        return PanelLayout.toObject(store.readInitial("panelLayout"));
+    });
+
+    // 他のタブやパネルでの変更は購読しない。表示中のパネルの形が勝手に変わらないよう、次に開いたときに反映する。
+    const updatePanelLayout = React.useCallback((nextLayout: PanelLayoutType) => {
+        setPanelLayout(nextLayout);
+        store.save("panelLayout", nextLayout);
+    }, [store]);
+
+    const panelLayoutHolder: PanelLayoutHolder = React.useMemo(() => {
+        return { panelLayout, updatePanelLayout };
+    }, [panelLayout, updatePanelLayout]);
+
+    return panelLayoutHolder;
 };
 
 type ThemeModeBridgeProps = {
@@ -107,4 +143,4 @@ const ThemeModeBridge = ({ colorTheme }: ThemeModeBridgeProps) => {
     return null;
 };
 
-export default ThemePreferenceProvider;
+export default UserPreferenceProvider;

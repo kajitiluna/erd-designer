@@ -6,6 +6,54 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.20261108] - 2026-11-08
+
+### Added
+
+- **Edit mode shortcuts**:
+
+  On the canvas, G switches to Grab, T to Create table, R to Create relation, M to Create memo, and Esc back to Select.
+  Presses with Ctrl/Cmd/Alt/Shift, auto-repeat, or during IME composition are ignored.
+
+- **Keyboard shortcut help**:
+
+  A panel listing the canvas shortcuts opens at the bottom left with "/" or the help button on the control panel,
+  and closes with "/", Esc, or its close button.
+
+- **Movable and compact control panel**:
+
+  The control panel can be dragged by the handle at its top.
+  Double-clicking the handle switches between the normal layout and a compact layout at the bottom left of the screen.
+  The chosen layout is remembered for the next session.
+
+- **Keyboard confirmation in the Column Group picker**:
+
+  A Column Group can be chosen and confirmed with the keyboard.
+  When changing a column's group, the current group is preselected, and OK stays disabled until a different group is chosen.
+
+### Changed
+
+- **Return to Select mode after creation**:
+
+  Confirming the dialog of a new table or relation now switches the edit mode back to Select.
+
+- **Primary key for new child columns**:
+
+  When a relation adds new columns to a child table that has no primary key,
+  those columns become the child table's primary key (and NOT NULL), forming an identifying relationship.
+
+### Fixed
+
+- **PostgreSQL date/time default value candidates**:
+
+  The default value candidates for PostgreSQL date and time types (`CURRENT_DATE`, `CURRENT_TIMESTAMP`, `LOCALTIMESTAMP`, etc.)
+  were missing. They are restored, and files saved without them pick them up when opened.
+
+- **Relation lines after window resize**:
+
+  Relation lines no longer drift away from tables after the window is resized.
+
+
 ## [0.20261102] - 2026-11-02
 
 ### Added

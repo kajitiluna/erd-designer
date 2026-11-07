@@ -10,9 +10,11 @@ import PrivacyPolicyPanel from '~/features/regal/PrivacyPolicyPanel';
 import VsCodeExtensionApplication from '~/features/VsCodeExtensionApplication';
 
 import erdTheme from '~/components/ErdTheme';
-import ThemePreferenceProvider from '~/components/theme/ThemePreferenceProvider';
-import { BrowserPreferenceStore, BrowserSystemThemeResolver } from '~/components/theme/BrowserTheme';
-import { VsCodePreferenceStore, VsCodeSystemThemeResolver } from '~/components/theme/VsCodeTheme';
+import BrowserSystemThemeResolver from '~/components/theme/BrowserSystemThemeResolver';
+import VsCodeSystemThemeResolver from '~/components/theme/VsCodeSystemThemeResolver';
+import BrowserUserPreferenceStore from '~/components/user-preference/BrowserUserPreferenceStore';
+import VsCodeUserPreferenceStore from '~/components/user-preference/VsCodeUserPreferenceStore';
+import UserPreferenceProvider from '~/components/user-preference/UserPreferenceProvider';
 
 const App = () => {
 
@@ -24,12 +26,12 @@ const App = () => {
 }
 
 const BrowserApp = () => {
-  const store = React.useMemo(() => new BrowserPreferenceStore(), []);
+  const store = React.useMemo(() => new BrowserUserPreferenceStore(), []);
   const resolver = React.useMemo(() => new BrowserSystemThemeResolver(), []);
 
   return (
     <ThemeProvider theme={erdTheme} defaultMode="light" storageManager={null}>
-      <ThemePreferenceProvider store={store} resolver={resolver}>
+      <UserPreferenceProvider store={store} resolver={resolver}>
         <BrowserRouter>
           <div className='App'>
             <Routes>
@@ -40,7 +42,7 @@ const BrowserApp = () => {
             </Routes>
           </div>
         </BrowserRouter>
-      </ThemePreferenceProvider>
+      </UserPreferenceProvider>
     </ThemeProvider>
   );
 };
@@ -50,17 +52,17 @@ type VsCodeAppProps = {
 };
 
 const VsCodeApp = ({ vscodeApi }: VsCodeAppProps) => {
-  const store = React.useMemo(() => new VsCodePreferenceStore(vscodeApi), [vscodeApi]);
+  const store = React.useMemo(() => new VsCodeUserPreferenceStore(vscodeApi), [vscodeApi]);
   const resolver = React.useMemo(() => new VsCodeSystemThemeResolver(), []);
 
   return (
-    // mode の保存は ThemePreferenceProvider の Store に一本化するため、MUI 側の localStorage 保存は無効にする
+    // mode の保存は UserPreferenceProvider の Store に一本化するため、MUI 側の localStorage 保存は無効にする
     <ThemeProvider theme={erdTheme} defaultMode="light" storageManager={null}>
-      <ThemePreferenceProvider store={store} resolver={resolver}>
+      <UserPreferenceProvider store={store} resolver={resolver}>
         <div className='App'>
           <VsCodeExtensionApplication vscodeApi={vscodeApi} />
         </div>
-      </ThemePreferenceProvider>
+      </UserPreferenceProvider>
     </ThemeProvider>
   );
 }

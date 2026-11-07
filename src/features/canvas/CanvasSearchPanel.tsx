@@ -11,7 +11,7 @@ import ViewportContext, { CanvasViewport } from "~/context/ViewportContext";
 import PortalCanvasContext from "~/context/PortalCanvasContext";
 import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { LocalSettingContext } from "~/context/LocalSettingContext";
-import { inOpenControlPanel } from "~/components/support";
+import { isModalOpen } from "~/components/support";
 import FloatingIconButton from "~/components/FloatingIconButton";
 import { ColumnRowEntry, expandColumnRows, isColumnRowVisible } from "~/models/column-row-expansion";
 import ErdDocument from "~/models/ErdDocument";
@@ -397,8 +397,8 @@ const buildSearchKeyDownHandler = (isSearchOpen: boolean, searchActions: SearchA
 
         if ((event.key === "Escape") && isSearchOpen) {
             // ダイアログが表示されているときはキー操作を無視する
-            const inOpenControlPane = inOpenControlPanel();
-            if (inOpenControlPane) {
+            const modalOpen = isModalOpen();
+            if (modalOpen) {
                 return;
             }
 

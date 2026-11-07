@@ -4,7 +4,7 @@ import {
     Grid, Paper, Stack, Table, TableBody, TableContainer, TextField, Typography
 } from "@mui/material";
 
-import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
+import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ErdDocument from "~/models/ErdDocument";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import ColumnModel from "~/models/database/ColumnModel";
@@ -17,19 +17,43 @@ import useAutoFocus from "~/components/keyboard/useAutoFocus";
 type ColumnGroupViewProps = {
     isOpen: boolean,
     viewMode: "select" | "edit",
+    initialColumnGroupId?: string,
     onSelect?: (columnWrapModel: ColumnWrapModel) => void,
     onClose: () => void
 };
 
-const ColumnGroupView = ({ isOpen, viewMode, onSelect = () => { }, onClose }: ColumnGroupViewProps) => {
-    const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
-    const erdDocument: ErdDocument = documentsHolder.current();
+const ColumnGroupView = ({
+    isOpen, viewMode, initialColumnGroupId, onSelect = () => { }, onClose
+}: ColumnGroupViewProps) => {
+    const documentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const erdDocument = documentsHolder.current();
 
     const withLogicalName = erdDocument.getDisplayNameStyle().withLogicalName();
 
+    const confirmColumnGroup = (target: ColumnGroupModel) => {
+        if (target.columnGroupId === initialColumnGroupId) {
+            onClose();
+            return;
+        }
+
+        const columnModels = target.columnModelIds
+            .map(columnModelId => erdDocument.findColumnModel(columnModelId))
+            .filter((columnModel): columnModel is SimpleColumnModel =>
+                (columnModel != null) && ColumnModel.isSimpleColumn(columnModel));
+
+        const columnWrapModel: ColumnWrapModel = {
+            modelType: "group",
+            columnGroupModel: target,
+            columnModels: columnModels
+        };
+
+        onSelect(columnWrapModel);
+        onClose();
+    };
+
     const { listPanel, selectedItem, editMode, reset } = useItemListPanel({
-        viewMode,
-        items: erdDocument.getColumnGroupModels(),
+        viewMode, isOpen, initialSelectedKey: initialColumnGroupId, items: erdDocument.getColumnGroupModels(),
+        onConfirm: confirmColumnGroup,
         create: () => new ColumnGroupModel({}),
         toKey: (target: ColumnGroupModel) => target.columnGroupId,
         toTitle: (target: ColumnGroupModel) => target.groupName
@@ -51,36 +75,26 @@ const ColumnGroupView = ({ isOpen, viewMode, onSelect = () => { }, onClose }: Co
         </Grid>
     );
 
-    const initActionPanel = (mode: "select" | "edit", onSelect: (columnWrapModel: ColumnWrapModel) => void) => {
+    const initActionPanel = (mode: "select" | "edit") => {
         if (mode === "edit") {
             return (
                 <Button onClick={onClose} >Close</Button>
             );
         }
 
-        const handleCompleted = () => {
+        const handleClickOk = () => {
             if (selectedItem == null) {
                 return;
             }
 
-            const columnModels = selectedItem.columnModelIds
-                .map(columnModelId => erdDocument.findColumnModel(columnModelId))
-                .filter((columnModel): columnModel is SimpleColumnModel =>
-                    (columnModel != null) && ColumnModel.isSimpleColumn(columnModel));
-
-            const columnWrapModel: ColumnWrapModel = {
-                modelType: "group",
-                columnGroupModel: selectedItem,
-                columnModels: columnModels
-            };
-
-            onSelect(columnWrapModel);
-            onClose();
+            confirmColumnGroup(selectedItem);
         };
+
+        const unchanged = (selectedItem == null) || (selectedItem.columnGroupId === initialColumnGroupId);
 
         return (<>
             <Button onClick={onClose}>Cancel</Button>
-            <Button variant="contained" disabled={selectedItem == null} onClick={handleCompleted}>OK</Button>
+            <Button variant="contained" disabled={unchanged} onClick={handleClickOk}>OK</Button>
         </>);
     };
 
@@ -125,7 +139,7 @@ const ColumnGroupView = ({ isOpen, viewMode, onSelect = () => { }, onClose }: Co
                     {mainPanel}
                 </Stack>
             </DialogContent>
-            <DialogActions>{initActionPanel(viewMode, onSelect)}</DialogActions>
+            <DialogActions>{initActionPanel(viewMode)}</DialogActions>
         </Dialog>
         {(selectedItem != null) && (editMode === "edit") && (
             <ColumnGroupEditDialog

@@ -12,7 +12,7 @@ import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import ForeignKeyIcon from "~/components/icons/ForeignKeyIcon";
 import PrimaryKeyIcon from "~/components/icons/PrimaryKeyIcon";
 import EdgedIconButton from "~/components/EdgedIconButton";
-import { rowKeyNavigation } from "~/components/keyboard/row-key-navigation";
+import RowKeyNavigation from "~/components/keyboard/RowKeyNavigation";
 import useRowFocusRequest from "~/components/keyboard/useRowFocusRequest";
 import ColumnGroupModel from "~/models/database/ColumnGroupModel";
 import SimpleColumnModel from "~/models/database/SimpleColumnModel";
@@ -180,7 +180,7 @@ const ColumnViewTable = ({
             reorderColumnByKeyboard(targetIndex, shift);
         };
 
-        const handleKeyDown = rowKeyNavigation.initHandleKeyDown({
+        const handleKeyDown = RowKeyNavigation.initHandleKeyDown({
             orientation: "vertical", index: targetIndex, lastIndex: columnWrapModels.length - 1,
             selectAt: selectRowAt, onSelect: handleRowClicked, onActivate: handleEditColumn,
             onReorder: handleReorder
@@ -372,7 +372,7 @@ const ColumnViewTable = ({
             return;
         }
 
-        const neighbourIndex = rowKeyNavigation.neighbourIndexAfterRemoval(columnWrapModels.length, selectedIndex);
+        const neighbourIndex = RowKeyNavigation.neighbourIndexAfterRemoval(columnWrapModels.length, selectedIndex);
         if (neighbourIndex >= 0) {
             requestFocus(neighbourIndex);
         }
@@ -427,6 +427,9 @@ const ColumnViewTable = ({
         });
     };
 
+    const editingColumnGroupId = ((editMode === "edit_group") && (selectedWrappedModel?.modelType === "group"))
+        ? selectedWrappedModel.columnGroupModel.columnGroupId : undefined;
+
     return (<>
         <TableContainer sx={{ maxHeight: window.innerHeight - 550 }}>
             <Table stickyHeader size="small" aria-label="column view table" style={{ tableLayout: "fixed" }}>
@@ -472,9 +475,8 @@ const ColumnViewTable = ({
         {((editMode === "add_group") || (editMode === "edit_group")) && (
             <ColumnGroupView
                 isOpen={((editMode === "add_group") || (editMode === "edit_group"))}
-                viewMode="select"
-                onSelect={handleUpdateColumnGroup}
-                onClose={() => setEditMode("")} />
+                viewMode="select" initialColumnGroupId={editingColumnGroupId}
+                onSelect={handleUpdateColumnGroup} onClose={() => setEditMode("")} />
         )}
     </>);
 };

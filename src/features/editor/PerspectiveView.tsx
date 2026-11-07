@@ -18,7 +18,7 @@ import ColorValue from "~/models/ColorValue";
 import PerspectiveModel from "~/models/PerspectiveModel";
 import { SELECTED_CELL_COLOR, initHandleCloseDialog } from "~/features/editor/support";
 import EdgedIconButton from "~/components/EdgedIconButton";
-import { rowKeyNavigation } from "~/components/keyboard/row-key-navigation";
+import RowKeyNavigation from "~/components/keyboard/RowKeyNavigation";
 import useRowFocusRequest from "~/components/keyboard/useRowFocusRequest";
 import { handlePreventMouseEvent } from "~/features/canvas/support";
 
@@ -180,7 +180,7 @@ const PerspectiveView = ({ isOpen, onClose }: PerspectiveViewProps) => {
             reorderPerspectiveByKeyboard(perspectiveIndex, shift);
         };
 
-        return rowKeyNavigation.initHandleKeyDown({
+        return RowKeyNavigation.initHandleKeyDown({
             orientation: "horizontal", index: perspectiveIndex, lastIndex: perspectiveModels.length - 1,
             selectAt: selectRecordAt, onSelect: recordActions.select, onActivate: recordActions.edit,
             onReorder: handleReorder

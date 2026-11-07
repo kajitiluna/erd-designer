@@ -8,7 +8,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 import EdgedIconButton from "./EdgedIconButton";
 import { GRID_CELL_STYLE } from '~/components/constant';
-import { rowKeyNavigation } from '~/components/keyboard/row-key-navigation';
+import RowKeyNavigation from '~/components/keyboard/RowKeyNavigation';
 import useRowFocusRequest from '~/components/keyboard/useRowFocusRequest';
 
 type BaseGridViewProps<RECORD_ENTITY> = {
@@ -111,7 +111,7 @@ const BaseGridView = <RECORD_ENTITY,>({
         };
 
         const handleRemoveRecord = () => {
-            const neighbourIndex = rowKeyNavigation.neighbourIndexAfterRemoval(records.length, recordIndex);
+            const neighbourIndex = RowKeyNavigation.neighbourIndexAfterRemoval(records.length, recordIndex);
             const remainingRecords = records.filter((_, remainingIndex) => (remainingIndex !== recordIndex));
             const neighbourRecord = remainingRecords[neighbourIndex];
 
@@ -126,7 +126,7 @@ const BaseGridView = <RECORD_ENTITY,>({
             reorderRecordByKeyboard(recordIndex, shift);
         };
 
-        const handleKeyDown = rowKeyNavigation.initHandleKeyDown({
+        const handleKeyDown = RowKeyNavigation.initHandleKeyDown({
             orientation: "horizontal", index: recordIndex, lastIndex: records.length - 1,
             selectAt: selectRecordAt, onSelect: handleSelect, onActivate: handleEditRecord,
             onRemove: handleRemoveRecord, onReorder: handleReorder

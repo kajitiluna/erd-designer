@@ -1,10 +1,11 @@
 import React from "react";
 
-import { inOpenControlPanel } from "~/components/support";
+import { isModalOpen } from "~/components/support";
 
 type ViewportPosition = { centerX: number; centerY: number };
 type ViewportScaleState = { scale: number; phase: "idle" | "scaling" };
 type Point = { x: number; y: number };
+type ScreenSize = { width: number; height: number };
 
 export interface CanvasViewport {
 
@@ -35,6 +36,12 @@ export interface CanvasViewport {
     ensureVisible(screenRect: DOMRect, logicalCenter: Point): void;
 }
 
+/**
+ * Attribute name that marks an element scrolling its own content on top of the canvas.
+ * The canvas wheel handler leaves the wheel events inside such an element to the browser's native scroll.
+ */
+export const CANVAS_WHEEL_SCROLLABLE_ATTRIBUTE = "data-canvas-wheel-scrollable";
+
 const MIN_SCALE = 0.05;
 const MAX_SCALE = 2;
 const ZOOM_SENSITIVITY = 0.002;
@@ -49,6 +56,8 @@ class CanvasViewportImpl implements CanvasViewport {
     private readonly viewportPositionRef: React.RefObject<ViewportPosition>;
     private readonly scaleRef: React.RefObject<number>;
     private readonly setScaleState: React.Dispatch<React.SetStateAction<ViewportScaleState>>;
+    // transform の計算に使った画面サイズ。resize 時の差分から、左上を固定するための補正量を求める
+    private appliedScreenSize: ScreenSize | null = null;
 
     constructor(
         viewportRef: React.RefObject<HTMLDivElement | null>,
@@ -81,7 +90,26 @@ class CanvasViewportImpl implements CanvasViewport {
         const translateY = screenCenterY - centerY * currentScale;
 
         canvas.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
+        this.appliedScreenSize = { width: viewport.clientWidth, height: viewport.clientHeight };
         this.updateGridBackground(viewport, translateX, translateY, currentScale);
+    }
+
+    /**
+     * Re-applies the transform after the viewport container is resized, keeping the top-left corner
+     * of the view in place.
+     */
+    public followResize(): void {
+        const viewport = this.viewportRef.current;
+        const previousSize = this.appliedScreenSize;
+        if ((viewport == null) || (previousSize == null)) {
+            this.applyTransform();
+            return;
+        }
+
+        // 表示位置は画面中心の論理座標で保持しているため、サイズ差の半分だけ中心を動かすと左上が固定される
+        const deltaWidth = viewport.clientWidth - previousSize.width;
+        const deltaHeight = viewport.clientHeight - previousSize.height;
+        this.panBy(deltaWidth / 2, deltaHeight / 2);
     }
 
     private updateGridBackground(
@@ -243,7 +271,17 @@ export const useViewport = ({
 
     React.useLayoutEffect(() => {
         viewport.applyTransform();
-    }, [viewport]);
+
+        const viewportElement = viewportRef.current;
+        if (viewportElement == null) {
+            return;
+        }
+
+        const resizeObserver = new ResizeObserver(() => { viewport.followResize(); });
+        resizeObserver.observe(viewportElement);
+
+        return () => { resizeObserver.disconnect(); };
+    }, [viewport, viewportRef]);
 
     React.useEffect(() => {
         const wheelHandler = initWheelHandler({ isDraggingRef, zoomTimerRef, viewport });
@@ -270,7 +308,11 @@ type WheelHandlerArgs = {
 
 const initWheelHandler = ({ isDraggingRef, zoomTimerRef, viewport }: WheelHandlerArgs) => {
     return (event: WheelEvent) => {
-        if (inOpenControlPanel()) {
+        if (isModalOpen()) {
+            return;
+        }
+
+        if (isNativeScrollTarget(event)) {
             return;
         }
 
@@ -312,6 +354,20 @@ const initWheelHandler = ({ isDraggingRef, zoomTimerRef, viewport }: WheelHandle
 
         viewport.panBy(event.deltaX, event.deltaY);
     };
+};
+
+// Ctrl/⌘+ホイールは、スクロール領域の上でもブラウザ全体のズームにせず canvas のズームとして扱う。
+const isNativeScrollTarget = (event: WheelEvent): boolean => {
+    if (event.ctrlKey || event.metaKey) {
+        return false;
+    }
+
+    const target = event.target;
+    if ((target instanceof Element) === false) {
+        return false;
+    }
+
+    return (target as Element).closest(`[${CANVAS_WHEEL_SCROLLABLE_ATTRIBUTE}]`) != null;
 };
 
 const toScalingPhase = (previous: ViewportScaleState): ViewportScaleState => {

@@ -53,38 +53,49 @@ type RowKeyNavigationOptions = {
     focusRowAt?: (targetIndex: number, currentRow: HTMLElement) => void
 };
 
-type RowKeyNavigation = {
+export default class RowKeyNavigation {
+
+    private constructor() {
+        /* do nothing */
+    }
 
     /**
      * Builds the `onKeyDown` handler of one row of a roving-tabindex list (one Tab stop per list).
      * Keys the options do not ask for are left untouched, so preventDefault is called only for handled keys.
      */
-    initHandleKeyDown: (options: RowKeyNavigationOptions) => (event: React.KeyboardEvent<HTMLElement>) => void,
+    public static initHandleKeyDown(
+        options: RowKeyNavigationOptions
+    ): (event: React.KeyboardEvent<HTMLElement>) => void {
+        return (event: React.KeyboardEvent<HTMLElement>) => {
+            if (isOwnKeyInput(event) === false) {
+                return;
+            }
+
+            const action = decideAction(options, event);
+            if (action == null) {
+                return;
+            }
+
+            event.preventDefault();
+            action(event.currentTarget);
+        };
+    }
 
     /** Focuses the child at `index` (clamped to the last child). Does nothing when the container has no child. */
-    focusChildAt: (container: HTMLElement | null, index: number) => void,
+    public static focusChildAt(container: HTMLElement | null, index: number): void {
+        if ((container == null) || (container.children.length === 0)) {
+            return;
+        }
+
+        const targetIndex = Math.min(Math.max(index, 0), container.children.length - 1);
+        (container.children[targetIndex] as HTMLElement).focus();
+    }
 
     /** Position to focus after the row at `removedIndex` of a list of `length` rows is removed; -1 when none remain. */
-    neighbourIndexAfterRemoval: (length: number, removedIndex: number) => number
-};
-
-type ArrowRole = "previous" | "next" | "crossPrevious" | "crossNext";
-
-const initHandleKeyDown = (options: RowKeyNavigationOptions) => {
-    return (event: React.KeyboardEvent<HTMLElement>) => {
-        if (isOwnKeyInput(event) === false) {
-            return;
-        }
-
-        const action = decideAction(options, event);
-        if (action == null) {
-            return;
-        }
-
-        event.preventDefault();
-        action(event.currentTarget);
-    };
-};
+    public static neighbourIndexAfterRemoval(length: number, removedIndex: number): number {
+        return Math.min(removedIndex, length - 2);
+    }
+}
 
 // 行の中の入力欄・チェックボックスが受けたキーは、その部品自身の操作なので行では扱わない。
 // IME 変換中のキーと、Shift / Alt 付きの操作も行の対象外にする。Ctrl/Cmd 付きは状態変更の操作として行で扱う。
@@ -99,6 +110,8 @@ const isOwnKeyInput = (event: React.KeyboardEvent<HTMLElement>): boolean => {
 
     return (event.shiftKey === false) && (event.altKey === false);
 };
+
+const IME_KEY_CODE = 229;
 
 type RowAction = (currentRow: HTMLElement) => void;
 
@@ -136,6 +149,17 @@ const decideAction = (options: RowKeyNavigationOptions, event: React.KeyboardEve
 
     return null;
 };
+
+type ArrowRole = "previous" | "next" | "crossPrevious" | "crossNext";
+
+const ARROW_ROLES: Record<RowKeyOrientation, Partial<Record<string, ArrowRole>>> = {
+    vertical: {
+        ArrowUp: "previous", ArrowDown: "next", ArrowLeft: "crossPrevious", ArrowRight: "crossNext"
+    },
+    horizontal: {
+        ArrowLeft: "previous", ArrowRight: "next", ArrowUp: "crossPrevious", ArrowDown: "crossNext"
+    }
+} as const;
 
 // Ctrl/Cmd 付きの矢印だけがデータを変える。Ctrl/Cmd + Enter などはダイアログ確定 (DraggableDialog/submit-key.ts) に譲る。
 const decideCommandAction = (options: RowKeyNavigationOptions, arrowRole: ArrowRole | undefined): RowAction | null => {
@@ -182,33 +206,3 @@ const focusRow = (options: RowKeyNavigationOptions, shift: 1 | -1, targetIndex: 
     const siblingRow = (shift === 1) ? currentRow.nextElementSibling : currentRow.previousElementSibling;
     (siblingRow as HTMLElement | null)?.focus();
 };
-
-const focusChildAt = (container: HTMLElement | null, index: number) => {
-    if ((container == null) || (container.children.length === 0)) {
-        return;
-    }
-
-    const targetIndex = Math.min(Math.max(index, 0), container.children.length - 1);
-    (container.children[targetIndex] as HTMLElement).focus();
-};
-
-const neighbourIndexAfterRemoval = (length: number, removedIndex: number): number => {
-    return Math.min(removedIndex, length - 2);
-};
-
-const IME_KEY_CODE = 229;
-
-const ARROW_ROLES: Record<RowKeyOrientation, Partial<Record<string, ArrowRole>>> = {
-    vertical: {
-        ArrowUp: "previous", ArrowDown: "next", ArrowLeft: "crossPrevious", ArrowRight: "crossNext"
-    },
-    horizontal: {
-        ArrowLeft: "previous", ArrowRight: "next", ArrowUp: "crossPrevious", ArrowDown: "crossNext"
-    }
-} as const;
-
-export const rowKeyNavigation: RowKeyNavigation = {
-    initHandleKeyDown: initHandleKeyDown,
-    focusChildAt: focusChildAt,
-    neighbourIndexAfterRemoval: neighbourIndexAfterRemoval
-} as const;

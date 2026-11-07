@@ -224,3 +224,83 @@ describe('ErdDocument: promoting a parent column to primary key cascades a new c
         expect(findChildColumn(updated, mirroredEntry.columnModelId).notNull).toBe(expectedNotNull);
     });
 });
+
+describe('ErdDocument.updateRelation: primary key of newly generated child columns', () => {
+    const childMemoColumn = new SimpleColumnModel({ columnModelId: 'col-child-memo', columnShareModelId: 'share-child-memo' });
+    const childMemoShare = new ColumnShareModel({ columnShareModelId: 'share-child-memo', physicalName: 'memo', logicalName: 'memo', columnType: findColumnType('int') });
+    const childTableWithoutPrimaryKey = new TableModel({
+        tableModelId: 'table-child', physicalName: 'child',
+        columnEntries: [{ modelType: 'single', columnModelId: 'col-child-memo' }]
+    });
+
+    const buildDocumentWithChildWithoutPrimaryKey = (): ErdDocument => {
+        return ErdDocument.create({
+            documentName: 'update-relation-test', databaseSettingModel: DatabaseSettingModel.create('mysql'),
+            schemaConfig: DbSchemaConfig.create(),
+            tableViewModels: [initTableViewModel(parentTableModel), initTableViewModel(childTableWithoutPrimaryKey)],
+            columnModels: [parentIdColumn, childMemoColumn],
+            columnShareModels: [parentIdShare, childMemoShare]
+        });
+    };
+
+    const initRelation = (childCardinality: CardinalityType, childColumnModelId: string): RelationModel => {
+        return new RelationModel({
+            relationModelId: 'rel-parent-child', parentTableModelId: 'table-parent', childTableModelId: 'table-child',
+            childCardinality,
+            relationPairs: [new RelationPair({ parentColumnModelId: 'col-parent-id', childColumnModelId })]
+        });
+    };
+
+    test.each<CardinalityType>(['1', '1..N', '0..1', '0..N'])(
+        'child table without a primary key: the generated column becomes a NOT NULL primary key (childCardinality "%s")',
+        (childCardinality) => {
+            const document = buildDocumentWithChildWithoutPrimaryKey();
+
+            const updated = document.updateRelation(initRelationViewModel(initRelation(childCardinality, 'col-new-fk')));
+
+            const generatedColumn = findChildColumn(updated, 'col-new-fk');
+            expect(generatedColumn.primaryKey).toBe(true);
+            expect(generatedColumn.notNull).toBe(true);
+        }
+    );
+
+    test('child table that already has a primary key: the generated column is not a primary key', () => {
+        const document = buildDocumentWithoutFk();
+
+        const updated = document.updateRelation(initRelationViewModel(initRelation('0..N', 'col-new-fk')));
+
+        expect(findChildColumn(updated, 'col-new-fk').primaryKey).toBe(false);
+    });
+
+    test('mixing an existing child column and a generated one: no column becomes a primary key', () => {
+        const parentCodeColumn = new SimpleColumnModel({ columnModelId: 'col-parent-code', columnShareModelId: 'share-parent-code', primaryKey: true, notNull: true });
+        const parentCodeShare = new ColumnShareModel({ columnShareModelId: 'share-parent-code', physicalName: 'code', logicalName: 'code', columnType: findColumnType('int') });
+        const parentTableWithCompositeKey = new TableModel({
+            tableModelId: 'table-parent', physicalName: 'parent',
+            columnEntries: [
+                { modelType: 'single', columnModelId: 'col-parent-id' },
+                { modelType: 'single', columnModelId: 'col-parent-code' }
+            ]
+        });
+        const document = ErdDocument.create({
+            documentName: 'update-relation-test', databaseSettingModel: DatabaseSettingModel.create('mysql'),
+            schemaConfig: DbSchemaConfig.create(),
+            tableViewModels: [initTableViewModel(parentTableWithCompositeKey), initTableViewModel(childTableWithoutPrimaryKey)],
+            columnModels: [parentIdColumn, parentCodeColumn, childMemoColumn],
+            columnShareModels: [parentIdShare, parentCodeShare, childMemoShare]
+        });
+        const relationModel = new RelationModel({
+            relationModelId: 'rel-parent-child', parentTableModelId: 'table-parent', childTableModelId: 'table-child',
+            childCardinality: '0..N',
+            relationPairs: [
+                new RelationPair({ parentColumnModelId: 'col-parent-id', childColumnModelId: 'col-child-memo' }),
+                new RelationPair({ parentColumnModelId: 'col-parent-code', childColumnModelId: 'col-new-code' })
+            ]
+        });
+
+        const updated = document.updateRelation(initRelationViewModel(relationModel));
+
+        expect(findChildColumn(updated, 'col-new-code').primaryKey).toBe(false);
+        expect(findChildColumn(updated, 'col-child-memo').primaryKey).toBe(false);
+    });
+});

@@ -46,6 +46,13 @@ describe('DatabaseSettingModel', () => {
             expect(model.columnTypes).toBeDefined();
             expect(model.columnTypes.length).toBeGreaterThan(0);
         });
+
+        test('should define default candidates for postgres date type', () => {
+            const model = DatabaseSettingModel.create('postgres');
+
+            const columnType = model.findColumnType(101);
+            expect(columnType?.candidateDefaultValues('', '')).toEqual(['CURRENT_DATE']);
+        });
     });
 
     describe('initToColumnTypeMapping', () => {
@@ -204,6 +211,63 @@ describe('DatabaseSettingModel', () => {
             expect(deserialized.databaseType).toBe(original.databaseType);
             expect(deserialized.version).toBe(original.version);
             expect(deserialized.columnTypes.length).toBe(original.columnTypes.length);
+        });
+
+        test('should restore date/time default candidates for postgres files saved without them', () => {
+            const obj = {
+                databaseType: 'postgres',
+                columnTypes: [{
+                    id: 122,
+                    name: 'timestamp (p) with time zone',
+                    description: '時間帯付き日付と時刻',
+                    baseQuery: 'TIMESTAMP[[PARAM]] WITH TIME ZONE',
+                    withPrecision: true
+                }],
+                version: 20260504
+            };
+
+            const model = DatabaseSettingModel.toObject(obj);
+
+            const columnType = model.findColumnType(122);
+            expect(columnType?.candidateDefaultValues('3', '')).toEqual(['CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP(3)']);
+        });
+
+        test('should replace outdated postgres default candidates with the latest definition', () => {
+            const obj = {
+                databaseType: 'postgres',
+                columnTypes: [{
+                    id: 111,
+                    name: 'timestamp without time zone',
+                    description: '日付と時刻 (時間帯なし)',
+                    baseQuery: 'TIMESTAMP WITHOUT TIME ZONE',
+                    defaultValueCandidates: ['CURRENT_TIMESTAMP']
+                }],
+                version: 20260504
+            };
+
+            const model = DatabaseSettingModel.toObject(obj);
+
+            const columnType = model.findColumnType(111);
+            expect(columnType?.candidateDefaultValues('', '')).toEqual(['LOCALTIMESTAMP']);
+        });
+
+        test('should not touch default candidates of non-postgres databases at version 20260504', () => {
+            const obj = {
+                databaseType: 'mysql',
+                columnTypes: [{
+                    id: 111,
+                    name: 'timestamp',
+                    description: 'timestamp',
+                    baseQuery: 'TIMESTAMP',
+                    defaultValueCandidates: ['CUSTOM_VALUE']
+                }],
+                version: 20260504
+            };
+
+            const model = DatabaseSettingModel.toObject(obj);
+
+            const columnType = model.findColumnType(111);
+            expect(columnType?.candidateDefaultValues('', '')).toEqual(['CUSTOM_VALUE']);
         });
 
         test('should throw error when databaseType is missing', () => {

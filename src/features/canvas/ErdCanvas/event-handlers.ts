@@ -1,10 +1,12 @@
 import React from "react";
 
+import { DragAction } from "~/context/DragActionContext";
 import { ErdDocumentsHolder } from "~/context/ErdDocumentsHolderContext";
 import { RELEASE_ACTION, SelectAction } from "~/context/SelectEntityContext";
 import EditMode, { EditModeType } from "~/models/EditMode";
 import SelectState from "~/models/SelectState";
-import { inOpenControlPanel, isTextInputFocused } from "~/components/support";
+import EditModeShortcut from "~/features/canvas/EditModeShortcut";
+import { isModalOpen, isTextInputFocused } from "~/components/support";
 
 /**
  * ErdCanvas 内部専用モジュール。外部からの import は禁止 (Oxlint no-restricted-imports で検査)。
@@ -49,11 +51,12 @@ type KeyEventHandler = {
     /**
      * Handles the keyboard event.
      *
+     * @param event The keyboard event that `isMatching` accepted.
      * @returns {boolean}
      *      Return `true` to prevent event propagation (e.g., calling `event.preventDefault()` and `event.stopPropagation()`).
      *      Return `false` to allow the event to propagate further.
      */
-    handle: () => boolean
+    handle: (event: KeyboardEvent) => boolean
 };
 
 export const initEffectOfKeyDownOnCanvas = (handlers: KeyEventHandler[]) => {
@@ -61,8 +64,8 @@ export const initEffectOfKeyDownOnCanvas = (handlers: KeyEventHandler[]) => {
     const handleKeyUpOnCanvas = (event: KeyboardEvent) => {
 
         // ダイアログが表示されているときはキー操作を無視する
-        const inOpenControlPane = inOpenControlPanel();
-        if (inOpenControlPane) {
+        const modalOpen = isModalOpen();
+        if (modalOpen) {
             return;
         }
 
@@ -76,7 +79,7 @@ export const initEffectOfKeyDownOnCanvas = (handlers: KeyEventHandler[]) => {
                 continue;
             }
 
-            const shouldPreventDefault = handler.handle();
+            const shouldPreventDefault = handler.handle(event);
             if (shouldPreventDefault === false) {
                 return;
             }
@@ -94,16 +97,27 @@ export const initEffectOfKeyDownOnCanvas = (handlers: KeyEventHandler[]) => {
     };
 };
 
-export const initSelectModeHandler = (
-    dispatchEditMode: (action: EditMode) => void, erdCanvasRef: React.RefObject<HTMLDivElement | null>
+export const initEditModeHandler = (
+    dispatchEditMode: (action: EditMode) => void,
+    dispatchDragAction: (action: DragAction) => void,
+    erdCanvasRef: React.RefObject<HTMLDivElement | null>
 ): KeyEventHandler => {
     return {
-        isMatching: (event: KeyboardEvent) => (event.key === "Escape"),
-        handle: () => {
-            dispatchEditMode(EditModeType.SELECT);
+        isMatching: (event: KeyboardEvent) => (EditModeShortcut.findEditMode(event) != null),
+        handle: (event: KeyboardEvent) => {
+            const editMode = EditModeShortcut.findEditMode(event);
+            if (editMode == null) {
+                return false; // イベントの伝播を止めない
+            }
 
-            if (erdCanvasRef.current) {
-                erdCanvasRef.current.style.cursor = "default";
+            // ドラッグの終了処理は SELECT モードでしか走らない。ドラッグ中にモードを切り替えると
+            // on_dragging が残り続け、SELECT へ戻った後にボタンを離していてもドラッグが再開してしまうため、先に破棄する
+            dispatchDragAction({ type: "clear" });
+            dispatchEditMode(editMode);
+
+            // カーソルは mousemove でしか更新されないため、マウスを動かす前に新しいモードのカーソルへ切り替える
+            if (erdCanvasRef.current != null) {
+                erdCanvasRef.current.style.cursor = findMouseCursorIcon(editMode);
             }
 
             return true; // イベントの伝播を止める

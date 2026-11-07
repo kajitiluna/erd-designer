@@ -7,6 +7,6 @@ interface VsCodeApi {
 
 interface Window {
     vscodeApi?: VsCodeApi;
-    /** Serialized `ThemePreference.value` injected by the extension host; absent outside VSCode. */
-    erdThemePreference?: unknown;
+    /** Serialized per-user preferences injected by the extension host, keyed by `UserPreferenceKey`; absent outside VSCode. */
+    erdUserPreferences?: Partial<Record<string, unknown>>;
 }

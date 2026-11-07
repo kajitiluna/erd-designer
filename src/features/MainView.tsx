@@ -55,9 +55,6 @@ const MainView = ({ erdDocument, onSave, erdExportable = true, remoteSync = fals
             <Box sx={{ position: "fixed", top: "30px", left: "30px" }}>
                 <TitlePanel remoteSync={remoteSync} />
             </Box>
-            <Box sx={{ position: "fixed", top: "50%", left: "50px", transform: "translateY(-50%)" }}>
-                <ControlPanel erdExportable={erdExportable} />
-            </Box>
             <Box sx={{ position: "fixed", bottom: "30px", right: "30px" }}>
                 <DisplayScalePanel />
             </Box>
@@ -65,6 +62,7 @@ const MainView = ({ erdDocument, onSave, erdExportable = true, remoteSync = fals
                 <ThemeSwitchButton />
                 <CanvasSearchPanel />
             </Box>
+            <ControlPanel erdExportable={erdExportable} />
         </ErdCanvas>
     );
 
