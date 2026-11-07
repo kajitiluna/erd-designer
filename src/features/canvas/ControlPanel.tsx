@@ -4,6 +4,7 @@ import {
     MenuItem, Select, SelectChangeEvent, Switch, ToggleButton, ToggleButtonGroup, Tooltip
 } from "@mui/material";
 import ArrowRightIcon from '@mui/icons-material/ArrowRight';
+import DragHandleIcon from '@mui/icons-material/DragHandle';
 import HighlightAltIcon from '@mui/icons-material/HighlightAlt';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
@@ -27,6 +28,7 @@ import { LocalSettingContext } from "~/context/LocalSettingContext";
 import ThemePreferenceContext, { ThemePreferenceHolder } from "~/context/ThemePreferenceContext";
 import { RELEASE_ACTION, SelectEntityContext } from "~/context/SelectEntityContext";
 import DescriptionTooltip from "~/features/canvas/DescriptionTooltip";
+import usePanelDragging from "~/features/canvas/usePanelDragging";
 import ExportDdlView from "~/features/editor/ExportDdlView";
 import { downloadHtml } from "~/features/export/htmlExporter";
 import { downloadPng } from "~/features/export/pngExporter";
@@ -38,8 +40,14 @@ type ControlPanelProps = {
 };
 
 const ControlPanel = ({ erdExportable }: ControlPanelProps) => {
+    const { panelRef, positionStyle, handleProps } = usePanelDragging(DEFAULT_PANEL_POSITION);
+    const panelStyle = { ...PANEL_STYLE, ...positionStyle };
+
     return (
-        <Box sx={PANEL_STYLE}>
+        <Box ref={panelRef} sx={panelStyle}>
+            <Box sx={DRAG_HANDLE_STYLE} {...handleProps}>
+                <DragHandleIcon fontSize="small" />
+            </Box>
             <EditModePanel />
             <ActionPanel />
             <SubMenuPanel erdExportable={erdExportable} />
@@ -47,13 +55,25 @@ const ControlPanel = ({ erdExportable }: ControlPanelProps) => {
     );
 };
 
+const DEFAULT_PANEL_POSITION = { top: "50%", left: "50px", transform: "translateY(-50%)" } as const;
+
+// 右上のテーマ切替・検索ボタン (MainView の zIndex: 10) と重なっても、移動したパネルを手前に表示する
+const PANEL_Z_INDEX = 11;
+
 const PANEL_STYLE = {
-    minWidth: "120px", maxWidth: "120px",
+    position: "fixed", zIndex: PANEL_Z_INDEX, minWidth: "120px", maxWidth: "120px",
     display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-    paddingTop: "15px", paddingBottom: "15px", borderRadius: "15px",
+    paddingTop: "4px", paddingBottom: "15px", borderRadius: "15px",
     border: "1px solid var(--mui-palette-erd-panelBorder)",
     boxShadow: "5px 5px 30px 0px var(--mui-palette-erd-panelShadow)",
     backgroundColor: "var(--mui-palette-erd-panelBackground)"
+} as const;
+
+const DRAG_HANDLE_STYLE = {
+    width: "100%", height: "5px", marginBottom: "6px",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    cursor: "move", touchAction: "none", userSelect: "none",
+    color: "text.secondary"
 } as const;
 
 const EditModePanel = () => {
