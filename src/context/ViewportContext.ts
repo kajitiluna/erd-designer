@@ -1,6 +1,6 @@
 import React from "react";
 
-import { inOpenControlPanel } from "~/components/support";
+import { isModalOpen } from "~/components/support";
 
 type ViewportPosition = { centerX: number; centerY: number };
 type ViewportScaleState = { scale: number; phase: "idle" | "scaling" };
@@ -270,7 +270,7 @@ type WheelHandlerArgs = {
 
 const initWheelHandler = ({ isDraggingRef, zoomTimerRef, viewport }: WheelHandlerArgs) => {
     return (event: WheelEvent) => {
-        if (inOpenControlPanel()) {
+        if (isModalOpen()) {
             return;
         }
 

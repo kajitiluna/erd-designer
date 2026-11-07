@@ -324,7 +324,7 @@ const useRelationLabelToolbar = ({
         transform: `scale(${1 / scaleState.scale})`,
     };
 
-    const controlPanel = (
+    const operationPanel = (
         <div style={toolbarStyle} onClick={handlePreventMouseEvent}
             onMouseDown={handlePreventMouseEvent} onMouseUp={handlePreventMouseEvent}>
             <ColorSelector color={labelView.color} callback={handleSetColor} />
@@ -358,7 +358,7 @@ const useRelationLabelToolbar = ({
         </div>
     );
 
-    return ReactDom.createPortal(controlPanel, toolbarCanvasElement);
+    return ReactDom.createPortal(operationPanel, toolbarCanvasElement);
 };
 
 const FONT_SIZE_STYLE: React.CSSProperties = {

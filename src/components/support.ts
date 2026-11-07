@@ -1,9 +1,8 @@
 
 /**
- * ダイアログなどのコントロールパネルが表示されているかを判定する。
- * canvas 上のショートカットキー操作が行われないように制御するために使用する。
+ * Tells whether a modal (dialog or MUI backdrop) is shown, so canvas shortcuts and wheel zoom stay inactive behind it.
  */
-export const inOpenControlPanel = () => {
+export const isModalOpen = () => {
     // ダイアログが表示されているときはキー操作を無視する
     // DOM 要素を直接みているため、MUI のバージョン変更時には修正が必要に可能性がある
     const dialogs = window.document.querySelectorAll('[role="dialog"]');

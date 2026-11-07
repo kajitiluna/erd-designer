@@ -6,7 +6,7 @@ import { RELEASE_ACTION, SelectAction } from "~/context/SelectEntityContext";
 import EditMode, { EditModeType } from "~/models/EditMode";
 import SelectState from "~/models/SelectState";
 import EditModeShortcut from "~/features/canvas/EditModeShortcut";
-import { inOpenControlPanel, isTextInputFocused } from "~/components/support";
+import { isModalOpen, isTextInputFocused } from "~/components/support";
 
 /**
  * ErdCanvas 内部専用モジュール。外部からの import は禁止 (Oxlint no-restricted-imports で検査)。
@@ -64,8 +64,8 @@ export const initEffectOfKeyDownOnCanvas = (handlers: KeyEventHandler[]) => {
     const handleKeyUpOnCanvas = (event: KeyboardEvent) => {
 
         // ダイアログが表示されているときはキー操作を無視する
-        const inOpenControlPane = inOpenControlPanel();
-        if (inOpenControlPane) {
+        const modalOpen = isModalOpen();
+        if (modalOpen) {
             return;
         }
 
