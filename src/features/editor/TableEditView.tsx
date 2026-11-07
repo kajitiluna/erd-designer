@@ -15,8 +15,10 @@ import TableIndexModel from "~/models/database/TableIndexModel";
 import TableModel from "~/models/database/TableModel";
 import ErdDocument from "~/models/ErdDocument";
 import TableViewModel from "~/models/TableViewModel";
+import { EditModeType } from "~/models/EditMode";
 import TableUniqueKeysModel from "~/models/database/TableUniqueKeysModel";
 import { ColumnShareModelStorageContext } from "~/context/ColumnShareModelStorageContext";
+import EditModeContext from "~/context/EditModeContext";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ColumnViewTable from "~/features/editor/ColumnViewTable";
 import IndexGridView from "~/features/editor/IndexGridView";
@@ -36,6 +38,7 @@ type TableEditViewProps = {
 
 const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const { editMode, dispatchEditMode } = React.useContext(EditModeContext);
     const erdDocument: ErdDocument = documentsHolder.current();
 
     const [columnShareStorage, setColumnShareStorage] = React.useState(erdDocument.getColumnShareModelStorage());
@@ -93,6 +96,12 @@ const TableEditView = ({ isOpen, tableViewModel, onClose }: TableEditViewProps) 
         documentsHolder.updateTableViewModel(
             nextTableViewModel, mergedUpdatingColumns, columnShareStorage, message
         );
+
+        // 作成モードからの確定は作成操作の完了なので SELECT へ戻す。
+        // モード切替は選択解除を伴うため、SELECT 中の編集では dispatch しない。
+        if (editMode !== EditModeType.SELECT) {
+            dispatchEditMode(EditModeType.SELECT);
+        }
 
         onClose();
     };

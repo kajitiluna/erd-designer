@@ -8,7 +8,9 @@ import {
 
 import DraggableDialog from "~/components/DraggableDialog";
 import useAutoFocus from "~/components/keyboard/useAutoFocus";
+import EditModeContext from "~/context/EditModeContext";
 import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
+import { EditModeType } from "~/models/EditMode";
 import RelationModel, { CardinalityType, TableReferenceActionType } from "~/models/database/RelationModel";
 import RelationPair from "~/models/database/RelationPair";
 import TableModel from "~/models/database/TableModel";
@@ -31,6 +33,7 @@ const RelationEditView = ({
     isOpen, relationViewModel, parentTableModel, childTableModel, onClose
 }: RelationEditViewProps) => {
     const documentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const { editMode, dispatchEditMode } = React.useContext(EditModeContext);
     const erdDocument = documentsHolder.current();
 
     const relation: RelationModel = relationViewModel.relationModel;
@@ -117,6 +120,13 @@ const RelationEditView = ({
         const loggingMessage = "Update Relation. " +
             JSON.stringify({ before: relation, after: nextRelationModel });
         documentsHolder.updateRelation(nextRelationView, loggingMessage);
+
+        // 作成モードからの確定は作成操作の完了なので SELECT へ戻す。
+        // モード切替は選択解除を伴うため、SELECT 中の編集では dispatch しない。
+        if (editMode !== EditModeType.SELECT) {
+            dispatchEditMode(EditModeType.SELECT);
+        }
+
         onClose();
     };
 
