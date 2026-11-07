@@ -34,15 +34,15 @@ const databaseColumns: { [key in DatabaseType]: ColumnType[] } = {
         new ColumnType({ id: 45, name: 'decimal (p, s)', description: '精度の選択可能な高精度数値', baseQuery: 'DECIMAL[[PARAM]]', category: 'decimal', withPrecision: true, withScale: true }),
         new ColumnType({ id: 46, name: 'numeric (p, s)', description: '精度の選択可能な高精度数値', baseQuery: 'NUMERIC[[PARAM]]', category: 'decimal', withPrecision: true, withScale: true }),
 
-        new ColumnType({ id: 101, name: 'date', description: '暦の日付 (年月日)', baseQuery: 'DATE', category: 'timestamp', withPrecision: false, withScale: false }),
-        new ColumnType({ id: 131, name: 'time without time zone', description: '時刻 (時間帯なし)', baseQuery: 'TIME WITHOUT TIME ZONE', category: 'timestamp', withPrecision: false, withScale: false }),
-        new ColumnType({ id: 132, name: 'time with time zone', description: '時間帯付き時刻', baseQuery: 'TIME WITH TIME ZONE', category: 'timestamp', withPrecision: false, withScale: false }),
-        new ColumnType({ id: 141, name: 'time (p) without time zone', description: '時刻 (時間帯なし)', baseQuery: 'TIME[[PARAM]] WITHOUT TIME ZONE', category: 'timestamp', withPrecision: true, withScale: false }),
-        new ColumnType({ id: 142, name: 'time (p) with time zone', description: '時間帯付き時刻', baseQuery: 'TIME[[PARAM]] WITH TIME ZONE', category: 'timestamp', withPrecision: true, withScale: false }),
-        new ColumnType({ id: 111, name: 'timestamp without time zone', description: '日付と時刻 (時間帯なし)', baseQuery: 'TIMESTAMP WITHOUT TIME ZONE', category: 'timestamp', withPrecision: false, withScale: false }),
-        new ColumnType({ id: 112, name: 'timestamp with time zone', description: '時間帯付き日付と時刻', baseQuery: 'TIMESTAMP WITH TIME ZONE', category: 'timestamp', withPrecision: false, withScale: false }),
-        new ColumnType({ id: 121, name: 'timestamp (p) without time zone', description: '日付と時刻 (時間帯なし)', baseQuery: 'TIMESTAMP[[PARAM]] WITHOUT TIME ZONE', category: 'timestamp', withPrecision: true, withScale: false }),
-        new ColumnType({ id: 122, name: 'timestamp (p) with time zone', description: '時間帯付き日付と時刻', baseQuery: 'TIMESTAMP[[PARAM]] WITH TIME ZONE', category: 'timestamp', withPrecision: true, withScale: false }),
+        new ColumnType({ id: 101, name: 'date', description: '暦の日付 (年月日)', baseQuery: 'DATE', category: 'timestamp', withPrecision: false, withScale: false, defaultValueCandidates: ['CURRENT_DATE'] }),
+        new ColumnType({ id: 131, name: 'time without time zone', description: '時刻 (時間帯なし)', baseQuery: 'TIME WITHOUT TIME ZONE', category: 'timestamp', withPrecision: false, withScale: false, defaultValueCandidates: ['LOCALTIME'] }),
+        new ColumnType({ id: 132, name: 'time with time zone', description: '時間帯付き時刻', baseQuery: 'TIME WITH TIME ZONE', category: 'timestamp', withPrecision: false, withScale: false, defaultValueCandidates: ['CURRENT_TIME'] }),
+        new ColumnType({ id: 141, name: 'time (p) without time zone', description: '時刻 (時間帯なし)', baseQuery: 'TIME[[PARAM]] WITHOUT TIME ZONE', category: 'timestamp', withPrecision: true, withScale: false, defaultValueCandidates: ['LOCALTIME', 'LOCALTIME[[PARAM]]'] }),
+        new ColumnType({ id: 142, name: 'time (p) with time zone', description: '時間帯付き時刻', baseQuery: 'TIME[[PARAM]] WITH TIME ZONE', category: 'timestamp', withPrecision: true, withScale: false, defaultValueCandidates: ['CURRENT_TIME', 'CURRENT_TIME[[PARAM]]'] }),
+        new ColumnType({ id: 111, name: 'timestamp without time zone', description: '日付と時刻 (時間帯なし)', baseQuery: 'TIMESTAMP WITHOUT TIME ZONE', category: 'timestamp', withPrecision: false, withScale: false, defaultValueCandidates: ['LOCALTIMESTAMP'] }),
+        new ColumnType({ id: 112, name: 'timestamp with time zone', description: '時間帯付き日付と時刻', baseQuery: 'TIMESTAMP WITH TIME ZONE', category: 'timestamp', withPrecision: false, withScale: false, defaultValueCandidates: ['CURRENT_TIMESTAMP'] }),
+        new ColumnType({ id: 121, name: 'timestamp (p) without time zone', description: '日付と時刻 (時間帯なし)', baseQuery: 'TIMESTAMP[[PARAM]] WITHOUT TIME ZONE', category: 'timestamp', withPrecision: true, withScale: false, defaultValueCandidates: ['LOCALTIMESTAMP', 'LOCALTIMESTAMP[[PARAM]]'] }),
+        new ColumnType({ id: 122, name: 'timestamp (p) with time zone', description: '時間帯付き日付と時刻', baseQuery: 'TIMESTAMP[[PARAM]] WITH TIME ZONE', category: 'timestamp', withPrecision: true, withScale: false, defaultValueCandidates: ['CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP[[PARAM]]'] }),
 
         new ColumnType({ id: 301, name: 'char', description: '固定長文字列', baseQuery: 'CHAR', category: 'text', withPrecision: false, withScale: false }),
         new ColumnType({ id: 302, name: 'varchar', description: '可変長文字列', baseQuery: 'VARCHAR', category: 'text', withPrecision: false, withScale: false }),
@@ -372,7 +372,8 @@ export const migrateColumns = (databaseType: DatabaseType, orgColumnTypes: Colum
 
     // orgVersion < 20250612 : ColumnType に defaultValueCandidates プロパティを追加
     // orgVersion < 20260321 : ColumnType の defaultValueCandidates プロパティに動的項目を追加
-    if (orgVersion < 20260321) {
+    // orgVersion < 20261107 : PostgreSQL 日時型の defaultValueCandidates を最新定義へ揃える
+    if ((orgVersion < 20260321) || ((orgVersion < 20261107) && (databaseType === "postgres"))) {
         nextColumnTypes = nextColumnTypes.map(columnType => {
             const latestColumnType = latestColumnTypeMap.get(columnType.id);
             if (latestColumnType == null) {
