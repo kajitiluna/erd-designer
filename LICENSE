@@ -1,3 +1,41 @@
+"Commons Clause" License Condition v1.0
+
+The Software is provided to you by the Licensor under the License, as defined
+below, subject to the following condition.
+
+Without limiting other conditions in the License, the grant of rights under the
+License will not include, and the License does not grant to you, the right to
+Sell the Software.
+
+For purposes of the foregoing, "Sell" means practicing any or all of the rights
+granted to you under the License to provide to third parties, for a fee or
+other consideration (including without limitation fees for hosting or
+consulting/support services related to the Software), a product or service
+whose value derives, entirely or substantially, from the functionality of the
+Software. Any license notice or attribution required by the License must also
+include this Commons Clause License Condition notice.
+
+Software: ERD Designer (including the VS Code extension, erd-cli and the agent
+          plugin distributed from this repository)
+License: Apache License, Version 2.0
+Licensor: Yoshiki Kajihara
+
+Clarification (non-exhaustive examples of what this condition does NOT restrict):
+
+  - Using the Software, with or without modification, inside a company or any
+    other for-profit organization, including for paid work.
+  - Selling or delivering what you create with the Software, such as .erd
+    files, diagrams, images and generated DDL, or database design services
+    whose value derives from your own design work rather than from the
+    Software itself.
+  - Redistributing the Software, or a work based on it, free of charge under
+    these same terms.
+
+Releases published before this condition was added remain available under the
+Apache License, Version 2.0 alone.
+
+-------------------------------------------------------------------------------
+
                                  Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/

@@ -237,4 +237,5 @@ to do with pull requests — only a recurring check catches it.
 
 ## License
 
-Apache-2.0
+Apache-2.0 with the Commons Clause License Condition v1.0. Commercial use is permitted, but selling the
+software or a product or service based on it is not. See the LICENSE file for the full terms.

@@ -65,7 +65,7 @@ const termsOfService = `
 
 ## 知的財産権
 
-- 本アプリケーションのソースコードはオープンソースライセンスである Apache License 2.0 に基づき提供されます。
+- 本アプリケーションのソースコードは、Apache License 2.0 に Commons Clause License Condition v1.0 を付加したライセンスに基づき提供されます。商用での利用は可能ですが、本アプリケーションまたはこれを基にした製品・サービスを有償で販売することはできません。
 - 利用者がアップロードまたは指定するファイルに関する権利は、引き続き利用者に帰属します。
 
 ## 準拠法および管轄
@@ -77,6 +77,8 @@ const termsOfService = `
 - 制定日：2025 年 03 月 29 日
 - 改定日：2025 年 11 月 06 日
   - 改定内容：プライバシーポリシーおよびサポート情報の明確化。
+- 改定日：2026 年 11 月 08 日
+  - 改定内容：ソースコードのライセンスに Commons Clause を付加。
 
 
 ---
@@ -146,7 +148,7 @@ const termsOfService = `
 
 ## Intellectual Property Rights
 
-- The source code of the Application is provided under the Apache License 2.0.
+- The source code of the Application is provided under the Apache License 2.0 with the Commons Clause License Condition v1.0. Commercial use is permitted, but selling the Application or a product or service based on it is not.
 - Any rights to files uploaded or specified by the User remain with the User.
 
 ## Governing Law and Jurisdiction
@@ -159,6 +161,8 @@ const termsOfService = `
 - Established: 2025-03-29
 - Revised: 2025-11-06
   - Summary of Revisions: Clarified privacy, support, and compliance details.
+- Revised: 2026-11-08
+  - Summary of Revisions: Added the Commons Clause to the source code license.
 `;
 
 const TermsOfServicePanel = () => {

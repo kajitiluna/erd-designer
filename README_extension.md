@@ -179,5 +179,6 @@ a [star on GitHub](https://github.com/kajitiluna/erd-designer) helps other devel
 
 ## License
 
-This extension is licensed under the Apache License 2.0.
+This extension is licensed under the Apache License 2.0 with the Commons Clause License Condition v1.0.
+Commercial use is permitted, but selling the software or a product or service based on it is not.
 See the [LICENSE](https://github.com/kajitiluna/erd-designer/blob/main/LICENSE) file for details.

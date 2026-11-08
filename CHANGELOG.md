@@ -33,6 +33,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **License**:
+
+  The license is now the Apache License 2.0 with the Commons Clause License Condition v1.0.
+  Commercial use remains permitted, but selling the software or a product or service based on it is not.
+  Releases published before this change remain under the Apache License 2.0 alone.
+
 - **Return to Select mode after creation**:
 
   Confirming the dialog of a new table or relation now switches the edit mode back to Select.
