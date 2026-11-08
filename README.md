@@ -234,4 +234,12 @@ To report a security issue, see [SECURITY.md](SECURITY.md).
 
 ## License
 
-ERD Designer is distributed under the Apache License 2.0.
+ERD Designer is distributed under the Apache License 2.0 with the
+[Commons Clause](https://commonsclause.com/) License Condition v1.0. See [LICENSE](LICENSE) for the full terms.
+
+- **Allowed** — using it at work or for paid projects, modifying it, and redistributing it free of charge.
+  What you create with it (.erd files, diagrams, DDL) is yours to use and sell.
+- **Not allowed** — selling ERD Designer or a product or service based on it, including a paid hosted version,
+  whose value derives entirely or substantially from its functionality.
+
+Releases published before the Commons Clause was added remain under the Apache License 2.0 alone.

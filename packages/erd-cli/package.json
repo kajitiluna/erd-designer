@@ -2,7 +2,7 @@
   "name": "@kajitiluna/erd-cli",
   "version": "0.0.0",
   "description": "Verify that a designed ERD Designer .erd schema matches a live database or another .erd revision.",
-  "license": "Apache-2.0",
+  "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/kajitiluna/erd-designer.git"
@@ -28,7 +28,9 @@
   },
   "files": [
     "erd-cli.cjs",
-    "README.md"
+    "README.md",
+    "LICENSE",
+    "NOTICE"
   ],
   "optionalDependencies": {
     "pg": "^8.16.0",

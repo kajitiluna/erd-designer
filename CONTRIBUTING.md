@@ -137,5 +137,5 @@ are expected to uphold it.
 
 ## License
 
-By contributing, you agree that your contributions are licensed under the
-[Apache License 2.0](LICENSE).
+By contributing, you agree that your contributions are licensed under the same terms as the project:
+the Apache License 2.0 with the Commons Clause License Condition v1.0 (see [LICENSE](LICENSE)).

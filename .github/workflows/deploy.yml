@@ -300,6 +300,10 @@ jobs:
       - name: Make erd-cli.cjs executable
         run: chmod +x ./packages/erd-cli/erd-cli.cjs
 
+      # LICENSE / NOTICE はリポジトリ直下が唯一の原本。npm パッケージにも同梱が必須なので publish 直前に複製する
+      - name: Copy license files
+        run: cp LICENSE NOTICE ./packages/erd-cli/
+
       - name: Apply app version
         working-directory: ./packages/erd-cli
         run: npm version "${APP_VERSION}" --no-git-tag-version

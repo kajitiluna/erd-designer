@@ -8,7 +8,7 @@
     },
     "homepage": "https://github.com/kajitiluna/erd-designer",
     "repository": "https://github.com/kajitiluna/erd-designer",
-    "license": "Apache-2.0",
+    "license": "LicenseRef-Apache-2.0-with-Commons-Clause",
     "keywords": [
         "erd",
         "er-diagram",
