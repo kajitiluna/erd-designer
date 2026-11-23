@@ -28,7 +28,7 @@ import TableTabNavigation from "~/features/canvas/TableTabNavigation";
 import KeyboardFocusSelection from "~/features/canvas/KeyboardFocusSelection";
 import { handlePreventMouseEvent, withMultiSelectKey } from "~/features/canvas/support";
 import TableViewModel from "~/models/TableViewModel";
-import ColorValue from "~/models/ColorValue";
+import ColorValue, { ColorTheme } from "~/models/ColorValue";
 import { EditModeType } from "~/models/EditMode";
 import { ColumnRowEntry, expandColumnRows, isColumnRowVisible } from "~/models/column-row-expansion";
 import ErdDocument from "~/models/ErdDocument";
@@ -48,7 +48,6 @@ import { overrideColumnName } from "~/models/database/support";
 import styleClasses from "./ErdCanvas.module.css";
 import SelectState from "~/models/SelectState";
 import DisplayColumnStyle from "~/models/DisplayColumnStyle";
-import { DragState } from "~/models/DragState";
 import useAutoFocus from "~/components/keyboard/useAutoFocus";
 
 export const ERD_TABLE_VIEW_CLASS_NAME = "erd-table-view";
@@ -62,9 +61,11 @@ type ErdTableViewProps = {
 
 const ErdTableView = ({ tableView, visible = true, onEditAction, onDragAction }: ErdTableViewProps) => {
     const documentsHolder: ErdDocumentsHolder = React.useContext(ErdDocumentsHolderContext);
+    const { scaleState } = React.useContext(ViewportContext);
     const { editMode } = React.useContext(EditModeContext);
     const { selectState } = React.useContext(SelectEntityContext);
     const dragState = React.useContext(DragActionContext);
+    const { colorTheme } = React.useContext(ThemePreferenceContext);
 
     const [openDeletingDialog, setOpenDeleteDialog] = React.useState(false);
 
@@ -104,10 +105,16 @@ const ErdTableView = ({ tableView, visible = true, onEditAction, onDragAction }:
 
     const selected = selectState.tableIds.has(tableView.tableId);
 
+    // scale が 50未満の場合は必ずtooltipを表示する制御
+    const displayStyle = erdDocument.getDisplayColumnStyle();
+    const showTableTooltip = selected && (dragState.status !== "on_dragging") && (scaleState.phase === "idle")
+        && ((scaleState.scale < 0.5) || (displayStyle.equals(DisplayColumnStyle.ALL) === false));
+    const withTableName = showTableTooltip && (scaleState.scale < 0.5);
+
     const wrapTableTooltip = React.useMemo(() => {
-        return initWrapContentTooltip(tableView.tableModel, selected, erdDocument, dragState);
+        return initWrapContentTooltip(tableView, erdDocument, colorTheme, showTableTooltip, withTableName);
         // oxlint-disable-next-line react/exhaustive-deps
-    }, [erdDocument.lastUpdatedAt, selected, (selected ? dragState.status : "")]);
+    }, [erdDocument.lastUpdatedAt, showTableTooltip, withTableName, colorTheme]);
 
     const viewCache = React.useMemo(() => {
         return (
@@ -709,9 +716,10 @@ const InnerErdTableView = ({
 };
 
 const initWrapContentTooltip = (
-    tableModel: TableModel, selected: boolean, erdDocument: ErdDocument, dragState: DragState
+    tableView: TableViewModel, erdDocument: ErdDocument, colorTheme: ColorTheme,
+    showTooltip: boolean, withTableName: boolean
 ) => {
-    const columnTooltip = initColumnTooltip(tableModel, selected, erdDocument, dragState);
+    const columnTooltip = initColumnTooltip(tableView, erdDocument, colorTheme, showTooltip, withTableName);
     const wrapContentTooltip = (content: React.JSX.Element) => {
         return (
             <Tooltip title={columnTooltip} placement="right" arrow slotProps={TABLE_TOOLTIP_STYLE}>
@@ -723,40 +731,6 @@ const initWrapContentTooltip = (
     // react/display-name ルール対応のため、一度変数に代入したものを返却する
     return wrapContentTooltip;
 };
-
-const initColumnTooltip = (
-    tableModel: TableModel, selected: boolean, erdDocument: ErdDocument, dragState: DragState
-) => {
-    if ((selected === false) || (dragState.status === "on_dragging")) {
-        return "";
-    }
-
-    const displayStyle = erdDocument.getDisplayColumnStyle();
-    if (displayStyle.equals(DisplayColumnStyle.ALL)) {
-        return "";
-    }
-
-    const allColumns = erdDocument.toAllColumnsWithStruct(tableModel);
-    const columnRows = expandColumnRows(erdDocument, allColumns);
-    if (columnRows.length === 0) {
-        return "";
-    }
-
-    const tableRows = columnRows.map(row => initTableColumnRow(row, tableModel, erdDocument));
-
-    return (
-        <TableContainer sx={{ overflow: "hidden", borderRadius: "10px" }}>
-            <Table size="small" sx={COLUMN_TOOLTIP_STYLE}>
-                <TableBody>{tableRows}</TableBody>
-            </Table>
-        </TableContainer>
-    );
-};
-
-const COLUMN_TOOLTIP_STYLE = {
-    backgroundColor: "var(--mui-palette-erd-tableBody)",
-    "& .MuiTableCell-root": { fontSize: "0.7rem" }
-} as const;
 
 const TABLE_TOOLTIP_STYLE = {
     tooltip: {
@@ -770,6 +744,48 @@ const TABLE_TOOLTIP_STYLE = {
         }
     },
     arrow: { sx: { color: "var(--mui-palette-erd-tableBody)" } }
+} as const;
+
+const initColumnTooltip = (
+    tableView: TableViewModel, erdDocument: ErdDocument, colorTheme: ColorTheme,
+    showTooltip: boolean, withTableName: boolean
+) => {
+    if (showTooltip === false) {
+        return "";
+    }
+
+    const allColumns = erdDocument.toAllColumnsWithStruct(tableView.tableModel);
+    const columnRows = expandColumnRows(erdDocument, allColumns);
+    if ((columnRows.length === 0) && (withTableName === false)) {
+        return "";
+    }
+
+    const tableRows = columnRows.map(row => initTableColumnRow(row, tableView.tableModel, erdDocument));
+
+    const tableNamePanel = withTableName && (
+        <Box sx={{
+            ...HEADER_STYLE,
+            borderBottom: "none", fontSize: "0.75rem",
+            backgroundColor: tableView.headerColor.background.toRgba(colorTheme),
+            color: tableView.headerColor.foreground.toRgba(colorTheme)
+        }}>{initDisplayTableName(erdDocument, tableView.tableModel)}</Box>
+    );
+
+    return (
+        <TableContainer sx={{ overflow: "hidden", borderRadius: "10px" }}>
+            {tableNamePanel}
+            {(tableRows.length > 0) && (
+                <Table size="small" sx={COLUMN_TOOLTIP_STYLE}>
+                    <TableBody>{tableRows}</TableBody>
+                </Table>
+            )}
+        </TableContainer>
+    );
+};
+
+const COLUMN_TOOLTIP_STYLE = {
+    backgroundColor: "var(--mui-palette-erd-tableBody)",
+    "& .MuiTableCell-root": { fontSize: "0.7rem" }
 } as const;
 
 type TableOperationPanelProps = {
