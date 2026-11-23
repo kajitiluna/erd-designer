@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.20261123] - 2026-11-23
+
+### Added
+
+- **Table name in the tooltip when zoomed out**:
+
+  When the canvas is zoomed out below 50%, selecting a table always shows its tooltip, regardless of the column display style.
+  The tooltip starts with the table name in the table's header color, so the table can be identified
+  even when its text is too small to read.
+
+
 ## [0.20261108] - 2026-11-08
 
 ### Added
