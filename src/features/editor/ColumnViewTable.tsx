@@ -51,8 +51,7 @@ const ColumnViewTable = ({
     const [selectedWrappedModel, setSelectedWrappedModel] = React.useState<ColumnWrapModel | null>(null);
     const [editMode, setEditMode] = React.useState<ColumnEditModeType>("");
 
-    const [draggingStartIndex, setDraggingStartIndex] = React.useState<number | null>(null);
-    const [draggingOverIndex, setDraggingOverIndex] = React.useState<number | null>(null);
+    const [dragState, setDragState] = React.useState<ColumnDragState>(IDLE_DRAG_STATE);
 
     // 削除ボタンは選択が外れると無効化されフォーカスを失うため、削除後に残った行へフォーカスを戻す。
     const { containerRef: tableBodyRef, requestFocus } = useRowFocusRequest<HTMLTableSectionElement>();
@@ -92,20 +91,19 @@ const ColumnViewTable = ({
     // Tab 移動で止まる行は常に1つ(未選択なら先頭行)。行数ぶん Tab 停止が増えるのを避けるための roving tabindex。
     const focusableIndex = (selectedIndex < 0) ? 0 : selectedIndex;
 
+    // 挿入先は行そのものではなく行と行の間なので、ドロップ位置の境界線だけを描き、行の見た目は変えない。
+    const insertionBoundary = (dragState.status === "dragging") ? visibleInsertionBoundary(dragState) : null;
+
     const initRowStyle = (targetIndex: number) => {
         const rowStyle = (selectedIndex === targetIndex)
             ? { backgroundColor: SELECTED_CELL_COLOR, height: "33px" } : BASE_ROW_STYLE;
+        const insertionLineStyle = initInsertionLineStyle(insertionBoundary, targetIndex, columnWrapModels.length);
 
-        // ドラッグ中の行は半透明にする
-        if (draggingStartIndex === targetIndex) {
-            return { ...rowStyle, opacity: 0.2 };
-        }
-        // ドラッグオーバー中の行は色を変える
-        if (draggingOverIndex === targetIndex) {
-            return { height: "33px", backgroundColor: 'lightblue' };
+        if ((dragState.status === "dragging") && (dragState.startIndex === targetIndex)) {
+            return { ...rowStyle, ...insertionLineStyle, opacity: 0.2 };
         }
 
-        return rowStyle;
+        return { ...rowStyle, ...insertionLineStyle };
     };
 
     const initColumnModelRow = (columnWrapModel: ColumnWrapModel, targetIndex: number) => {
@@ -127,46 +125,16 @@ const ColumnViewTable = ({
             setEditMode(TO_EDIT_MODE[columnWrapModel.modelType]);
         };
 
-        // ドラッグ開始の制御
         const handleDragStart = (event: React.DragEvent) => {
-            setDraggingStartIndex(targetIndex);
+            setDragState({ status: "dragging", startIndex: targetIndex, insertionBoundary: null });
             event.dataTransfer.effectAllowed = "move";
         };
 
-        // 他の要素をドラッグしているものが、該当コンポーネントの上にドラッグオーバーしている時の制御
-        const handleDragOver = (event: React.DragEvent) => {
-            event.preventDefault();
-
-            setDraggingOverIndex(previous => {
-                if (previous === targetIndex) {
-                    return previous; // 同じ行でのドラッグオーバーは無視
-                }
-
-                event.dataTransfer.dropEffect = "move";
-                return targetIndex;
-            });
-        };
-
-        const handleDrop = (event: React.DragEvent) => {
-            event.preventDefault();
-
-            if ((draggingStartIndex == null) || (draggingStartIndex === targetIndex)) {
-                return; // ドラッグ開始位置が未設定、または同じ行でのドロップは無視
-            }
-
-            onUpdateColumnWrapModels(previous => {
-                const nextColumnWrapModels = [...previous];
-
-                nextColumnWrapModels.splice(draggingStartIndex, 1); // 元の位置から削除
-                nextColumnWrapModels.splice(targetIndex, 0, previous[draggingStartIndex]);
-
-                return nextColumnWrapModels
-            });
-        };
+        // この表の行をドラッグしている間だけドロップを受け付ける。ファイル等の外部からのドラッグは対象外。
+        const dropHandlers = (dragState.status === "dragging") ? initDropHandlers(dragState, targetIndex) : {};
 
         const handleDragEnd = () => {
-            setDraggingStartIndex(null);
-            setDraggingOverIndex(null);
+            setDragState(IDLE_DRAG_STATE);
         };
 
         const selectRowAt = (nextIndex: number) => {
@@ -180,10 +148,14 @@ const ColumnViewTable = ({
             reorderColumnByKeyboard(targetIndex, shift);
         };
 
+        const handleRemove = () => {
+            removeColumnIfAllowed(targetIndex);
+        };
+
         const handleKeyDown = RowKeyNavigation.initHandleKeyDown({
             orientation: "vertical", index: targetIndex, lastIndex: columnWrapModels.length - 1,
             selectAt: selectRowAt, onSelect: handleRowClicked, onActivate: handleEditColumn,
-            onReorder: handleReorder
+            onReorder: handleReorder, onRemove: handleRemove
         });
 
         return (
@@ -191,14 +163,60 @@ const ColumnViewTable = ({
                 sx={initRowStyle(targetIndex)} style={{ cursor: 'pointer' }}
                 draggable={columnWrapModels.length > 1}
                 tabIndex={(targetIndex === focusableIndex) ? 0 : -1}
-                onDragStart={handleDragStart} onDragOver={handleDragOver}
-                onDragLeave={() => setDraggingOverIndex(null)}
-                onDrop={handleDrop} onDragEnd={handleDragEnd}
+                onDragStart={handleDragStart} {...dropHandlers} onDragEnd={handleDragEnd}
                 onClick={handleRowClicked} onDoubleClick={handleEditColumn} onKeyDown={handleKeyDown}>
                 <TableCell align="center">{(selectedIndex === targetIndex) && "✔"}</TableCell>
                 {cells}
             </TableRow>
         );
+    };
+
+    const initDropHandlers = (draggingColumn: DraggingColumn, targetIndex: number) => {
+        const handleDragOver = (event: React.DragEvent<HTMLElement>) => {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+
+            const nextBoundary = insertionBoundaryAt(event, targetIndex);
+            if (nextBoundary !== draggingColumn.insertionBoundary) {
+                setDragState({ ...draggingColumn, insertionBoundary: nextBoundary });
+            }
+        };
+
+        const handleDrop = (event: React.DragEvent<HTMLElement>) => {
+            event.preventDefault();
+
+            const startIndex = draggingColumn.startIndex;
+            const movedIndex = toMovedIndex(startIndex, insertionBoundaryAt(event, targetIndex));
+            setDragState(IDLE_DRAG_STATE);
+            if (movedIndex === startIndex) {
+                return;
+            }
+
+            onUpdateColumnWrapModels(previous => {
+                const nextColumnWrapModels = [...previous];
+                nextColumnWrapModels.splice(startIndex, 1);
+                nextColumnWrapModels.splice(movedIndex, 0, previous[startIndex]);
+
+                return nextColumnWrapModels
+            });
+        };
+
+        return { onDragOver: handleDragOver, onDrop: handleDrop };
+    };
+
+    // dragleave は行やセルの境目を越えるたびにも発生するため、行ではなく tbody で受け、
+    // 移動先が tbody の外のときだけ挿入線を消す。表の外では落としても並びは変わらないので、線を残さない。
+    const handleBodyDragLeave = (event: React.DragEvent<HTMLElement>) => {
+        if (dragState.status !== "dragging") {
+            return;
+        }
+
+        const nextTarget = event.relatedTarget;
+        if ((nextTarget instanceof Node) && event.currentTarget.contains(nextTarget)) {
+            return;
+        }
+
+        setDragState({ ...dragState, insertionBoundary: null });
     };
 
     const columnViewHeader = (
@@ -354,7 +372,16 @@ const ColumnViewTable = ({
         return true;
     };
 
-    const checkRemovable = (targetIndex: number) => {
+    // 削除ボタンが無効になる行 (リレーションの子カラムを含む行) は、キー操作でも削除しない。
+    const removeColumnIfAllowed = (targetIndex: number) => {
+        if (isRemovalBlocked(targetIndex)) {
+            return;
+        }
+
+        removeColumnAt(targetIndex);
+    };
+
+    const isRemovalBlocked = (targetIndex: number) => {
         const columnWrapModel = columnWrapModels[targetIndex];
         if (columnWrapModel.modelType === "single") {
             return isChildRelation(columnWrapModel.columnModel.columnModelId);
@@ -368,18 +395,22 @@ const ColumnViewTable = ({
     };
 
     const handleRemoveColumn = () => {
-        if (selectedIndex == null) {
+        if (selectedIndex < 0) {
             return;
         }
 
-        const neighbourIndex = RowKeyNavigation.neighbourIndexAfterRemoval(columnWrapModels.length, selectedIndex);
+        removeColumnAt(selectedIndex);
+    };
+
+    const removeColumnAt = (targetIndex: number) => {
+        const neighbourIndex = RowKeyNavigation.neighbourIndexAfterRemoval(columnWrapModels.length, targetIndex);
         if (neighbourIndex >= 0) {
             requestFocus(neighbourIndex);
         }
 
         setSelectedWrappedModel(null);
-        onUpdateColumnWrapModels(previous => previous.filter((_, index) => (selectedIndex !== index)))
-    }
+        onUpdateColumnWrapModels(previous => previous.filter((_, index) => (targetIndex !== index)));
+    };
 
     const editButtonPanel = (
         <Stack direction="row" spacing={2} sx={{ justifyContent: "flex-end" }}>
@@ -396,7 +427,7 @@ const ColumnViewTable = ({
                 onClick={initHandleShiftColumn(1)}>
                 <ArrowDownwardIcon fontSize="small" />
             </EdgedIconButton>
-            <EdgedIconButton tooltip="Remove column" disabled={(selectedIndex < 0) || checkRemovable(selectedIndex)}
+            <EdgedIconButton tooltip="Remove column" disabled={(selectedIndex < 0) || isRemovalBlocked(selectedIndex)}
                 onClick={handleRemoveColumn}>
                 <DeleteIcon fontSize="small" />
             </EdgedIconButton>
@@ -434,7 +465,7 @@ const ColumnViewTable = ({
         <TableContainer sx={{ maxHeight: window.innerHeight - 550 }}>
             <Table stickyHeader size="small" aria-label="column view table" style={{ tableLayout: "fixed" }}>
                 {columnViewHeader}
-                <TableBody ref={tableBodyRef}>
+                <TableBody ref={tableBodyRef} onDragLeave={handleBodyDragLeave}>
                     {(columnWrapModels.length > 0)
                         ? columnWrapModels.map((columnWrapModel: ColumnWrapModel, index: number) =>
                             initColumnModelRow(columnWrapModel, index))
@@ -480,6 +511,52 @@ const ColumnViewTable = ({
         )}
     </>);
 };
+
+/** Insertion boundary `n` is the border just above row `n`; the row count is the border below the last row. */
+type DraggingColumn = { status: "dragging", startIndex: number, insertionBoundary: number | null };
+
+type ColumnDragState = { status: "idle" } | DraggingColumn;
+
+const IDLE_DRAG_STATE: ColumnDragState = { status: "idle" } as const;
+
+// 行の上半分なら行の上、下半分なら行の下の境界を挿入先とする。
+const insertionBoundaryAt = (event: React.DragEvent<HTMLElement>, rowIndex: number): number => {
+    const rectangle = event.currentTarget.getBoundingClientRect();
+    const inUpperHalf = event.clientY < rectangle.top + (rectangle.height / 2);
+
+    return inUpperHalf ? rowIndex : rowIndex + 1;
+};
+
+// ドラッグ中の行の直上・直下の境界は、落としても並びが変わらないので挿入先として示さない。
+const visibleInsertionBoundary = (draggingColumn: DraggingColumn): number | null => {
+    const { startIndex, insertionBoundary } = draggingColumn;
+    if ((insertionBoundary == null) || (insertionBoundary === startIndex) || (insertionBoundary === startIndex + 1)) {
+        return null;
+    }
+
+    return insertionBoundary;
+};
+
+// 取り除いた行より後ろの境界は、取り除いた分だけ前へずれる。
+const toMovedIndex = (startIndex: number, insertionBoundary: number): number => {
+    return (insertionBoundary > startIndex) ? insertionBoundary - 1 : insertionBoundary;
+};
+
+// 境界線は行の高さを変えないよう、セルの内側の影として描く。最下段の境界だけは最終行の下辺に描く。
+const initInsertionLineStyle = (insertionBoundary: number | null, rowIndex: number, rowCount: number) => {
+    if (insertionBoundary === rowIndex) {
+        return { "& > td": { boxShadow: INSERTION_LINE_ABOVE } };
+    }
+
+    if ((insertionBoundary === rowCount) && (rowIndex === rowCount - 1)) {
+        return { "& > td": { boxShadow: INSERTION_LINE_BELOW } };
+    }
+
+    return {};
+};
+
+const INSERTION_LINE_ABOVE = "inset 0 3px 0 0 var(--mui-palette-primary-main)";
+const INSERTION_LINE_BELOW = "inset 0 -3px 0 0 var(--mui-palette-primary-main)";
 
 const BASE_ROW_STYLE = {
     height: "33px",

@@ -13,6 +13,7 @@ import SimpleColumnModel from "~/models/database/SimpleColumnModel";
 import { ColumnWrapModel, initHandleCloseDialog } from "~/features/editor/support";
 import useItemListPanel, { initColumnTableHelper as initColumnTableHelper } from "~/features/editor/useItemListPanel";
 import useAutoFocus from "~/components/keyboard/useAutoFocus";
+import DialogSubmitKey from "~/components/keyboard/DialogSubmitKey";
 
 type ColumnGroupViewProps = {
     isOpen: boolean,
@@ -82,21 +83,25 @@ const ColumnGroupView = ({
             );
         }
 
-        const handleClickOk = () => {
-            if (selectedItem == null) {
-                return;
-            }
-
-            confirmColumnGroup(selectedItem);
-        };
-
-        const unchanged = (selectedItem == null) || (selectedItem.columnGroupId === initialColumnGroupId);
-
         return (<>
             <Button onClick={onClose}>Cancel</Button>
-            <Button variant="contained" disabled={unchanged} onClick={handleClickOk}>OK</Button>
+            <Button variant="contained" disabled={unchanged} onClick={confirmSelectedGroup}>OK</Button>
         </>);
     };
+
+    // OK ボタンが無効 (未選択、または初期と同じグループ) のときは、キー操作でも確定しない。
+    const unchanged = (selectedItem == null) || (selectedItem.columnGroupId === initialColumnGroupId);
+    const confirmSelectedGroup = () => {
+        if ((selectedItem == null) || unchanged) {
+            return;
+        }
+
+        confirmColumnGroup(selectedItem);
+    };
+
+    // 決定ボタンがあるのは select モードだけ。edit モードは Close のみなので Ctrl/Cmd + Enter を割り当てない。
+    const handleKeyDownCapture = DialogSubmitKey.initHandleCtrlEnterCapture(
+        (viewMode === "select") ? confirmSelectedGroup : undefined);
 
     // 削除確認ダイアログを閉じる (削除を実行せず選択は維持する)
     const handleCloseDialog = () => reset();
@@ -131,7 +136,7 @@ const ColumnGroupView = ({
 
     return (<>
         <Dialog fullWidth maxWidth={withLogicalName ? "xl" : "lg"} sx={{ userSelect: "none" }}
-            open={isOpen} onClose={initHandleCloseDialog(onClose)}>
+            open={isOpen} onClose={initHandleCloseDialog(onClose)} onKeyDownCapture={handleKeyDownCapture}>
             <DialogTitle>{(viewMode === "select" ? "Select Column Group" : "Column Groups")}</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>

@@ -7,6 +7,7 @@ import SearchIcon from "@mui/icons-material/Search";
 
 import useAutoFocus from "~/components/keyboard/useAutoFocus";
 import RowKeyNavigation from "~/components/keyboard/RowKeyNavigation";
+import DialogSubmitKey from "~/components/keyboard/DialogSubmitKey";
 import useStateRef from "~/components/useStateRef";
 import { ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import { initHandleCloseDialog, SELECTED_CELL_COLOR } from "~/features/editor/support";
@@ -175,21 +176,27 @@ const SearchContentDialog = <ENTITY,>({
     );
 
     const handleSubmit = (event: React.MouseEvent) => {
+        event.stopPropagation();
+        submitSelectedModel();
+    };
+
+    // OK ボタンと同じく、選択行がなければ何もしない。
+    const submitSelectedModel = () => {
         if (selectedModel == null) {
             return;
         }
-
-        event.stopPropagation();
 
         onCompleted(selectedModel);
         onClose();
     };
 
+    const handleKeyDownCapture = DialogSubmitKey.initHandleCtrlEnterCapture(submitSelectedModel);
+
     const withLogicalName = erdDocument.getDisplayNameStyle().withLogicalName();
 
     return (
         <Dialog fullWidth maxWidth={withLogicalName ? "xl" : "lg"} sx={{ userSelect: "none" }}
-            open={isOpen} onClose={initHandleCloseDialog(onClose)}>
+            open={isOpen} onClose={initHandleCloseDialog(onClose)} onKeyDownCapture={handleKeyDownCapture}>
             <DialogTitle>{dialogTitle}</DialogTitle>
             <DialogContent>
                 <Divider />

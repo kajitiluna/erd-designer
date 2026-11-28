@@ -5,6 +5,7 @@ import {
 } from "@mui/material";
 
 import useAutoFocus from "~/components/keyboard/useAutoFocus";
+import DialogSubmitKey from "~/components/keyboard/DialogSubmitKey";
 import { ErdDocumentsHolder, ErdDocumentsHolderContext } from "~/context/ErdDocumentsHolderContext";
 import ErdDocument from "~/models/ErdDocument";
 import { DdlLoadResult, importDdl, loadDdl } from "~/models/schema/ddl-loader";
@@ -31,7 +32,11 @@ const ImportFromDdlView = ({ isOpen, onClose }: ImportFromDdlViewProps) => {
 
     const handleCheckingDdl = (event: React.MouseEvent) => {
         event.stopPropagation();
+        checkDdl();
+    };
 
+    // Check DDL ボタンと同じく、DDL が空なら何もしない。
+    const checkDdl = () => {
         if (ddl.trim() === "") {
             return;
         }
@@ -41,9 +46,13 @@ const ImportFromDdlView = ({ isOpen, onClose }: ImportFromDdlViewProps) => {
     };
 
     if (loadResult == null) {
+        // この段で押せる決定ボタンは Check DDL だけなので、Ctrl/Cmd + Enter もそれに限る。
+        const handleCheckKeyDownCapture = DialogSubmitKey.initHandleCtrlEnterCapture(checkDdl);
+
         return (
             <Dialog fullWidth maxWidth="lg" sx={{ userSelect: "none" }}
-                open={isOpen && (loadResult == null)} onClose={initHandleCloseDialog(onClose)}>
+                open={isOpen && (loadResult == null)} onClose={initHandleCloseDialog(onClose)}
+                onKeyDownCapture={handleCheckKeyDownCapture}>
                 <DialogTitle>Import from DDL (Experimental)</DialogTitle>
                 <DialogContent>
                     <Stack spacing={3}>
@@ -117,7 +126,11 @@ const ImportFromDdlView = ({ isOpen, onClose }: ImportFromDdlViewProps) => {
 
     const handleComplete = (event: React.MouseEvent) => {
         event.stopPropagation();
+        completeImport();
+    };
 
+    // Import ボタンと同じく、失敗を含む結果では何もしない。
+    const completeImport = () => {
         if (invalidState === true) {
             return;
         }
@@ -151,10 +164,14 @@ const ImportFromDdlView = ({ isOpen, onClose }: ImportFromDdlViewProps) => {
         });
 
         onClose();
-    }
+    };
+
+    // この段で押せる決定ボタンは Import だけなので、Ctrl/Cmd + Enter もそれに限る (Back は割り当てない)。
+    const handleImportKeyDownCapture = DialogSubmitKey.initHandleCtrlEnterCapture(completeImport);
 
     return (
-        <Dialog fullWidth maxWidth="lg" open={isOpen && (loadResult != null)} onClose={initHandleCloseDialog(onClose)}>
+        <Dialog fullWidth maxWidth="lg" open={isOpen && (loadResult != null)} onClose={initHandleCloseDialog(onClose)}
+            onKeyDownCapture={handleImportKeyDownCapture}>
             <DialogTitle>Import from DDL (Experimental)</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>

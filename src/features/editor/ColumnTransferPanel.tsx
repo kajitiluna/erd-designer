@@ -373,6 +373,9 @@ const ColumnTransferPanel = <INDEXED_ENTITY extends { columnModelId: string },>(
                 </Grid>
                 <Grid size={{ xs: 1 }}>{orderPanel}</Grid>
             </Grid>
+            <Typography variant="caption" component="p" sx={{ color: "text.secondary", marginTop: 1 }}>
+                Double-click a column to add it or remove it.
+            </Typography>
         </Paper>
     );
 };

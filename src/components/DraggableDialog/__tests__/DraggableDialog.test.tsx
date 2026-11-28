@@ -1,3 +1,4 @@
+import type React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Autocomplete, Button, Dialog, DialogActions, DialogContent, TextField } from "@mui/material";
 import { describe, expect, test, vi } from "vitest";
@@ -9,16 +10,25 @@ const OPTIONS = ["alpha", "beta"];
 type FixtureProps = {
     onSubmitRequest: () => void,
     onClose?: () => void,
-    withNested?: boolean
+    withNested?: boolean,
+    onRowKeyDown?: (event: React.KeyboardEvent) => void
 };
 
-const Fixture = ({ onSubmitRequest, onClose = () => { /* do nothing */ }, withNested = false }: FixtureProps) => {
+const Fixture = ({
+    onSubmitRequest, onClose = () => { /* do nothing */ }, withNested = false,
+    onRowKeyDown = () => { /* do nothing */ }
+}: FixtureProps) => {
     return (
         <DraggableDialog open={true} onClose={onClose} onSubmitRequest={onSubmitRequest}>
             <DialogContent>
                 <TextField label="Name" />
                 <TextField label="Description" multiline rows={3} />
                 <Autocomplete options={OPTIONS} renderInput={params => <TextField {...params} label="Kind" />} />
+                <table>
+                    <tbody>
+                        <tr tabIndex={0} aria-label="column-row" onKeyDown={onRowKeyDown}><td>id</td></tr>
+                    </tbody>
+                </table>
                 <Dialog open={withNested}>
                     <DialogActions>
                         <input aria-label="nested-input" />
@@ -62,6 +72,24 @@ describe("DraggableDialog onSubmitRequest", () => {
         fireEvent.keyDown(screen.getByLabelText("Name"), { key: "Enter", isComposing: true });
 
         expect(onSubmitRequest).not.toHaveBeenCalled();
+    });
+
+    test("Ctrl/Cmd+Enter はボタンや行にフォーカスがあっても呼ばれ、その要素自身の Enter 処理には届かない", () => {
+        const onSubmitRequest = vi.fn();
+        const onRowKeyDown = vi.fn((event: React.KeyboardEvent) => {
+            event.preventDefault();
+            event.stopPropagation();
+        });
+        render(<Fixture onSubmitRequest={onSubmitRequest} onRowKeyDown={onRowKeyDown} />);
+
+        fireEvent.keyDown(screen.getByRole("button", { name: "Cancel" }), { key: "Enter", ctrlKey: true });
+        fireEvent.keyDown(screen.getByLabelText("column-row"), { key: "Enter", metaKey: true });
+        expect(onSubmitRequest).toHaveBeenCalledTimes(2);
+        expect(onRowKeyDown).not.toHaveBeenCalled();
+
+        fireEvent.keyDown(screen.getByLabelText("column-row"), { key: "Enter" });
+        expect(onSubmitRequest).toHaveBeenCalledTimes(2);
+        expect(onRowKeyDown).toHaveBeenCalledTimes(1);
     });
 
     test("入れ子のダイアログ内のキー操作では親が呼ばれない", () => {

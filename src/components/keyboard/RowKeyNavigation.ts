@@ -161,7 +161,7 @@ const ARROW_ROLES: Record<RowKeyOrientation, Partial<Record<string, ArrowRole>>>
     }
 } as const;
 
-// Ctrl/Cmd 付きの矢印だけがデータを変える。Ctrl/Cmd + Enter などはダイアログ確定 (DraggableDialog/submit-key.ts) に譲る。
+// Ctrl/Cmd 付きの矢印だけがデータを変える。Ctrl/Cmd + Enter などはダイアログ確定 (keyboard/DialogSubmitKey.ts) に譲る。
 const decideCommandAction = (options: RowKeyNavigationOptions, arrowRole: ArrowRole | undefined): RowAction | null => {
     const onReorder = options.onReorder;
 

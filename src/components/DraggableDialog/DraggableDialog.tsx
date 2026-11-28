@@ -3,7 +3,7 @@ import { Box, Dialog, DialogProps, dialogClasses, dialogTitleClasses } from "@mu
 
 import useStateRef from "~/components/useStateRef";
 import DialogLayoutStore, { DialogBounds } from "~/components/DraggableDialog/DialogLayoutStore";
-import { dialogSubmitKey } from "~/components/DraggableDialog/submit-key";
+import DialogSubmitKey from "~/components/keyboard/DialogSubmitKey";
 
 type DraggableDialogProps = Omit<DialogProps, "slotProps"> & {
 
@@ -108,22 +108,16 @@ const DraggableDialog = ({
         }
     };
 
+    // Ctrl/Cmd + Enter はフォーカス中の要素より先にキャプチャで受ける。行・ボタン・Select などが
+    // 自身の Enter 動作で既定動作を止めたり伝播を止めたりする前に、ダイアログの確定として扱うため。
+    const handleKeyDownCapture = DialogSubmitKey.initHandleCtrlEnterCapture(onSubmitRequest);
+    const handleEnterKeyDown = DialogSubmitKey.initHandleEnter(onSubmitRequest);
+
     // Escape は Modal 側がルート要素で受けるため、ここでは止めない。ルートで受けるのは、
     // フォーカスが Paper の外側のコンテナにある (入力欄に未フォーカス) 場合でも確定できるようにするため。
     const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
         onKeyDown?.(event);
-        if (onSubmitRequest == null) {
-            return;
-        }
-
-        const submitKeyEvent = dialogSubmitKey.toSubmitKeyEvent(event);
-        if (dialogSubmitKey.shouldSubmit(submitKeyEvent) === false) {
-            return;
-        }
-
-        event.preventDefault();
-        event.stopPropagation();
-        onSubmitRequest();
+        handleEnterKeyDown(event);
     };
 
     const resizeHandles = RESIZE_EDGES.map(edge => {
@@ -134,7 +128,8 @@ const DraggableDialog = ({
     });
 
     return (
-        <Dialog {...dialogProps} open={open} onKeyDown={handleKeyDown} slotProps={{
+        <Dialog {...dialogProps} open={open}
+            onKeyDownCapture={handleKeyDownCapture} onKeyDown={handleKeyDown} slotProps={{
             paper: {
                 ref: paperRef, sx: initPaperStyle(bounds, viewport),
                 onPointerDown: handlePaperPointerDown,

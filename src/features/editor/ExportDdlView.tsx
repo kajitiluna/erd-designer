@@ -6,6 +6,7 @@ import {
 
 import download from "~/components/file-downloader";
 import useAutoFocus from "~/components/keyboard/useAutoFocus";
+import DialogSubmitKey from "~/components/keyboard/DialogSubmitKey";
 import ErdDocument from "~/models/ErdDocument";
 import { createDdl } from "~/models/schema/create-ddl";
 import ErdSettingModel from "~/models/ErdSettingModel";
@@ -70,6 +71,7 @@ const ExportDdlView = ({ documentsHolder, isViewOpen, onClose }: ExportDdlViewPr
     };
 
     const handleEnterDown = initHandleEnterKeyDown(handleExport);
+    const handleKeyDownCapture = DialogSubmitKey.initHandleCtrlEnterCapture(handleExport);
     const disabledSeparator = (withComment === false) || (commentStyle === "logical_name");
 
     const optionPanel = (
@@ -133,7 +135,7 @@ const ExportDdlView = ({ documentsHolder, isViewOpen, onClose }: ExportDdlViewPr
     );
 
     return (
-        <Dialog fullWidth maxWidth="md" open={isViewOpen} onClose={onClose}>
+        <Dialog fullWidth maxWidth="md" open={isViewOpen} onClose={onClose} onKeyDownCapture={handleKeyDownCapture}>
             <DialogTitle>Export DDL</DialogTitle>
             <DialogContent>
                 <Stack spacing={3}>
